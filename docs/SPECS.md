@@ -1717,8 +1717,10 @@ struct PendingPlanExecutionState {
   intent_name: IntentName,
   selected_skills: Vec<String>,
   confirmation_id: String,
+  prompt_text: String,
   next_step_id: Option<String>,
   queued_step_ids: Vec<String>,
+  queued_steps: Vec<PlannedStep>,
 }
 ```
 

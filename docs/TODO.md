@@ -7,10 +7,11 @@
 ## Phase 0: Project Setup
 
 ### Repo Setup
-- [ ] Initialize git repository
-- [ ] Create Rust project following Tauri conventions
-- [ ] Add Tauri scaffold
-- [ ] Setup Cargo.toml and internal modules for:
+- [x] Initialize git repository
+- [x] Create Rust project following Tauri conventions
+- [x] Add Tauri scaffold
+- [x] Validate Linux development baseline: `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test`, and `pnpm test:ui` pass when the documented native dependencies are installed
+- [x] Setup Cargo.toml and internal modules for:
   - app_core
   - browser
   - extractor
@@ -25,57 +26,57 @@
   - config
   - state
   - logging
-- [ ] Define deterministic Rust tool interfaces and structured result schemas
-- [ ] Define common `ToolResult<T>` envelope and shared data types
+- [x] Define deterministic Rust tool interfaces and structured result schemas
+- [x] Define common `ToolResult<T>` envelope and shared data types
 - [ ] Define SKILL.md discovery locations and loading rules
 - [ ] Define SKILL.md frontmatter schema and validation rules
-- [ ] Define planner input/output schema and validation rules
+- [x] Define planner input/output schema and validation rules
 - [ ] Define per-tool input schemas and argument validation constraints
 - [ ] Replace open-ended schema strings with closed enums where the valid set is known
 
 ### Dependencies
-- [ ] Add dom_smoothie
-- [ ] Add chromiumoxide
-- [ ] Add leptess (OCR)
-- [ ] Add cpal + rodio (audio)
+- [x] Add dom_smoothie
+- [x] Add chromiumoxide
+- [x] Add leptess (OCR)
+- [x] Add cpal + rodio (audio)
 - [ ] Integrate kitten_tts_rs
-- [ ] Add whisper backend bindings
-- [ ] Add OpenAI API client support for command resolution
-- [ ] Add OpenAI API client support for optional remote TTS
-- [ ] Add OpenAI API client support for optional remote ASR/Whisper
+- [x] Add whisper backend bindings
+- [x] Add OpenAI API client support for command resolution
+- [x] Add OpenAI API client support for optional remote TTS
+- [x] Add OpenAI API client support for optional remote ASR/Whisper
 - [ ] Define optional local LLM integration path for command resolution
-- [ ] Define LLM provider selection and remote-to-local failover policy
-- [ ] Set default local LLM to `Qwen2.5-3B-Instruct` with `Q4` quantization target
-- [ ] Set default remote planner model to `gpt-5.4-mini`
-- [ ] Set default remote ASR model to `gpt-4o-mini-transcribe`
-- [ ] Set default local Whisper model size to `tiny`
-- [ ] Set default local KittenTTS voice to `Bruno`
+- [x] Define LLM provider selection and remote-to-local failover policy
+- [x] Set default local LLM to `Qwen2.5-3B-Instruct` with `Q4` quantization target
+- [x] Set default remote planner model to `gpt-5.4-mini`
+- [x] Set default remote ASR model to `gpt-4o-mini-transcribe`
+- [x] Set default local Whisper model size to `tiny`
+- [x] Set default local KittenTTS voice to `Bruno`
 
 ### Config Module
-- [ ] Define final field set for planner provider selection and profiles
-- [ ] Define final field set for TTS provider selection and profiles
-- [ ] Define final field set for ASR provider selection and profiles
-- [ ] Define final field set for remote API settings and credential references
-- [ ] Define final field set for provider failover preferences
-- [ ] Define config schema for persistent playback volume and playback speed
-- [ ] Define named remote and local provider profiles
-- [ ] Define `SecretRef` support for env, file, and inline secret resolution
-- [ ] Define validation rules for category-specific profile references and provider modes
-- [ ] Document secure default examples using environment-variable secret references
-- [ ] Define exact shipped `config.example.toml` contents and first-launch defaults
-- [ ] Use the initial shipped profile names:
+- [x] Define final field set for planner provider selection and profiles
+- [x] Define final field set for TTS provider selection and profiles
+- [x] Define final field set for ASR provider selection and profiles
+- [x] Define final field set for remote API settings and credential references
+- [x] Define final field set for provider failover preferences
+- [x] Define config schema for persistent playback volume and playback speed
+- [x] Define named remote and local provider profiles
+- [x] Define `SecretRef` support for env, file, and inline secret resolution
+- [x] Define validation rules for category-specific profile references and provider modes
+- [x] Document secure default examples using environment-variable secret references
+- [x] Define exact shipped `config.example.toml` contents and first-launch defaults
+- [x] Use the initial shipped profile names:
   - planner remote: `openai-default`
   - planner local: `qwen2.5-3b-q4`
   - TTS remote: `openai-tts-default`
   - TTS local: `kitten-default`
   - ASR remote: `openai-transcribe-default`
   - ASR local: `whisper-default`
-- [ ] Define config schema for confirmation policy settings
-- [ ] Define config schema for OCR threshold settings
-- [ ] Define config schema for model-management settings
-- [ ] Define config schema for spoken feedback style settings
-- [ ] Load and validate provider config from TOML
-- [ ] Persist updated audio settings on change and reload them on app startup
+- [x] Define config schema for confirmation policy settings
+- [x] Define config schema for OCR threshold settings
+- [x] Define config schema for model-management settings
+- [x] Define config schema for spoken feedback style settings
+- [x] Load and validate provider config from TOML
+- [x] Persist updated audio settings on change and reload them on app startup
 
 ---
 
@@ -99,13 +100,13 @@
 - [ ] Implement `start_listening`
 - [ ] Implement `stop_listening`
 - [ ] Implement `transcribe_command`
-- [ ] Implement `set_tts_voice`
-- [ ] Implement `set_playback_volume`
-- [ ] Implement `set_playback_speed`
-- [ ] Implement `set_browser_visibility`
-- [ ] Implement `get_agent_state`
-- [ ] Implement `get_runtime_status`
-- [ ] Implement `confirm_action`
+- [x] Implement `set_tts_voice`
+- [x] Implement `set_playback_volume`
+- [x] Implement `set_playback_speed`
+- [x] Implement `set_browser_visibility`
+- [x] Implement `get_agent_state`
+- [x] Implement `get_runtime_status`
+- [x] Implement `confirm_action`
 - [ ] Implement `report_result`
 - [ ] Finalize input schema for all Wave 1 tools
 - [ ] Finalize output schema for all Wave 1 tools
@@ -151,7 +152,7 @@
 - [ ] Load model
 - [ ] Implement synthesize()
 - [ ] Add voice + speed config
-- [ ] Expose deterministic voice-selection updates through `set_tts_voice`
+- [x] Expose deterministic voice-selection updates through `set_tts_voice`
 - [ ] Apply persisted playback speed through kitten_tts_rs native speed control
 - [ ] Apply persisted playback speed through OpenAI TTS native speed control when remote TTS is active
 - [ ] Add TTS provider selection
@@ -170,8 +171,8 @@
 - [ ] Implement playback using rodio
 - [ ] Handle interruption
 - [ ] Implement playback volume control
-- [ ] Expose deterministic playback-volume updates through `set_playback_volume`
-- [ ] Expose deterministic playback-speed updates through `set_playback_speed`
+- [x] Expose deterministic playback-volume updates through `set_playback_volume`
+- [x] Expose deterministic playback-speed updates through `set_playback_speed`
 - [ ] Apply persisted playback volume on startup
 - [ ] Apply persisted playback speed on startup through the active TTS backend
 
@@ -427,22 +428,22 @@
 - [ ] Reject unknown tools and invalid planner transitions
 - [ ] Reject invalid tool arguments before execution
 - [ ] Element matching and resolution behavior
-- [ ] Pending plan execution state serialization and resume bookkeeping
-- [ ] ExecutionOutcome mapping from PlannerStatus and step transitions
+- [x] Pending plan execution state serialization and resume bookkeeping
+- [x] ExecutionOutcome mapping from PlannerStatus and step transitions
 - [ ] Page model building
 - [ ] Navigation logic
 
 ### Integration Tests
 - [ ] Load page → extract → read
 - [ ] ASR → command → action
-- [ ] Planner output → deterministic tool execution
+- [x] Planner output → deterministic tool execution
 - [ ] Back/forward/reload tools update browser history state correctly
 - [ ] Browser visibility changes are reflected in runtime status and UI state
 - [ ] Listening start/stop/transcribe tools update runtime state correctly
 - [ ] Deterministic audio-setting tools persist and report the updated values
 - [ ] Planner requests confirmation before risky execution
-- [ ] Queued confirmation flows resume at the stored follow-up step after explicit user approval
-- [ ] Rejected or timed-out confirmation flows clear pending state and replan without executing the queued side-effecting step
+- [x] Queued confirmation flows resume at the stored follow-up step after explicit user approval
+- [x] Rejected or timed-out confirmation flows clear pending state and replan without executing the queued side-effecting step
 - [ ] Submit actions always require confirmation
 - [ ] Click actions may proceed without confirmation when configured
 - [ ] Fill-field workflows resolve the intended input and write the requested value

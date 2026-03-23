@@ -1,0 +1,92 @@
+[providers.planner]
+mode = "remote"
+remote_profile = "openai-default"
+local_profile = "qwen2.5-3b-q4"
+failover_to_local = true
+
+[providers.tts]
+mode = "local"
+remote_profile = "openai-tts-default"
+local_profile = "kitten-default"
+
+[providers.asr]
+mode = "local"
+remote_profile = "openai-transcribe-default"
+local_profile = "whisper-default"
+
+[audio]
+playback_volume = 1.0
+playback_speed = 1.0
+default_tts_voice = "Bruno"
+
+[safety]
+confirmation_confidence_threshold = 0.90
+allow_click_without_confirmation = true
+always_confirm_submit = true
+
+[ocr]
+trigger_on_no_extractable_text = true
+sparse_text_char_threshold = 200
+sparse_text_region_threshold = 2
+prefer_region_ocr = true
+
+[models]
+models_dir = "~/.config/blind_browser/models"
+check_on_startup = true
+auto_download_missing = false
+
+[speech_feedback]
+style = "Short"
+confirm_setting_changes = true
+include_previous_value = false
+
+[remote_profiles.openai-default]
+provider = "OpenAi"
+base_url = "https://api.openai.com/v1"
+model = "gpt-5.4-mini"
+api_key = { from_env = "OPENAI_API_KEY" }
+temperature_milli = 200
+max_output_tokens = 1024
+timeout_ms = 30000
+
+[remote_profiles.openai-tts-default]
+provider = "OpenAi"
+base_url = "https://api.openai.com/v1"
+model = "gpt-4o-mini-tts"
+api_key = { from_env = "OPENAI_API_KEY" }
+voice = "alloy"
+audio_format = "wav"
+timeout_ms = 30000
+
+[remote_profiles.openai-transcribe-default]
+provider = "OpenAi"
+base_url = "https://api.openai.com/v1"
+model = "gpt-4o-mini-transcribe"
+api_key = { from_env = "OPENAI_API_KEY" }
+language = "en"
+temperature_milli = 0
+timeout_ms = 30000
+
+[local_profiles."qwen2.5-3b-q4"]
+backend = "llama_cpp"
+model_id = "Qwen2.5-3B-Instruct"
+quantization = "Q4"
+model_path = "/path/to/Qwen2.5-3B-Instruct-Q4.gguf"
+context_window = 8192
+temperature_milli = 200
+max_output_tokens = 1024
+threads = 4
+
+[local_profiles.kitten-default]
+backend = "kitten_tts_rs"
+model_id = "default"
+model_path = "/path/to/kitten/model"
+default_voice = "Bruno"
+sample_rate = 24000
+
+[local_profiles.whisper-default]
+backend = "whisper"
+model_id = "tiny"
+model_path = "/path/to/whisper/model"
+language = "en"
+threads = 4
