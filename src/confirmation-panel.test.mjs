@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderConfirmationPanel } from "./confirmation-panel.ts";
+import { renderConfirmationPanel, renderPushToTalkPanel } from "./confirmation-panel.ts";
 
 function renderFixtures() {
   const nonRetryableHtml = renderConfirmationPanel({
@@ -110,4 +110,49 @@ test("renders the exact backend metadata block for retryable and non-retryable e
   );
 
   assert.doesNotMatch(transportHtml, /confirmation-error-meta-block/);
+});
+
+test("renders push-to-talk instructions and button label for the idle state", () => {
+  const html = renderPushToTalkPanel({
+    enabled: true,
+    isHolding: false,
+    isListening: false,
+    isBusy: false,
+    lastTranscript: null,
+    lastError: null,
+  });
+
+  assert.match(html, /Hold Space or press and hold the button to speak a command\./);
+  assert.match(html, /Hold to talk/);
+  assert.match(html, /data-push-to-talk-button="true"/);
+});
+
+test("renders push-to-talk transcript and active button state while holding", () => {
+  const html = renderPushToTalkPanel({
+    enabled: true,
+    isHolding: true,
+    isListening: true,
+    isBusy: false,
+    lastTranscript: "open example dot com",
+    lastError: null,
+  });
+
+  assert.match(html, /Listening now\. Release to transcribe and run the spoken command\./);
+  assert.match(html, /Release to transcribe/);
+  assert.match(html, /push-to-talk-button-active/);
+  assert.match(html, /Last transcript:<\/strong> open example dot com/);
+});
+
+test("renders push-to-talk errors when voice input fails", () => {
+  const html = renderPushToTalkPanel({
+    enabled: true,
+    isHolding: false,
+    isListening: false,
+    isBusy: false,
+    lastTranscript: null,
+    lastError: "The microphone is unavailable.",
+  });
+
+  assert.match(html, /The microphone is unavailable\./);
+  assert.match(html, /role="alert"/);
 });

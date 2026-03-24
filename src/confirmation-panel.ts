@@ -1,5 +1,14 @@
 import type { ConfirmationUiState } from "./planner-orchestration";
 
+export interface PushToTalkPanelState {
+  enabled: boolean;
+  isHolding: boolean;
+  isListening: boolean;
+  isBusy: boolean;
+  lastTranscript: string | null;
+  lastError: string | null;
+}
+
 export function renderConfirmationPanel(state: ConfirmationUiState): string {
   if (state.kind !== "awaiting-confirmation") {
     return "";
@@ -92,6 +101,47 @@ export function renderConfirmationPanel(state: ConfirmationUiState): string {
         The frontend can now present approve or reject controls against this state and send the
         user response back through the Tauri confirmation command.
       </p>
+    </section>
+  `;
+}
+
+export function renderPushToTalkPanel(state: PushToTalkPanelState): string {
+  const statusCopy = state.isHolding
+    ? "Listening now. Release to transcribe and run the spoken command."
+    : state.isBusy
+      ? "Processing the captured speech command."
+      : state.isListening
+        ? "Listening is active."
+        : state.enabled
+          ? "Hold Space or press and hold the button to speak a command."
+          : "Push-to-talk is unavailable in the current runtime state.";
+  const transcriptCopy = state.lastTranscript
+    ? `<p class="push-to-talk-transcript"><strong>Last transcript:</strong> ${escapeHtml(state.lastTranscript)}</p>`
+    : "";
+  const errorCopy = state.lastError
+    ? `<p class="push-to-talk-error" role="alert">${escapeHtml(state.lastError)}</p>`
+    : "";
+  const disabledAttribute = !state.enabled || state.isBusy ? " disabled aria-disabled=\"true\"" : "";
+  const buttonLabel = state.isHolding ? "Release to transcribe" : "Hold to talk";
+
+  return `
+    <section class="push-to-talk-panel" aria-labelledby="push-to-talk-title">
+      <div class="push-to-talk-copy">
+        <p class="push-to-talk-eyebrow">Voice input</p>
+        <h2 id="push-to-talk-title">Push to talk</h2>
+        <p class="push-to-talk-status" role="status">${escapeHtml(statusCopy)}</p>
+        ${transcriptCopy}
+        ${errorCopy}
+      </div>
+      <button
+        type="button"
+        class="push-to-talk-button${state.isHolding ? " push-to-talk-button-active" : ""}"
+        data-push-to-talk-button="true"
+        aria-pressed="${state.isHolding}"
+        ${disabledAttribute}
+      >
+        ${escapeHtml(buttonLabel)}
+      </button>
     </section>
   `;
 }

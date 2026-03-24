@@ -19,7 +19,11 @@ pub mod tts;
 use tauri::Manager;
 
 use crate::app_core::AppCore;
-use crate::commands::{ConfirmActionResolution, ExecutionOutcome, PlannerOutput, ToolError};
+use crate::commands::{
+    ConfirmActionResolution, ExecutionOutcome, PlannerOutput, StartListeningData,
+    StartListeningInput, StopListeningData, StopListeningInput, ToolError, ToolResult,
+    TranscribeCommandData, TranscribeCommandInput,
+};
 
 fn lock_app_core<'a>(
     app_core: &'a tauri::State<'a, Mutex<AppCore>>,
@@ -66,6 +70,52 @@ fn submit_confirmation_response(
     Ok(app_core.submit_confirmation_response(&confirmation_id, confirmed, timed_out))
 }
 
+#[tauri::command]
+fn start_listening(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<ToolResult<StartListeningData>, ToolError> {
+    let mut app_core = lock_app_core(&app_core)?;
+
+    Ok(app_core.execute_start_listening(StartListeningInput {
+        request_id,
+        timeout_ms,
+    }))
+}
+
+#[tauri::command]
+fn stop_listening(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<ToolResult<StopListeningData>, ToolError> {
+    let mut app_core = lock_app_core(&app_core)?;
+
+    Ok(app_core.execute_stop_listening(StopListeningInput {
+        request_id,
+        timeout_ms,
+    }))
+}
+
+#[tauri::command]
+fn transcribe_command(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    max_duration_ms: Option<u64>,
+    auto_stop: bool,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<ToolResult<TranscribeCommandData>, ToolError> {
+    let mut app_core = lock_app_core(&app_core)?;
+
+    Ok(app_core.execute_transcribe_command(TranscribeCommandInput {
+        request_id,
+        timeout_ms,
+        max_duration_ms,
+        auto_stop,
+    }))
+}
+
 pub fn run() {
     logging::init_logging();
 
@@ -73,7 +123,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             resolve_command,
             execute_planner_output,
-            submit_confirmation_response
+            submit_confirmation_response,
+            start_listening,
+            stop_listening,
+            transcribe_command
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

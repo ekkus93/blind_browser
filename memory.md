@@ -424,3 +424,9 @@
 - Remote ASR now resolves configured secrets explicitly, returns typed errors for missing profiles, unsupported providers, secret failures, WAV encoding failures, request-build failures, request timeouts, and request failures, and maps those errors through `src-tauri/src/app_core.rs` to bounded tool-error codes.
 - `docs/TODO.md` now marks optional OpenAI-backed remote ASR, ASR provider selection, and the "Remote ASR selected → transcript is returned" slice as complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (74 Rust tests green), and `pnpm test:ui` (3 tests green).
+
+## 2026-03-24T20:12:40Z - GPT-5.4 - Push-to-talk landed through the existing deterministic listening pipeline
+- Added direct Tauri invoke commands for `start_listening`, `stop_listening`, and `transcribe_command`, then used those from the frontend so push-to-talk stays on the same deterministic Rust tool path as planner-driven listening and transcription.
+- `src/main.ts` now renders a push-to-talk panel, supports hold-to-talk via both Space-bar and press-and-hold pointer interaction, starts microphone capture on press, transcribes immediately on release using the active capture buffer with `auto_stop = true`, and then routes any non-empty transcript through `resolve_command` and `execute_planner_output`.
+- `src/confirmation-panel.ts` now also renders the push-to-talk status panel UI, `docs/TODO.md` marks both push-to-talk and the push-to-talk button complete, and the UI test file covers idle, active, and error push-to-talk rendering states.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (74 Rust tests green), `pnpm test:ui` (6 UI tests green), and `pnpm build`.

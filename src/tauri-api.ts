@@ -97,6 +97,23 @@ export interface ToolResult<T> {
   observations: string[];
 }
 
+export interface StartListeningData {
+  listening_state: ListeningState;
+  activated: boolean;
+}
+
+export interface StopListeningData {
+  listening_state: ListeningState;
+  deactivated: boolean;
+}
+
+export interface TranscribeCommandData {
+  transcript: string | null;
+  confidence: number | null;
+  audio_duration_ms: number | null;
+  listening_state: ListeningState;
+}
+
 export interface BrowserHistoryState {
   can_go_back: boolean;
   can_go_forward: boolean;
@@ -260,6 +277,16 @@ export interface ConfirmActionResponseInput {
   timedOut: boolean;
 }
 
+export interface DirectToolRequestInput {
+  requestId: string;
+  timeoutMs?: number;
+}
+
+export interface DirectTranscribeCommandInput extends DirectToolRequestInput {
+  maxDurationMs?: number;
+  autoStop: boolean;
+}
+
 export async function executePlannerOutput(
   requestId: string,
   plannerOutput: PlannerOutput,
@@ -288,6 +315,34 @@ export async function submitConfirmationResponse(
     confirmed: input.confirmed,
     timedOut: input.timedOut,
   });
+}
+
+export async function startListening(input: DirectToolRequestInput): Promise<StartListeningData> {
+  const result = await invoke<ToolResult<StartListeningData>>("start_listening", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+  });
+  return unwrapToolResult(result);
+}
+
+export async function stopListening(input: DirectToolRequestInput): Promise<StopListeningData> {
+  const result = await invoke<ToolResult<StopListeningData>>("stop_listening", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+  });
+  return unwrapToolResult(result);
+}
+
+export async function transcribeCommand(
+  input: DirectTranscribeCommandInput,
+): Promise<TranscribeCommandData> {
+  const result = await invoke<ToolResult<TranscribeCommandData>>("transcribe_command", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    maxDurationMs: input.maxDurationMs,
+    autoStop: input.autoStop,
+  });
+  return unwrapToolResult(result);
 }
 
 export function classifyInvokeFailure(error: unknown): InvokeFailure {
@@ -335,6 +390,14 @@ function parseToolError(error: unknown): ToolError | null {
     retryable,
     details: details ?? null,
   };
+}
+
+function unwrapToolResult<T>(result: ToolResult<T>): T {
+  if (result.ok && result.data !== null) {
+    return result.data;
+  }
+
+  throw result.error ?? new Error("The runtime returned an invalid tool result.");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

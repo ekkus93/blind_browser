@@ -180,7 +180,7 @@
 
 ### ASR Module
 - [x] Capture audio via cpal
-- [ ] Implement push-to-talk
+- [x] Implement push-to-talk
 - [x] Integrate Whisper
 - [x] Keep local Whisper as the default provider
 - [x] Add optional OpenAI-backed remote ASR provider
@@ -301,7 +301,7 @@
 - [ ] Read button
 - [ ] Stop button
 - [ ] Next / Previous buttons
-- [ ] Push-to-talk button
+- [x] Push-to-talk button
 - [ ] Add nearby playback volume control
 - [ ] Add nearby playback speed control
 - [ ] Ensure normal operation is fully voice-controlled
