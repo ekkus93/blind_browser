@@ -363,3 +363,7 @@
 - `src-tauri/src/asr.rs` now provides real microphone capture and local Whisper transcription via `cpal` and `whisper-rs`, including mono conversion, 16 kHz resampling, explicit runtime errors, and one-shot transcription support.
 - `src-tauri/src/app_core.rs`, `src-tauri/src/commands.rs`, and `src-tauri/src/state.rs` now wire `start_listening`, `stop_listening`, and `transcribe_command` through the deterministic executor path, keep runtime listening state synchronized, and expose the real `last_transcript` through `get_agent_state`.
 - Updated `docs/TODO.md` and the session plan to mark the landed ASR slice complete; validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (62 Rust tests green), and `pnpm test:ui` (3 UI tests green).
+
+## 2026-03-24T13:00:45Z - GPT-5.4 - ASR listening tools pushed to origin/master
+- Committed the ASR/listening slice as `49f6abb` (`Implement ASR listening tools`) and pushed it to `origin/master`.
+- The pushed state includes the local Whisper-backed listening lifecycle, deterministic transcription tools, updated TODO tracking, and the green validation baseline of clippy plus 62 Rust tests and 3 UI tests.
