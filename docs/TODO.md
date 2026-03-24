@@ -93,10 +93,10 @@
 - [x] Implement `find_element`
 - [x] Implement `click_element`
 - [x] Implement `scroll_page`
-- [ ] Implement `read_region`
-- [ ] Implement `read_next_region`
-- [ ] Implement `read_previous_region`
-- [ ] Implement `stop_speaking`
+- [x] Implement `read_region`
+- [x] Implement `read_next_region`
+- [x] Implement `read_previous_region`
+- [x] Implement `stop_speaking`
 - [ ] Implement `start_listening`
 - [ ] Implement `stop_listening`
 - [ ] Implement `transcribe_command`
@@ -160,12 +160,12 @@
 - [ ] Add caching layer (optional)
 
 ### Narration Module
-- [ ] Implement cursor state
+- [x] Implement cursor state
 - [ ] Read title
-- [ ] Read next region
-- [ ] Read previous region
+- [x] Read next region
+- [x] Read previous region
 - [ ] Repeat region
-- [ ] Stop playback
+- [x] Stop playback
 
 ### Audio IO
 - [ ] Implement playback using rodio

@@ -12,13 +12,19 @@ use crate::commands::{
     FindElementData, FindElementInput, GetAgentStateInput, GetPageSnapshotInput,
     GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData,
     GoForwardInput, ListInteractiveElementsData, ListInteractiveElementsInput, OpenUrlData,
-    OpenUrlInput, PageSnapshotData, PlannerOutput, ProviderSelectionStatus, ReloadPageData,
-    ReloadPageInput, ReportResultData, ReportResultInput, ScrollPageData, ScrollPageInput,
-    SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
-    SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
-    SetTtsVoiceInput, ToolError, ToolName, ToolResult,
+    OpenUrlInput, PageSnapshotData, PlannerOutput, ProviderSelectionStatus, ReadNextRegionData,
+    ReadNextRegionInput, ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData,
+    ReadRegionInput, ReloadPageData, ReloadPageInput, ReportResultData, ReportResultInput,
+    ScrollPageData, ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput,
+    SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
+    SetTtsVoiceData, SetTtsVoiceInput, StopSpeakingData, StopSpeakingInput, ToolError, ToolName,
+    ToolResult,
 };
 use crate::config::{AppConfig, AudioSettings, ConfigError};
+use crate::narration::{
+    cursor_for_index, find_region_index, next_region_index, previous_region_index,
+};
+use crate::page_model::PageRegion;
 use crate::page_model::{ElementRole, ExtractionSource, PageModel, RegionSource};
 use crate::state::AppState;
 
@@ -1196,6 +1202,251 @@ impl AppCore {
         )
     }
 
+    pub fn execute_read_region(&mut self, input: ReadRegionInput) -> ToolResult<ReadRegionData> {
+        let region_id = input.region_id.trim().to_string();
+        if region_id.is_empty() {
+            return ToolResult::failure(
+                ToolName::ReadRegion,
+                input.request_id,
+                ToolError {
+                    code: String::from("invalid_region_id"),
+                    message: String::from("read_region requires a non-empty region_id"),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Narration request was rejected because the region_id was empty.",
+                )],
+            );
+        }
+
+        let (region_index, region) = match self.region_by_id(&region_id) {
+            Ok(region) => region,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::ReadRegion,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Narration request could not resolve the requested region in the current page model.",
+                    )],
+                )
+            }
+        };
+
+        let interrupted_region_id = match self.begin_region_narration(
+            region_index,
+            &region,
+            input.interrupt_current,
+        ) {
+            Ok(interrupted_region_id) => interrupted_region_id,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::ReadRegion,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Narration request could not start because another region is already being read.",
+                    )],
+                )
+            }
+        };
+
+        let mut observations = vec![format!(
+            "Moved the narration cursor to region_id={} at index {}.",
+            region.region_id, region_index
+        )];
+        if let Some(interrupted_region_id) = interrupted_region_id {
+            observations.push(format!(
+                "Interrupted the previously active narration region {} before starting the new region.",
+                interrupted_region_id
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::ReadRegion,
+            input.request_id,
+            ReadRegionData {
+                region_id: region.region_id,
+                region_index,
+                text_length: region.text.chars().count(),
+                speech_started: true,
+            },
+            observations,
+        )
+    }
+
+    pub fn execute_read_next_region(
+        &mut self,
+        input: ReadNextRegionInput,
+    ) -> ToolResult<ReadNextRegionData> {
+        let regions = match self.readable_regions() {
+            Ok(regions) => regions,
+            Err(error) => return ToolResult::failure(
+                ToolName::ReadNextRegion,
+                input.request_id,
+                error,
+                vec![String::from(
+                    "Narration could not advance because the current page has no readable regions.",
+                )],
+            ),
+        };
+
+        let Some(region_index) = next_region_index(&self.state.narration_cursor, regions.len())
+        else {
+            return ToolResult::success(
+                ToolName::ReadNextRegion,
+                input.request_id,
+                ReadNextRegionData {
+                    cursor: self.state.narration_cursor.clone(),
+                    region_id: None,
+                    speech_started: false,
+                    reached_end: true,
+                },
+                vec![String::from(
+                    "Narration is already at the end of the readable region list.",
+                )],
+            );
+        };
+        let region = regions[region_index].clone();
+        let interrupted_region_id =
+            match self.begin_region_narration(region_index, &region, input.interrupt_current) {
+                Ok(interrupted_region_id) => interrupted_region_id,
+                Err(error) => {
+                    return ToolResult::failure(
+                        ToolName::ReadNextRegion,
+                        input.request_id,
+                        error,
+                        vec![String::from(
+                        "Narration could not advance because another region is already being read.",
+                    )],
+                    )
+                }
+            };
+
+        let mut observations = vec![format!(
+            "Advanced narration to region_id={} at index {}.",
+            region.region_id, region_index
+        )];
+        if let Some(interrupted_region_id) = interrupted_region_id {
+            observations.push(format!(
+                "Interrupted the previously active narration region {} before reading the next region.",
+                interrupted_region_id
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::ReadNextRegion,
+            input.request_id,
+            ReadNextRegionData {
+                cursor: self.state.narration_cursor.clone(),
+                region_id: Some(region.region_id),
+                speech_started: true,
+                reached_end: false,
+            },
+            observations,
+        )
+    }
+
+    pub fn execute_read_previous_region(
+        &mut self,
+        input: ReadPreviousRegionInput,
+    ) -> ToolResult<ReadPreviousRegionData> {
+        let regions = match self.readable_regions() {
+            Ok(regions) => regions,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::ReadPreviousRegion,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Narration could not move backward because the current page has no readable regions.",
+                    )],
+                )
+            }
+        };
+
+        let Some(region_index) = previous_region_index(&self.state.narration_cursor, regions.len())
+        else {
+            return ToolResult::success(
+                ToolName::ReadPreviousRegion,
+                input.request_id,
+                ReadPreviousRegionData {
+                    cursor: self.state.narration_cursor.clone(),
+                    region_id: None,
+                    speech_started: false,
+                    reached_start: true,
+                },
+                vec![String::from(
+                    "Narration is already at the start of the readable region list.",
+                )],
+            );
+        };
+        let region = regions[region_index].clone();
+        let interrupted_region_id = match self.begin_region_narration(
+            region_index,
+            &region,
+            input.interrupt_current,
+        ) {
+            Ok(interrupted_region_id) => interrupted_region_id,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::ReadPreviousRegion,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Narration could not move backward because another region is already being read.",
+                    )],
+                )
+            }
+        };
+
+        let mut observations = vec![format!(
+            "Moved narration backward to region_id={} at index {}.",
+            region.region_id, region_index
+        )];
+        if let Some(interrupted_region_id) = interrupted_region_id {
+            observations.push(format!(
+                "Interrupted the previously active narration region {} before reading the previous region.",
+                interrupted_region_id
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::ReadPreviousRegion,
+            input.request_id,
+            ReadPreviousRegionData {
+                cursor: self.state.narration_cursor.clone(),
+                region_id: Some(region.region_id),
+                speech_started: true,
+                reached_start: false,
+            },
+            observations,
+        )
+    }
+
+    pub fn execute_stop_speaking(
+        &mut self,
+        input: StopSpeakingInput,
+    ) -> ToolResult<StopSpeakingData> {
+        let interrupted_region_id = self.state.stop_speaking();
+        let stopped = interrupted_region_id.is_some();
+
+        ToolResult::success(
+            ToolName::StopSpeaking,
+            input.request_id,
+            StopSpeakingData {
+                stopped,
+                interrupted_region_id,
+            },
+            vec![if stopped {
+                String::from("Stopped the active narration region.")
+            } else {
+                String::from("No narration was active, so there was nothing to stop.")
+            }],
+        )
+    }
+
     pub fn execute_get_agent_state(
         &mut self,
         input: GetAgentStateInput,
@@ -1259,6 +1510,85 @@ impl AppCore {
         )
     }
 
+    fn readable_regions(&self) -> Result<&[PageRegion], ToolError> {
+        let Some(page_id) = self.state.current_page_id.clone() else {
+            return Err(ToolError {
+                code: String::from("no_active_page"),
+                message: String::from("narration tool requires an active page in runtime state"),
+                retryable: false,
+                details: None,
+            });
+        };
+        let Some(current_page) = self.state.current_page.as_ref() else {
+            return Err(ToolError {
+                code: String::from("missing_page_model"),
+                message: String::from(
+                    "narration tool requires runtime page data for the active page",
+                ),
+                retryable: false,
+                details: Some(serde_json::json!({ "page_id": page_id })),
+            });
+        };
+        if current_page.regions.is_empty() {
+            return Err(ToolError {
+                code: String::from("no_readable_regions"),
+                message: String::from(
+                    "narration tool requires at least one readable region in the current page model",
+                ),
+                retryable: false,
+                details: Some(serde_json::json!({ "page_id": page_id })),
+            });
+        }
+
+        Ok(&current_page.regions)
+    }
+
+    fn region_by_id(&self, region_id: &str) -> Result<(usize, PageRegion), ToolError> {
+        let regions = self.readable_regions()?;
+        let Some(region_index) = find_region_index(regions, region_id) else {
+            return Err(ToolError {
+                code: String::from("region_not_found"),
+                message: String::from(
+                    "read_region could not find the requested region_id in the current page model",
+                ),
+                retryable: false,
+                details: Some(serde_json::json!({ "region_id": region_id })),
+            });
+        };
+
+        Ok((region_index, regions[region_index].clone()))
+    }
+
+    fn begin_region_narration(
+        &mut self,
+        region_index: usize,
+        region: &PageRegion,
+        interrupt_current: bool,
+    ) -> Result<Option<String>, ToolError> {
+        let interrupted_region_id = if self.state.speaking {
+            if !interrupt_current {
+                return Err(ToolError {
+                    code: String::from("speech_in_progress"),
+                    message: String::from(
+                        "a narration region is already active; set interrupt_current to true to replace it",
+                    ),
+                    retryable: false,
+                    details: Some(serde_json::json!({
+                        "active_region_id": self.state.speaking_region_id.clone(),
+                    })),
+                });
+            }
+            self.state.stop_speaking()
+        } else {
+            None
+        };
+
+        self.state.narration_cursor = cursor_for_index(self.readable_regions()?, region_index);
+        self.state.start_speaking_region(region.region_id.clone());
+
+        Ok(interrupted_region_id)
+    }
+
     fn current_agent_state(&self, include_last_transcript: bool) -> AgentStateData {
         AgentStateData {
             page_id: self.state.current_page_id.clone(),
@@ -1275,7 +1605,7 @@ impl AppCore {
             browser_visibility: self.state.browser_visibility,
             browser_history: self.state.browser_history.clone(),
             narration_cursor: Some(self.state.narration_cursor.clone()),
-            speaking: false,
+            speaking: self.state.speaking,
             listening_state: self.state.listening.clone(),
             audio: self.state.audio.clone(),
             last_transcript: if include_last_transcript {
@@ -1305,7 +1635,7 @@ impl AppCore {
             browser_visibility: self.state.browser_visibility,
             browser_history: self.state.browser_history.clone(),
             listening_state: self.state.listening.clone(),
-            speaking: false,
+            speaking: self.state.speaking,
             audio: self.state.audio.clone(),
             pending_confirmation_id: self.state.pending_confirmation_id.clone(),
             pending_plan_execution: self.state.pending_plan_execution.clone(),
@@ -1396,6 +1726,28 @@ impl AppCore {
 impl DeterministicToolExecutor for AppCore {
     fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData> {
         AppCore::execute_open_url(self, input)
+    }
+
+    fn execute_read_region(&mut self, input: ReadRegionInput) -> ToolResult<ReadRegionData> {
+        AppCore::execute_read_region(self, input)
+    }
+
+    fn execute_read_next_region(
+        &mut self,
+        input: ReadNextRegionInput,
+    ) -> ToolResult<ReadNextRegionData> {
+        AppCore::execute_read_next_region(self, input)
+    }
+
+    fn execute_read_previous_region(
+        &mut self,
+        input: ReadPreviousRegionInput,
+    ) -> ToolResult<ReadPreviousRegionData> {
+        AppCore::execute_read_previous_region(self, input)
+    }
+
+    fn execute_stop_speaking(&mut self, input: StopSpeakingInput) -> ToolResult<StopSpeakingData> {
+        AppCore::execute_stop_speaking(self, input)
     }
 
     fn execute_go_back(&mut self, input: GoBackInput) -> ToolResult<GoBackData> {

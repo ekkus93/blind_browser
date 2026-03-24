@@ -25,6 +25,9 @@ pub enum ToolName {
     ListInteractiveElements,
     FindElement,
     ClickElement,
+    ReadRegion,
+    ReadNextRegion,
+    ReadPreviousRegion,
     StopSpeaking,
     StartListening,
     StopListening,
@@ -126,6 +129,16 @@ pub trait DeterministicToolExecutor {
         &mut self,
         input: ExtractPageModelInput,
     ) -> ToolResult<ExtractPageModelData>;
+    fn execute_read_region(&mut self, input: ReadRegionInput) -> ToolResult<ReadRegionData>;
+    fn execute_read_next_region(
+        &mut self,
+        input: ReadNextRegionInput,
+    ) -> ToolResult<ReadNextRegionData>;
+    fn execute_read_previous_region(
+        &mut self,
+        input: ReadPreviousRegionInput,
+    ) -> ToolResult<ReadPreviousRegionData>;
+    fn execute_stop_speaking(&mut self, input: StopSpeakingInput) -> ToolResult<StopSpeakingData>;
     fn execute_set_tts_voice(&mut self, input: SetTtsVoiceInput) -> ToolResult<SetTtsVoiceData>;
     fn execute_set_playback_volume(
         &mut self,
@@ -514,6 +527,64 @@ pub struct ScrollPageData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ReadRegionInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub region_id: String,
+    pub interrupt_current: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ReadRegionData {
+    pub region_id: String,
+    pub region_index: usize,
+    pub text_length: usize,
+    pub speech_started: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ReadNextRegionInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub interrupt_current: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ReadNextRegionData {
+    pub cursor: NarrationCursor,
+    pub region_id: Option<String>,
+    pub speech_started: bool,
+    pub reached_end: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ReadPreviousRegionInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub interrupt_current: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ReadPreviousRegionData {
+    pub cursor: NarrationCursor,
+    pub region_id: Option<String>,
+    pub speech_started: bool,
+    pub reached_start: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct StopSpeakingInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct StopSpeakingData {
+    pub stopped: bool,
+    pub interrupted_region_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct GetPageSnapshotInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
@@ -691,6 +762,28 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
                 executor.execute_scroll_page(input)
             })
         }
+        ToolName::ReadRegion => {
+            execute_serialized_tool(step, ToolName::ReadRegion, executor, |executor, input| {
+                executor.execute_read_region(input)
+            })
+        }
+        ToolName::ReadNextRegion => execute_serialized_tool(
+            step,
+            ToolName::ReadNextRegion,
+            executor,
+            |executor, input| executor.execute_read_next_region(input),
+        ),
+        ToolName::ReadPreviousRegion => execute_serialized_tool(
+            step,
+            ToolName::ReadPreviousRegion,
+            executor,
+            |executor, input| executor.execute_read_previous_region(input),
+        ),
+        ToolName::StopSpeaking => {
+            execute_serialized_tool(step, ToolName::StopSpeaking, executor, |executor, input| {
+                executor.execute_stop_speaking(input)
+            })
+        }
         ToolName::GetPageSnapshot => execute_serialized_tool(
             step,
             ToolName::GetPageSnapshot,
@@ -841,6 +934,9 @@ pub fn registered_tools() -> Vec<AvailableTool> {
         ListInteractiveElements,
         FindElement,
         ClickElement,
+        ReadRegion,
+        ReadNextRegion,
+        ReadPreviousRegion,
         StopSpeaking,
         StartListening,
         StopListening,
@@ -1350,6 +1446,10 @@ mod tests {
         last_go_forward_request: Option<GoForwardInput>,
         last_reload_request: Option<ReloadPageInput>,
         last_scroll_request: Option<ScrollPageInput>,
+        last_read_region_request: Option<ReadRegionInput>,
+        last_read_next_region_request: Option<ReadNextRegionInput>,
+        last_read_previous_region_request: Option<ReadPreviousRegionInput>,
+        last_stop_speaking_request: Option<StopSpeakingInput>,
         last_snapshot_request: Option<GetPageSnapshotInput>,
         last_list_request: Option<ListInteractiveElementsInput>,
         last_find_request: Option<FindElementInput>,
@@ -1463,6 +1563,81 @@ mod tests {
                     reached_boundary: false,
                 },
                 vec![String::from("scrolled the page")],
+            )
+        }
+
+        fn execute_read_region(&mut self, input: ReadRegionInput) -> ToolResult<ReadRegionData> {
+            self.last_read_region_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::ReadRegion,
+                input.request_id,
+                ReadRegionData {
+                    region_id: input.region_id,
+                    region_index: 1,
+                    text_length: 128,
+                    speech_started: true,
+                },
+                vec![String::from("started reading the requested region")],
+            )
+        }
+
+        fn execute_read_next_region(
+            &mut self,
+            input: ReadNextRegionInput,
+        ) -> ToolResult<ReadNextRegionData> {
+            self.last_read_next_region_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::ReadNextRegion,
+                input.request_id,
+                ReadNextRegionData {
+                    cursor: NarrationCursor {
+                        current_region_id: Some(String::from("region-2")),
+                        current_index: Some(1),
+                        total_regions: 3,
+                    },
+                    region_id: Some(String::from("region-2")),
+                    speech_started: true,
+                    reached_end: false,
+                },
+                vec![String::from("advanced narration to the next region")],
+            )
+        }
+
+        fn execute_read_previous_region(
+            &mut self,
+            input: ReadPreviousRegionInput,
+        ) -> ToolResult<ReadPreviousRegionData> {
+            self.last_read_previous_region_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::ReadPreviousRegion,
+                input.request_id,
+                ReadPreviousRegionData {
+                    cursor: NarrationCursor {
+                        current_region_id: Some(String::from("region-1")),
+                        current_index: Some(0),
+                        total_regions: 3,
+                    },
+                    region_id: Some(String::from("region-1")),
+                    speech_started: true,
+                    reached_start: false,
+                },
+                vec![String::from("moved narration to the previous region")],
+            )
+        }
+
+        fn execute_stop_speaking(
+            &mut self,
+            input: StopSpeakingInput,
+        ) -> ToolResult<StopSpeakingData> {
+            self.last_stop_speaking_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::StopSpeaking,
+                input.request_id,
+                StopSpeakingData {
+                    stopped: true,
+                    interrupted_region_id: Some(String::from("region-2")),
+                },
+                vec![String::from("stopped current narration playback")],
             )
         }
 
@@ -1974,6 +2149,118 @@ mod tests {
                 .as_ref()
                 .and_then(|input| input.amount_px),
             Some(480.0)
+        );
+    }
+
+    #[test]
+    fn dispatches_read_region_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-read-region"),
+            tool_name: ToolName::ReadRegion,
+            arguments: serde_json::json!({
+                "request_id": "req-read-region",
+                "timeout_ms": 1000,
+                "region_id": "region-2",
+                "interrupt_current": true
+            }),
+            purpose: String::from("read a specific region"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_read_region_request
+                .as_ref()
+                .map(|input| input.region_id.as_str()),
+            Some("region-2")
+        );
+    }
+
+    #[test]
+    fn dispatches_read_next_region_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-read-next"),
+            tool_name: ToolName::ReadNextRegion,
+            arguments: serde_json::json!({
+                "request_id": "req-read-next",
+                "timeout_ms": 1000,
+                "interrupt_current": false
+            }),
+            purpose: String::from("read the next region"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_read_next_region_request
+                .as_ref()
+                .map(|input| input.interrupt_current),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn dispatches_read_previous_region_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-read-previous"),
+            tool_name: ToolName::ReadPreviousRegion,
+            arguments: serde_json::json!({
+                "request_id": "req-read-previous",
+                "timeout_ms": 1000,
+                "interrupt_current": true
+            }),
+            purpose: String::from("read the previous region"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_read_previous_region_request
+                .as_ref()
+                .map(|input| input.interrupt_current),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn dispatches_stop_speaking_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-stop-speaking"),
+            tool_name: ToolName::StopSpeaking,
+            arguments: serde_json::json!({
+                "request_id": "req-stop-speaking",
+                "timeout_ms": 1000
+            }),
+            purpose: String::from("stop current narration"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_stop_speaking_request
+                .as_ref()
+                .map(|input| input.request_id.as_str()),
+            Some("req-stop-speaking")
         );
     }
 

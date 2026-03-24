@@ -331,3 +331,12 @@
 ## 2026-03-24T10:47:30Z - GPT-5.4 - Browser tool changes pushed to origin/master
 - Committed the browser-history and setup-script changes as `548336f` (`Implement browser history tools`) and pushed that commit to `origin/master`.
 - At push time, the validation baseline was still green: clippy passed, Rust unit tests passed with 43 tests, and UI tests passed with 3 tests.
+
+## 2026-03-24T11:05:56Z - GPT-5.4 - Wave 1 narration control tools implemented
+- Implemented `read_region`, `read_next_region`, `read_previous_region`, and `stop_speaking` across `src-tauri/src/commands.rs`, `src-tauri/src/app_core.rs`, `src-tauri/src/state.rs`, and `src-tauri/src/narration.rs`.
+- The narration slice currently covers deterministic cursor navigation and speaking-state tracking, including interrupt handling, reached-start/end behavior, and runtime speaking metadata; it does not yet introduce a full TTS playback engine.
+- Added focused narration/state/dispatcher tests and revalidated the repo with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (52 Rust tests green), and `pnpm test:ui` (3 UI tests green).
+
+## 2026-03-24T11:10:35Z - GPT-5.4 - Validation rerun still green
+- Re-ran the full documented validation flow without code changes to confirm the current worktree is still healthy.
+- `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passed with 52 Rust tests green, and `pnpm test:ui` passed with 3 UI tests green.

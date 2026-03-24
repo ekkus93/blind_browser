@@ -38,6 +38,8 @@ pub struct AppState {
     pub browser_visibility: BrowserVisibilityMode,
     pub browser_history: BrowserHistoryState,
     pub narration_cursor: NarrationCursor,
+    pub speaking: bool,
+    pub speaking_region_id: Option<String>,
     pub audio: RuntimeAudioState,
     pub listening: ListeningState,
     pub pending_confirmation_id: Option<String>,
@@ -52,6 +54,8 @@ impl Default for AppState {
             browser_visibility: BrowserVisibilityMode::Visible,
             browser_history: BrowserHistoryState::default(),
             narration_cursor: NarrationCursor::default(),
+            speaking: false,
+            speaking_region_id: None,
             audio: RuntimeAudioState::default(),
             listening: ListeningState::default(),
             pending_confirmation_id: None,
@@ -81,6 +85,18 @@ impl AppState {
         });
         self.browser_history = next_history_state_after_navigation(&self.browser_history);
         self.narration_cursor = NarrationCursor::default();
+        self.speaking = false;
+        self.speaking_region_id = None;
+    }
+
+    pub fn start_speaking_region(&mut self, region_id: String) {
+        self.speaking = true;
+        self.speaking_region_id = Some(region_id);
+    }
+
+    pub fn stop_speaking(&mut self) -> Option<String> {
+        self.speaking = false;
+        self.speaking_region_id.take()
     }
 
     pub fn apply_execution_outcome(&mut self, outcome: &ExecutionOutcome) {
@@ -199,6 +215,7 @@ mod tests {
     #[test]
     fn record_navigation_sets_page_identity_and_advances_history() {
         let mut state = AppState::default();
+        state.start_speaking_region(String::from("region-1"));
         state.record_navigation(
             String::from("page-1"),
             String::from("https://example.com/first"),
@@ -220,5 +237,19 @@ mod tests {
         assert_eq!(state.browser_history.entry_count, 2);
         assert!(state.browser_history.can_go_back);
         assert!(!state.browser_history.can_go_forward);
+        assert!(!state.speaking);
+        assert!(state.speaking_region_id.is_none());
+    }
+
+    #[test]
+    fn stop_speaking_clears_runtime_speaking_state() {
+        let mut state = AppState::default();
+        state.start_speaking_region(String::from("region-2"));
+
+        let interrupted_region_id = state.stop_speaking();
+
+        assert_eq!(interrupted_region_id.as_deref(), Some("region-2"));
+        assert!(!state.speaking);
+        assert!(state.speaking_region_id.is_none());
     }
 }
