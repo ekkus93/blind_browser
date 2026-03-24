@@ -4,8 +4,10 @@ import {
   renderAudioControlsPanel,
   renderConfirmationPanel,
   renderPushToTalkPanel,
+  renderStatusPanel,
   type AudioControlsPanelState,
   type PushToTalkPanelState,
+  type StatusPanelState,
 } from "./confirmation-panel";
 import {
   createExecutionUiStore,
@@ -16,6 +18,7 @@ import {
 } from "./planner-orchestration";
 import {
   classifyInvokeFailure,
+  type AgentStateData,
   getAgentState,
   resolveCommand,
   setPlaybackSpeed,
@@ -62,6 +65,7 @@ const PUSH_TO_TALK_RELEASE_CAPTURE_MS = 1;
 let currentExecutionUiState = uiStore.getState();
 let pushToTalkState: PushToTalkPanelState = createInitialPushToTalkState();
 let audioControlsState: AudioControlsPanelState = createInitialAudioControlsState();
+let statusPanelState: StatusPanelState = createInitialStatusPanelState();
 let activePushToTalkSource: "keyboard" | "pointer" | null = null;
 
 if (!app) {
@@ -88,10 +92,24 @@ function createInitialAudioControlsState(): AudioControlsPanelState {
   };
 }
 
+function createInitialStatusPanelState(): StatusPanelState {
+  return {
+    pageTitle: null,
+    currentRegionLabel: null,
+    listening: false,
+    speaking: false,
+    browserVisibility: "Visible",
+    canGoBack: false,
+    canGoForward: false,
+    error: null,
+  };
+}
+
 const renderApp = (
   uiState: ExecutionUiState,
   pushToTalk: PushToTalkPanelState,
   audioControls: AudioControlsPanelState,
+  statusPanel: StatusPanelState,
 ) => {
   app.innerHTML = `
     <main class="shell">
@@ -128,6 +146,7 @@ const renderApp = (
       </section>
 
       ${renderPushToTalkPanel(pushToTalk)}
+      ${renderStatusPanel(statusPanel)}
       ${renderAudioControlsPanel(audioControls)}
       ${renderConfirmationPanel(uiState.confirmation)}
     </main>
@@ -135,7 +154,7 @@ const renderApp = (
 };
 
 function rerender() {
-  renderApp(currentExecutionUiState, pushToTalkState, audioControlsState);
+  renderApp(currentExecutionUiState, pushToTalkState, audioControlsState, statusPanelState);
 }
 
 function setPushToTalkState(nextState: Partial<PushToTalkPanelState>) {
@@ -149,6 +168,14 @@ function setPushToTalkState(nextState: Partial<PushToTalkPanelState>) {
 function setAudioControlsState(nextState: Partial<AudioControlsPanelState>) {
   audioControlsState = {
     ...audioControlsState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setStatusPanelState(nextState: Partial<StatusPanelState>) {
+  statusPanelState = {
+    ...statusPanelState,
     ...nextState,
   };
   rerender();
@@ -204,19 +231,45 @@ function describeAudioControlFailure(error: unknown): string {
   return failure.message;
 }
 
-async function refreshAudioControlsFromRuntime() {
+function currentRegionLabelForAgentState(agentState: AgentStateData): string | null {
+  if (!agentState.narration_cursor) {
+    return null;
+  }
+
+  return `Region ${agentState.narration_cursor.node_index + 1}`;
+}
+
+function applyAgentStateToPanels(agentState: AgentStateData) {
+  setAudioControlsState({
+    playbackVolume: agentState.audio.playback_volume,
+    playbackSpeed: agentState.audio.playback_speed,
+    error: null,
+  });
+  setStatusPanelState({
+    pageTitle: agentState.title ?? agentState.url,
+    currentRegionLabel: currentRegionLabelForAgentState(agentState),
+    listening: agentState.listening_state.is_listening,
+    speaking: agentState.speaking,
+    browserVisibility: agentState.browser_visibility,
+    canGoBack: agentState.browser_history.can_go_back,
+    canGoForward: agentState.browser_history.can_go_forward,
+    error: null,
+  });
+}
+
+async function refreshRuntimePanelsFromRuntime() {
   try {
     const agentState = await getAgentState({
-      requestId: createRequestId("audio-controls-state"),
+      requestId: createRequestId("runtime-panels-state"),
     });
-    setAudioControlsState({
-      playbackVolume: agentState.audio.playback_volume,
-      playbackSpeed: agentState.audio.playback_speed,
-      error: null,
-    });
+    applyAgentStateToPanels(agentState);
   } catch (error: unknown) {
+    const message = describeAudioControlFailure(error);
     setAudioControlsState({
-      error: describeAudioControlFailure(error),
+      error: message,
+    });
+    setStatusPanelState({
+      error: message,
     });
   }
 }
@@ -296,6 +349,7 @@ async function beginPushToTalk(source: "keyboard" | "pointer") {
       isListening: result.listening_state.is_listening,
       isBusy: false,
     });
+    await refreshRuntimePanelsFromRuntime();
   } catch (error: unknown) {
     activePushToTalkSource = null;
     setPushToTalkState({
@@ -329,6 +383,7 @@ async function cancelPushToTalk() {
       isListening: result.listening_state.is_listening,
       isBusy: false,
     });
+    await refreshRuntimePanelsFromRuntime();
   } catch (error: unknown) {
     setPushToTalkState({
       isListening: false,
@@ -364,6 +419,7 @@ async function releasePushToTalk(source: "keyboard" | "pointer") {
     });
 
     if (!transcription.transcript) {
+      await refreshRuntimePanelsFromRuntime();
       return;
     }
 
@@ -372,7 +428,7 @@ async function releasePushToTalk(source: "keyboard" | "pointer") {
       transcription.transcript,
     );
     await runPlannerExecution(createRequestId("push-to-talk-execute"), plannerOutput, uiStore);
-    await refreshAudioControlsFromRuntime();
+    await refreshRuntimePanelsFromRuntime();
   } catch (error: unknown) {
     setPushToTalkState({
       isListening: false,
@@ -383,7 +439,7 @@ async function releasePushToTalk(source: "keyboard" | "pointer") {
 }
 
 rerender();
-void refreshAudioControlsFromRuntime();
+void refreshRuntimePanelsFromRuntime();
 uiStore.subscribe((uiState) => {
   currentExecutionUiState = uiState;
   rerender();
@@ -427,7 +483,7 @@ app.addEventListener("click", (event) => {
     uiStore,
   )
     .then(async () => {
-      await refreshAudioControlsFromRuntime();
+      await refreshRuntimePanelsFromRuntime();
     })
     .catch((error: unknown) => {
       uiStore.setConfirmationError(confirmationId, describeConfirmationSubmissionFailure(error));

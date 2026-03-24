@@ -337,12 +337,12 @@
 - [x] Speak current playback speed on query
 
 ### Status UI
-- [ ] Current page title
-- [ ] Current region
-- [ ] Listening indicator
-- [ ] Speaking indicator
-- [ ] Browser visibility indicator
-- [ ] Back/forward availability indicator
+- [x] Current page title
+- [x] Current region
+- [x] Listening indicator
+- [x] Speaking indicator
+- [x] Browser visibility indicator
+- [x] Back/forward availability indicator
 
 ---
 

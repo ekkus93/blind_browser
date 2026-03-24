@@ -448,3 +448,9 @@
 - Query phrases now infer `GetPlaybackVolume` and `GetPlaybackSpeed` instead of falling through to setter intents, and the direct resolver emits bounded `PlannerOutput` values that route through the existing `set_playback_volume`, `set_playback_speed`, and `report_result` tools.
 - `src-tauri/src/app_core.rs` now checks the direct audio resolver before calling the remote planner and speaks `report_result` summaries through the existing TTS/audio playback path so hands-free volume/speed queries and confirmations answer aloud.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (81 Rust tests green), `pnpm test:ui` (9 UI tests green), and `pnpm build` under Node `22.12.0`.
+
+## 2026-03-24T21:14:51Z - GPT-5.4 - Status UI now mirrors live runtime state in the frontend
+- `src/confirmation-panel.ts` now renders a compact status panel for page title, current region, listening state, speaking state, browser visibility, and history availability, and `src/confirmation-panel.test.mjs` adds render coverage for both populated and error/fallback status states.
+- `src/main.ts` now tracks a dedicated `StatusPanelState` and uses a shared `get_agent_state` refresh path to update both the status panel and nearby audio controls together on initial load, after successful push-to-talk transitions, and after planner execution or confirmation resume.
+- `src/styles.css` now styles the status panel to match the nearby voice/audio controls, and `docs/TODO.md` marks the Status UI checklist items complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (81 Rust tests green), `pnpm test:ui` (11 UI tests green), and `pnpm build` under Node `22.12.0`.

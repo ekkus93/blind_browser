@@ -5,6 +5,7 @@ import {
   renderAudioControlsPanel,
   renderConfirmationPanel,
   renderPushToTalkPanel,
+  renderStatusPanel,
 } from "./confirmation-panel.ts";
 
 function renderFixtures() {
@@ -198,5 +199,46 @@ test("renders nearby playback control errors when syncing fails", () => {
   });
 
   assert.match(html, /The audio settings could not be loaded\./);
+  assert.match(html, /role="alert"/);
+});
+
+test("renders runtime status details from agent state", () => {
+  const html = renderStatusPanel({
+    pageTitle: "Example Domain",
+    currentRegionLabel: "Region 3",
+    listening: true,
+    speaking: false,
+    browserVisibility: "Headless",
+    canGoBack: true,
+    canGoForward: false,
+    error: null,
+  });
+
+  assert.match(html, /Current browser state/);
+  assert.match(html, /Example Domain/);
+  assert.match(html, /Region 3/);
+  assert.match(html, /Listening/);
+  assert.match(html, /Active/);
+  assert.match(html, /Browser mode/);
+  assert.match(html, /Headless/);
+  assert.match(html, /Back: Available\./);
+  assert.match(html, /Forward: Unavailable\./);
+});
+
+test("renders status panel fallbacks and errors when runtime sync fails", () => {
+  const html = renderStatusPanel({
+    pageTitle: null,
+    currentRegionLabel: null,
+    listening: false,
+    speaking: false,
+    browserVisibility: "Visible",
+    canGoBack: false,
+    canGoForward: false,
+    error: "The runtime state could not be loaded.",
+  });
+
+  assert.match(html, /No page open yet/);
+  assert.match(html, /No current region/);
+  assert.match(html, /The runtime state could not be loaded\./);
   assert.match(html, /role="alert"/);
 });

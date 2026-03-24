@@ -16,6 +16,17 @@ export interface AudioControlsPanelState {
   error: string | null;
 }
 
+export interface StatusPanelState {
+  pageTitle: string | null;
+  currentRegionLabel: string | null;
+  listening: boolean;
+  speaking: boolean;
+  browserVisibility: "Visible" | "Headless";
+  canGoBack: boolean;
+  canGoForward: boolean;
+  error: string | null;
+}
+
 export function renderConfirmationPanel(state: ConfirmationUiState): string {
   if (state.kind !== "awaiting-confirmation") {
     return "";
@@ -202,6 +213,65 @@ export function renderAudioControlsPanel(state: AudioControlsPanelState): string
           />
         </label>
       </div>
+    </section>
+  `;
+}
+
+export function renderStatusPanel(state: StatusPanelState): string {
+  const title = state.pageTitle ?? "No page open yet";
+  const region = state.currentRegionLabel ?? "No current region";
+  const errorCopy = state.error
+    ? `<p class="status-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+
+  return `
+    <section class="status-panel" aria-labelledby="status-panel-title">
+      <div class="status-panel-copy">
+        <p class="status-panel-eyebrow">Runtime status</p>
+        <h2 id="status-panel-title">Current browser state</h2>
+        <p class="status-panel-description">
+          This panel mirrors the live runtime so the nearby UI stays aligned with what the browser,
+          narration, and listening tools are doing right now.
+        </p>
+        ${errorCopy}
+      </div>
+      <dl class="status-panel-grid">
+        <div class="status-card status-card-wide">
+          <dt>Page title</dt>
+          <dd>${escapeHtml(title)}</dd>
+        </div>
+        <div class="status-card">
+          <dt>Current region</dt>
+          <dd>${escapeHtml(region)}</dd>
+        </div>
+        <div class="status-card">
+          <dt>Listening</dt>
+          <dd>
+            <span class="status-indicator${state.listening ? " status-indicator-active" : ""}">
+              ${state.listening ? "Active" : "Idle"}
+            </span>
+          </dd>
+        </div>
+        <div class="status-card">
+          <dt>Speaking</dt>
+          <dd>
+            <span class="status-indicator${state.speaking ? " status-indicator-active" : ""}">
+              ${state.speaking ? "Active" : "Idle"}
+            </span>
+          </dd>
+        </div>
+        <div class="status-card">
+          <dt>Browser mode</dt>
+          <dd>${escapeHtml(state.browserVisibility)}</dd>
+        </div>
+        <div class="status-card">
+          <dt>History</dt>
+          <dd>
+            Back: ${state.canGoBack ? "Available" : "Unavailable"}.
+            Forward: ${state.canGoForward ? "Available" : "Unavailable"}.
+          </dd>
+        </div>
+      </dl>
     </section>
   `;
 }

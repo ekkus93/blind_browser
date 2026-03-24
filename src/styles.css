@@ -160,6 +160,94 @@ h1 {
   box-shadow: 0 18px 30px rgba(176, 71, 54, 0.28);
 }
 
+.status-panel {
+  margin-top: 18px;
+  padding: 22px 24px;
+  border-radius: 22px;
+  background: rgba(255, 252, 247, 0.9);
+  border: 1px solid rgba(123, 98, 70, 0.18);
+  box-shadow: 0 18px 36px rgba(49, 63, 74, 0.08);
+}
+
+.status-panel-copy {
+  max-width: 60ch;
+}
+
+.status-panel-eyebrow {
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.76rem;
+  color: #7b6246;
+}
+
+.status-panel h2 {
+  margin-bottom: 10px;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.3rem, 2.6vw, 1.9rem);
+  line-height: 1.05;
+}
+
+.status-panel-description,
+.status-panel-error {
+  line-height: 1.55;
+}
+
+.status-panel-error {
+  margin-top: 10px;
+  color: #8b342a;
+  font-weight: 600;
+}
+
+.status-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.status-card {
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(123, 98, 70, 0.12);
+}
+
+.status-card-wide {
+  grid-column: span 2;
+}
+
+.status-card dt {
+  margin: 0 0 6px;
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6f675c;
+}
+
+.status-card dd {
+  margin: 0;
+  color: #1f2527;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(95, 88, 78, 0.12);
+  color: #5d584e;
+  font-size: 0.88rem;
+}
+
+.status-indicator-active {
+  background: rgba(31, 107, 87, 0.14);
+  color: #1f6b57;
+}
+
 .audio-controls-panel {
   margin-top: 18px;
   padding: 22px 24px;
@@ -531,6 +619,14 @@ h1 {
 
   .audio-controls-panel {
     padding: 20px;
+  }
+
+  .status-panel {
+    padding: 20px;
+  }
+
+  .status-card-wide {
+    grid-column: span 1;
   }
 
   .confirmation-panel {
