@@ -327,3 +327,7 @@
 - Added shared `ScrollDirection` and `ScrollTarget` enums from the spec, and now derive runtime `BrowserHistoryState` from Chromium's actual navigation history instead of only synthetic state advancement.
 - Updated `docs/TODO.md` to mark the four Wave 1 browser tools complete and to mark browser history signal tracking complete.
 - Validation after the implementation: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passed with 43 Rust tests green, and `pnpm test:ui` passed with 3 UI tests green.
+
+## 2026-03-24T10:47:30Z - GPT-5.4 - Browser tool changes pushed to origin/master
+- Committed the browser-history and setup-script changes as `548336f` (`Implement browser history tools`) and pushed that commit to `origin/master`.
+- At push time, the validation baseline was still green: clippy passed, Rust unit tests passed with 43 tests, and UI tests passed with 3 tests.
