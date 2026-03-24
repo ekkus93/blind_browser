@@ -19,6 +19,14 @@ Phase 0 project setup is in place:
 
 ## Local Development
 
+Quick start on a new Linux machine:
+
+1. Install Rust stable with `rustup`.
+2. Install Node.js 20+ and enable `pnpm` with `corepack enable`.
+3. Install the Linux native packages from the Tauri and OCR prerequisite sections below.
+4. Run `pnpm install` at the workspace root.
+5. Use the validation commands in the `Validation` section to confirm the environment is complete.
+
 Install frontend dependencies:
 
 ```bash
@@ -43,6 +51,25 @@ Format the Rust code:
 cd src-tauri
 cargo fmt
 ```
+
+Run the Tauri app in development:
+
+```bash
+pnpm tauri dev
+```
+
+## Validation
+
+Use these commands after bringing up a new machine or after changing native dependencies:
+
+```bash
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml --all-features
+pnpm test:ui
+pnpm build
+```
+
+If `cargo clippy --all-features` or `cargo test --all-features` fails in native dependencies, check the Linux prerequisite sections below first.
 
 ## Linux Tauri Prerequisites
 
@@ -73,3 +100,5 @@ If `pkg-config` reports that it cannot find `lept.pc`, the missing package is us
 ## Config
 
 See `config.example.toml` for the initial shipped defaults and provider profile names.
+
+For a fast restart on another machine, the project handoff notes are tracked in `memory.md`. The latest entry should include the current commit, validation status, and where development stopped.
