@@ -83,15 +83,15 @@
 ## Phase 1: Core Browser + Extraction
 
 ### Deterministic Tool Core: Wave 1
-- [ ] Implement `open_url`
+- [x] Implement `open_url`
 - [ ] Implement `go_back`
 - [ ] Implement `go_forward`
 - [ ] Implement `reload_page`
-- [ ] Implement `get_page_snapshot`
-- [ ] Implement `extract_page_model`
-- [ ] Implement `list_interactive_elements`
-- [ ] Implement `find_element`
-- [ ] Implement `click_element`
+- [x] Implement `get_page_snapshot`
+- [x] Implement `extract_page_model`
+- [x] Implement `list_interactive_elements`
+- [x] Implement `find_element`
+- [x] Implement `click_element`
 - [ ] Implement `scroll_page`
 - [ ] Implement `read_region`
 - [ ] Implement `read_next_region`
@@ -107,7 +107,7 @@
 - [x] Implement `get_agent_state`
 - [x] Implement `get_runtime_status`
 - [x] Implement `confirm_action`
-- [ ] Implement `report_result`
+- [x] Implement `report_result`
 - [ ] Finalize input schema for all Wave 1 tools
 - [ ] Finalize output schema for all Wave 1 tools
 - [ ] Finalize shared enums for Wave 1 tools

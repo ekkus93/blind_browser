@@ -2,34 +2,50 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use tauri::AppHandle;
 
-use crate::browser::BrowserVisibilityMode;
+use crate::browser::{
+    BrowserController, BrowserError, BrowserSessionConfig, BrowserVisibilityMode, LoadState,
+};
 use crate::commands::{
-    execute_planner_output, resume_after_confirmation, AgentStateData, ConfirmActionData,
-    ConfirmActionInput, ConfirmActionResolution, DeterministicToolExecutor, ExecutionOutcome,
-    GetAgentStateInput, GetRuntimeStatusData, GetRuntimeStatusInput, PlannerOutput,
-    ProviderSelectionStatus, SetBrowserVisibilityData, SetBrowserVisibilityInput,
-    SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
-    SetTtsVoiceData, SetTtsVoiceInput, ToolError, ToolName, ToolResult,
+    execute_planner_output, resume_after_confirmation, AgentStateData, ClickElementData,
+    ClickElementInput, ConfirmActionData, ConfirmActionInput, ConfirmActionResolution,
+    DeterministicToolExecutor, ExecutionOutcome, ExtractPageModelData, ExtractPageModelInput,
+    FindElementData, FindElementInput, GetAgentStateInput, GetPageSnapshotInput,
+    GetRuntimeStatusData, GetRuntimeStatusInput, ListInteractiveElementsData,
+    ListInteractiveElementsInput, OpenUrlData, OpenUrlInput, PageSnapshotData, PlannerOutput,
+    ProviderSelectionStatus, ReportResultData, ReportResultInput, SetBrowserVisibilityData,
+    SetBrowserVisibilityInput, SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData,
+    SetPlaybackVolumeInput, SetTtsVoiceData, SetTtsVoiceInput, ToolError, ToolName, ToolResult,
 };
 use crate::config::{AppConfig, AudioSettings, ConfigError};
+use crate::page_model::{ElementRole, ExtractionSource, PageModel, RegionSource};
 use crate::state::AppState;
 
-#[derive(Clone)]
+const DEFAULT_FIND_ELEMENT_MAX_CANDIDATES: usize = 3;
+const MAX_FIND_ELEMENT_CANDIDATES: usize = 5;
+const FIND_ELEMENT_STRONG_MATCH_BPS: u16 = 8_500;
+const FIND_ELEMENT_AMBIGUITY_MARGIN_BPS: u16 = 800;
+
 pub struct AppCore {
     pub app_handle: AppHandle,
     pub config: AppConfig,
     pub state: AppState,
+    pub browser: BrowserController,
 }
 
 impl AppCore {
     pub fn new(app_handle: AppHandle) -> Result<Self, ConfigError> {
         let config = AppConfig::load_for_app(&app_handle)?;
         let state = AppState::from_config(&config);
+        let browser = BrowserController::new(BrowserSessionConfig {
+            visibility: state.browser_visibility,
+            user_agent: None,
+        });
 
         Ok(Self {
             app_handle,
             config,
             state,
+            browser,
         })
     }
 
@@ -63,6 +79,559 @@ impl AppCore {
 
     pub fn set_browser_visibility(&mut self, mode: BrowserVisibilityMode) {
         self.state.browser_visibility = mode;
+    }
+
+    pub fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData> {
+        let final_url = match normalize_absolute_url(&input.url) {
+            Ok(url) => url,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::OpenUrl,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Navigation request was rejected because the URL was not an absolute URL.",
+                    )],
+                )
+            }
+        };
+
+        let load_state = input.wait_for_load_state.unwrap_or(LoadState::Load);
+        let browser_page = match self.browser.open_url(&final_url, load_state, input.timeout_ms) {
+            Ok(browser_page) => browser_page,
+            Err(error) => {
+                return self.browser_tool_failure(
+                    ToolName::OpenUrl,
+                    input.request_id,
+                    String::from("Browser navigation did not complete successfully."),
+                    error,
+                )
+            }
+        };
+
+        let page_id = self.next_page_id(&input.request_id);
+        self.state
+            .record_navigation(page_id.clone(), browser_page.url.clone());
+        if let Some(current_page) = self.state.current_page.as_mut() {
+            current_page.title = browser_page.title.clone();
+        }
+
+        ToolResult::success(
+            ToolName::OpenUrl,
+            input.request_id,
+            OpenUrlData {
+                final_url: browser_page.url,
+                title: browser_page.title,
+                page_id,
+                load_state,
+                http_status: None,
+                history: self.state.browser_history.clone(),
+            },
+            vec![
+                String::from(
+                    "Validated the requested absolute URL and navigated the live Chromium page.",
+                ),
+                String::from(
+                    "Runtime navigation state now reflects the live browser URL and document title.",
+                ),
+            ],
+        )
+    }
+
+    pub fn execute_get_page_snapshot(
+        &mut self,
+        input: GetPageSnapshotInput,
+    ) -> ToolResult<PageSnapshotData> {
+        let Some(page_id) = self.state.current_page_id.clone() else {
+            return ToolResult::failure(
+                ToolName::GetPageSnapshot,
+                input.request_id,
+                ToolError {
+                    code: String::from("no_active_page"),
+                    message: String::from(
+                        "get_page_snapshot requires an active page in runtime state",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Page snapshot could not be created because no page has been opened yet.",
+                )],
+            );
+        };
+
+        let Some(current_page) = self.state.current_page.as_ref() else {
+            return ToolResult::failure(
+                ToolName::GetPageSnapshot,
+                input.request_id,
+                ToolError {
+                    code: String::from("missing_page_model"),
+                    message: String::from(
+                        "get_page_snapshot requires runtime page data for the active page",
+                    ),
+                    retryable: false,
+                    details: Some(serde_json::json!({ "page_id": page_id })),
+                },
+                vec![String::from(
+                    "Page snapshot could not be created because the runtime page model is missing.",
+                )],
+            );
+        };
+
+        let Some(url) = current_page.url.clone() else {
+            return ToolResult::failure(
+                ToolName::GetPageSnapshot,
+                input.request_id,
+                ToolError {
+                    code: String::from("missing_page_url"),
+                    message: String::from(
+                        "get_page_snapshot requires a current page URL in runtime state",
+                    ),
+                    retryable: false,
+                    details: Some(serde_json::json!({ "page_id": page_id })),
+                },
+                vec![String::from(
+                    "Page snapshot could not be created because the runtime page URL is missing.",
+                )],
+            );
+        };
+
+        let visible_text_excerpt =
+            build_visible_text_excerpt(current_page, input.text_excerpt_max_chars);
+        let interactive_elements = if input.include_interactive_elements {
+            current_page.interactive_elements.clone()
+        } else {
+            Vec::new()
+        };
+
+        ToolResult::success(
+            ToolName::GetPageSnapshot,
+            input.request_id,
+            PageSnapshotData {
+                page_id,
+                url,
+                title: current_page.title.clone(),
+                visible_text_excerpt,
+                interactive_elements,
+                scroll_y: 0.0,
+                viewport_width: 0.0,
+                viewport_height: 0.0,
+                document_height: 0.0,
+            },
+            vec![
+                String::from(
+                    "Built a deterministic page snapshot from the current runtime page state.",
+                ),
+                String::from(
+                    "Scroll and viewport metrics remain placeholder values until the browser backend is wired.",
+                ),
+            ],
+        )
+    }
+
+    pub fn execute_extract_page_model(
+        &mut self,
+        input: ExtractPageModelInput,
+    ) -> ToolResult<ExtractPageModelData> {
+        let Some(page_id) = self.state.current_page_id.clone() else {
+            return ToolResult::failure(
+                ToolName::ExtractPageModel,
+                input.request_id,
+                ToolError {
+                    code: String::from("no_active_page"),
+                    message: String::from(
+                        "extract_page_model requires an active page in runtime state",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Page model extraction could not run because no page has been opened yet.",
+                )],
+            );
+        };
+
+        let base_page_model = if input.use_dom_extraction {
+            let extracted_page_model = match self.browser.extract_page_model() {
+                Ok(extracted_page_model) => extracted_page_model,
+                Err(error) => {
+                    return self.browser_tool_failure(
+                        ToolName::ExtractPageModel,
+                        input.request_id,
+                        String::from(
+                            "Live browser page-model extraction did not complete successfully.",
+                        ),
+                        error,
+                    )
+                }
+            };
+            self.state.current_page = Some(extracted_page_model.clone());
+            extracted_page_model
+        } else {
+            let Some(current_page) = self.state.current_page.as_ref() else {
+                return ToolResult::failure(
+                    ToolName::ExtractPageModel,
+                    input.request_id,
+                    ToolError {
+                        code: String::from("missing_page_model"),
+                        message: String::from(
+                            "extract_page_model requires runtime page data for the active page",
+                        ),
+                        retryable: false,
+                        details: Some(serde_json::json!({ "page_id": page_id })),
+                    },
+                    vec![String::from(
+                        "Page model extraction could not run because the runtime page model is missing.",
+                    )],
+                );
+            };
+
+            current_page.clone()
+        };
+
+        let extracted_page_model = build_extracted_page_model(&base_page_model, &input);
+        let region_count = extracted_page_model.regions.len();
+        let readable_region_count = extracted_page_model
+            .regions
+            .iter()
+            .filter(|region| !region.text.trim().is_empty())
+            .count();
+        let extraction_source = infer_extraction_source(&base_page_model, input.use_dom_extraction);
+
+        let mut observations = if input.use_dom_extraction {
+            vec![String::from(
+                "Built a deterministic page model from the live Chromium DOM and persisted it into runtime state.",
+            )]
+        } else {
+            vec![String::from(
+                "Built a deterministic page model from the current runtime page state.",
+            )]
+        };
+        if !input.include_links {
+            observations.push(String::from(
+                "Link elements were omitted from the extracted page model as requested.",
+            ));
+        }
+        if input.include_headings {
+            observations.push(String::from(
+                "Heading-specific extraction is not yet distinguished in the current page model schema, so regions were returned unchanged.",
+            ));
+        }
+        if !input.use_dom_extraction {
+            observations.push(String::from(
+                "A non-DOM extraction request currently reuses runtime page state until OCR-specific extraction is wired.",
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::ExtractPageModel,
+            input.request_id,
+            ExtractPageModelData {
+                page_model: extracted_page_model,
+                region_count,
+                readable_region_count,
+                extraction_source,
+            },
+            observations,
+        )
+    }
+
+    pub fn execute_list_interactive_elements(
+        &mut self,
+        input: ListInteractiveElementsInput,
+    ) -> ToolResult<ListInteractiveElementsData> {
+        let Some(page_id) = self.state.current_page_id.clone() else {
+            return ToolResult::failure(
+                ToolName::ListInteractiveElements,
+                input.request_id,
+                ToolError {
+                    code: String::from("no_active_page"),
+                    message: String::from(
+                        "list_interactive_elements requires an active page in runtime state",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Interactive elements could not be listed because no page has been opened yet.",
+                )],
+            );
+        };
+
+        let Some(current_page) = self.state.current_page.as_ref() else {
+            return ToolResult::failure(
+                ToolName::ListInteractiveElements,
+                input.request_id,
+                ToolError {
+                    code: String::from("missing_page_model"),
+                    message: String::from(
+                        "list_interactive_elements requires runtime page data for the active page",
+                    ),
+                    retryable: false,
+                    details: Some(serde_json::json!({ "page_id": page_id })),
+                },
+                vec![String::from(
+                    "Interactive elements could not be listed because the runtime page model is missing.",
+                )],
+            );
+        };
+
+        let elements = filter_interactive_elements(
+            &current_page.interactive_elements,
+            input.visible_only,
+            input.roles.as_deref(),
+        );
+        let visible_count = elements.iter().filter(|element| element.visible).count();
+
+        let mut observations = vec![String::from(
+            "Listed deterministic interactive elements from the current runtime page state.",
+        )];
+        if input.visible_only {
+            observations.push(String::from(
+                "Results were filtered to elements currently marked visible in runtime state.",
+            ));
+        }
+        if let Some(roles) = input.roles.as_ref() {
+            observations.push(format!(
+                "Results were filtered to {} requested role(s).",
+                roles.len()
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::ListInteractiveElements,
+            input.request_id,
+            ListInteractiveElementsData {
+                page_id,
+                elements,
+                visible_count,
+            },
+            observations,
+        )
+    }
+
+    pub fn execute_find_element(&mut self, input: FindElementInput) -> ToolResult<FindElementData> {
+        let Some(page_id) = self.state.current_page_id.clone() else {
+            return ToolResult::failure(
+                ToolName::FindElement,
+                input.request_id,
+                ToolError {
+                    code: String::from("no_active_page"),
+                    message: String::from("find_element requires an active page in runtime state"),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Element search could not run because no page has been opened yet.",
+                )],
+            );
+        };
+
+        let Some(current_page) = self.state.current_page.as_ref() else {
+            return ToolResult::failure(
+                ToolName::FindElement,
+                input.request_id,
+                ToolError {
+                    code: String::from("missing_page_model"),
+                    message: String::from(
+                        "find_element requires runtime page data for the active page",
+                    ),
+                    retryable: false,
+                    details: Some(serde_json::json!({ "page_id": page_id })),
+                },
+                vec![String::from(
+                    "Element search could not run because the runtime page model is missing.",
+                )],
+            );
+        };
+
+        let search_query = match build_find_element_query(&input) {
+            Ok(search_query) => search_query,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::FindElement,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Element search was rejected because the search criteria were empty.",
+                    )],
+                )
+            }
+        };
+
+        let candidate_limit = input
+            .max_candidates
+            .unwrap_or(DEFAULT_FIND_ELEMENT_MAX_CANDIDATES)
+            .clamp(1, MAX_FIND_ELEMENT_CANDIDATES);
+        let elements = filter_interactive_elements(
+            &current_page.interactive_elements,
+            input.visible_only,
+            input.role.as_ref().map(std::slice::from_ref),
+        );
+        let ranked_candidates =
+            rank_find_element_candidates(&elements, &search_query, candidate_limit);
+        let (chosen_element_id, chosen_confidence, requires_confirmation) =
+            determine_find_element_resolution(&ranked_candidates);
+
+        let mut observations = vec![format!(
+            "Searched {} interactive element(s) from the current runtime page state.",
+            elements.len()
+        )];
+        if input.visible_only {
+            observations.push(String::from(
+                "Search was limited to elements currently marked visible in runtime state.",
+            ));
+        }
+        if input
+            .max_candidates
+            .is_some_and(|value| value > MAX_FIND_ELEMENT_CANDIDATES)
+        {
+            observations.push(format!(
+                "Candidate count was clamped to the supported maximum of {}.",
+                MAX_FIND_ELEMENT_CANDIDATES
+            ));
+        }
+        if ranked_candidates.is_empty() {
+            observations.push(String::from(
+                "No interactive elements produced a positive match score for the requested search criteria.",
+            ));
+        } else if requires_confirmation {
+            observations.push(String::from(
+                "Top candidates are too close to choose deterministically, so planner clarification is required before any side effect.",
+            ));
+        } else {
+            observations.push(String::from(
+                "A single strongest candidate was identified from the filtered interactive elements.",
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::FindElement,
+            input.request_id,
+            FindElementData {
+                query_summary: search_query.summary,
+                chosen_element_id,
+                chosen_confidence,
+                candidates: ranked_candidates,
+                requires_confirmation,
+            },
+            observations,
+        )
+    }
+
+    pub fn execute_click_element(
+        &mut self,
+        input: ClickElementInput,
+    ) -> ToolResult<ClickElementData> {
+        let Some(page_id) = self.state.current_page_id.clone() else {
+            return ToolResult::failure(
+                ToolName::ClickElement,
+                input.request_id,
+                ToolError {
+                    code: String::from("no_active_page"),
+                    message: String::from("click_element requires an active page in runtime state"),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Click could not run because no page has been opened yet.",
+                )],
+            );
+        };
+
+        let element = {
+            let Some(current_page) = self.state.current_page.as_ref() else {
+                return ToolResult::failure(
+                    ToolName::ClickElement,
+                    input.request_id,
+                    ToolError {
+                        code: String::from("missing_page_model"),
+                        message: String::from(
+                            "click_element requires runtime page data for the active page",
+                        ),
+                        retryable: false,
+                        details: Some(serde_json::json!({ "page_id": page_id })),
+                    },
+                    vec![String::from(
+                        "Click could not run because the runtime page model is missing.",
+                    )],
+                );
+            };
+
+            match resolve_clickable_element(current_page, &input.element_id) {
+                Ok(element) => element.clone(),
+                Err(error) => {
+                    return ToolResult::failure(
+                        ToolName::ClickElement,
+                        input.request_id,
+                        error,
+                        vec![String::from(
+                            "Click could not run because the requested deterministic element_id was not currently interactable.",
+                        )],
+                    )
+                }
+            }
+        };
+
+        let browser_click =
+            match self
+                .browser
+                .click_element(&element, input.double_click, input.timeout_ms)
+            {
+                Ok(browser_click) => browser_click,
+                Err(error) => {
+                    return self.browser_tool_failure(
+                        ToolName::ClickElement,
+                        input.request_id,
+                        String::from("Live browser click did not complete successfully."),
+                        error,
+                    )
+                }
+            };
+
+        if browser_click.page_changed {
+            let next_page_id = self.next_page_id(&input.request_id);
+            self.state
+                .record_navigation(next_page_id, browser_click.url.clone());
+            if let Some(current_page) = self.state.current_page.as_mut() {
+                current_page.title = browser_click.title.clone();
+            }
+        } else if let Some(current_page) = self.state.current_page.as_mut() {
+            current_page.url = Some(browser_click.url.clone());
+            current_page.title = browser_click.title.clone();
+        }
+
+        let mut observations = vec![format!(
+            "Triggered a live Chromium DOM click for element_id={}",
+            element.element_id
+        )];
+        if input.double_click {
+            observations.push(String::from(
+                "The browser backend executed the click with a double-click count.",
+            ));
+        }
+        if browser_click.page_changed {
+            observations.push(String::from(
+                "The live browser URL changed after the click, so runtime page state advanced to a new page.",
+            ));
+        } else {
+            observations.push(String::from(
+                "The click completed without a live browser navigation, so runtime state stayed on the current page.",
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::ClickElement,
+            input.request_id,
+            ClickElementData {
+                element_id: element.element_id.clone(),
+                action_performed: true,
+                page_changed: browser_click.page_changed,
+                navigation_url: browser_click.page_changed.then_some(browser_click.url.clone()),
+                resulting_title: browser_click.title,
+            },
+            observations,
+        )
     }
 
     pub fn execute_planner_output(
@@ -371,9 +940,48 @@ impl AppCore {
         )
     }
 
+    pub fn execute_report_result(
+        &mut self,
+        input: ReportResultInput,
+    ) -> ToolResult<ReportResultData> {
+        let summary = input.summary.trim().to_string();
+        if summary.is_empty() {
+            return ToolResult::failure(
+                ToolName::ReportResult,
+                input.request_id,
+                ToolError {
+                    code: String::from("invalid_report_summary"),
+                    message: String::from("report_result requires a non-empty summary"),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Final result reporting was rejected because the summary was empty.",
+                )],
+            );
+        }
+
+        let next_recommended_action = normalize_optional_text(input.next_recommended_action);
+        let user_message = normalize_optional_text(input.user_message);
+
+        ToolResult::success(
+            ToolName::ReportResult,
+            input.request_id,
+            ReportResultData {
+                status: input.status,
+                summary,
+                next_recommended_action,
+                user_message,
+            },
+            vec![String::from(
+                "Reported the final planner result in a structured deterministic payload.",
+            )],
+        )
+    }
+
     fn current_agent_state(&self, include_last_transcript: bool) -> AgentStateData {
         AgentStateData {
-            page_id: None,
+            page_id: self.state.current_page_id.clone(),
             url: self
                 .state
                 .current_page
@@ -403,7 +1011,7 @@ impl AppCore {
 
     fn current_runtime_status(&self, include_provider_modes: bool) -> GetRuntimeStatusData {
         GetRuntimeStatusData {
-            page_id: None,
+            page_id: self.state.current_page_id.clone(),
             url: self
                 .state
                 .current_page
@@ -455,6 +1063,23 @@ impl AppCore {
         )
     }
 
+    fn browser_tool_failure<T>(
+        &self,
+        tool_name: ToolName,
+        request_id: String,
+        message: String,
+        error: BrowserError,
+    ) -> ToolResult<T> {
+        ToolResult::failure(
+            tool_name,
+            request_id,
+            browser_error_to_tool_error(message, error),
+            vec![String::from(
+                "Browser backend action did not complete successfully.",
+            )],
+        )
+    }
+
     fn next_confirmation_id(&self, request_id: &str) -> String {
         let timestamp_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(duration) => duration.as_millis(),
@@ -462,9 +1087,50 @@ impl AppCore {
         };
         format!("confirm-{request_id}-{timestamp_ms}")
     }
+
+    fn next_page_id(&self, request_id: &str) -> String {
+        let timestamp_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(duration) => duration.as_millis(),
+            Err(_) => 0,
+        };
+        format!("page-{request_id}-{timestamp_ms}")
+    }
 }
 
 impl DeterministicToolExecutor for AppCore {
+    fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData> {
+        AppCore::execute_open_url(self, input)
+    }
+
+    fn execute_list_interactive_elements(
+        &mut self,
+        input: ListInteractiveElementsInput,
+    ) -> ToolResult<ListInteractiveElementsData> {
+        AppCore::execute_list_interactive_elements(self, input)
+    }
+
+    fn execute_find_element(&mut self, input: FindElementInput) -> ToolResult<FindElementData> {
+        AppCore::execute_find_element(self, input)
+    }
+
+    fn execute_click_element(&mut self, input: ClickElementInput) -> ToolResult<ClickElementData> {
+        AppCore::execute_click_element(self, input)
+    }
+
+    fn execute_extract_page_model(
+        &mut self,
+        input: ExtractPageModelInput,
+    ) -> ToolResult<ExtractPageModelData> {
+        AppCore::execute_extract_page_model(self, input)
+    }
+
+    fn execute_get_page_snapshot(
+        &mut self,
+        input: GetPageSnapshotInput,
+    ) -> ToolResult<PageSnapshotData> {
+        AppCore::execute_get_page_snapshot(self, input)
+    }
+
     fn execute_set_tts_voice(&mut self, input: SetTtsVoiceInput) -> ToolResult<SetTtsVoiceData> {
         AppCore::execute_set_tts_voice(self, input)
     }
@@ -507,4 +1173,893 @@ impl DeterministicToolExecutor for AppCore {
     ) -> ToolResult<ConfirmActionData> {
         AppCore::execute_confirm_action(self, input)
     }
+
+    fn execute_report_result(&mut self, input: ReportResultInput) -> ToolResult<ReportResultData> {
+        AppCore::execute_report_result(self, input)
+    }
+}
+
+fn normalize_optional_text(value: Option<String>) -> Option<String> {
+    value.and_then(|value| {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
+fn normalize_absolute_url(url: &str) -> Result<String, ToolError> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_url"),
+            message: String::from("open_url requires a non-empty absolute URL"),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    let Some(separator_index) = trimmed.find(':') else {
+        return Err(ToolError {
+            code: String::from("invalid_url"),
+            message: String::from("open_url requires an absolute URL with a scheme"),
+            retryable: false,
+            details: Some(serde_json::json!({ "url": trimmed })),
+        });
+    };
+
+    let scheme = &trimmed[..separator_index];
+    let remainder = &trimmed[separator_index + 1..];
+    let valid_scheme = scheme.chars().enumerate().all(|(index, ch)| match index {
+        0 => ch.is_ascii_alphabetic(),
+        _ => ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-' | '.'),
+    });
+
+    if !valid_scheme || remainder.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_url"),
+            message: String::from("open_url requires an absolute URL with a valid scheme"),
+            retryable: false,
+            details: Some(serde_json::json!({ "url": trimmed })),
+        });
+    }
+
+    Ok(trimmed.to_string())
+}
+
+fn build_visible_text_excerpt(page: &PageModel, max_chars: Option<usize>) -> String {
+    let joined_text = page
+        .regions
+        .iter()
+        .map(|region| region.text.trim())
+        .filter(|text| !text.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    match max_chars {
+        Some(limit) => joined_text.chars().take(limit).collect(),
+        None => joined_text,
+    }
+}
+
+fn build_extracted_page_model(page: &PageModel, input: &ExtractPageModelInput) -> PageModel {
+    let interactive_elements = if input.include_links {
+        page.interactive_elements.clone()
+    } else {
+        page.interactive_elements
+            .iter()
+            .filter(|element| element.role != ElementRole::Link)
+            .cloned()
+            .collect()
+    };
+
+    PageModel {
+        title: page.title.clone(),
+        url: page.url.clone(),
+        regions: page.regions.clone(),
+        interactive_elements,
+    }
+}
+
+fn filter_interactive_elements(
+    interactive_elements: &[crate::page_model::InteractiveElement],
+    visible_only: bool,
+    roles: Option<&[ElementRole]>,
+) -> Vec<crate::page_model::InteractiveElement> {
+    interactive_elements
+        .iter()
+        .filter(|element| !visible_only || element.visible)
+        .filter(|element| roles.is_none_or(|roles| roles.contains(&element.role)))
+        .cloned()
+        .collect()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FindElementQuery {
+    summary: String,
+    description: Option<String>,
+    text: Option<String>,
+    role: Option<ElementRole>,
+    color_hint: Option<String>,
+    nearby_text: Option<String>,
+    selector_hint: Option<String>,
+}
+
+fn build_find_element_query(input: &FindElementInput) -> Result<FindElementQuery, ToolError> {
+    let description = normalize_optional_text(Some(input.description.clone()));
+    let text = normalize_optional_text(input.text.clone());
+    let color_hint = normalize_optional_text(input.color_hint.clone());
+    let nearby_text = normalize_optional_text(input.nearby_text.clone());
+    let selector_hint = normalize_optional_text(input.selector_hint.clone());
+
+    if description.is_none()
+        && text.is_none()
+        && input.role.is_none()
+        && color_hint.is_none()
+        && nearby_text.is_none()
+        && selector_hint.is_none()
+    {
+        return Err(ToolError {
+            code: String::from("invalid_find_query"),
+            message: String::from("find_element requires at least one populated search field"),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    let mut summary_parts = Vec::new();
+    if let Some(description) = description.as_ref() {
+        summary_parts.push(format!("description={description}"));
+    }
+    if let Some(text) = text.as_ref() {
+        summary_parts.push(format!("text={text}"));
+    }
+    if let Some(role) = input.role.as_ref() {
+        summary_parts.push(format!("role={role:?}"));
+    }
+    if let Some(color_hint) = color_hint.as_ref() {
+        summary_parts.push(format!("color_hint={color_hint}"));
+    }
+    if let Some(nearby_text) = nearby_text.as_ref() {
+        summary_parts.push(format!("nearby_text={nearby_text}"));
+    }
+    if let Some(selector_hint) = selector_hint.as_ref() {
+        summary_parts.push(format!("selector_hint={selector_hint}"));
+    }
+
+    Ok(FindElementQuery {
+        summary: summary_parts.join("; "),
+        description,
+        text,
+        role: input.role.clone(),
+        color_hint,
+        nearby_text,
+        selector_hint,
+    })
+}
+
+fn rank_find_element_candidates(
+    elements: &[crate::page_model::InteractiveElement],
+    query: &FindElementQuery,
+    candidate_limit: usize,
+) -> Vec<crate::commands::ElementCandidate> {
+    let mut candidates = elements
+        .iter()
+        .filter_map(|element| score_interactive_element(element, query))
+        .collect::<Vec<_>>();
+
+    candidates.sort_by(|left, right| {
+        right
+            .confidence_bps
+            .cmp(&left.confidence_bps)
+            .then_with(|| left.element_id.cmp(&right.element_id))
+    });
+    candidates.truncate(candidate_limit);
+    candidates
+}
+
+fn determine_find_element_resolution(
+    candidates: &[crate::commands::ElementCandidate],
+) -> (Option<String>, Option<f32>, bool) {
+    let Some(top_candidate) = candidates.first() else {
+        return (None, None, false);
+    };
+
+    let top_confidence = Some(f32::from(top_candidate.confidence_bps) / 10_000.0);
+    let ambiguous = candidates.get(1).is_some_and(|second_candidate| {
+        top_candidate.confidence_bps < FIND_ELEMENT_STRONG_MATCH_BPS
+            || top_candidate
+                .confidence_bps
+                .saturating_sub(second_candidate.confidence_bps)
+                <= FIND_ELEMENT_AMBIGUITY_MARGIN_BPS
+    });
+
+    if ambiguous {
+        (None, top_confidence, true)
+    } else {
+        (
+            Some(top_candidate.element_id.clone()),
+            top_confidence,
+            false,
+        )
+    }
+}
+
+fn resolve_clickable_element<'a>(
+    page: &'a PageModel,
+    element_id: &str,
+) -> Result<&'a crate::page_model::InteractiveElement, ToolError> {
+    let normalized_element_id = element_id.trim();
+    if normalized_element_id.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_element_id"),
+            message: String::from("click_element requires a non-empty deterministic element_id"),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    let Some(element) = page
+        .interactive_elements
+        .iter()
+        .find(|element| element.element_id == normalized_element_id)
+    else {
+        return Err(ToolError {
+            code: String::from("unknown_element_id"),
+            message: String::from(
+                "click_element requires an element_id that exists in the current page model",
+            ),
+            retryable: false,
+            details: Some(serde_json::json!({ "element_id": normalized_element_id })),
+        });
+    };
+
+    if !element.visible {
+        return Err(ToolError {
+            code: String::from("element_not_visible"),
+            message: String::from("click_element cannot act on an element marked not visible"),
+            retryable: false,
+            details: Some(serde_json::json!({ "element_id": normalized_element_id })),
+        });
+    }
+
+    if !element.enabled {
+        return Err(ToolError {
+            code: String::from("element_disabled"),
+            message: String::from("click_element cannot act on a disabled element"),
+            retryable: false,
+            details: Some(serde_json::json!({ "element_id": normalized_element_id })),
+        });
+    }
+
+    if element
+        .dom_locator
+        .as_deref()
+        .map(str::trim)
+        .is_none_or(str::is_empty)
+    {
+        return Err(ToolError {
+            code: String::from("missing_dom_locator"),
+            message: String::from(
+                "click_element requires the current page model to carry a stable dom_locator",
+            ),
+            retryable: false,
+            details: Some(serde_json::json!({ "element_id": normalized_element_id })),
+        });
+    }
+
+    Ok(element)
+}
+
+#[derive(Debug, Default)]
+struct FindElementScore {
+    score_bps: u16,
+    matched_on: Vec<String>,
+    rationale_codes: Vec<String>,
+}
+
+impl FindElementScore {
+    fn push_match(&mut self, match_label: &str, rationale_code: impl Into<String>, score_bps: u16) {
+        self.score_bps = self.score_bps.saturating_add(score_bps);
+        self.matched_on.push(match_label.to_string());
+        self.rationale_codes.push(rationale_code.into());
+    }
+}
+
+struct AttributeHintSpec<'a> {
+    match_label: &'a str,
+    exact_score_bps: u16,
+    contains_score_bps: u16,
+}
+
+fn score_interactive_element(
+    element: &crate::page_model::InteractiveElement,
+    query: &FindElementQuery,
+) -> Option<crate::commands::ElementCandidate> {
+    let mut score = FindElementScore::default();
+
+    if let Some(role) = query.role.as_ref() {
+        if &element.role == role {
+            score.push_match("role", "role_match", 1_800);
+        } else {
+            return None;
+        }
+    }
+
+    if let Some(description) = query.description.as_ref() {
+        let field_match =
+            score_text_query_against_element(description, element, "description", &mut score);
+        if !field_match && query.role.is_none() {
+            return None;
+        }
+    }
+
+    if let Some(text) = query.text.as_ref() {
+        let field_match = score_text_query_against_element(text, element, "text", &mut score);
+        if !field_match && query.description.is_none() && query.role.is_none() {
+            return None;
+        }
+    }
+
+    if let Some(nearby_text) = query.nearby_text.as_ref() {
+        score_attribute_hint(
+            nearby_text,
+            element,
+            AttributeHintSpec {
+                match_label: "nearby_text",
+                exact_score_bps: 1_600,
+                contains_score_bps: 900,
+            },
+            &mut score,
+        );
+    }
+
+    if let Some(selector_hint) = query.selector_hint.as_ref() {
+        score_attribute_hint(
+            selector_hint,
+            element,
+            AttributeHintSpec {
+                match_label: "selector_hint",
+                exact_score_bps: 1_500,
+                contains_score_bps: 800,
+            },
+            &mut score,
+        );
+    }
+
+    if let Some(color_hint) = query.color_hint.as_ref() {
+        score_attribute_hint(
+            color_hint,
+            element,
+            AttributeHintSpec {
+                match_label: "color_hint",
+                exact_score_bps: 500,
+                contains_score_bps: 250,
+            },
+            &mut score,
+        );
+    }
+
+    if score.score_bps == 0 {
+        return None;
+    }
+
+    if element.enabled {
+        score.score_bps = score.score_bps.saturating_add(100);
+    } else {
+        score.rationale_codes.push(String::from("disabled_penalty"));
+        score.score_bps = score.score_bps.saturating_sub(300);
+    }
+
+    Some(crate::commands::ElementCandidate {
+        element_id: element.element_id.clone(),
+        confidence_bps: score.score_bps.min(10_000),
+        matched_on: score.matched_on,
+        rationale_codes: score.rationale_codes,
+    })
+}
+
+fn score_text_query_against_element(
+    query_text: &str,
+    element: &crate::page_model::InteractiveElement,
+    match_label: &str,
+    score: &mut FindElementScore,
+) -> bool {
+    let normalized_query = normalize_search_text(query_text);
+    let accessible_name = element
+        .accessible_name
+        .as_deref()
+        .map(normalize_search_text);
+    let visible_text = element.text.as_deref().map(normalize_search_text);
+    let placeholder = element.placeholder.as_deref().map(normalize_search_text);
+
+    if accessible_name.as_deref() == Some(normalized_query.as_str()) {
+        score.push_match(match_label, "accessible_name_exact", 4_200);
+        return true;
+    }
+    if visible_text.as_deref() == Some(normalized_query.as_str()) {
+        score.push_match(match_label, "visible_text_exact", 4_000);
+        return true;
+    }
+    if placeholder.as_deref() == Some(normalized_query.as_str()) {
+        score.push_match(match_label, "placeholder_exact", 3_400);
+        return true;
+    }
+
+    let overlap_score = text_overlap_score(&normalized_query, element);
+    if overlap_score > 0 {
+        score.push_match(match_label, "lexical_overlap", overlap_score);
+        return true;
+    }
+
+    false
+}
+
+fn score_attribute_hint(
+    hint: &str,
+    element: &crate::page_model::InteractiveElement,
+    spec: AttributeHintSpec<'_>,
+    score: &mut FindElementScore,
+) -> bool {
+    let normalized_hint = normalize_search_text(hint);
+    let attribute_blob = element
+        .attributes
+        .iter()
+        .map(|(key, value)| format!("{key} {value}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let normalized_attributes = normalize_search_text(&attribute_blob);
+
+    if normalized_attributes.is_empty() {
+        return false;
+    }
+
+    if normalized_attributes == normalized_hint {
+        score.push_match(
+            spec.match_label,
+            format!("{}_exact", spec.match_label),
+            spec.exact_score_bps,
+        );
+        true
+    } else if normalized_attributes.contains(&normalized_hint) {
+        score.push_match(
+            spec.match_label,
+            format!("{}_contains", spec.match_label),
+            spec.contains_score_bps,
+        );
+        true
+    } else {
+        false
+    }
+}
+
+fn text_overlap_score(query_text: &str, element: &crate::page_model::InteractiveElement) -> u16 {
+    let query_terms = tokenize_search_text(query_text);
+    if query_terms.is_empty() {
+        return 0;
+    }
+
+    let element_blob = [
+        element.accessible_name.as_deref().unwrap_or_default(),
+        element.text.as_deref().unwrap_or_default(),
+        element.placeholder.as_deref().unwrap_or_default(),
+        element.href.as_deref().unwrap_or_default(),
+        element.value.as_deref().unwrap_or_default(),
+    ]
+    .join(" ");
+    let element_terms = tokenize_search_text(&element_blob);
+    if element_terms.is_empty() {
+        return 0;
+    }
+
+    let overlap = query_terms
+        .iter()
+        .filter(|term| element_terms.contains(*term))
+        .count();
+    if overlap == 0 {
+        0
+    } else {
+        let ratio = overlap as f32 / query_terms.len() as f32;
+        (900.0 + (ratio * 2_100.0)).round() as u16
+    }
+}
+
+fn normalize_search_text(value: &str) -> String {
+    value
+        .trim()
+        .to_ascii_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn tokenize_search_text(value: &str) -> Vec<String> {
+    normalize_search_text(value)
+        .split(' ')
+        .filter(|term| !term.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn infer_extraction_source(page: &PageModel, use_dom_extraction: bool) -> ExtractionSource {
+    let _ = use_dom_extraction;
+    let has_ocr = page
+        .regions
+        .iter()
+        .any(|region| matches!(region.source, RegionSource::Ocr));
+    let has_dom_like = page
+        .regions
+        .iter()
+        .any(|region| matches!(region.source, RegionSource::Dom | RegionSource::Mixed));
+
+    if has_ocr && has_dom_like {
+        ExtractionSource::Merged
+    } else if has_ocr {
+        ExtractionSource::Ocr
+    } else {
+        ExtractionSource::DomFallback
+    }
+}
+
+fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolError {
+    let code = match &error {
+        BrowserError::FeatureDisabled => "browser_feature_disabled",
+        BrowserError::Launch(_) => "browser_launch_failed",
+        BrowserError::CreatePage(_) => "browser_page_creation_failed",
+        BrowserError::Navigate(_) => "browser_navigation_failed",
+        BrowserError::Inspect(_) => "browser_state_read_failed",
+        BrowserError::NoActivePage => "browser_no_active_page",
+        BrowserError::MissingDomLocator { .. } => "missing_dom_locator",
+        BrowserError::Resolve(_) => "browser_element_resolution_failed",
+        BrowserError::ElementNotFound { .. } => "browser_element_not_found",
+        BrowserError::Click(_) => "browser_click_failed",
+    };
+
+    ToolError {
+        code: String::from(code),
+        message,
+        retryable: matches!(
+            error,
+            BrowserError::Launch(_)
+                | BrowserError::CreatePage(_)
+                | BrowserError::Navigate(_)
+                | BrowserError::Inspect(_)
+        ),
+        details: Some(serde_json::json!({ "reason": error.to_string() })),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        build_extracted_page_model, build_find_element_query, build_visible_text_excerpt,
+        determine_find_element_resolution, filter_interactive_elements, infer_extraction_source,
+        normalize_absolute_url, normalize_optional_text, rank_find_element_candidates,
+        resolve_clickable_element,
+    };
+    use crate::commands::{ExtractPageModelInput, FindElementInput};
+    use crate::page_model::{
+        ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, RegionSource,
+    };
+
+    #[test]
+    fn normalize_optional_text_trims_and_drops_empty_values() {
+        assert_eq!(normalize_optional_text(None), None);
+        assert_eq!(normalize_optional_text(Some(String::from("   "))), None);
+        assert_eq!(
+            normalize_optional_text(Some(String::from("  next step  "))),
+            Some(String::from("next step"))
+        );
+    }
+
+    #[test]
+    fn normalize_absolute_url_accepts_trimmed_absolute_urls() {
+        assert_eq!(
+            normalize_absolute_url("  https://example.com/page  ").unwrap(),
+            String::from("https://example.com/page")
+        );
+        assert_eq!(
+            normalize_absolute_url("about:blank").unwrap(),
+            String::from("about:blank")
+        );
+    }
+
+    #[test]
+    fn normalize_absolute_url_rejects_relative_urls() {
+        let error = normalize_absolute_url("/relative/path").unwrap_err();
+        assert_eq!(error.code, "invalid_url");
+    }
+
+    #[test]
+    fn build_visible_text_excerpt_joins_regions_and_applies_limit() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![
+                PageRegion {
+                    region_id: String::from("region-1"),
+                    label: None,
+                    text: String::from("First paragraph"),
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("region-2"),
+                    label: None,
+                    text: String::from("Second paragraph"),
+                    source: RegionSource::Dom,
+                },
+            ],
+            interactive_elements: Vec::new(),
+        };
+
+        assert_eq!(
+            build_visible_text_excerpt(&page, None),
+            String::from("First paragraph\n\nSecond paragraph")
+        );
+        assert_eq!(
+            build_visible_text_excerpt(&page, Some(5)),
+            String::from("First")
+        );
+    }
+
+    #[test]
+    fn build_extracted_page_model_can_omit_links() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: Vec::new(),
+            interactive_elements: vec![
+                InteractiveElement {
+                    element_id: String::from("link-1"),
+                    dom_locator: Some(String::from("#link-1")),
+                    role: ElementRole::Link,
+                    tag_name: String::from("a"),
+                    text: Some(String::from("Read more")),
+                    accessible_name: Some(String::from("Read more")),
+                    placeholder: None,
+                    href: Some(String::from("https://example.com/more")),
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                },
+                InteractiveElement {
+                    element_id: String::from("button-1"),
+                    dom_locator: Some(String::from("#button-1")),
+                    role: ElementRole::Button,
+                    tag_name: String::from("button"),
+                    text: Some(String::from("Continue")),
+                    accessible_name: Some(String::from("Continue")),
+                    placeholder: None,
+                    href: None,
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                },
+            ],
+        };
+        let input = ExtractPageModelInput {
+            request_id: String::from("req-extract"),
+            timeout_ms: None,
+            use_dom_extraction: true,
+            include_headings: true,
+            include_links: false,
+        };
+
+        let extracted = build_extracted_page_model(&page, &input);
+
+        assert_eq!(extracted.interactive_elements.len(), 1);
+        assert_eq!(extracted.interactive_elements[0].role, ElementRole::Button);
+    }
+
+    #[test]
+    fn infer_extraction_source_detects_merged_models() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![
+                PageRegion {
+                    region_id: String::from("dom-region"),
+                    label: None,
+                    text: String::from("DOM text"),
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("ocr-region"),
+                    label: None,
+                    text: String::from("OCR text"),
+                    source: RegionSource::Ocr,
+                },
+            ],
+            interactive_elements: Vec::new(),
+        };
+
+        assert_eq!(
+            infer_extraction_source(&page, true),
+            ExtractionSource::Merged
+        );
+    }
+
+    #[test]
+    fn filter_interactive_elements_applies_visibility_and_role_filters() {
+        let elements = vec![
+            InteractiveElement {
+                element_id: String::from("button-1"),
+                dom_locator: Some(String::from("#button-1")),
+                role: ElementRole::Button,
+                tag_name: String::from("button"),
+                text: Some(String::from("Continue")),
+                accessible_name: Some(String::from("Continue")),
+                placeholder: None,
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::new(),
+            },
+            InteractiveElement {
+                element_id: String::from("link-1"),
+                dom_locator: Some(String::from("#link-1")),
+                role: ElementRole::Link,
+                tag_name: String::from("a"),
+                text: Some(String::from("Read more")),
+                accessible_name: Some(String::from("Read more")),
+                placeholder: None,
+                href: Some(String::from("https://example.com/more")),
+                value: None,
+                bbox: None,
+                visible: false,
+                enabled: true,
+                attributes: std::collections::BTreeMap::new(),
+            },
+        ];
+
+        let filtered = filter_interactive_elements(&elements, true, Some(&[ElementRole::Button]));
+
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].element_id, "button-1");
+    }
+
+    #[test]
+    fn rank_find_element_candidates_prefers_exact_accessible_name_matches() {
+        let elements = vec![
+            InteractiveElement {
+                element_id: String::from("button-1"),
+                dom_locator: Some(String::from("#button-1")),
+                role: ElementRole::Button,
+                tag_name: String::from("button"),
+                text: Some(String::from("Continue")),
+                accessible_name: Some(String::from("Continue")),
+                placeholder: None,
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::new(),
+            },
+            InteractiveElement {
+                element_id: String::from("button-2"),
+                dom_locator: Some(String::from("#button-2")),
+                role: ElementRole::Button,
+                tag_name: String::from("button"),
+                text: Some(String::from("Continue reading")),
+                accessible_name: Some(String::from("Continue reading")),
+                placeholder: None,
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::new(),
+            },
+        ];
+        let query = build_find_element_query(&FindElementInput {
+            request_id: String::from("req-find"),
+            timeout_ms: None,
+            description: String::from("Continue"),
+            text: None,
+            role: Some(ElementRole::Button),
+            color_hint: None,
+            nearby_text: None,
+            selector_hint: None,
+            visible_only: true,
+            max_candidates: Some(3),
+        })
+        .expect("query should be valid");
+
+        let candidates = rank_find_element_candidates(&elements, &query, 3);
+
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0].element_id, "button-1");
+        assert!(candidates[0].confidence_bps > candidates[1].confidence_bps);
+    }
+
+    #[test]
+    fn determine_find_element_resolution_flags_close_candidates_for_confirmation() {
+        let candidates = vec![
+            crate::commands::ElementCandidate {
+                element_id: String::from("button-1"),
+                confidence_bps: 8_900,
+                matched_on: vec![String::from("description")],
+                rationale_codes: vec![String::from("accessible_name_exact")],
+            },
+            crate::commands::ElementCandidate {
+                element_id: String::from("button-2"),
+                confidence_bps: 8_400,
+                matched_on: vec![String::from("description")],
+                rationale_codes: vec![String::from("accessible_name_exact")],
+            },
+        ];
+
+        let (chosen_element_id, chosen_confidence, requires_confirmation) =
+            determine_find_element_resolution(&candidates);
+
+        assert_eq!(chosen_element_id, None);
+        assert_eq!(chosen_confidence, Some(0.89));
+        assert!(requires_confirmation);
+    }
+
+    #[test]
+    fn resolve_clickable_element_requires_an_enabled_visible_exact_match() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: Vec::new(),
+            interactive_elements: vec![InteractiveElement {
+                element_id: String::from("button-disabled"),
+                dom_locator: Some(String::from("#button-disabled")),
+                role: ElementRole::Button,
+                tag_name: String::from("button"),
+                text: Some(String::from("Continue")),
+                accessible_name: Some(String::from("Continue")),
+                placeholder: None,
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: false,
+                attributes: std::collections::BTreeMap::new(),
+            }],
+        };
+
+        let error = resolve_clickable_element(&page, "button-disabled").unwrap_err();
+
+        assert_eq!(error.code, "element_disabled");
+    }
+
+    #[test]
+    fn resolve_clickable_element_requires_a_stable_dom_locator() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: Vec::new(),
+            interactive_elements: vec![InteractiveElement {
+                element_id: String::from("button-1"),
+                dom_locator: None,
+                role: ElementRole::Button,
+                tag_name: String::from("button"),
+                text: Some(String::from("Continue")),
+                accessible_name: Some(String::from("Continue")),
+                placeholder: None,
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::new(),
+            }],
+        };
+
+        let error = resolve_clickable_element(&page, "button-1").unwrap_err();
+
+        assert_eq!(error.code, "missing_dom_locator");
+    }
+
 }

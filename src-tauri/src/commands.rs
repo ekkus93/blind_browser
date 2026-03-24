@@ -5,10 +5,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::audio_io::RuntimeAudioState;
-use crate::browser::BrowserVisibilityMode;
+use crate::browser::{BrowserVisibilityMode, LoadState};
 use crate::config::ProviderMode;
 use crate::narration::NarrationCursor;
-use crate::page_model::{InteractiveElement, PageModel};
+use crate::page_model::{ExtractionSource, InteractiveElement, PageModel};
 use crate::state::{BrowserHistoryState, ListeningState};
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -23,6 +23,8 @@ pub enum ToolName {
     GetPageSnapshot,
     ExtractPageModel,
     ListInteractiveElements,
+    FindElement,
+    ClickElement,
     StopSpeaking,
     StartListening,
     StopListening,
@@ -105,6 +107,21 @@ impl<T> ToolResult<T> {
 }
 
 pub trait DeterministicToolExecutor {
+    fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData>;
+    fn execute_get_page_snapshot(
+        &mut self,
+        input: GetPageSnapshotInput,
+    ) -> ToolResult<PageSnapshotData>;
+    fn execute_list_interactive_elements(
+        &mut self,
+        input: ListInteractiveElementsInput,
+    ) -> ToolResult<ListInteractiveElementsData>;
+    fn execute_find_element(&mut self, input: FindElementInput) -> ToolResult<FindElementData>;
+    fn execute_click_element(&mut self, input: ClickElementInput) -> ToolResult<ClickElementData>;
+    fn execute_extract_page_model(
+        &mut self,
+        input: ExtractPageModelInput,
+    ) -> ToolResult<ExtractPageModelData>;
     fn execute_set_tts_voice(&mut self, input: SetTtsVoiceInput) -> ToolResult<SetTtsVoiceData>;
     fn execute_set_playback_volume(
         &mut self,
@@ -127,6 +144,7 @@ pub trait DeterministicToolExecutor {
         &mut self,
         input: ConfirmActionInput,
     ) -> ToolResult<ConfirmActionData>;
+    fn execute_report_result(&mut self, input: ReportResultInput) -> ToolResult<ReportResultData>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -170,11 +188,17 @@ pub struct AgentStateData {
     pub pending_plan_execution: Option<PendingPlanExecutionState>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct PageSnapshotData {
+    pub page_id: String,
     pub url: String,
     pub title: Option<String>,
-    pub visible_text: String,
+    pub visible_text_excerpt: String,
+    pub interactive_elements: Vec<InteractiveElement>,
+    pub scroll_y: f32,
+    pub viewport_width: f32,
+    pub viewport_height: f32,
+    pub document_height: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -388,6 +412,114 @@ pub struct ReportResultData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ReportResultInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub status: ReportStatus,
+    pub summary: String,
+    pub next_recommended_action: Option<String>,
+    pub user_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct OpenUrlInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub url: String,
+    pub wait_for_load_state: Option<LoadState>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct OpenUrlData {
+    pub final_url: String,
+    pub title: Option<String>,
+    pub page_id: String,
+    pub load_state: LoadState,
+    pub http_status: Option<u16>,
+    pub history: BrowserHistoryState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct GetPageSnapshotInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub include_interactive_elements: bool,
+    pub text_excerpt_max_chars: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ExtractPageModelInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub use_dom_extraction: bool,
+    pub include_headings: bool,
+    pub include_links: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ListInteractiveElementsInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub visible_only: bool,
+    pub roles: Option<Vec<crate::page_model::ElementRole>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct ListInteractiveElementsData {
+    pub page_id: String,
+    pub elements: Vec<InteractiveElement>,
+    pub visible_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct FindElementInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub description: String,
+    pub text: Option<String>,
+    pub role: Option<crate::page_model::ElementRole>,
+    pub color_hint: Option<String>,
+    pub nearby_text: Option<String>,
+    pub selector_hint: Option<String>,
+    pub visible_only: bool,
+    pub max_candidates: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct FindElementData {
+    pub query_summary: String,
+    pub chosen_element_id: Option<String>,
+    pub chosen_confidence: Option<f32>,
+    pub candidates: Vec<ElementCandidate>,
+    pub requires_confirmation: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ClickElementInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub element_id: String,
+    pub double_click: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ClickElementData {
+    pub element_id: String,
+    pub action_performed: bool,
+    pub page_changed: bool,
+    pub navigation_url: Option<String>,
+    pub resulting_title: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct ExtractPageModelData {
+    pub page_model: PageModel,
+    pub region_count: usize,
+    pub readable_region_count: usize,
+    pub extraction_source: ExtractionSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct SetTtsVoiceInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
@@ -460,6 +592,39 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
     step: &PlannedStep,
 ) -> SerializedToolResult {
     match step.tool_name {
+        ToolName::OpenUrl => {
+            execute_serialized_tool(step, ToolName::OpenUrl, executor, |executor, input| {
+                executor.execute_open_url(input)
+            })
+        }
+        ToolName::GetPageSnapshot => execute_serialized_tool(
+            step,
+            ToolName::GetPageSnapshot,
+            executor,
+            |executor, input| executor.execute_get_page_snapshot(input),
+        ),
+        ToolName::ListInteractiveElements => execute_serialized_tool(
+            step,
+            ToolName::ListInteractiveElements,
+            executor,
+            |executor, input| executor.execute_list_interactive_elements(input),
+        ),
+        ToolName::FindElement => {
+            execute_serialized_tool(step, ToolName::FindElement, executor, |executor, input| {
+                executor.execute_find_element(input)
+            })
+        }
+        ToolName::ClickElement => {
+            execute_serialized_tool(step, ToolName::ClickElement, executor, |executor, input| {
+                executor.execute_click_element(input)
+            })
+        }
+        ToolName::ExtractPageModel => execute_serialized_tool(
+            step,
+            ToolName::ExtractPageModel,
+            executor,
+            |executor, input| executor.execute_extract_page_model(input),
+        ),
         ToolName::SetTtsVoice => {
             execute_serialized_tool(step, ToolName::SetTtsVoice, executor, |executor, input| {
                 executor.execute_set_tts_voice(input)
@@ -501,6 +666,11 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
             executor,
             |executor, input| executor.execute_confirm_action(input),
         ),
+        ToolName::ReportResult => {
+            execute_serialized_tool(step, ToolName::ReportResult, executor, |executor, input| {
+                executor.execute_report_result(input)
+            })
+        }
         _ => ToolResult::failure(
             step.tool_name.clone(),
             inferred_request_id(step),
@@ -575,6 +745,8 @@ pub fn registered_tools() -> Vec<AvailableTool> {
         GetPageSnapshot,
         ExtractPageModel,
         ListInteractiveElements,
+        FindElement,
+        ClickElement,
         StopSpeaking,
         StartListening,
         StopListening,
@@ -1000,6 +1172,7 @@ fn is_side_effecting_tool(tool_name: &ToolName) -> bool {
             | ToolName::GetPageSnapshot
             | ToolName::ExtractPageModel
             | ToolName::ListInteractiveElements
+            | ToolName::FindElement
             | ToolName::TranscribeCommand
             | ToolName::GetAgentState
             | ToolName::GetRuntimeStatus
@@ -1078,14 +1251,199 @@ mod tests {
 
     #[derive(Default)]
     struct MockExecutor {
+        last_open_url: Option<String>,
+        last_snapshot_request: Option<GetPageSnapshotInput>,
+        last_list_request: Option<ListInteractiveElementsInput>,
+        last_find_request: Option<FindElementInput>,
+        last_click_request: Option<ClickElementInput>,
+        last_extract_request: Option<ExtractPageModelInput>,
         last_voice: Option<String>,
         last_volume: Option<f32>,
         last_speed: Option<f32>,
         last_visibility: Option<BrowserVisibilityMode>,
         last_confirmation_prompt: Option<String>,
+        last_report_result: Option<ReportResultData>,
     }
 
     impl DeterministicToolExecutor for MockExecutor {
+        fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData> {
+            self.last_open_url = Some(input.url.clone());
+            ToolResult::success(
+                ToolName::OpenUrl,
+                input.request_id,
+                OpenUrlData {
+                    final_url: input.url,
+                    title: None,
+                    page_id: String::from("page-1"),
+                    load_state: input.wait_for_load_state.unwrap_or(LoadState::Load),
+                    http_status: None,
+                    history: BrowserHistoryState {
+                        can_go_back: false,
+                        can_go_forward: false,
+                        current_entry_index: Some(0),
+                        entry_count: 1,
+                    },
+                },
+                vec![String::from("opened url")],
+            )
+        }
+
+        fn execute_get_page_snapshot(
+            &mut self,
+            input: GetPageSnapshotInput,
+        ) -> ToolResult<PageSnapshotData> {
+            self.last_snapshot_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::GetPageSnapshot,
+                input.request_id,
+                PageSnapshotData {
+                    page_id: String::from("page-1"),
+                    url: String::from("https://example.com/article"),
+                    title: Some(String::from("Example article")),
+                    visible_text_excerpt: String::from("First paragraph"),
+                    interactive_elements: if input.include_interactive_elements {
+                        vec![InteractiveElement {
+                            element_id: String::from("link-1"),
+                            dom_locator: Some(String::from("#link-1")),
+                            role: crate::page_model::ElementRole::Link,
+                            tag_name: String::from("a"),
+                            text: Some(String::from("Read more")),
+                            accessible_name: Some(String::from("Read more")),
+                            placeholder: None,
+                            href: Some(String::from("https://example.com/more")),
+                            value: None,
+                            bbox: None,
+                            visible: true,
+                            enabled: true,
+                            attributes: std::collections::BTreeMap::new(),
+                        }]
+                    } else {
+                        Vec::new()
+                    },
+                    scroll_y: 0.0,
+                    viewport_width: 0.0,
+                    viewport_height: 0.0,
+                    document_height: 0.0,
+                },
+                vec![String::from("captured page snapshot")],
+            )
+        }
+
+        fn execute_list_interactive_elements(
+            &mut self,
+            input: ListInteractiveElementsInput,
+        ) -> ToolResult<ListInteractiveElementsData> {
+            self.last_list_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::ListInteractiveElements,
+                input.request_id,
+                ListInteractiveElementsData {
+                    page_id: String::from("page-1"),
+                    elements: vec![InteractiveElement {
+                        element_id: String::from("button-1"),
+                        dom_locator: Some(String::from("#button-1")),
+                        role: crate::page_model::ElementRole::Button,
+                        tag_name: String::from("button"),
+                        text: Some(String::from("Continue")),
+                        accessible_name: Some(String::from("Continue")),
+                        placeholder: None,
+                        href: None,
+                        value: None,
+                        bbox: None,
+                        visible: true,
+                        enabled: true,
+                        attributes: std::collections::BTreeMap::new(),
+                    }],
+                    visible_count: 1,
+                },
+                vec![String::from("listed interactive elements")],
+            )
+        }
+
+        fn execute_find_element(&mut self, input: FindElementInput) -> ToolResult<FindElementData> {
+            self.last_find_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::FindElement,
+                input.request_id,
+                FindElementData {
+                    query_summary: String::from("role=Button; description=continue"),
+                    chosen_element_id: Some(String::from("button-1")),
+                    chosen_confidence: Some(0.94),
+                    candidates: vec![ElementCandidate {
+                        element_id: String::from("button-1"),
+                        confidence_bps: 9400,
+                        matched_on: vec![String::from("description"), String::from("role")],
+                        rationale_codes: vec![
+                            String::from("accessible_name_exact"),
+                            String::from("role_match"),
+                        ],
+                    }],
+                    requires_confirmation: false,
+                },
+                vec![String::from("found a matching element")],
+            )
+        }
+
+        fn execute_click_element(
+            &mut self,
+            input: ClickElementInput,
+        ) -> ToolResult<ClickElementData> {
+            self.last_click_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::ClickElement,
+                input.request_id,
+                ClickElementData {
+                    element_id: input.element_id,
+                    action_performed: true,
+                    page_changed: false,
+                    navigation_url: None,
+                    resulting_title: Some(String::from("Example article")),
+                },
+                vec![String::from("clicked the requested element")],
+            )
+        }
+
+        fn execute_extract_page_model(
+            &mut self,
+            input: ExtractPageModelInput,
+        ) -> ToolResult<ExtractPageModelData> {
+            self.last_extract_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::ExtractPageModel,
+                input.request_id,
+                ExtractPageModelData {
+                    page_model: PageModel {
+                        title: Some(String::from("Example article")),
+                        url: Some(String::from("https://example.com/article")),
+                        regions: Vec::new(),
+                        interactive_elements: if input.include_links {
+                            vec![InteractiveElement {
+                                element_id: String::from("link-1"),
+                                dom_locator: Some(String::from("#link-1")),
+                                role: crate::page_model::ElementRole::Link,
+                                tag_name: String::from("a"),
+                                text: Some(String::from("Read more")),
+                                accessible_name: Some(String::from("Read more")),
+                                placeholder: None,
+                                href: Some(String::from("https://example.com/more")),
+                                value: None,
+                                bbox: None,
+                                visible: true,
+                                enabled: true,
+                                attributes: std::collections::BTreeMap::new(),
+                            }]
+                        } else {
+                            Vec::new()
+                        },
+                    },
+                    region_count: 0,
+                    readable_region_count: 0,
+                    extraction_source: ExtractionSource::DomFallback,
+                },
+                vec![String::from("extracted page model")],
+            )
+        }
+
         fn execute_set_tts_voice(
             &mut self,
             input: SetTtsVoiceInput,
@@ -1231,6 +1589,26 @@ mod tests {
                 vec![input.reason],
             )
         }
+
+        fn execute_report_result(
+            &mut self,
+            input: ReportResultInput,
+        ) -> ToolResult<ReportResultData> {
+            let data = ReportResultData {
+                status: input.status,
+                summary: input.summary,
+                next_recommended_action: input.next_recommended_action,
+                user_message: input.user_message,
+            };
+            self.last_report_result = Some(data.clone());
+
+            ToolResult::success(
+                ToolName::ReportResult,
+                input.request_id,
+                data,
+                vec![String::from("reported final result")],
+            )
+        }
     }
 
     #[test]
@@ -1265,6 +1643,251 @@ mod tests {
             .and_then(serde_json::Value::as_f64)
             .expect("playback_volume should be serialized as a number");
         assert!((playback_volume - 0.4).abs() < 0.000_001);
+    }
+
+    #[test]
+    fn dispatches_open_url_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-open-url"),
+            tool_name: ToolName::OpenUrl,
+            arguments: serde_json::json!({
+                "request_id": "req-open-url",
+                "timeout_ms": 1000,
+                "url": "https://example.com/article",
+                "wait_for_load_state": "NetworkIdle"
+            }),
+            purpose: String::from("navigate to a page"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor.last_open_url.as_deref(),
+            Some("https://example.com/article")
+        );
+        let data = result.data.expect("open_url should serialize");
+        assert_eq!(
+            data.get("final_url"),
+            Some(&serde_json::Value::String(String::from(
+                "https://example.com/article"
+            )))
+        );
+        assert_eq!(
+            data.get("load_state"),
+            Some(&serde_json::Value::String(String::from("NetworkIdle")))
+        );
+    }
+
+    #[test]
+    fn dispatches_get_page_snapshot_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-snapshot"),
+            tool_name: ToolName::GetPageSnapshot,
+            arguments: serde_json::json!({
+                "request_id": "req-snapshot",
+                "timeout_ms": 1000,
+                "include_interactive_elements": true,
+                "text_excerpt_max_chars": 120
+            }),
+            purpose: String::from("read current page snapshot"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_snapshot_request
+                .as_ref()
+                .map(|input| input.include_interactive_elements),
+            Some(true)
+        );
+        let data = result.data.expect("get_page_snapshot should serialize");
+        assert_eq!(
+            data.get("page_id"),
+            Some(&serde_json::Value::String(String::from("page-1")))
+        );
+        assert!(data
+            .get("interactive_elements")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|elements| !elements.is_empty()));
+    }
+
+    #[test]
+    fn dispatches_list_interactive_elements_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-list"),
+            tool_name: ToolName::ListInteractiveElements,
+            arguments: serde_json::json!({
+                "request_id": "req-list",
+                "timeout_ms": 1000,
+                "visible_only": true,
+                "roles": ["Button"]
+            }),
+            purpose: String::from("list visible buttons"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_list_request
+                .as_ref()
+                .map(|input| input.visible_only),
+            Some(true)
+        );
+        let data = result
+            .data
+            .expect("list_interactive_elements should serialize");
+        assert_eq!(
+            data.get("page_id"),
+            Some(&serde_json::Value::String(String::from("page-1")))
+        );
+        assert_eq!(
+            data.get("visible_count"),
+            Some(&serde_json::Value::Number(serde_json::Number::from(1)))
+        );
+        assert!(data
+            .get("elements")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|elements| elements.len() == 1));
+    }
+
+    #[test]
+    fn dispatches_find_element_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-find"),
+            tool_name: ToolName::FindElement,
+            arguments: serde_json::json!({
+                "request_id": "req-find",
+                "timeout_ms": 1000,
+                "description": "continue",
+                "text": null,
+                "role": "Button",
+                "color_hint": null,
+                "nearby_text": null,
+                "selector_hint": null,
+                "visible_only": true,
+                "max_candidates": 3
+            }),
+            purpose: String::from("find the continue button"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_find_request
+                .as_ref()
+                .and_then(|input| input.role.as_ref()),
+            Some(&crate::page_model::ElementRole::Button)
+        );
+        let data = result.data.expect("find_element should serialize");
+        assert_eq!(
+            data.get("chosen_element_id"),
+            Some(&serde_json::Value::String(String::from("button-1")))
+        );
+        assert_eq!(
+            data.get("requires_confirmation"),
+            Some(&serde_json::Value::Bool(false))
+        );
+    }
+
+    #[test]
+    fn dispatches_click_element_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-click"),
+            tool_name: ToolName::ClickElement,
+            arguments: serde_json::json!({
+                "request_id": "req-click",
+                "timeout_ms": 1000,
+                "element_id": "button-1",
+                "double_click": false
+            }),
+            purpose: String::from("click the resolved button"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_click_request
+                .as_ref()
+                .map(|input| input.element_id.as_str()),
+            Some("button-1")
+        );
+        let data = result.data.expect("click_element should serialize");
+        assert_eq!(
+            data.get("element_id"),
+            Some(&serde_json::Value::String(String::from("button-1")))
+        );
+        assert_eq!(
+            data.get("action_performed"),
+            Some(&serde_json::Value::Bool(true))
+        );
+        assert_eq!(
+            data.get("page_changed"),
+            Some(&serde_json::Value::Bool(false))
+        );
+    }
+
+    #[test]
+    fn dispatches_extract_page_model_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-extract"),
+            tool_name: ToolName::ExtractPageModel,
+            arguments: serde_json::json!({
+                "request_id": "req-extract",
+                "timeout_ms": 1000,
+                "use_dom_extraction": true,
+                "include_headings": true,
+                "include_links": false
+            }),
+            purpose: String::from("extract a page model"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_extract_request
+                .as_ref()
+                .map(|input| input.include_links),
+            Some(false)
+        );
+        let data = result.data.expect("extract_page_model should serialize");
+        assert_eq!(
+            data.get("extraction_source"),
+            Some(&serde_json::Value::String(String::from("DomFallback")))
+        );
+        assert!(data
+            .get("page_model")
+            .and_then(|model| model.get("interactive_elements"))
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|elements| elements.is_empty()));
     }
 
     #[test]
@@ -1395,6 +2018,45 @@ mod tests {
         assert_eq!(
             data.get("confirmation_id"),
             Some(&serde_json::Value::String(String::from("confirm-1")))
+        );
+    }
+
+    #[test]
+    fn dispatches_report_result_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-report"),
+            tool_name: ToolName::ReportResult,
+            arguments: serde_json::json!({
+                "request_id": "req-report",
+                "timeout_ms": 1000,
+                "status": "Success",
+                "summary": "Opened the requested page.",
+                "next_recommended_action": null,
+                "user_message": "The page is ready."
+            }),
+            purpose: String::from("report completion"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(result.tool_name, ToolName::ReportResult);
+        assert_eq!(
+            executor.last_report_result,
+            Some(ReportResultData {
+                status: ReportStatus::Success,
+                summary: String::from("Opened the requested page."),
+                next_recommended_action: None,
+                user_message: Some(String::from("The page is ready.")),
+            })
+        );
+        let data = result.data.expect("report_result should serialize");
+        assert_eq!(
+            data.get("status"),
+            Some(&serde_json::Value::String(String::from("Success")))
         );
     }
 

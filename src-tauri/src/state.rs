@@ -33,6 +33,7 @@ impl Default for ListeningState {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct AppState {
+    pub current_page_id: Option<String>,
     pub current_page: Option<PageModel>,
     pub browser_visibility: BrowserVisibilityMode,
     pub browser_history: BrowserHistoryState,
@@ -46,6 +47,7 @@ pub struct AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
+            current_page_id: None,
             current_page: None,
             browser_visibility: BrowserVisibilityMode::Visible,
             browser_history: BrowserHistoryState::default(),
@@ -69,6 +71,18 @@ impl AppState {
         self.audio = RuntimeAudioState::from(audio);
     }
 
+    pub fn record_navigation(&mut self, page_id: String, page_url: String) {
+        self.current_page_id = Some(page_id);
+        self.current_page = Some(PageModel {
+            title: None,
+            url: Some(page_url),
+            regions: Vec::new(),
+            interactive_elements: Vec::new(),
+        });
+        self.browser_history = next_history_state_after_navigation(&self.browser_history);
+        self.narration_cursor = NarrationCursor::default();
+    }
+
     pub fn apply_execution_outcome(&mut self, outcome: &ExecutionOutcome) {
         match outcome {
             ExecutionOutcome::AwaitingConfirmation {
@@ -90,6 +104,20 @@ impl AppState {
     pub fn clear_pending_execution(&mut self) {
         self.pending_confirmation_id = None;
         self.pending_plan_execution = None;
+    }
+}
+
+fn next_history_state_after_navigation(history: &BrowserHistoryState) -> BrowserHistoryState {
+    let next_index = history
+        .current_entry_index
+        .map(|index| index + 1)
+        .unwrap_or(0);
+
+    BrowserHistoryState {
+        can_go_back: next_index > 0,
+        can_go_forward: false,
+        current_entry_index: Some(next_index),
+        entry_count: next_index + 1,
     }
 }
 
@@ -166,5 +194,31 @@ mod tests {
 
         assert!(state.pending_confirmation_id.is_none());
         assert!(state.pending_plan_execution.is_none());
+    }
+
+    #[test]
+    fn record_navigation_sets_page_identity_and_advances_history() {
+        let mut state = AppState::default();
+        state.record_navigation(
+            String::from("page-1"),
+            String::from("https://example.com/first"),
+        );
+        state.record_navigation(
+            String::from("page-2"),
+            String::from("https://example.com/second"),
+        );
+
+        assert_eq!(state.current_page_id.as_deref(), Some("page-2"));
+        assert_eq!(
+            state
+                .current_page
+                .as_ref()
+                .and_then(|page| page.url.as_deref()),
+            Some("https://example.com/second")
+        );
+        assert_eq!(state.browser_history.current_entry_index, Some(1));
+        assert_eq!(state.browser_history.entry_count, 2);
+        assert!(state.browser_history.can_go_back);
+        assert!(!state.browser_history.can_go_forward);
     }
 }

@@ -212,3 +212,48 @@
 ## 2026-03-23T21:53:07Z - GPT-5.4 - Implementation baseline committed to master
 - The current Rust/Tauri scaffold, planner execution flow, frontend confirmation UI, Linux prerequisite docs, and validation updates are being committed as one baseline changeset.
 - The intended git action for this milestone is a push to `origin/master` after staging the working tree.
+
+## 2026-03-23T22:07:03Z - GPT-5.4 - report_result wired through runtime and executor
+- Added `ReportResultInput`, deterministic executor trait support, planner-step dispatch, and `AppCore::execute_report_result` so plans can end with a structured reporting tool.
+- `report_result` now rejects empty summaries, trims optional text fields, and has focused Rust tests covering dispatcher wiring and normalization behavior.
+
+## 2026-03-23T22:28:03Z - GPT-5.4 - open_url wired through runtime state and executor
+- Added `LoadState`, `OpenUrlInput`, and `OpenUrlData`, plus planner-step dispatch and deterministic executor support for `open_url`.
+- `open_url` now validates absolute URLs, records a new `page_id`, updates runtime page/history state, and returns structured navigation metadata while leaving title and HTTP status unavailable until Chromium backend integration lands.
+
+## 2026-03-23T22:43:01Z - GPT-5.4 - get_page_snapshot wired through runtime state and executor
+- Added `GetPageSnapshotInput` and expanded `PageSnapshotData` to the spec-aligned snapshot shape, then wired deterministic dispatch and runtime handling for `get_page_snapshot`.
+- The snapshot tool now reads the active page from runtime state, returns excerpted visible text plus optional interactive elements, and uses placeholder scroll/viewport metrics until the browser backend is integrated.
+
+## 2026-03-24T04:04:39Z - GPT-5.4 - extract_page_model wired through runtime state and executor
+- Added `ExtractPageModelInput`, `ExtractPageModelData`, and `ExtractionSource`, then wired deterministic dispatch and runtime handling for `extract_page_model`.
+- The extraction tool now clones the current runtime page model, can omit link elements on request, counts readable regions, and infers a conservative extraction source from existing region metadata while documenting current heading/OCR limitations.
+
+## 2026-03-24T04:22:39Z - GPT-5.4 - list_interactive_elements wired through runtime state and executor
+- Added `ListInteractiveElementsInput`, `ListInteractiveElementsData`, deterministic executor trait support, and planner-step dispatch for `list_interactive_elements`.
+- The tool now lists interactive elements from the current runtime page model, supports `visible_only` and optional role filtering, and has focused Rust tests covering dispatcher wiring and filter behavior.
+
+## 2026-03-24T04:39:37Z - GPT-5.4 - find_element wired through runtime state and executor
+- Added `FindElementInput`, `FindElementData`, deterministic executor support, and planner-step dispatch for `find_element`.
+- `find_element` now scores candidates from the same filtered runtime interactive-element data used by `list_interactive_elements`, returns a strongest match when it is clear, and marks close top candidates as requiring planner clarification before side effects.
+
+## 2026-03-24T06:05:36Z - GPT-5.4 - click_element now uses the live Chromium backend
+- Added a lazy Chromium session controller in `src-tauri/src/browser.rs` and a direct `futures` dependency so the browser handler can be polled in the background.
+- `open_url` now drives the live Chromium page and updates runtime URL/title state from the browser instead of runtime-only placeholders.
+- `click_element` now resolves the chosen deterministic `element_id` to a live DOM node by scoring page elements against `InteractiveElement` metadata, then triggers a real Chromium click or double-click and updates runtime navigation state from the resulting page.
+- Validation: `cargo test --manifest-path src-tauri/Cargo.toml --features browser` and `cargo clippy --manifest-path src-tauri/Cargo.toml --features browser --all-targets -- -D warnings` both pass.
+
+## 2026-03-24T06:15:04Z - GPT-5.4 - page model now carries stable DOM locators
+- Added `dom_locator: Option<String>` to `InteractiveElement` and updated the shared spec so DOM-backed actions can rely on a persisted page-model locator instead of re-deriving selectors at execution time.
+- `src-tauri/src/browser.rs` now requires that stored locator for `click_element` and fails clearly when the page model lacks one or when the locator no longer matches a live DOM node.
+- Added a focused regression test for missing `dom_locator`, and validation remains green for `cargo test --manifest-path src-tauri/Cargo.toml --features browser` and `cargo clippy --manifest-path src-tauri/Cargo.toml --features browser --all-targets -- -D warnings`.
+
+## 2026-03-24T06:20:44Z - GPT-5.4 - stable DOM locator contract enforced in live source
+- Added `dom_locator: Option<String>` to `InteractiveElement` in the live Rust source and updated deterministic fixtures so browser-backed actions have a persisted locator to consume.
+- `click_element` now rejects missing locators in `AppCore`, uses the stored locator directly in the Chromium backend, and no longer depends on browser-side heuristic DOM matching.
+- Added a regression test for missing `dom_locator`; validation passes with `cargo test --manifest-path src-tauri/Cargo.toml --features browser` and `cargo clippy --manifest-path src-tauri/Cargo.toml --features browser --all-targets -- -D warnings`.
+
+## 2026-03-24T06:34:40Z - GPT-5.4 - extract_page_model now populates actionable locators from Chromium
+- Added a live DOM extraction path in `src-tauri/src/browser.rs` that walks the current Chromium page, captures visible text regions plus interactive elements, and emits stable `dom_locator` values alongside extracted element metadata.
+- `AppCore::execute_extract_page_model` now refreshes `state.current_page` from that live browser extraction when DOM extraction is requested, then applies request-specific filtering only to the returned payload so later `click_element` calls remain actionable.
+- Validation passes with `cargo test --manifest-path src-tauri/Cargo.toml --features browser` and `cargo clippy --manifest-path src-tauri/Cargo.toml --features browser --all-targets -- -D warnings`.

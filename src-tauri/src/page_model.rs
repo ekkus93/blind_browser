@@ -32,9 +32,18 @@ pub enum RegionSource {
     Mixed,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub enum ExtractionSource {
+    DomSmoothie,
+    DomFallback,
+    Ocr,
+    Merged,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct InteractiveElement {
     pub element_id: String,
+    pub dom_locator: Option<String>,
     pub role: ElementRole,
     pub tag_name: String,
     pub text: Option<String>,

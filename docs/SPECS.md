@@ -864,6 +864,7 @@ struct Rect {
 
 struct InteractiveElement {
   element_id: String,
+  dom_locator: Option<String>,
   role: ElementRole,
   tag_name: String,
   text: Option<String>,
@@ -989,6 +990,7 @@ Guidelines:
 - `timeout_ms` is optional and may be clamped by the executor.
 - Optional fields should be omitted rather than filled with empty strings.
 - Tools that target page elements should prefer `element_id` over free-form selectors once an element has been resolved.
+- The page model should preserve a stable `dom_locator` for each actionable DOM-backed `InteractiveElement`; browser actions should use that stored locator rather than re-deriving selectors heuristically at execution time.
 
 #### `open_url`
 

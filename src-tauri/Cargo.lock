@@ -307,6 +307,7 @@ dependencies = [
  "chromiumoxide",
  "cpal",
  "dom_smoothie",
+ "futures",
  "kitten-tts",
  "leptess",
  "rodio",
