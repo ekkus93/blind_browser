@@ -97,9 +97,9 @@
 - [x] Implement `read_next_region`
 - [x] Implement `read_previous_region`
 - [x] Implement `stop_speaking`
-- [ ] Implement `start_listening`
-- [ ] Implement `stop_listening`
-- [ ] Implement `transcribe_command`
+- [x] Implement `start_listening`
+- [x] Implement `stop_listening`
+- [x] Implement `transcribe_command`
 - [x] Implement `set_tts_voice`
 - [x] Implement `set_playback_volume`
 - [x] Implement `set_playback_speed`
@@ -181,14 +181,14 @@
 ## Phase 3: Commands + ASR
 
 ### ASR Module
-- [ ] Capture audio via cpal
+- [x] Capture audio via cpal
 - [ ] Implement push-to-talk
-- [ ] Integrate Whisper
-- [ ] Keep local Whisper as the default provider
+- [x] Integrate Whisper
+- [x] Keep local Whisper as the default provider
 - [ ] Add optional OpenAI-backed remote ASR provider
 - [ ] Add ASR provider selection
-- [ ] Expose deterministic listening lifecycle tools for start, stop, and one-shot transcription
-- [ ] Return transcript
+- [x] Expose deterministic listening lifecycle tools for start, stop, and one-shot transcription
+- [x] Return transcript
 
 ### Commands Module
 - [ ] Define command resolver interface

@@ -42,6 +42,7 @@ pub struct AppState {
     pub speaking_region_id: Option<String>,
     pub audio: RuntimeAudioState,
     pub listening: ListeningState,
+    pub last_transcript: Option<String>,
     pub pending_confirmation_id: Option<String>,
     pub pending_plan_execution: Option<PendingPlanExecutionState>,
 }
@@ -58,6 +59,7 @@ impl Default for AppState {
             speaking_region_id: None,
             audio: RuntimeAudioState::default(),
             listening: ListeningState::default(),
+            last_transcript: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
         }
@@ -97,6 +99,21 @@ impl AppState {
     pub fn stop_speaking(&mut self) -> Option<String> {
         self.speaking = false;
         self.speaking_region_id.take()
+    }
+
+    pub fn set_listening(&mut self, is_listening: bool) {
+        self.listening.is_listening = is_listening;
+    }
+
+    pub fn record_transcript(&mut self, transcript: Option<String>) {
+        self.last_transcript = transcript.and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        });
     }
 
     pub fn apply_execution_outcome(&mut self, outcome: &ExecutionOutcome) {

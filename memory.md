@@ -354,3 +354,12 @@
 ## 2026-03-24T11:47:25Z - GPT-5.4 - Preparing playback slice push
 - The local narration playback slice is ready to commit from a green worktree state: clippy passed, Rust unit tests passed with 56 tests, and UI tests passed with 3 tests.
 - The tracked changes to be pushed are limited to the playback-related Rust/backend files plus `docs/TODO.md` and `memory.md`; the untracked local artifact `output.log` remains intentionally excluded.
+
+## 2026-03-24T11:49:11Z - GPT-5.4 - Recommended next slice is ASR and listening tools
+- With narration playback now committed and pushed, the next largest voice-first gap is spoken input: the deterministic `start_listening`, `stop_listening`, and `transcribe_command` tools remain unimplemented.
+- Recommended next implementation slice: wire local Whisper-backed ASR and runtime listening lifecycle state first, then add optional remote OpenAI ASR later without changing the deterministic tool contracts.
+
+## 2026-03-24T12:58:19Z - GPT-5.4 - Wave 1 ASR and listening tools implemented
+- `src-tauri/src/asr.rs` now provides real microphone capture and local Whisper transcription via `cpal` and `whisper-rs`, including mono conversion, 16 kHz resampling, explicit runtime errors, and one-shot transcription support.
+- `src-tauri/src/app_core.rs`, `src-tauri/src/commands.rs`, and `src-tauri/src/state.rs` now wire `start_listening`, `stop_listening`, and `transcribe_command` through the deterministic executor path, keep runtime listening state synchronized, and expose the real `last_transcript` through `get_agent_state`.
+- Updated `docs/TODO.md` and the session plan to mark the landed ASR slice complete; validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (62 Rust tests green), and `pnpm test:ui` (3 UI tests green).

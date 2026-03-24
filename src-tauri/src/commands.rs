@@ -139,6 +139,15 @@ pub trait DeterministicToolExecutor {
         input: ReadPreviousRegionInput,
     ) -> ToolResult<ReadPreviousRegionData>;
     fn execute_stop_speaking(&mut self, input: StopSpeakingInput) -> ToolResult<StopSpeakingData>;
+    fn execute_start_listening(
+        &mut self,
+        input: StartListeningInput,
+    ) -> ToolResult<StartListeningData>;
+    fn execute_stop_listening(&mut self, input: StopListeningInput) -> ToolResult<StopListeningData>;
+    fn execute_transcribe_command(
+        &mut self,
+        input: TranscribeCommandInput,
+    ) -> ToolResult<TranscribeCommandData>;
     fn execute_set_tts_voice(&mut self, input: SetTtsVoiceInput) -> ToolResult<SetTtsVoiceData>;
     fn execute_set_playback_volume(
         &mut self,
@@ -585,6 +594,46 @@ pub struct StopSpeakingData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct StartListeningInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct StartListeningData {
+    pub listening_state: ListeningState,
+    pub activated: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct StopListeningInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct StopListeningData {
+    pub listening_state: ListeningState,
+    pub deactivated: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct TranscribeCommandInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub max_duration_ms: Option<u64>,
+    pub auto_stop: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct TranscribeCommandData {
+    pub transcript: Option<String>,
+    pub confidence: Option<f32>,
+    pub audio_duration_ms: Option<u64>,
+    pub listening_state: ListeningState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct GetPageSnapshotInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
@@ -784,6 +833,24 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
                 executor.execute_stop_speaking(input)
             })
         }
+        ToolName::StartListening => execute_serialized_tool(
+            step,
+            ToolName::StartListening,
+            executor,
+            |executor, input| executor.execute_start_listening(input),
+        ),
+        ToolName::StopListening => execute_serialized_tool(
+            step,
+            ToolName::StopListening,
+            executor,
+            |executor, input| executor.execute_stop_listening(input),
+        ),
+        ToolName::TranscribeCommand => execute_serialized_tool(
+            step,
+            ToolName::TranscribeCommand,
+            executor,
+            |executor, input| executor.execute_transcribe_command(input),
+        ),
         ToolName::GetPageSnapshot => execute_serialized_tool(
             step,
             ToolName::GetPageSnapshot,
@@ -1450,6 +1517,9 @@ mod tests {
         last_read_next_region_request: Option<ReadNextRegionInput>,
         last_read_previous_region_request: Option<ReadPreviousRegionInput>,
         last_stop_speaking_request: Option<StopSpeakingInput>,
+        last_start_listening_request: Option<StartListeningInput>,
+        last_stop_listening_request: Option<StopListeningInput>,
+        last_transcribe_command_request: Option<TranscribeCommandInput>,
         last_snapshot_request: Option<GetPageSnapshotInput>,
         last_list_request: Option<ListInteractiveElementsInput>,
         last_find_request: Option<FindElementInput>,
@@ -1638,6 +1708,65 @@ mod tests {
                     interrupted_region_id: Some(String::from("region-2")),
                 },
                 vec![String::from("stopped current narration playback")],
+            )
+        }
+
+        fn execute_start_listening(
+            &mut self,
+            input: StartListeningInput,
+        ) -> ToolResult<StartListeningData> {
+            self.last_start_listening_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::StartListening,
+                input.request_id,
+                StartListeningData {
+                    listening_state: ListeningState {
+                        is_listening: true,
+                        push_to_talk_enabled: true,
+                    },
+                    activated: true,
+                },
+                vec![String::from("started listening for voice input")],
+            )
+        }
+
+        fn execute_stop_listening(
+            &mut self,
+            input: StopListeningInput,
+        ) -> ToolResult<StopListeningData> {
+            self.last_stop_listening_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::StopListening,
+                input.request_id,
+                StopListeningData {
+                    listening_state: ListeningState {
+                        is_listening: false,
+                        push_to_talk_enabled: true,
+                    },
+                    deactivated: true,
+                },
+                vec![String::from("stopped listening for voice input")],
+            )
+        }
+
+        fn execute_transcribe_command(
+            &mut self,
+            input: TranscribeCommandInput,
+        ) -> ToolResult<TranscribeCommandData> {
+            self.last_transcribe_command_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::TranscribeCommand,
+                input.request_id,
+                TranscribeCommandData {
+                    transcript: Some(String::from("read the next section")),
+                    confidence: None,
+                    audio_duration_ms: input.max_duration_ms.or(Some(3_000)),
+                    listening_state: ListeningState {
+                        is_listening: !input.auto_stop,
+                        push_to_talk_enabled: true,
+                    },
+                },
+                vec![String::from("transcribed a spoken command")],
             )
         }
 
@@ -2261,6 +2390,95 @@ mod tests {
                 .as_ref()
                 .map(|input| input.request_id.as_str()),
             Some("req-stop-speaking")
+        );
+    }
+
+    #[test]
+    fn dispatches_start_listening_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-start-listening"),
+            tool_name: ToolName::StartListening,
+            arguments: serde_json::json!({
+                "request_id": "req-start-listening",
+                "timeout_ms": 1500
+            }),
+            purpose: String::from("start listening"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_start_listening_request
+                .as_ref()
+                .map(|input| input.request_id.as_str()),
+            Some("req-start-listening")
+        );
+    }
+
+    #[test]
+    fn dispatches_stop_listening_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-stop-listening"),
+            tool_name: ToolName::StopListening,
+            arguments: serde_json::json!({
+                "request_id": "req-stop-listening"
+            }),
+            purpose: String::from("stop listening"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_stop_listening_request
+                .as_ref()
+                .map(|input| input.request_id.as_str()),
+            Some("req-stop-listening")
+        );
+    }
+
+    #[test]
+    fn dispatches_transcribe_command_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-transcribe-command"),
+            tool_name: ToolName::TranscribeCommand,
+            arguments: serde_json::json!({
+                "request_id": "req-transcribe-command",
+                "timeout_ms": 2000,
+                "max_duration_ms": 3000,
+                "auto_stop": true
+            }),
+            purpose: String::from("transcribe a command"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_transcribe_command_request
+                .as_ref()
+                .map(|input| input.request_id.as_str()),
+            Some("req-transcribe-command")
+        );
+        assert_eq!(
+            executor
+                .last_transcribe_command_request
+                .as_ref()
+                .and_then(|input| input.max_duration_ms),
+            Some(3000)
         );
     }
 

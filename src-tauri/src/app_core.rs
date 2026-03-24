@@ -2,6 +2,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use tauri::AppHandle;
 
+use crate::asr::{
+    AsrController, AsrRuntimeError, DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS,
+};
 use crate::audio_io::{AudioPlaybackController, AudioPlaybackError};
 use crate::browser::{
     BrowserController, BrowserError, BrowserSessionConfig, BrowserVisibilityMode, LoadState,
@@ -18,8 +21,9 @@ use crate::commands::{
     ReadRegionInput, ReloadPageData, ReloadPageInput, ReportResultData, ReportResultInput,
     ScrollPageData, ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput,
     SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
-    SetTtsVoiceData, SetTtsVoiceInput, StopSpeakingData, StopSpeakingInput, ToolError, ToolName,
-    ToolResult,
+    SetTtsVoiceData, SetTtsVoiceInput, StartListeningData, StartListeningInput,
+    StopListeningData, StopListeningInput, StopSpeakingData, StopSpeakingInput, ToolError,
+    ToolName, ToolResult, TranscribeCommandData, TranscribeCommandInput,
 };
 use crate::config::{AppConfig, AudioSettings, ConfigError};
 use crate::narration::{
@@ -45,6 +49,7 @@ pub struct AppCore {
     pub browser: BrowserController,
     tts: TtsController,
     playback: AudioPlaybackController,
+    asr: AsrController,
 }
 
 impl AppCore {
@@ -63,6 +68,7 @@ impl AppCore {
             browser,
             tts: TtsController::new(),
             playback: AudioPlaybackController::new(),
+            asr: AsrController::new(),
         })
     }
 
@@ -1475,6 +1481,144 @@ impl AppCore {
         )
     }
 
+    pub fn execute_start_listening(
+        &mut self,
+        input: StartListeningInput,
+    ) -> ToolResult<StartListeningData> {
+        match self.asr.start_listening() {
+            Ok(activated) => {
+                self.state.set_listening(self.asr.is_listening());
+                ToolResult::success(
+                    ToolName::StartListening,
+                    input.request_id,
+                    StartListeningData {
+                        listening_state: self.state.listening.clone(),
+                        activated,
+                    },
+                    vec![if activated {
+                        String::from("Started microphone capture for voice input.")
+                    } else {
+                        String::from("Listening was already active, so capture continued unchanged.")
+                    }],
+                )
+            }
+            Err(error) => ToolResult::failure(
+                ToolName::StartListening,
+                input.request_id,
+                asr_runtime_error_to_tool_error(&error),
+                vec![String::from(
+                    "Could not activate voice input listening in the configured ASR backend.",
+                )],
+            ),
+        }
+    }
+
+    pub fn execute_stop_listening(
+        &mut self,
+        input: StopListeningInput,
+    ) -> ToolResult<StopListeningData> {
+        let deactivated = self.asr.stop_listening();
+        self.state.set_listening(self.asr.is_listening());
+
+        ToolResult::success(
+            ToolName::StopListening,
+            input.request_id,
+            StopListeningData {
+                listening_state: self.state.listening.clone(),
+                deactivated,
+            },
+            vec![if deactivated {
+                String::from("Stopped microphone capture for voice input.")
+            } else {
+                String::from("Listening was already inactive, so there was nothing to stop.")
+            }],
+        )
+    }
+
+    pub fn execute_transcribe_command(
+        &mut self,
+        input: TranscribeCommandInput,
+    ) -> ToolResult<TranscribeCommandData> {
+        let requested_duration_ms = input
+            .max_duration_ms
+            .unwrap_or(DEFAULT_TRANSCRIBE_DURATION_MS);
+        if requested_duration_ms == 0 {
+            return ToolResult::failure(
+                ToolName::TranscribeCommand,
+                input.request_id,
+                ToolError {
+                    code: String::from("invalid_max_duration_ms"),
+                    message: String::from(
+                        "transcribe_command requires max_duration_ms to be greater than zero",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Transcription request was rejected because the requested capture duration was zero.",
+                )],
+            );
+        }
+
+        let mut effective_duration_ms = requested_duration_ms.min(MAX_TRANSCRIBE_DURATION_MS);
+        if let Some(timeout_ms) = input.timeout_ms {
+            effective_duration_ms = effective_duration_ms.min(timeout_ms.max(1));
+        }
+
+        match self
+            .asr
+            .transcribe_command(&self.config, effective_duration_ms, input.auto_stop)
+        {
+            Ok(result) => {
+                self.state.set_listening(result.listening_active);
+                self.state.record_transcript(result.transcript.clone());
+
+                let mut observations = vec![String::from(
+                    "Captured microphone audio and ran deterministic speech transcription.",
+                )];
+                if requested_duration_ms > MAX_TRANSCRIBE_DURATION_MS {
+                    observations.push(format!(
+                        "Requested capture duration was clamped to the supported maximum of {} ms.",
+                        MAX_TRANSCRIBE_DURATION_MS
+                    ));
+                }
+                if input.timeout_ms.is_some_and(|timeout_ms| timeout_ms < effective_duration_ms) {
+                    observations.push(String::from(
+                        "Capture duration was reduced to respect the requested tool timeout.",
+                    ));
+                }
+                observations.push(if result.transcript.is_some() {
+                    String::from("ASR returned a non-empty spoken command transcript.")
+                } else {
+                    String::from("ASR completed but did not detect a spoken command transcript.")
+                });
+
+                ToolResult::success(
+                    ToolName::TranscribeCommand,
+                    input.request_id,
+                    TranscribeCommandData {
+                        transcript: result.transcript,
+                        confidence: result.confidence,
+                        audio_duration_ms: result.audio_duration_ms,
+                        listening_state: self.state.listening.clone(),
+                    },
+                    observations,
+                )
+            }
+            Err(error) => {
+                self.state.set_listening(self.asr.is_listening());
+                ToolResult::failure(
+                    ToolName::TranscribeCommand,
+                    input.request_id,
+                    asr_runtime_error_to_tool_error(&error),
+                    vec![String::from(
+                        "Could not complete spoken-command transcription in the configured ASR backend.",
+                    )],
+                )
+            }
+        }
+    }
+
     pub fn execute_get_agent_state(
         &mut self,
         input: GetAgentStateInput,
@@ -1686,7 +1830,7 @@ impl AppCore {
             listening_state: self.state.listening.clone(),
             audio: self.state.audio.clone(),
             last_transcript: if include_last_transcript {
-                Some(String::new())
+                self.state.last_transcript.clone()
             } else {
                 None
             },
@@ -1825,6 +1969,24 @@ impl DeterministicToolExecutor for AppCore {
 
     fn execute_stop_speaking(&mut self, input: StopSpeakingInput) -> ToolResult<StopSpeakingData> {
         AppCore::execute_stop_speaking(self, input)
+    }
+
+    fn execute_start_listening(
+        &mut self,
+        input: StartListeningInput,
+    ) -> ToolResult<StartListeningData> {
+        AppCore::execute_start_listening(self, input)
+    }
+
+    fn execute_stop_listening(&mut self, input: StopListeningInput) -> ToolResult<StopListeningData> {
+        AppCore::execute_stop_listening(self, input)
+    }
+
+    fn execute_transcribe_command(
+        &mut self,
+        input: TranscribeCommandInput,
+    ) -> ToolResult<TranscribeCommandData> {
+        AppCore::execute_transcribe_command(self, input)
     }
 
     fn execute_go_back(&mut self, input: GoBackInput) -> ToolResult<GoBackData> {
@@ -2016,6 +2178,45 @@ fn audio_playback_error_to_tool_error(error: AudioPlaybackError) -> ToolError {
             retryable: true,
             details: None,
         },
+    }
+}
+
+fn asr_runtime_error_to_tool_error(error: &AsrRuntimeError) -> ToolError {
+    let code = match error {
+        AsrRuntimeError::MissingLocalProfile
+        | AsrRuntimeError::MissingLocalProfileDefinition { .. }
+        | AsrRuntimeError::MissingRemoteProfile => "asr_profile_unavailable",
+        AsrRuntimeError::RemoteProviderUnimplemented { .. } => "asr_provider_unimplemented",
+        AsrRuntimeError::UnsupportedLocalBackend { .. } => "unsupported_asr_backend",
+        AsrRuntimeError::AudioFeatureUnavailable => "audio_backend_unavailable",
+        AsrRuntimeError::LocalAsrFeatureUnavailable => "asr_backend_unavailable",
+        AsrRuntimeError::MissingInputDevice => "audio_input_unavailable",
+        AsrRuntimeError::InputConfigUnavailable { .. } => "audio_input_config_unavailable",
+        AsrRuntimeError::UnsupportedInputSampleFormat { .. } => "unsupported_audio_input_format",
+        AsrRuntimeError::BuildInputStream { .. } => "audio_input_stream_build_failed",
+        AsrRuntimeError::StartInputStream { .. } => "audio_input_stream_start_failed",
+        AsrRuntimeError::AudioBufferLockFailed => "audio_buffer_lock_failed",
+        AsrRuntimeError::EmptyLocalModelPath | AsrRuntimeError::MissingLocalModelPath { .. } => {
+            "asr_model_unavailable"
+        }
+        AsrRuntimeError::LocalModelLoad { .. } => "asr_model_load_failed",
+        AsrRuntimeError::NoAudioCaptured => "no_audio_captured",
+        AsrRuntimeError::TranscriptionFailed { .. } => "asr_transcription_failed",
+    };
+
+    ToolError {
+        code: String::from(code),
+        message: error.to_string(),
+        retryable: matches!(
+            error,
+            AsrRuntimeError::MissingInputDevice
+                | AsrRuntimeError::InputConfigUnavailable { .. }
+                | AsrRuntimeError::BuildInputStream { .. }
+                | AsrRuntimeError::StartInputStream { .. }
+                | AsrRuntimeError::AudioBufferLockFailed
+                | AsrRuntimeError::NoAudioCaptured
+        ),
+        details: None,
     }
 }
 
