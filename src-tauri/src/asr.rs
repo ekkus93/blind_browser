@@ -1,13 +1,19 @@
+use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+#[cfg(feature = "remote-openai")]
+use std::sync::mpsc;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::config::{AppConfig, LocalAsrProfile, ProviderMode};
+use crate::config::{
+    AppConfig, LocalAsrProfile, ProviderMode, RemoteAsrProfile, RemoteProviderKind, SecretRef,
+};
 
 #[cfg(feature = "audio")]
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -59,14 +65,21 @@ pub enum AsrRuntimeError {
     MissingLocalProfileDefinition { profile_name: String },
     #[error("asr remote profile is not configured")]
     MissingRemoteProfile,
-    #[error("remote asr profile '{profile_name}' is not implemented yet")]
-    RemoteProviderUnimplemented { profile_name: String },
+    #[error("asr remote profile '{profile_name}' was not found")]
+    MissingRemoteProfileDefinition { profile_name: String },
+    #[error("asr remote profile '{profile_name}' uses unsupported provider '{provider}'")]
+    UnsupportedRemoteProvider {
+        profile_name: String,
+        provider: String,
+    },
     #[error("unsupported local asr backend '{backend}'")]
     UnsupportedLocalBackend { backend: String },
     #[error("audio capture requires the 'audio' feature to be enabled")]
     AudioFeatureUnavailable,
     #[error("local asr requires the 'local-asr' feature to be enabled")]
     LocalAsrFeatureUnavailable,
+    #[error("remote asr requires the 'remote-openai' feature to be enabled")]
+    RemoteAsrFeatureUnavailable,
     #[error("could not find a default input audio device")]
     MissingInputDevice,
     #[error("failed to query the default input audio configuration: {reason}")]
@@ -87,6 +100,16 @@ pub enum AsrRuntimeError {
     LocalModelLoad { model_path: String, reason: String },
     #[error("captured audio buffer was empty")]
     NoAudioCaptured,
+    #[error("remote asr secret could not be resolved: {reason}")]
+    RemoteSecretUnavailable { reason: String },
+    #[error("failed to encode captured audio for remote asr: {reason}")]
+    RemoteAudioEncodeFailed { reason: String },
+    #[error("failed to build the remote asr request: {reason}")]
+    RemoteRequestBuildFailed { reason: String },
+    #[error("remote asr request timed out after {timeout_ms}ms")]
+    RemoteRequestTimedOut { timeout_ms: u64 },
+    #[error("remote asr request failed: {reason}")]
+    RemoteRequestFailed { reason: String },
     #[error("failed to transcribe captured audio: {reason}")]
     TranscriptionFailed { reason: String },
 }
@@ -156,15 +179,7 @@ impl AsrController {
 
         let transcript = match config.providers.asr.mode {
             ProviderMode::Local => self.transcribe_local(config, &captured_audio)?,
-            ProviderMode::Remote => {
-                let profile_name = config
-                    .providers
-                    .asr
-                    .remote_profile
-                    .clone()
-                    .ok_or(AsrRuntimeError::MissingRemoteProfile)?;
-                return Err(AsrRuntimeError::RemoteProviderUnimplemented { profile_name });
-            }
+            ProviderMode::Remote => self.transcribe_remote(config, &captured_audio)?,
         };
 
         Ok(AsrTranscription {
@@ -229,6 +244,93 @@ impl AsrController {
         let model_path = normalized_model_path(&profile.model_path)?;
         let audio = captured_audio.to_whisper_audio();
         transcribe_with_whisper(&model_path, profile, &audio)
+    }
+
+    fn transcribe_remote(
+        &self,
+        config: &AppConfig,
+        captured_audio: &CapturedAudio,
+    ) -> Result<String, AsrRuntimeError> {
+        let profile_name = config
+            .providers
+            .asr
+            .remote_profile
+            .as_ref()
+            .ok_or(AsrRuntimeError::MissingRemoteProfile)?;
+        let profile = config
+            .remote_asr_profiles
+            .get(profile_name)
+            .ok_or_else(|| AsrRuntimeError::MissingRemoteProfileDefinition {
+                profile_name: profile_name.clone(),
+            })?;
+
+        match &profile.provider {
+            RemoteProviderKind::OpenAi => self.transcribe_with_openai_remote(profile, captured_audio),
+            other => Err(AsrRuntimeError::UnsupportedRemoteProvider {
+                profile_name: profile_name.clone(),
+                provider: format!("{other:?}"),
+            }),
+        }
+    }
+
+    #[cfg(feature = "remote-openai")]
+    fn transcribe_with_openai_remote(
+        &self,
+        profile: &RemoteAsrProfile,
+        captured_audio: &CapturedAudio,
+    ) -> Result<String, AsrRuntimeError> {
+        use async_openai::{config::OpenAIConfig, Client};
+
+        let api_key = resolve_secret_ref(&profile.api_key)
+            .map_err(|reason| AsrRuntimeError::RemoteSecretUnavailable { reason })?;
+        let audio_bytes = captured_audio.to_remote_wav_bytes()?;
+
+        let mut openai_config = OpenAIConfig::new()
+            .with_api_base(profile.base_url.clone())
+            .with_api_key(api_key);
+        if let Some(organization) = profile.organization.as_ref() {
+            openai_config = openai_config.with_org_id(
+                resolve_secret_ref(organization)
+                    .map_err(|reason| AsrRuntimeError::RemoteSecretUnavailable { reason })?,
+            );
+        }
+        if let Some(project) = profile.project.as_ref() {
+            openai_config = openai_config.with_project_id(project.clone());
+        }
+
+        let request = build_openai_transcription_request(profile, audio_bytes)?;
+        let timeout_ms = profile.timeout_ms.max(1);
+        let (sender, receiver) = mpsc::channel();
+        thread::spawn(move || {
+            let client = Client::with_config(openai_config);
+            let result = futures::executor::block_on(client.audio().transcription().create(request))
+                .map(|response| response.text)
+                .map_err(|error| AsrRuntimeError::RemoteRequestFailed {
+                    reason: error.to_string(),
+                });
+            let _ = sender.send(result);
+        });
+
+        match receiver.recv_timeout(Duration::from_millis(timeout_ms)) {
+            Ok(result) => result,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                Err(AsrRuntimeError::RemoteRequestTimedOut { timeout_ms })
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                Err(AsrRuntimeError::RemoteRequestFailed {
+                    reason: String::from("remote transcription task ended without a response"),
+                })
+            }
+        }
+    }
+
+    #[cfg(not(feature = "remote-openai"))]
+    fn transcribe_with_openai_remote(
+        &self,
+        _profile: &RemoteAsrProfile,
+        _captured_audio: &CapturedAudio,
+    ) -> Result<String, AsrRuntimeError> {
+        Err(AsrRuntimeError::RemoteAsrFeatureUnavailable)
     }
 }
 
@@ -396,6 +498,14 @@ impl CapturedAudio {
         let mono = interleaved_to_mono(&self.samples, self.channels);
         resample_linear(&mono, self.sample_rate, WHISPER_TARGET_SAMPLE_RATE)
     }
+
+    fn to_remote_wav_bytes(&self) -> Result<Vec<u8>, AsrRuntimeError> {
+        let mono = interleaved_to_mono(&self.samples, self.channels);
+        let audio = resample_linear(&mono, self.sample_rate, WHISPER_TARGET_SAMPLE_RATE);
+        encode_wav_pcm16(&audio, WHISPER_TARGET_SAMPLE_RATE, 1).map_err(|reason| {
+            AsrRuntimeError::RemoteAudioEncodeFailed { reason }
+        })
+    }
 }
 
 fn interleaved_to_mono(samples: &[f32], channels: u16) -> Vec<f32> {
@@ -447,6 +557,108 @@ fn normalized_model_path(model_path: &str) -> Result<String, AsrRuntimeError> {
         });
     }
     Ok(trimmed.to_string())
+}
+
+#[cfg(feature = "remote-openai")]
+fn build_openai_transcription_request(
+    profile: &RemoteAsrProfile,
+    audio_bytes: Vec<u8>,
+) -> Result<async_openai::types::audio::CreateTranscriptionRequest, AsrRuntimeError> {
+    use async_openai::types::audio::{
+        AudioInput, AudioResponseFormat, CreateTranscriptionRequestArgs,
+    };
+
+    let mut request = CreateTranscriptionRequestArgs::default();
+    request.file(AudioInput::from_vec_u8(
+        String::from("command.wav"),
+        audio_bytes,
+    ));
+    request.model(profile.model.clone());
+    request.response_format(AudioResponseFormat::Json);
+    request.temperature((profile.temperature_milli as f32) / 1000.0);
+    if let Some(language) = normalized_optional_string(profile.language.as_deref()) {
+        request.language(language);
+    }
+
+    request
+        .build()
+        .map_err(|error| AsrRuntimeError::RemoteRequestBuildFailed {
+            reason: error.to_string(),
+        })
+}
+
+fn normalized_optional_string(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn resolve_secret_ref(secret_ref: &SecretRef) -> Result<String, String> {
+    match secret_ref {
+        SecretRef::FromEnv { from_env } => std::env::var(from_env)
+            .map(|value| value.trim().to_string())
+            .map_err(|error| format!("failed to read environment variable '{from_env}': {error}")),
+        SecretRef::FromFile { from_file } => fs::read_to_string(from_file)
+            .map(|value| value.trim().to_string())
+            .map_err(|error| format!("failed to read secret file '{from_file}': {error}")),
+        SecretRef::Inline { inline } => Ok(inline.trim().to_string()),
+    }
+    .and_then(|value| {
+        if value.is_empty() {
+            Err(String::from("resolved secret value was empty"))
+        } else {
+            Ok(value)
+        }
+    })
+}
+
+fn encode_wav_pcm16(samples: &[f32], sample_rate: u32, channels: u16) -> Result<Vec<u8>, String> {
+    if sample_rate == 0 {
+        return Err(String::from("sample rate must be greater than zero"));
+    }
+    if channels == 0 {
+        return Err(String::from("channel count must be greater than zero"));
+    }
+
+    let bytes_per_sample = 2u16;
+    let block_align = channels
+        .checked_mul(bytes_per_sample)
+        .ok_or_else(|| String::from("wav block alignment overflowed"))?;
+    let byte_rate = sample_rate
+        .checked_mul(u32::from(block_align))
+        .ok_or_else(|| String::from("wav byte rate overflowed"))?;
+
+    let data_size = samples
+        .len()
+        .checked_mul(2)
+        .and_then(|size| u32::try_from(size).ok())
+        .ok_or_else(|| String::from("wav data chunk was too large"))?;
+    let riff_size = 36u32
+        .checked_add(data_size)
+        .ok_or_else(|| String::from("wav riff chunk overflowed"))?;
+
+    let mut bytes = Vec::with_capacity(44usize.saturating_add(data_size as usize));
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&riff_size.to_le_bytes());
+    bytes.extend_from_slice(b"WAVE");
+    bytes.extend_from_slice(b"fmt ");
+    bytes.extend_from_slice(&16u32.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&channels.to_le_bytes());
+    bytes.extend_from_slice(&sample_rate.to_le_bytes());
+    bytes.extend_from_slice(&byte_rate.to_le_bytes());
+    bytes.extend_from_slice(&block_align.to_le_bytes());
+    bytes.extend_from_slice(&16u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&data_size.to_le_bytes());
+
+    for sample in samples {
+        let scaled = (sample.clamp(-1.0, 1.0) * i16::MAX as f32).round();
+        bytes.extend_from_slice(&(scaled as i16).to_le_bytes());
+    }
+
+    Ok(bytes)
 }
 
 #[cfg(feature = "local-asr")]
@@ -516,7 +728,10 @@ fn normalize_transcript(transcript: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{interleaved_to_mono, normalize_transcript, resample_linear};
+    use super::{
+        encode_wav_pcm16, interleaved_to_mono, normalize_transcript, normalized_optional_string,
+        resample_linear,
+    };
 
     #[test]
     fn interleaved_to_mono_averages_channels() {
@@ -534,5 +749,23 @@ mod tests {
     fn normalize_transcript_drops_blank_strings() {
         assert_eq!(normalize_transcript("   "), None);
         assert_eq!(normalize_transcript("hello"), Some(String::from("hello")));
+    }
+
+    #[test]
+    fn normalized_optional_string_trims_and_drops_empty_values() {
+        assert_eq!(normalized_optional_string(Some("  en ")), Some(String::from("en")));
+        assert_eq!(normalized_optional_string(Some("   ")), None);
+        assert_eq!(normalized_optional_string(None), None);
+    }
+
+    #[test]
+    fn encode_wav_pcm16_emits_riff_wave_header() {
+        let wav = encode_wav_pcm16(&[0.0, 0.5, -0.5], 16_000, 1).expect("wav should encode");
+
+        assert_eq!(&wav[0..4], b"RIFF");
+        assert_eq!(&wav[8..12], b"WAVE");
+        assert_eq!(&wav[12..16], b"fmt ");
+        assert_eq!(&wav[36..40], b"data");
+        assert_eq!(wav.len(), 44 + (3 * 2));
     }
 }

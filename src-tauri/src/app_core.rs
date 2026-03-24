@@ -2627,11 +2627,14 @@ fn asr_runtime_error_to_tool_error(error: &AsrRuntimeError) -> ToolError {
     let code = match error {
         AsrRuntimeError::MissingLocalProfile
         | AsrRuntimeError::MissingLocalProfileDefinition { .. }
-        | AsrRuntimeError::MissingRemoteProfile => "asr_profile_unavailable",
-        AsrRuntimeError::RemoteProviderUnimplemented { .. } => "asr_provider_unimplemented",
+        | AsrRuntimeError::MissingRemoteProfile
+        | AsrRuntimeError::MissingRemoteProfileDefinition { .. } => "asr_profile_unavailable",
+        AsrRuntimeError::UnsupportedRemoteProvider { .. } => "unsupported_asr_provider",
         AsrRuntimeError::UnsupportedLocalBackend { .. } => "unsupported_asr_backend",
         AsrRuntimeError::AudioFeatureUnavailable => "audio_backend_unavailable",
-        AsrRuntimeError::LocalAsrFeatureUnavailable => "asr_backend_unavailable",
+        AsrRuntimeError::LocalAsrFeatureUnavailable | AsrRuntimeError::RemoteAsrFeatureUnavailable => {
+            "asr_backend_unavailable"
+        }
         AsrRuntimeError::MissingInputDevice => "audio_input_unavailable",
         AsrRuntimeError::InputConfigUnavailable { .. } => "audio_input_config_unavailable",
         AsrRuntimeError::UnsupportedInputSampleFormat { .. } => "unsupported_audio_input_format",
@@ -2641,6 +2644,11 @@ fn asr_runtime_error_to_tool_error(error: &AsrRuntimeError) -> ToolError {
         AsrRuntimeError::EmptyLocalModelPath | AsrRuntimeError::MissingLocalModelPath { .. } => {
             "asr_model_unavailable"
         }
+        AsrRuntimeError::RemoteSecretUnavailable { .. } => "asr_secret_unavailable",
+        AsrRuntimeError::RemoteAudioEncodeFailed { .. } => "invalid_audio_input",
+        AsrRuntimeError::RemoteRequestBuildFailed { .. } => "asr_request_build_failed",
+        AsrRuntimeError::RemoteRequestTimedOut { .. } => "asr_request_timed_out",
+        AsrRuntimeError::RemoteRequestFailed { .. } => "asr_request_failed",
         AsrRuntimeError::LocalModelLoad { .. } => "asr_model_load_failed",
         AsrRuntimeError::NoAudioCaptured => "no_audio_captured",
         AsrRuntimeError::TranscriptionFailed { .. } => "asr_transcription_failed",
@@ -2657,6 +2665,8 @@ fn asr_runtime_error_to_tool_error(error: &AsrRuntimeError) -> ToolError {
                 | AsrRuntimeError::StartInputStream { .. }
                 | AsrRuntimeError::AudioBufferLockFailed
                 | AsrRuntimeError::NoAudioCaptured
+                | AsrRuntimeError::RemoteRequestTimedOut { .. }
+                | AsrRuntimeError::RemoteRequestFailed { .. }
         ),
         details: None,
     }

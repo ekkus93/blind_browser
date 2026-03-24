@@ -183,8 +183,8 @@
 - [ ] Implement push-to-talk
 - [x] Integrate Whisper
 - [x] Keep local Whisper as the default provider
-- [ ] Add optional OpenAI-backed remote ASR provider
-- [ ] Add ASR provider selection
+- [x] Add optional OpenAI-backed remote ASR provider
+- [x] Add ASR provider selection
 - [x] Expose deterministic listening lifecycle tools for start, stop, and one-shot transcription
 - [x] Return transcript
 
@@ -449,7 +449,7 @@
 - [ ] Replanning after tool failure or ambiguous result
 - [ ] LLM unavailable with no local provider → report command interpretation unavailable
 - [ ] Remote TTS selected → speech output succeeds
-- [ ] Remote ASR selected → transcript is returned
+- [x] Remote ASR selected → transcript is returned
 - [ ] Playback volume and speed changes persist across app restart
 - [ ] Voice command changes to playback volume and speed persist across app restart
 - [ ] Changed speech settings apply on the next utterance only

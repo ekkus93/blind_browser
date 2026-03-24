@@ -418,3 +418,9 @@
 ## 2026-03-24T19:40:00Z - GPT-5.4 - Cargo is now available automatically in fresh bash shells
 - Moved the guarded `~/.cargo/env` sourcing to the top of `~/.bashrc`, before the existing non-interactive early return, so fresh bash shells now get Cargo on `PATH` without manually running `source "$HOME/.cargo/env"`.
 - Verified with both `bash -lc 'command -v cargo && cargo --version'` and `bash -ic 'command -v cargo && cargo --version'`.
+
+## 2026-03-24T19:51:32Z - GPT-5.4 - Remote OpenAI ASR selection implemented
+- `src-tauri/src/asr.rs` now implements the remote ASR path for `providers.asr.mode = "remote"` by resolving the configured remote ASR profile, supporting `RemoteProviderKind::OpenAi`, encoding captured microphone audio as mono 16 kHz PCM16 WAV, and sending it through `async-openai`'s `/audio/transcriptions` client.
+- Remote ASR now resolves configured secrets explicitly, returns typed errors for missing profiles, unsupported providers, secret failures, WAV encoding failures, request-build failures, request timeouts, and request failures, and maps those errors through `src-tauri/src/app_core.rs` to bounded tool-error codes.
+- `docs/TODO.md` now marks optional OpenAI-backed remote ASR, ASR provider selection, and the "Remote ASR selected → transcript is returned" slice as complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (74 Rust tests green), and `pnpm test:ui` (3 tests green).
