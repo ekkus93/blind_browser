@@ -146,14 +146,14 @@
 ## Phase 2: Narration + TTS
 
 ### TTS Module
-- [ ] Wrap kitten_tts_rs
-- [ ] Keep local TTS as the default provider
+- [x] Wrap kitten_tts_rs
+- [x] Keep local TTS as the default provider
 - [ ] Add optional OpenAI-backed remote TTS provider
-- [ ] Load model
-- [ ] Implement synthesize()
-- [ ] Add voice + speed config
+- [x] Load model
+- [x] Implement synthesize()
+- [x] Add voice + speed config
 - [x] Expose deterministic voice-selection updates through `set_tts_voice`
-- [ ] Apply persisted playback speed through kitten_tts_rs native speed control
+- [x] Apply persisted playback speed through kitten_tts_rs native speed control
 - [ ] Apply persisted playback speed through OpenAI TTS native speed control when remote TTS is active
 - [ ] Add TTS provider selection
 - [ ] Expose KittenTTS voice choices: `Bella`, `Jasper`, `Luna`, `Bruno`, `Rosie`, `Hugo`, `Kiki`, `Leo`
@@ -168,9 +168,9 @@
 - [x] Stop playback
 
 ### Audio IO
-- [ ] Implement playback using rodio
-- [ ] Handle interruption
-- [ ] Implement playback volume control
+- [x] Implement playback using rodio
+- [x] Handle interruption
+- [x] Implement playback volume control
 - [x] Expose deterministic playback-volume updates through `set_playback_volume`
 - [x] Expose deterministic playback-speed updates through `set_playback_speed`
 - [ ] Apply persisted playback volume on startup

@@ -340,3 +340,17 @@
 ## 2026-03-24T11:10:35Z - GPT-5.4 - Validation rerun still green
 - Re-ran the full documented validation flow without code changes to confirm the current worktree is still healthy.
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passed with 52 Rust tests green, and `pnpm test:ui` passed with 3 UI tests green.
+
+## 2026-03-24T11:12:17Z - GPT-5.4 - Recommended next slice is real narration playback
+- After landing the narration control/tooling layer, the next highest-value gap is actual speech output: `read_region` and related tools update runtime narration state but do not yet synthesize and play audio.
+- Recommended next implementation slice: wire `tts.rs` and `audio_io.rs` for real narration playback, interruption, and persisted volume/speed application so the voice-first path becomes end-to-end functional.
+
+## 2026-03-24T11:24:41Z - GPT-5.4 - Real narration playback wired through TTS and rodio
+- `src-tauri/src/tts.rs` now resolves the configured local TTS profile, validates the KittenTTS backend/model path/sample rate, lazily loads `kitten_tts_rs`, and synthesizes narration audio with the persisted voice and playback-speed settings.
+- `src-tauri/src/audio_io.rs` now owns live rodio playback handles, starts sample-buffer playback, applies active volume updates, and supports explicit interruption/active-playback checks so runtime speaking state can stay synchronized with the real sink.
+- `src-tauri/src/app_core.rs` now stops narration on navigation/reload, starts real playback for `read_region` / `read_next_region` / `read_previous_region`, stops real playback for `stop_speaking`, and surfaces explicit tool errors for unavailable TTS/audio backends instead of silent fallback behavior.
+- Updated `docs/TODO.md` and the session plan to mark the landed local playback work complete; validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (56 Rust tests green), and `pnpm test:ui` (3 UI tests green).
+
+## 2026-03-24T11:47:25Z - GPT-5.4 - Preparing playback slice push
+- The local narration playback slice is ready to commit from a green worktree state: clippy passed, Rust unit tests passed with 56 tests, and UI tests passed with 3 tests.
+- The tracked changes to be pushed are limited to the playback-related Rust/backend files plus `docs/TODO.md` and `memory.md`; the untracked local artifact `output.log` remains intentionally excluded.

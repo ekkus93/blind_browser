@@ -48,9 +48,23 @@ pub fn previous_region_index(cursor: &NarrationCursor, region_count: usize) -> O
     }
 }
 
+pub fn spoken_text_for_region(region: &PageRegion) -> String {
+    let label = region.label.as_deref().map(str::trim).filter(|label| !label.is_empty());
+    let text = region.text.trim();
+
+    match (label, text.is_empty()) {
+        (Some(label), true) => label.to_string(),
+        (Some(label), false) if !text.starts_with(label) => format!("{label}. {text}"),
+        _ => text.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{cursor_for_index, find_region_index, next_region_index, previous_region_index};
+    use super::{
+        cursor_for_index, find_region_index, next_region_index, previous_region_index,
+        spoken_text_for_region,
+    };
     use crate::narration::NarrationCursor;
     use crate::page_model::{PageRegion, RegionSource};
 
@@ -113,5 +127,32 @@ mod tests {
             ),
             None
         );
+    }
+
+    #[test]
+    fn spoken_text_for_region_prefixes_label_when_needed() {
+        let region = PageRegion {
+            region_id: String::from("region-1"),
+            label: Some(String::from("Heading")),
+            text: String::from("Welcome to the page"),
+            source: RegionSource::Dom,
+        };
+
+        assert_eq!(
+            spoken_text_for_region(&region),
+            "Heading. Welcome to the page"
+        );
+    }
+
+    #[test]
+    fn spoken_text_for_region_avoids_repeating_existing_label_prefix() {
+        let region = PageRegion {
+            region_id: String::from("region-1"),
+            label: Some(String::from("Heading")),
+            text: String::from("Heading one overview"),
+            source: RegionSource::Dom,
+        };
+
+        assert_eq!(spoken_text_for_region(&region), "Heading one overview");
     }
 }

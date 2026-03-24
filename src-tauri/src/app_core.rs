@@ -2,6 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use tauri::AppHandle;
 
+use crate::audio_io::{AudioPlaybackController, AudioPlaybackError};
 use crate::browser::{
     BrowserController, BrowserError, BrowserSessionConfig, BrowserVisibilityMode, LoadState,
 };
@@ -23,10 +24,12 @@ use crate::commands::{
 use crate::config::{AppConfig, AudioSettings, ConfigError};
 use crate::narration::{
     cursor_for_index, find_region_index, next_region_index, previous_region_index,
+    spoken_text_for_region,
 };
 use crate::page_model::PageRegion;
 use crate::page_model::{ElementRole, ExtractionSource, PageModel, RegionSource};
 use crate::state::AppState;
+use crate::tts::{TtsController, TtsRuntimeError};
 
 const DEFAULT_FIND_ELEMENT_MAX_CANDIDATES: usize = 3;
 const MAX_FIND_ELEMENT_CANDIDATES: usize = 5;
@@ -40,6 +43,8 @@ pub struct AppCore {
     pub config: AppConfig,
     pub state: AppState,
     pub browser: BrowserController,
+    tts: TtsController,
+    playback: AudioPlaybackController,
 }
 
 impl AppCore {
@@ -56,6 +61,8 @@ impl AppCore {
             config,
             state,
             browser,
+            tts: TtsController::new(),
+            playback: AudioPlaybackController::new(),
         })
     }
 
@@ -123,6 +130,7 @@ impl AppCore {
         };
 
         let page_id = self.next_page_id(&input.request_id);
+        self.stop_narration_playback();
         self.state
             .record_navigation(page_id.clone(), browser_page.url.clone());
         if let Some(current_page) = self.state.current_page.as_mut() {
@@ -179,6 +187,7 @@ impl AppCore {
 
         self.state.browser_history = browser_navigation.history.clone();
         if browser_navigation.navigated {
+            self.stop_narration_playback();
             if let Some(current_page) = self.state.current_page.as_mut() {
                 current_page.url = browser_navigation.url.clone();
                 current_page.title = browser_navigation.title.clone();
@@ -250,6 +259,7 @@ impl AppCore {
 
         self.state.browser_history = browser_navigation.history.clone();
         if browser_navigation.navigated {
+            self.stop_narration_playback();
             if let Some(current_page) = self.state.current_page.as_mut() {
                 current_page.url = browser_navigation.url.clone();
                 current_page.title = browser_navigation.title.clone();
@@ -314,9 +324,10 @@ impl AppCore {
                         error,
                     )
                 }
-            };
+        };
 
         self.state.browser_history = browser_page.history.clone();
+        self.stop_narration_playback();
         if let Some(current_page) = self.state.current_page.as_mut() {
             current_page.url = Some(browser_page.url.clone());
             current_page.title = browser_page.title.clone();
@@ -1117,6 +1128,7 @@ impl AppCore {
 
         match self.set_playback_volume(clamped_volume) {
             Ok(()) => {
+                self.playback.set_volume(self.state.audio.playback_volume);
                 let mut observations = vec![String::from("Updated the playback volume setting.")];
                 if (requested_volume - clamped_volume).abs() > f32::EPSILON {
                     observations.push(String::from(
@@ -1158,6 +1170,9 @@ impl AppCore {
         match self.set_playback_speed(clamped_speed) {
             Ok(()) => {
                 let mut observations = vec![String::from("Updated the playback speed setting.")];
+                observations.push(String::from(
+                    "New narration requests will use the updated native TTS speed.",
+                ));
                 if (requested_speed - clamped_speed).abs() > f32::EPSILON {
                     observations.push(String::from(
                         "Requested playback speed was clamped to the supported range.",
@@ -1203,6 +1218,7 @@ impl AppCore {
     }
 
     pub fn execute_read_region(&mut self, input: ReadRegionInput) -> ToolResult<ReadRegionData> {
+        self.sync_narration_playback_state();
         let region_id = input.region_id.trim().to_string();
         if region_id.is_empty() {
             return ToolResult::failure(
@@ -1246,7 +1262,7 @@ impl AppCore {
                     input.request_id,
                     error,
                     vec![String::from(
-                        "Narration request could not start because another region is already being read.",
+                        "Narration request could not start playback for the requested region.",
                     )],
                 )
             }
@@ -1256,6 +1272,9 @@ impl AppCore {
             "Moved the narration cursor to region_id={} at index {}.",
             region.region_id, region_index
         )];
+        observations.push(String::from(
+            "Started real narration playback using the configured TTS and audio backends.",
+        ));
         if let Some(interrupted_region_id) = interrupted_region_id {
             observations.push(format!(
                 "Interrupted the previously active narration region {} before starting the new region.",
@@ -1280,6 +1299,7 @@ impl AppCore {
         &mut self,
         input: ReadNextRegionInput,
     ) -> ToolResult<ReadNextRegionData> {
+        self.sync_narration_playback_state();
         let regions = match self.readable_regions() {
             Ok(regions) => regions,
             Err(error) => return ToolResult::failure(
@@ -1318,8 +1338,8 @@ impl AppCore {
                         input.request_id,
                         error,
                         vec![String::from(
-                        "Narration could not advance because another region is already being read.",
-                    )],
+                            "Narration could not advance to the next region for playback.",
+                        )],
                     )
                 }
             };
@@ -1328,6 +1348,9 @@ impl AppCore {
             "Advanced narration to region_id={} at index {}.",
             region.region_id, region_index
         )];
+        observations.push(String::from(
+            "Started real narration playback using the configured TTS and audio backends.",
+        ));
         if let Some(interrupted_region_id) = interrupted_region_id {
             observations.push(format!(
                 "Interrupted the previously active narration region {} before reading the next region.",
@@ -1352,6 +1375,7 @@ impl AppCore {
         &mut self,
         input: ReadPreviousRegionInput,
     ) -> ToolResult<ReadPreviousRegionData> {
+        self.sync_narration_playback_state();
         let regions = match self.readable_regions() {
             Ok(regions) => regions,
             Err(error) => {
@@ -1395,7 +1419,7 @@ impl AppCore {
                     input.request_id,
                     error,
                     vec![String::from(
-                        "Narration could not move backward because another region is already being read.",
+                        "Narration could not move backward to the previous region for playback.",
                     )],
                 )
             }
@@ -1405,6 +1429,9 @@ impl AppCore {
             "Moved narration backward to region_id={} at index {}.",
             region.region_id, region_index
         )];
+        observations.push(String::from(
+            "Started real narration playback using the configured TTS and audio backends.",
+        ));
         if let Some(interrupted_region_id) = interrupted_region_id {
             observations.push(format!(
                 "Interrupted the previously active narration region {} before reading the previous region.",
@@ -1429,7 +1456,8 @@ impl AppCore {
         &mut self,
         input: StopSpeakingInput,
     ) -> ToolResult<StopSpeakingData> {
-        let interrupted_region_id = self.state.stop_speaking();
+        self.sync_narration_playback_state();
+        let interrupted_region_id = self.stop_narration_playback();
         let stopped = interrupted_region_id.is_some();
 
         ToolResult::success(
@@ -1451,10 +1479,11 @@ impl AppCore {
         &mut self,
         input: GetAgentStateInput,
     ) -> ToolResult<AgentStateData> {
+        self.sync_narration_playback_state();
         ToolResult::success(
             ToolName::GetAgentState,
             input.request_id,
-            self.current_agent_state(input.include_last_transcript),
+            self.current_agent_state_snapshot(input.include_last_transcript),
             vec![String::from("Read the current agent state.")],
         )
     }
@@ -1463,10 +1492,11 @@ impl AppCore {
         &mut self,
         input: GetRuntimeStatusInput,
     ) -> ToolResult<GetRuntimeStatusData> {
+        self.sync_narration_playback_state();
         ToolResult::success(
             ToolName::GetRuntimeStatus,
             input.request_id,
-            self.current_runtime_status(input.include_provider_modes),
+            self.current_runtime_status_snapshot(input.include_provider_modes),
             vec![String::from("Read the current runtime status.")],
         )
     }
@@ -1565,31 +1595,78 @@ impl AppCore {
         region: &PageRegion,
         interrupt_current: bool,
     ) -> Result<Option<String>, ToolError> {
+        self.sync_narration_playback_state();
+        if self.state.speaking && !interrupt_current {
+            return Err(ToolError {
+                code: String::from("speech_in_progress"),
+                message: String::from(
+                    "a narration region is already active; set interrupt_current to true to replace it",
+                ),
+                retryable: false,
+                details: Some(serde_json::json!({
+                    "active_region_id": self.state.speaking_region_id.clone(),
+                })),
+            });
+        }
+
+        let spoken_text = spoken_text_for_region(region);
+        if spoken_text.trim().is_empty() {
+            return Err(ToolError {
+                code: String::from("empty_region_text"),
+                message: String::from(
+                    "narration tool requires the selected region to contain readable text",
+                ),
+                retryable: false,
+                details: Some(serde_json::json!({
+                    "region_id": region.region_id,
+                    "region_index": region_index,
+                })),
+            });
+        }
+
+        let speech = self
+            .tts
+            .synthesize_narration(&self.config, &self.state.audio, &spoken_text)
+            .map_err(tts_runtime_error_to_tool_error)?;
+
         let interrupted_region_id = if self.state.speaking {
-            if !interrupt_current {
-                return Err(ToolError {
-                    code: String::from("speech_in_progress"),
-                    message: String::from(
-                        "a narration region is already active; set interrupt_current to true to replace it",
-                    ),
-                    retryable: false,
-                    details: Some(serde_json::json!({
-                        "active_region_id": self.state.speaking_region_id.clone(),
-                    })),
-                });
-            }
-            self.state.stop_speaking()
+            self.stop_narration_playback()
         } else {
             None
         };
 
+        self.playback
+            .play_samples(
+                speech.samples,
+                speech.channels,
+                speech.sample_rate,
+                self.state.audio.playback_volume,
+            )
+            .map_err(audio_playback_error_to_tool_error)?;
         self.state.narration_cursor = cursor_for_index(self.readable_regions()?, region_index);
         self.state.start_speaking_region(region.region_id.clone());
 
         Ok(interrupted_region_id)
     }
 
-    fn current_agent_state(&self, include_last_transcript: bool) -> AgentStateData {
+    fn sync_narration_playback_state(&mut self) {
+        if !self.playback.is_active() && self.state.speaking {
+            self.state.stop_speaking();
+        }
+    }
+
+    fn stop_narration_playback(&mut self) -> Option<String> {
+        let stopped_playback = self.playback.stop();
+        let interrupted_region_id = self.state.stop_speaking();
+
+        if interrupted_region_id.is_some() || stopped_playback {
+            interrupted_region_id
+        } else {
+            None
+        }
+    }
+
+    fn current_agent_state_snapshot(&self, include_last_transcript: bool) -> AgentStateData {
         AgentStateData {
             page_id: self.state.current_page_id.clone(),
             url: self
@@ -1619,7 +1696,7 @@ impl AppCore {
         }
     }
 
-    fn current_runtime_status(&self, include_provider_modes: bool) -> GetRuntimeStatusData {
+    fn current_runtime_status_snapshot(&self, include_provider_modes: bool) -> GetRuntimeStatusData {
         GetRuntimeStatusData {
             page_id: self.state.current_page_id.clone(),
             url: self
@@ -1852,6 +1929,94 @@ fn normalize_optional_text(value: Option<String>) -> Option<String> {
             Some(trimmed.to_string())
         }
     })
+}
+
+fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolError {
+    match error {
+        TtsRuntimeError::EmptyNarrationText => ToolError {
+            code: String::from("empty_narration_text"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::MissingLocalProfile
+        | TtsRuntimeError::MissingLocalProfileDefinition { .. }
+        | TtsRuntimeError::MissingRemoteProfile => ToolError {
+            code: String::from("tts_profile_unavailable"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::RemoteProviderUnimplemented { .. } => ToolError {
+            code: String::from("tts_provider_unimplemented"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::UnsupportedLocalBackend { .. } => ToolError {
+            code: String::from("unsupported_tts_backend"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::LocalTtsFeatureUnavailable => ToolError {
+            code: String::from("tts_backend_unavailable"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::EmptyLocalModelPath | TtsRuntimeError::MissingLocalModelPath { .. } => {
+            ToolError {
+                code: String::from("tts_model_unavailable"),
+                message: error.to_string(),
+                retryable: false,
+                details: None,
+            }
+        }
+        TtsRuntimeError::UnsupportedLocalSampleRate { .. } => ToolError {
+            code: String::from("unsupported_tts_sample_rate"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::LocalModelLoad { .. } => ToolError {
+            code: String::from("tts_model_load_failed"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::SynthesisFailed { .. } => ToolError {
+            code: String::from("tts_synthesis_failed"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+    }
+}
+
+fn audio_playback_error_to_tool_error(error: AudioPlaybackError) -> ToolError {
+    match error {
+        AudioPlaybackError::AudioFeatureUnavailable => ToolError {
+            code: String::from("audio_backend_unavailable"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        AudioPlaybackError::InvalidChannelCount | AudioPlaybackError::InvalidSampleRate => {
+            ToolError {
+                code: String::from("invalid_audio_output"),
+                message: error.to_string(),
+                retryable: false,
+                details: None,
+            }
+        }
+        AudioPlaybackError::OpenDevice { .. } => ToolError {
+            code: String::from("audio_output_unavailable"),
+            message: error.to_string(),
+            retryable: true,
+            details: None,
+        },
+    }
 }
 
 fn normalize_absolute_url(url: &str) -> Result<String, ToolError> {
