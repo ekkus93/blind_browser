@@ -1,4 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use schemars::JsonSchema;
@@ -985,6 +987,30 @@ pub struct ElementSearchResult {
     pub elements: Vec<InteractiveElement>,
 }
 
+const MAX_SELECTED_PLANNER_SKILLS: usize = 3;
+const MAX_INITIAL_PLAN_STEPS: usize = 5;
+const BUNDLED_SKILLS_MARKDOWN: &str = include_str!("../../docs/SKILLS.md");
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlannerSkillSelection {
+    pub active_skill_names: Vec<String>,
+    pub relevant_skill_summaries: Vec<SkillSummary>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum SkillSource {
+    Project,
+    User,
+    Bundled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LoadedSkill {
+    summary: SkillSummary,
+    body: String,
+    source: SkillSource,
+}
+
 pub fn registered_tools() -> Vec<AvailableTool> {
     use ToolName::*;
 
@@ -1025,6 +1051,1017 @@ pub fn registered_tools() -> Vec<AvailableTool> {
         name,
     })
     .collect()
+}
+
+pub fn planner_available_tools() -> Vec<AvailableTool> {
+    registered_tools()
+        .into_iter()
+        .filter(|tool| is_plannable_tool(&tool.name))
+        .collect()
+}
+
+pub fn planner_output_schema() -> serde_json::Value {
+    schema_json::<PlannerOutput>()
+}
+
+pub fn tool_input_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
+    match tool_name {
+        ToolName::OpenUrl => Some(schema_json::<OpenUrlInput>()),
+        ToolName::GoBack => Some(schema_json::<GoBackInput>()),
+        ToolName::GoForward => Some(schema_json::<GoForwardInput>()),
+        ToolName::ReloadPage => Some(schema_json::<ReloadPageInput>()),
+        ToolName::ScrollPage => Some(schema_json::<ScrollPageInput>()),
+        ToolName::SetBrowserVisibility => Some(schema_json::<SetBrowserVisibilityInput>()),
+        ToolName::GetPageSnapshot => Some(schema_json::<GetPageSnapshotInput>()),
+        ToolName::ExtractPageModel => Some(schema_json::<ExtractPageModelInput>()),
+        ToolName::ListInteractiveElements => Some(schema_json::<ListInteractiveElementsInput>()),
+        ToolName::FindElement => Some(schema_json::<FindElementInput>()),
+        ToolName::ClickElement => Some(schema_json::<ClickElementInput>()),
+        ToolName::ReadRegion => Some(schema_json::<ReadRegionInput>()),
+        ToolName::ReadNextRegion => Some(schema_json::<ReadNextRegionInput>()),
+        ToolName::ReadPreviousRegion => Some(schema_json::<ReadPreviousRegionInput>()),
+        ToolName::StopSpeaking => Some(schema_json::<StopSpeakingInput>()),
+        ToolName::StartListening => Some(schema_json::<StartListeningInput>()),
+        ToolName::StopListening => Some(schema_json::<StopListeningInput>()),
+        ToolName::TranscribeCommand => Some(schema_json::<TranscribeCommandInput>()),
+        ToolName::SetTtsVoice => Some(schema_json::<SetTtsVoiceInput>()),
+        ToolName::SetPlaybackVolume => Some(schema_json::<SetPlaybackVolumeInput>()),
+        ToolName::SetPlaybackSpeed => Some(schema_json::<SetPlaybackSpeedInput>()),
+        ToolName::GetAgentState => Some(schema_json::<GetAgentStateInput>()),
+        ToolName::GetRuntimeStatus => Some(schema_json::<GetRuntimeStatusInput>()),
+        ToolName::ConfirmAction => Some(schema_json::<ConfirmActionInput>()),
+        ToolName::ReportResult => Some(schema_json::<ReportResultInput>()),
+        _ => None,
+    }
+}
+
+pub fn build_planner_skill_selection(
+    project_root: Option<&Path>,
+    user_skill_root: Option<&Path>,
+    transcript: &str,
+    available_tools: &[AvailableTool],
+) -> PlannerSkillSelection {
+    let loaded_skills = discover_skills(project_root, user_skill_root, available_tools);
+    let mut active_skill_names = loaded_skills
+        .iter()
+        .map(|skill| skill.summary.name.clone())
+        .collect::<Vec<_>>();
+    active_skill_names.sort();
+
+    let inferred_intent = infer_intent_hint(transcript);
+    let likely_tools = likely_tools_for_intent(&inferred_intent);
+    let transcript_tokens = tokenize_text(transcript);
+
+    let mut ranked_skills = loaded_skills
+        .into_iter()
+        .filter_map(|skill| {
+            score_skill(&skill, &transcript_tokens, &inferred_intent, &likely_tools)
+                .map(|score| (score, skill.summary))
+        })
+        .collect::<Vec<_>>();
+
+    ranked_skills.sort_by(|left, right| {
+        right
+            .0
+            .cmp(&left.0)
+            .then_with(|| left.1.name.cmp(&right.1.name))
+    });
+
+    let relevant_skill_summaries = ranked_skills
+        .into_iter()
+        .take(MAX_SELECTED_PLANNER_SKILLS)
+        .map(|(_, summary)| summary)
+        .collect();
+
+    PlannerSkillSelection {
+        active_skill_names,
+        relevant_skill_summaries,
+    }
+}
+
+pub fn infer_intent_hint(transcript: &str) -> IntentName {
+    let normalized = normalize_transcript_for_routing(transcript);
+
+    if normalized.is_empty() {
+        return IntentName::Unknown;
+    }
+
+    if normalized.contains("start listening") || normalized.contains("listen now") {
+        return IntentName::StartListening;
+    }
+    if normalized.contains("stop listening") {
+        return IntentName::StopListening;
+    }
+    if normalized.contains("transcribe") || normalized.contains("what did i say") {
+        return IntentName::TranscribeCommand;
+    }
+    if normalized.contains("go back") || normalized == "back" {
+        return IntentName::GoBack;
+    }
+    if normalized.contains("go forward") || normalized == "forward" {
+        return IntentName::GoForward;
+    }
+    if normalized.contains("reload") || normalized.contains("refresh") {
+        return IntentName::ReloadPage;
+    }
+    if normalized.contains("current url") || normalized.contains("what page") {
+        return IntentName::GetCurrentUrl;
+    }
+    if normalized.contains("status") || normalized.contains("where am i") {
+        return IntentName::GetStatus;
+    }
+    if normalized.contains("read next") || normalized.contains("next region") {
+        return IntentName::ReadNext;
+    }
+    if normalized.contains("read previous") || normalized.contains("previous region") {
+        return IntentName::ReadPrevious;
+    }
+    if normalized.contains("repeat") {
+        return IntentName::Repeat;
+    }
+    if normalized.contains("stop reading")
+        || normalized.contains("stop speaking")
+        || normalized.contains("pause reading")
+    {
+        return IntentName::Stop;
+    }
+    if normalized.contains("read page") || normalized.contains("read this page") {
+        return IntentName::ReadPage;
+    }
+    if normalized.contains("open ") || normalized.contains("go to ") || normalized.contains("visit ")
+    {
+        return IntentName::OpenUrl;
+    }
+    if normalized.contains("click ") || normalized.contains("press ") {
+        return IntentName::ClickElement;
+    }
+    if normalized.contains("find ") {
+        return IntentName::FindElement;
+    }
+    if normalized.contains("scroll ") {
+        return IntentName::Scroll;
+    }
+    if normalized.contains("volume")
+        || normalized.contains("mute")
+        || normalized.contains("quieter")
+        || normalized.contains("louder")
+    {
+        return IntentName::SetPlaybackVolume;
+    }
+    if normalized.contains("speed")
+        || normalized.contains("faster")
+        || normalized.contains("slower")
+    {
+        return IntentName::SetPlaybackSpeed;
+    }
+    if normalized.contains("show browser") || normalized.contains("hide browser") {
+        return IntentName::SetBrowserVisibility;
+    }
+
+    IntentName::Unknown
+}
+
+pub fn validate_planner_output(
+    planner_output: &PlannerOutput,
+    available_tools: &[AvailableTool],
+    active_skill_names: &[String],
+) -> Result<(), ToolError> {
+    let available_tool_names = available_tools
+        .iter()
+        .map(|tool| tool.name.clone())
+        .collect::<Vec<_>>();
+    let active_skill_name_set = active_skill_names.iter().cloned().collect::<HashSet<_>>();
+
+    if planner_output.steps.len() > MAX_INITIAL_PLAN_STEPS {
+        return Err(invalid_planner_output(
+            format!(
+                "planner returned {} steps, exceeding the v1 maximum of {}",
+                planner_output.steps.len(),
+                MAX_INITIAL_PLAN_STEPS
+            ),
+            None,
+        ));
+    }
+
+    match planner_output.status {
+        PlannerStatus::Ready | PlannerStatus::NeedsConfirmation => {
+            if planner_output.steps.is_empty() {
+                return Err(invalid_planner_output(
+                    "planner returned no executable steps for an executing status",
+                    None,
+                ));
+            }
+        }
+        PlannerStatus::Blocked => {
+            if !planner_output.steps.is_empty() {
+                return Err(invalid_planner_output(
+                    "blocked planner output must not include executable steps",
+                    None,
+                ));
+            }
+            if planner_output.blocked_reason.is_none() {
+                return Err(invalid_planner_output(
+                    "blocked planner output must include blocked_reason",
+                    None,
+                ));
+            }
+            if planner_output
+                .user_message
+                .as_ref()
+                .is_none_or(|message| message.trim().is_empty())
+            {
+                return Err(invalid_planner_output(
+                    "blocked planner output must include a non-empty user_message",
+                    None,
+                ));
+            }
+        }
+        PlannerStatus::Complete => {
+            if !planner_output.steps.is_empty() {
+                return Err(invalid_planner_output(
+                    "complete planner output must not include executable steps",
+                    None,
+                ));
+            }
+        }
+    }
+
+    if planner_output.status == PlannerStatus::NeedsConfirmation {
+        if !planner_output.requires_confirmation {
+            return Err(invalid_planner_output(
+                "needs-confirmation planner output must set requires_confirmation",
+                None,
+            ));
+        }
+        if planner_output
+            .confirmation_reason
+            .as_ref()
+            .is_none_or(|reason| reason.trim().is_empty())
+        {
+            return Err(invalid_planner_output(
+                "needs-confirmation planner output must include confirmation_reason",
+                None,
+            ));
+        }
+    }
+
+    let mut seen_step_ids = HashSet::new();
+    for step in &planner_output.steps {
+        if step.step_id.trim().is_empty() {
+            return Err(invalid_planner_output(
+                "planner step ids must be non-empty",
+                Some(serde_json::json!({ "tool_name": step.tool_name })),
+            ));
+        }
+        if !seen_step_ids.insert(step.step_id.clone()) {
+            return Err(invalid_planner_output(
+                format!("planner returned duplicate step id '{}'", step.step_id),
+                Some(serde_json::json!({ "step_id": step.step_id })),
+            ));
+        }
+        if step.purpose.trim().is_empty() {
+            return Err(invalid_planner_output(
+                "planner steps must include a non-empty purpose",
+                Some(serde_json::json!({ "step_id": step.step_id })),
+            ));
+        }
+        if !available_tool_names.iter().any(|tool_name| tool_name == &step.tool_name) {
+            return Err(invalid_planner_output(
+                format!("planner referenced unavailable tool {:?}", step.tool_name),
+                Some(serde_json::json!({ "step_id": step.step_id })),
+            ));
+        }
+        validate_planned_step_arguments(step)?;
+    }
+
+    for step in &planner_output.steps {
+        validate_step_transition(&step.on_success, &seen_step_ids, &step.step_id)?;
+        validate_step_transition(&step.on_failure, &seen_step_ids, &step.step_id)?;
+    }
+
+    for skill_name in &planner_output.selected_skills {
+        if !active_skill_name_set.contains(skill_name) {
+            return Err(invalid_planner_output(
+                format!("planner selected unknown or ineligible skill '{skill_name}'"),
+                None,
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn is_plannable_tool(tool_name: &ToolName) -> bool {
+    matches!(
+        tool_name,
+        ToolName::OpenUrl
+            | ToolName::GoBack
+            | ToolName::GoForward
+            | ToolName::ReloadPage
+            | ToolName::ScrollPage
+            | ToolName::SetBrowserVisibility
+            | ToolName::GetPageSnapshot
+            | ToolName::ExtractPageModel
+            | ToolName::ListInteractiveElements
+            | ToolName::FindElement
+            | ToolName::ClickElement
+            | ToolName::ReadRegion
+            | ToolName::ReadNextRegion
+            | ToolName::ReadPreviousRegion
+            | ToolName::StopSpeaking
+            | ToolName::StartListening
+            | ToolName::StopListening
+            | ToolName::TranscribeCommand
+            | ToolName::SetTtsVoice
+            | ToolName::SetPlaybackVolume
+            | ToolName::SetPlaybackSpeed
+            | ToolName::GetAgentState
+            | ToolName::GetRuntimeStatus
+            | ToolName::ConfirmAction
+            | ToolName::ReportResult
+    )
+}
+
+fn schema_json<T: JsonSchema>() -> serde_json::Value {
+    serde_json::to_value(schemars::schema_for!(T)).expect("schema generation should serialize")
+}
+
+fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> {
+    match step.tool_name {
+        ToolName::OpenUrl => validate_tool_arguments::<OpenUrlInput>(step),
+        ToolName::GoBack => validate_tool_arguments::<GoBackInput>(step),
+        ToolName::GoForward => validate_tool_arguments::<GoForwardInput>(step),
+        ToolName::ReloadPage => validate_tool_arguments::<ReloadPageInput>(step),
+        ToolName::ScrollPage => validate_tool_arguments::<ScrollPageInput>(step),
+        ToolName::SetBrowserVisibility => validate_tool_arguments::<SetBrowserVisibilityInput>(step),
+        ToolName::GetPageSnapshot => validate_tool_arguments::<GetPageSnapshotInput>(step),
+        ToolName::ExtractPageModel => validate_tool_arguments::<ExtractPageModelInput>(step),
+        ToolName::ListInteractiveElements => {
+            validate_tool_arguments::<ListInteractiveElementsInput>(step)
+        }
+        ToolName::FindElement => validate_tool_arguments::<FindElementInput>(step),
+        ToolName::ClickElement => validate_tool_arguments::<ClickElementInput>(step),
+        ToolName::ReadRegion => validate_tool_arguments::<ReadRegionInput>(step),
+        ToolName::ReadNextRegion => validate_tool_arguments::<ReadNextRegionInput>(step),
+        ToolName::ReadPreviousRegion => validate_tool_arguments::<ReadPreviousRegionInput>(step),
+        ToolName::StopSpeaking => validate_tool_arguments::<StopSpeakingInput>(step),
+        ToolName::StartListening => validate_tool_arguments::<StartListeningInput>(step),
+        ToolName::StopListening => validate_tool_arguments::<StopListeningInput>(step),
+        ToolName::TranscribeCommand => validate_tool_arguments::<TranscribeCommandInput>(step),
+        ToolName::SetTtsVoice => validate_tool_arguments::<SetTtsVoiceInput>(step),
+        ToolName::SetPlaybackVolume => validate_tool_arguments::<SetPlaybackVolumeInput>(step),
+        ToolName::SetPlaybackSpeed => validate_tool_arguments::<SetPlaybackSpeedInput>(step),
+        ToolName::GetAgentState => validate_tool_arguments::<GetAgentStateInput>(step),
+        ToolName::GetRuntimeStatus => validate_tool_arguments::<GetRuntimeStatusInput>(step),
+        ToolName::ConfirmAction => validate_tool_arguments::<ConfirmActionInput>(step),
+        ToolName::ReportResult => validate_tool_arguments::<ReportResultInput>(step),
+        _ => Err(invalid_planner_output(
+            format!("planner referenced unsupported tool {:?}", step.tool_name),
+            Some(serde_json::json!({ "step_id": step.step_id })),
+        )),
+    }
+}
+
+fn validate_step_transition(
+    transition: &StepTransition,
+    step_ids: &HashSet<String>,
+    source_step_id: &str,
+) -> Result<(), ToolError> {
+    if let StepTransition::NextStep { step_id } = transition {
+        if !step_ids.contains(step_id) {
+            return Err(invalid_planner_output(
+                format!(
+                    "planner referenced missing next step '{}' from '{}'",
+                    step_id, source_step_id
+                ),
+                Some(serde_json::json!({
+                    "source_step_id": source_step_id,
+                    "next_step_id": step_id,
+                })),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn invalid_planner_output(
+    message: impl Into<String>,
+    details: Option<serde_json::Value>,
+) -> ToolError {
+    ToolError {
+        code: String::from("invalid_planner_output"),
+        message: message.into(),
+        retryable: false,
+        details,
+    }
+}
+
+fn discover_skills(
+    project_root: Option<&Path>,
+    user_skill_root: Option<&Path>,
+    available_tools: &[AvailableTool],
+) -> Vec<LoadedSkill> {
+    let available_tool_names = available_tools
+        .iter()
+        .map(|tool| tool.name.clone())
+        .collect::<Vec<_>>();
+    let mut discovered = HashMap::<String, LoadedSkill>::new();
+
+    if let Some(project_root) = project_root {
+        load_skills_from_directory(
+            &project_root.join(".pi").join("skills"),
+            SkillSource::Project,
+            &available_tool_names,
+            &mut discovered,
+        );
+    }
+
+    if let Some(user_skill_root) = user_skill_root {
+        load_skills_from_directory(
+            user_skill_root,
+            SkillSource::User,
+            &available_tool_names,
+            &mut discovered,
+        );
+    }
+
+    for skill in parse_bundled_skills(BUNDLED_SKILLS_MARKDOWN, &available_tool_names) {
+        discovered.entry(skill.summary.name.clone()).or_insert(skill);
+    }
+
+    discovered.into_values().collect()
+}
+
+fn load_skills_from_directory(
+    skill_root: &Path,
+    source: SkillSource,
+    available_tool_names: &[ToolName],
+    discovered: &mut HashMap<String, LoadedSkill>,
+) {
+    let entries = match fs::read_dir(skill_root) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+        Err(error) => {
+            tracing::warn!(
+                path = %skill_root.display(),
+                error = %error,
+                "failed to read skill directory"
+            );
+            return;
+        }
+    };
+
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+
+        let skill_file_path = path.join("SKILL.md");
+        let content = match fs::read_to_string(&skill_file_path) {
+            Ok(content) => content,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => {
+                tracing::warn!(
+                    path = %skill_file_path.display(),
+                    error = %error,
+                    "failed to read SKILL.md"
+                );
+                continue;
+            }
+        };
+
+        match parse_skill_document(&content, source, available_tool_names) {
+            Ok(skill) => {
+                let directory_name = path
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default();
+                if directory_name != skill.summary.name {
+                    tracing::warn!(
+                        path = %skill_file_path.display(),
+                        expected = directory_name,
+                        actual = %skill.summary.name,
+                        "skipping skill because directory name does not match frontmatter name"
+                    );
+                    continue;
+                }
+                discovered.entry(skill.summary.name.clone()).or_insert(skill);
+            }
+            Err(error) => {
+                tracing::warn!(
+                    path = %skill_file_path.display(),
+                    error = %error,
+                    "skipping invalid skill document"
+                );
+            }
+        }
+    }
+}
+
+fn parse_skill_document(
+    content: &str,
+    source: SkillSource,
+    available_tool_names: &[ToolName],
+) -> Result<LoadedSkill, String> {
+    let normalized = content.replace("\r\n", "\n");
+    let Some(frontmatter_body) = normalized.strip_prefix("---\n") else {
+        return Err(String::from("SKILL.md is missing a YAML frontmatter block"));
+    };
+    let Some(split_index) = frontmatter_body.find("\n---\n") else {
+        return Err(String::from("SKILL.md frontmatter block is not terminated"));
+    };
+
+    let frontmatter_block = &frontmatter_body[..split_index];
+    let body = frontmatter_body[(split_index + 5)..].trim().to_string();
+    let frontmatter = parse_skill_frontmatter(frontmatter_block, available_tool_names)?;
+    Ok(LoadedSkill {
+        summary: skill_summary_from_frontmatter(frontmatter),
+        body,
+        source,
+    })
+}
+
+fn parse_skill_frontmatter(
+    block: &str,
+    available_tool_names: &[ToolName],
+) -> Result<SkillFrontmatter, String> {
+    let mut scalar_fields = HashMap::<String, String>::new();
+    let mut list_fields = HashMap::<String, Vec<String>>::new();
+    let mut active_list_key: Option<String> = None;
+
+    for raw_line in block.lines() {
+        let trimmed = raw_line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if let Some(list_key) = active_list_key.as_ref() {
+            if let Some(item) = trimmed.strip_prefix("- ") {
+                list_fields
+                    .entry(list_key.clone())
+                    .or_default()
+                    .push(clean_skill_value(item));
+                continue;
+            }
+            active_list_key = None;
+        }
+
+        let Some((key, value)) = trimmed.split_once(':') else {
+            return Err(format!("invalid frontmatter line '{trimmed}'"));
+        };
+        let key = normalize_skill_key(key.trim());
+        let value = value.trim();
+
+        match key.as_str() {
+            "name" | "description" | "requires_confirmation" | "priority" => {
+                scalar_fields.insert(key, clean_skill_value(value));
+            }
+            "allowed_tools" | "intent_tags" => {
+                let list = list_fields.entry(key.clone()).or_default();
+                list.extend(parse_inline_list(value));
+                active_list_key = Some(key);
+            }
+            _ => return Err(format!("unsupported frontmatter field '{key}'")),
+        }
+    }
+
+    skill_frontmatter_from_parts(scalar_fields, list_fields, available_tool_names)
+}
+
+fn parse_bundled_skills(markdown: &str, available_tool_names: &[ToolName]) -> Vec<LoadedSkill> {
+    let mut current_name: Option<String> = None;
+    let mut description = String::new();
+    let mut intent_tags = Vec::new();
+    let mut allowed_tools = Vec::new();
+    let mut skills = Vec::new();
+
+    let flush_skill = |skills: &mut Vec<LoadedSkill>,
+                       current_name: &mut Option<String>,
+                       description: &mut String,
+                       intent_tags: &mut Vec<String>,
+                       allowed_tools: &mut Vec<String>,
+                       requires_confirmation: bool| {
+        let Some(name) = current_name.take() else {
+            return;
+        };
+
+        let mut scalar_fields = HashMap::new();
+        scalar_fields.insert(String::from("name"), name);
+        scalar_fields.insert(String::from("description"), description.trim().to_string());
+        scalar_fields.insert(
+            String::from("requires_confirmation"),
+            requires_confirmation.to_string(),
+        );
+        let mut list_fields = HashMap::new();
+        list_fields.insert(String::from("intent_tags"), intent_tags.clone());
+        list_fields.insert(String::from("allowed_tools"), allowed_tools.clone());
+
+        match skill_frontmatter_from_parts(scalar_fields, list_fields, available_tool_names) {
+            Ok(frontmatter) => skills.push(LoadedSkill {
+                summary: skill_summary_from_frontmatter(frontmatter),
+                body: description.trim().to_string(),
+                source: SkillSource::Bundled,
+            }),
+            Err(error) => {
+                tracing::warn!(skill_name = %skills.last().map(|skill| skill.summary.name.as_str()).unwrap_or("unknown"), error = %error, "skipping invalid bundled skill");
+            }
+        }
+
+        description.clear();
+        intent_tags.clear();
+        allowed_tools.clear();
+    };
+
+    let mut requires_confirmation_value = false;
+    for raw_line in markdown.lines() {
+        let trimmed = raw_line.trim();
+        if let Some(name) = trimmed.strip_prefix("#### ") {
+            flush_skill(
+                &mut skills,
+                &mut current_name,
+                &mut description,
+                &mut intent_tags,
+                &mut allowed_tools,
+                requires_confirmation_value,
+            );
+            current_name = Some(name.trim().to_string());
+            requires_confirmation_value = false;
+            continue;
+        }
+
+        if current_name.is_none() {
+            continue;
+        }
+
+        if let Some(value) = trimmed.strip_prefix("- intent_tags:") {
+            intent_tags = parse_backticked_list(value);
+        } else if let Some(value) = trimmed.strip_prefix("- allowed_tools:") {
+            allowed_tools = parse_backticked_list(value);
+        } else if let Some(value) = trimmed.strip_prefix("- requires_confirmation:") {
+            requires_confirmation_value = parse_bool_value(value).unwrap_or(false);
+        } else if let Some(value) = trimmed.strip_prefix("- description:") {
+            description = clean_skill_value(value);
+        }
+    }
+
+    flush_skill(
+        &mut skills,
+        &mut current_name,
+        &mut description,
+        &mut intent_tags,
+        &mut allowed_tools,
+        requires_confirmation_value,
+    );
+
+    skills
+}
+
+fn skill_frontmatter_from_parts(
+    scalar_fields: HashMap<String, String>,
+    list_fields: HashMap<String, Vec<String>>,
+    available_tool_names: &[ToolName],
+) -> Result<SkillFrontmatter, String> {
+    let name = scalar_fields
+        .get("name")
+        .ok_or_else(|| String::from("skill frontmatter is missing name"))?
+        .trim()
+        .to_string();
+    if !is_valid_skill_name(&name) {
+        return Err(format!("invalid skill name '{name}'"));
+    }
+
+    let description = scalar_fields
+        .get("description")
+        .ok_or_else(|| String::from("skill frontmatter is missing description"))?
+        .trim()
+        .to_string();
+    if description.is_empty() {
+        return Err(String::from("skill description must not be empty"));
+    }
+
+    let mut intent_tags = list_fields
+        .get("intent_tags")
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|tag| !tag.is_empty())
+        .collect::<Vec<_>>();
+    intent_tags.sort();
+    intent_tags.dedup();
+    for tag in &intent_tags {
+        if let Some(intent_name) = tag.strip_prefix("intent:") {
+            parse_intent_name_value(intent_name)?;
+        }
+    }
+
+    let allowed_tools = match list_fields.get("allowed_tools") {
+        Some(tool_names) if !tool_names.is_empty() => {
+            let mut resolved_tools = Vec::new();
+            for tool_name in tool_names {
+                let tool = parse_tool_name_value(tool_name)?;
+                if !available_tool_names.iter().any(|available| available == &tool) {
+                    return Err(format!("skill references unavailable tool '{tool_name}'"));
+                }
+                resolved_tools.push(tool);
+            }
+            Some(resolved_tools)
+        }
+        _ => None,
+    };
+
+    let requires_confirmation = scalar_fields
+        .get("requires_confirmation")
+        .map(|value| parse_bool_value(value))
+        .transpose()?
+        .unwrap_or(false);
+
+    let priority = scalar_fields
+        .get("priority")
+        .map(|value| {
+            value
+                .parse::<i32>()
+                .map_err(|error| format!("invalid priority value '{value}': {error}"))
+        })
+        .transpose()?
+        .unwrap_or(0);
+
+    Ok(SkillFrontmatter {
+        name,
+        description,
+        allowed_tools,
+        intent_tags,
+        requires_confirmation,
+        priority,
+    })
+}
+
+fn skill_summary_from_frontmatter(frontmatter: SkillFrontmatter) -> SkillSummary {
+    SkillSummary {
+        name: frontmatter.name,
+        description: frontmatter.description,
+        intent_tags: frontmatter.intent_tags,
+        allowed_tools: frontmatter.allowed_tools,
+        requires_confirmation: frontmatter.requires_confirmation,
+        priority: frontmatter.priority,
+    }
+}
+
+fn normalize_skill_key(key: &str) -> String {
+    key.trim().replace('-', "_")
+}
+
+fn parse_inline_list(value: &str) -> Vec<String> {
+    let cleaned = clean_skill_value(value);
+    if cleaned.is_empty() {
+        return Vec::new();
+    }
+
+    let trimmed = cleaned.trim_matches(['[', ']']);
+    trimmed
+        .split(',')
+        .map(clean_skill_value)
+        .filter(|item| !item.is_empty())
+        .collect()
+}
+
+fn parse_backticked_list(value: &str) -> Vec<String> {
+    let mut items = Vec::new();
+    let mut current = String::new();
+    let mut in_tick = false;
+    for character in value.chars() {
+        match character {
+            '`' => {
+                if in_tick {
+                    items.push(current.trim().to_string());
+                    current.clear();
+                }
+                in_tick = !in_tick;
+            }
+            _ if in_tick => current.push(character),
+            _ => {}
+        }
+    }
+
+    if items.is_empty() {
+        parse_inline_list(value)
+    } else {
+        items
+    }
+}
+
+fn parse_bool_value(value: &str) -> Result<bool, String> {
+    match clean_skill_value(value).as_str() {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        other => Err(format!("invalid boolean value '{other}'")),
+    }
+}
+
+fn clean_skill_value(value: &str) -> String {
+    value
+        .trim()
+        .trim_matches('`')
+        .trim_matches('"')
+        .trim_matches('\'')
+        .trim()
+        .to_string()
+}
+
+fn is_valid_skill_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.chars().all(|character| {
+            character.is_ascii_lowercase()
+                || character.is_ascii_digit()
+                || character == '-'
+                || character == '_'
+        })
+}
+
+fn parse_tool_name_value(value: &str) -> Result<ToolName, String> {
+    match clean_skill_value(value).as_str() {
+        "open_url" => Ok(ToolName::OpenUrl),
+        "go_back" => Ok(ToolName::GoBack),
+        "go_forward" => Ok(ToolName::GoForward),
+        "reload_page" => Ok(ToolName::ReloadPage),
+        "scroll_page" => Ok(ToolName::ScrollPage),
+        "capture_screenshot" => Ok(ToolName::CaptureScreenshot),
+        "set_browser_visibility" => Ok(ToolName::SetBrowserVisibility),
+        "get_page_snapshot" => Ok(ToolName::GetPageSnapshot),
+        "extract_page_model" => Ok(ToolName::ExtractPageModel),
+        "list_interactive_elements" => Ok(ToolName::ListInteractiveElements),
+        "find_element" => Ok(ToolName::FindElement),
+        "click_element" => Ok(ToolName::ClickElement),
+        "read_region" => Ok(ToolName::ReadRegion),
+        "read_next_region" => Ok(ToolName::ReadNextRegion),
+        "read_previous_region" => Ok(ToolName::ReadPreviousRegion),
+        "stop_speaking" => Ok(ToolName::StopSpeaking),
+        "start_listening" => Ok(ToolName::StartListening),
+        "stop_listening" => Ok(ToolName::StopListening),
+        "transcribe_command" => Ok(ToolName::TranscribeCommand),
+        "set_tts_voice" => Ok(ToolName::SetTtsVoice),
+        "set_playback_volume" => Ok(ToolName::SetPlaybackVolume),
+        "set_playback_speed" => Ok(ToolName::SetPlaybackSpeed),
+        "run_ocr" => Ok(ToolName::RunOcr),
+        "merge_ocr_into_page_model" => Ok(ToolName::MergeOcrIntoPageModel),
+        "get_agent_state" => Ok(ToolName::GetAgentState),
+        "get_runtime_status" => Ok(ToolName::GetRuntimeStatus),
+        "confirm_action" => Ok(ToolName::ConfirmAction),
+        "report_result" => Ok(ToolName::ReportResult),
+        other => Err(format!("unknown tool '{other}'")),
+    }
+}
+
+fn parse_intent_name_value(value: &str) -> Result<IntentName, String> {
+    match clean_skill_value(value).as_str() {
+        "OpenUrl" => Ok(IntentName::OpenUrl),
+        "GoBack" => Ok(IntentName::GoBack),
+        "GoForward" => Ok(IntentName::GoForward),
+        "ReloadPage" => Ok(IntentName::ReloadPage),
+        "GetCurrentUrl" => Ok(IntentName::GetCurrentUrl),
+        "ReadPage" => Ok(IntentName::ReadPage),
+        "ReadNext" => Ok(IntentName::ReadNext),
+        "ReadPrevious" => Ok(IntentName::ReadPrevious),
+        "Repeat" => Ok(IntentName::Repeat),
+        "Stop" => Ok(IntentName::Stop),
+        "StartListening" => Ok(IntentName::StartListening),
+        "StopListening" => Ok(IntentName::StopListening),
+        "TranscribeCommand" => Ok(IntentName::TranscribeCommand),
+        "SetTtsVoice" => Ok(IntentName::SetTtsVoice),
+        "SetPlaybackVolume" => Ok(IntentName::SetPlaybackVolume),
+        "GetPlaybackVolume" => Ok(IntentName::GetPlaybackVolume),
+        "SetPlaybackSpeed" => Ok(IntentName::SetPlaybackSpeed),
+        "GetPlaybackSpeed" => Ok(IntentName::GetPlaybackSpeed),
+        "SetBrowserVisibility" => Ok(IntentName::SetBrowserVisibility),
+        "GetStatus" => Ok(IntentName::GetStatus),
+        "FindElement" => Ok(IntentName::FindElement),
+        "ClickElement" => Ok(IntentName::ClickElement),
+        "FillInput" => Ok(IntentName::FillInput),
+        "SubmitForm" => Ok(IntentName::SubmitForm),
+        "Scroll" => Ok(IntentName::Scroll),
+        "OcrRecovery" => Ok(IntentName::OcrRecovery),
+        "Unknown" => Ok(IntentName::Unknown),
+        other => Err(format!("unknown intent tag '{other}'")),
+    }
+}
+
+fn normalize_transcript_for_routing(transcript: &str) -> String {
+    transcript
+        .to_ascii_lowercase()
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character.is_ascii_whitespace() {
+                character
+            } else {
+                ' '
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn tokenize_text(text: &str) -> HashSet<String> {
+    normalize_transcript_for_routing(text)
+        .split_whitespace()
+        .filter(|token| token.len() > 1)
+        .map(String::from)
+        .collect()
+}
+
+fn likely_tools_for_intent(intent: &IntentName) -> Vec<ToolName> {
+    match intent {
+        IntentName::OpenUrl => vec![ToolName::OpenUrl],
+        IntentName::GoBack => vec![ToolName::GoBack],
+        IntentName::GoForward => vec![ToolName::GoForward],
+        IntentName::ReloadPage => vec![ToolName::ReloadPage],
+        IntentName::GetCurrentUrl => vec![ToolName::GetAgentState, ToolName::ReportResult],
+        IntentName::ReadPage => vec![ToolName::ExtractPageModel, ToolName::ReadRegion],
+        IntentName::ReadNext => vec![ToolName::ReadNextRegion],
+        IntentName::ReadPrevious => vec![ToolName::ReadPreviousRegion],
+        IntentName::Repeat => vec![ToolName::GetAgentState, ToolName::ReadRegion],
+        IntentName::Stop => vec![ToolName::StopSpeaking],
+        IntentName::StartListening => vec![ToolName::StartListening],
+        IntentName::StopListening => vec![ToolName::StopListening],
+        IntentName::TranscribeCommand => vec![ToolName::TranscribeCommand],
+        IntentName::SetTtsVoice => vec![ToolName::SetTtsVoice],
+        IntentName::SetPlaybackVolume => vec![ToolName::SetPlaybackVolume],
+        IntentName::SetPlaybackSpeed => vec![ToolName::SetPlaybackSpeed],
+        IntentName::SetBrowserVisibility => vec![ToolName::SetBrowserVisibility],
+        IntentName::GetStatus => vec![ToolName::GetRuntimeStatus, ToolName::ReportResult],
+        IntentName::FindElement => vec![ToolName::FindElement],
+        IntentName::ClickElement => vec![ToolName::FindElement, ToolName::ClickElement],
+        IntentName::Scroll => vec![ToolName::ScrollPage],
+        IntentName::OcrRecovery => vec![ToolName::GetPageSnapshot, ToolName::ReportResult],
+        IntentName::FillInput | IntentName::SubmitForm | IntentName::GetPlaybackVolume
+        | IntentName::GetPlaybackSpeed | IntentName::Unknown => Vec::new(),
+    }
+}
+
+fn score_skill(
+    skill: &LoadedSkill,
+    transcript_tokens: &HashSet<String>,
+    inferred_intent: &IntentName,
+    likely_tools: &[ToolName],
+) -> Option<i32> {
+    let skill_tokens = tokenize_text(&format!(
+        "{} {} {} {}",
+        skill.summary.name,
+        skill.summary.description,
+        skill.summary.intent_tags.join(" "),
+        skill.body
+    ));
+    let lexical_overlap = transcript_tokens.intersection(&skill_tokens).count() as i32;
+    let intent_match = skill
+        .summary
+        .intent_tags
+        .iter()
+        .any(|tag| tag == &format!("intent:{inferred_intent:?}"));
+    let tool_overlap = skill
+        .summary
+        .allowed_tools
+        .as_ref()
+        .map(|tools| {
+            tools.iter()
+                .filter(|tool| likely_tools.iter().any(|candidate| candidate == *tool))
+                .count() as i32
+        })
+        .unwrap_or(0);
+
+    if lexical_overlap == 0 && !intent_match && tool_overlap == 0 {
+        return None;
+    }
+
+    let precedence_score = match skill.source {
+        SkillSource::Project => 3_000,
+        SkillSource::User => 2_000,
+        SkillSource::Bundled => 1_000,
+    };
+
+    Some(
+        precedence_score
+            + skill.summary.priority
+            + (lexical_overlap * 75)
+            + (tool_overlap * 100)
+            + if intent_match { 500 } else { 0 },
+    )
+}
+
+fn validate_tool_arguments<Input>(step: &PlannedStep) -> Result<(), ToolError>
+where
+    Input: serde::de::DeserializeOwned,
+{
+    serde_json::from_value::<Input>(step.arguments.clone())
+        .map(|_| ())
+        .map_err(|error| invalid_planner_output(
+            format!("tool arguments did not match the expected schema: {error}"),
+            Some(serde_json::json!({
+                "step_id": step.step_id,
+                "tool_name": step.tool_name,
+            })),
+        ))
 }
 
 fn execute_planner_output_with_runner<Runner>(
@@ -3248,5 +4285,118 @@ mod tests {
             }
             other => panic!("expected aborted outcome, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn planner_available_tools_exclude_unwired_tools() {
+        let available_tools = planner_available_tools();
+
+        assert!(
+            available_tools
+                .iter()
+                .all(|tool| !matches!(tool.name, ToolName::CaptureScreenshot | ToolName::RunOcr))
+        );
+        assert!(available_tools.iter().any(|tool| tool.name == ToolName::OpenUrl));
+        assert!(
+            available_tools
+                .iter()
+                .any(|tool| tool.name == ToolName::TranscribeCommand)
+        );
+    }
+
+    #[test]
+    fn build_planner_skill_selection_prefers_matching_bundled_skill() {
+        let available_tools = planner_available_tools();
+        let selection = build_planner_skill_selection(
+            None,
+            None,
+            "please go back to the previous page",
+            &available_tools,
+        );
+
+        assert!(selection.active_skill_names.iter().any(|name| name == "go_back"));
+        assert_eq!(
+            selection
+                .relevant_skill_summaries
+                .first()
+                .map(|skill| skill.name.as_str()),
+            Some("go_back")
+        );
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_unknown_selected_skill() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::GetStatus,
+                goal: String::from("report the current status"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("not-a-real-skill")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-status"),
+                tool_name: ToolName::GetRuntimeStatus,
+                arguments: serde_json::json!({
+                    "request_id": "req-status",
+                    "include_provider_modes": true
+                }),
+                purpose: String::from("read runtime status"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("get_status")],
+        )
+        .expect_err("validation should reject unknown selected skills");
+        assert_eq!(error.code, "invalid_planner_output");
+        assert!(error.message.contains("unknown or ineligible skill"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_invalid_step_arguments() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::SetPlaybackVolume,
+                goal: String::from("adjust playback volume"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("set_volume")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-volume"),
+                tool_name: ToolName::SetPlaybackVolume,
+                arguments: serde_json::json!({
+                    "request_id": "req-volume",
+                    "volume": "loud"
+                }),
+                purpose: String::from("set playback volume"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("set_volume")],
+        )
+        .expect_err("validation should reject malformed step arguments");
+        assert_eq!(error.code, "invalid_planner_output");
+        assert!(error.message.contains("expected schema"));
     }
 }

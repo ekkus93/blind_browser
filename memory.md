@@ -367,3 +367,8 @@
 ## 2026-03-24T13:00:45Z - GPT-5.4 - ASR listening tools pushed to origin/master
 - Committed the ASR/listening slice as `49f6abb` (`Implement ASR listening tools`) and pushed it to `origin/master`.
 - The pushed state includes the local Whisper-backed listening lifecycle, deterministic transcription tools, updated TODO tracking, and the green validation baseline of clippy plus 62 Rust tests and 3 UI tests.
+
+## 2026-03-24T13:23:58Z - GPT-5.4 - Planner command-resolution path implemented
+- `src-tauri/src/commands.rs` now exposes the planner-facing helper layer for the Commands slice: plannable-tool filtering, input-schema lookup, planner-output validation, bundled `docs/SKILLS.md` parsing, project/user `SKILL.md` discovery, and precedence-aware skill ranking.
+- `src-tauri/src/app_core.rs` and `src-tauri/src/lib.rs` now add a real `resolve_command` entrypoint that assembles `PlannerInput` from runtime state, calls the configured remote OpenAI planner with structured JSON output requirements, and returns validated `PlannerOutput` values through Tauri; local planner mode still returns an explicit unimplemented error.
+- Updated `docs/TODO.md`, the session plan, and the frontend `tauri-api.ts` / `main.ts` exports to reflect the new planner path; validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`.

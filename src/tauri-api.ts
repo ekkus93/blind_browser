@@ -270,6 +270,16 @@ export async function executePlannerOutput(
   });
 }
 
+export async function resolveCommand(
+  requestId: string,
+  transcript: string,
+): Promise<PlannerOutput> {
+  return invoke<PlannerOutput>("resolve_command", {
+    requestId,
+    transcript,
+  });
+}
+
 export async function submitConfirmationResponse(
   input: ConfirmActionResponseInput,
 ): Promise<ConfirmActionResolution> {

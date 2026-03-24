@@ -29,6 +29,7 @@ export {
 
 export {
   executePlannerOutput as invokeExecutePlannerOutput,
+  resolveCommand as invokeResolveCommand,
   submitConfirmationResponse as invokeSubmitConfirmationResponse,
 } from "./tauri-api";
 

@@ -44,6 +44,17 @@ fn execute_planner_output(
 }
 
 #[tauri::command]
+fn resolve_command(
+    request_id: String,
+    transcript: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<PlannerOutput, ToolError> {
+    let mut app_core = lock_app_core(&app_core)?;
+
+    app_core.resolve_command(request_id, transcript)
+}
+
+#[tauri::command]
 fn submit_confirmation_response(
     confirmation_id: String,
     confirmed: bool,
@@ -60,6 +71,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
+            resolve_command,
             execute_planner_output,
             submit_confirmation_response
         ])

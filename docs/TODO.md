@@ -28,8 +28,8 @@
   - logging
 - [x] Define deterministic Rust tool interfaces and structured result schemas
 - [x] Define common `ToolResult<T>` envelope and shared data types
-- [ ] Define SKILL.md discovery locations and loading rules
-- [ ] Define SKILL.md frontmatter schema and validation rules
+- [x] Define SKILL.md discovery locations and loading rules
+- [x] Define SKILL.md frontmatter schema and validation rules
 - [x] Define planner input/output schema and validation rules
 - [ ] Define per-tool input schemas and argument validation constraints
 - [ ] Replace open-ended schema strings with closed enums where the valid set is known
@@ -191,24 +191,24 @@
 - [x] Return transcript
 
 ### Commands Module
-- [ ] Define command resolver interface
-- [ ] Define planner contract and status model
-- [ ] Implement OpenAI-backed command resolver
+- [x] Define command resolver interface
+- [x] Define planner contract and status model
+- [x] Implement OpenAI-backed command resolver
 - [ ] Add optional local LLM command resolver
 - [ ] Integrate default local model profile for `Qwen2.5-3B-Instruct` `Q4`
 - [ ] Implement active LLM provider selection
 - [ ] Implement optional remote-to-local provider failover
-- [ ] Load Pi-style SKILL.md files as workflow guidance
-- [ ] Discover skills from project, user, and bundled locations with precedence rules
-- [ ] Load bundled built-in skill metadata from `docs/SKILLS.md` or generated equivalents
-- [ ] Validate SKILL.md frontmatter and reject invalid skills
-- [ ] Validate bundled skill intent tags and allowed-tool hints
+- [x] Load Pi-style SKILL.md files as workflow guidance
+- [x] Discover skills from project, user, and bundled locations with precedence rules
+- [x] Load bundled built-in skill metadata from `docs/SKILLS.md` or generated equivalents
+- [x] Validate SKILL.md frontmatter and reject invalid skills
+- [x] Validate bundled skill intent tags and allowed-tool hints
 - [ ] Keep `IntentName` enum aligned with bundled `intent:<Name>` tags and normalized command families
-- [ ] Rank eligible skills by precedence, intent match, lexical overlap, and tool alignment
-- [ ] Load only top-ranked skills into planner context
-- [ ] Select deterministic tools from planner output
+- [x] Rank eligible skills by precedence, intent match, lexical overlap, and tool alignment
+- [x] Load only top-ranked skills into planner context
+- [x] Select deterministic tools from planner output
 - [ ] Return structured tool calls instead of free-form action text
-- [ ] Validate planner tool names and argument schemas before execution
+- [x] Validate planner tool names and argument schemas before execution
 - [ ] Add canonical planner JSON examples that match the documented `IntentName` strings and tool argument field names
 - [ ] Add schema/fixture validation so planner example payloads stay aligned with generated JSON schema
 - [ ] Implement bounded step execution and replanning loop
