@@ -5,7 +5,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::audio_io::RuntimeAudioState;
-use crate::browser::{BrowserVisibilityMode, LoadState};
+use crate::browser::{BrowserVisibilityMode, LoadState, ScrollDirection, ScrollTarget};
 use crate::config::ProviderMode;
 use crate::narration::NarrationCursor;
 use crate::page_model::{ExtractionSource, InteractiveElement, PageModel};
@@ -108,6 +108,10 @@ impl<T> ToolResult<T> {
 
 pub trait DeterministicToolExecutor {
     fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData>;
+    fn execute_go_back(&mut self, input: GoBackInput) -> ToolResult<GoBackData>;
+    fn execute_go_forward(&mut self, input: GoForwardInput) -> ToolResult<GoForwardData>;
+    fn execute_reload_page(&mut self, input: ReloadPageInput) -> ToolResult<ReloadPageData>;
+    fn execute_scroll_page(&mut self, input: ScrollPageInput) -> ToolResult<ScrollPageData>;
     fn execute_get_page_snapshot(
         &mut self,
         input: GetPageSnapshotInput,
@@ -440,6 +444,76 @@ pub struct OpenUrlData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct GoBackInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub steps: Option<u8>,
+    pub wait_for_load_state: Option<LoadState>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct GoBackData {
+    pub navigated: bool,
+    pub actual_steps: u8,
+    pub final_url: Option<String>,
+    pub title: Option<String>,
+    pub load_state: Option<LoadState>,
+    pub history: BrowserHistoryState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct GoForwardInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub steps: Option<u8>,
+    pub wait_for_load_state: Option<LoadState>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct GoForwardData {
+    pub navigated: bool,
+    pub actual_steps: u8,
+    pub final_url: Option<String>,
+    pub title: Option<String>,
+    pub load_state: Option<LoadState>,
+    pub history: BrowserHistoryState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ReloadPageInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub hard_reload: bool,
+    pub wait_for_load_state: Option<LoadState>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ReloadPageData {
+    pub reloaded: bool,
+    pub final_url: String,
+    pub title: Option<String>,
+    pub load_state: LoadState,
+    pub http_status: Option<u16>,
+    pub history: BrowserHistoryState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct ScrollPageInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub direction: ScrollDirection,
+    pub amount_px: Option<f32>,
+    pub target: Option<ScrollTarget>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct ScrollPageData {
+    pub previous_scroll_y: f32,
+    pub current_scroll_y: f32,
+    pub reached_boundary: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct GetPageSnapshotInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
@@ -595,6 +669,26 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
         ToolName::OpenUrl => {
             execute_serialized_tool(step, ToolName::OpenUrl, executor, |executor, input| {
                 executor.execute_open_url(input)
+            })
+        }
+        ToolName::GoBack => {
+            execute_serialized_tool(step, ToolName::GoBack, executor, |executor, input| {
+                executor.execute_go_back(input)
+            })
+        }
+        ToolName::GoForward => {
+            execute_serialized_tool(step, ToolName::GoForward, executor, |executor, input| {
+                executor.execute_go_forward(input)
+            })
+        }
+        ToolName::ReloadPage => {
+            execute_serialized_tool(step, ToolName::ReloadPage, executor, |executor, input| {
+                executor.execute_reload_page(input)
+            })
+        }
+        ToolName::ScrollPage => {
+            execute_serialized_tool(step, ToolName::ScrollPage, executor, |executor, input| {
+                executor.execute_scroll_page(input)
             })
         }
         ToolName::GetPageSnapshot => execute_serialized_tool(
@@ -1252,6 +1346,10 @@ mod tests {
     #[derive(Default)]
     struct MockExecutor {
         last_open_url: Option<String>,
+        last_go_back_request: Option<GoBackInput>,
+        last_go_forward_request: Option<GoForwardInput>,
+        last_reload_request: Option<ReloadPageInput>,
+        last_scroll_request: Option<ScrollPageInput>,
         last_snapshot_request: Option<GetPageSnapshotInput>,
         last_list_request: Option<ListInteractiveElementsInput>,
         last_find_request: Option<FindElementInput>,
@@ -1285,6 +1383,86 @@ mod tests {
                     },
                 },
                 vec![String::from("opened url")],
+            )
+        }
+
+        fn execute_go_back(&mut self, input: GoBackInput) -> ToolResult<GoBackData> {
+            self.last_go_back_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::GoBack,
+                input.request_id,
+                GoBackData {
+                    navigated: true,
+                    actual_steps: input.steps.unwrap_or(1),
+                    final_url: Some(String::from("https://example.com/previous")),
+                    title: Some(String::from("Previous page")),
+                    load_state: Some(input.wait_for_load_state.unwrap_or(LoadState::Load)),
+                    history: BrowserHistoryState {
+                        can_go_back: false,
+                        can_go_forward: true,
+                        current_entry_index: Some(0),
+                        entry_count: 2,
+                    },
+                },
+                vec![String::from("went back in history")],
+            )
+        }
+
+        fn execute_go_forward(&mut self, input: GoForwardInput) -> ToolResult<GoForwardData> {
+            self.last_go_forward_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::GoForward,
+                input.request_id,
+                GoForwardData {
+                    navigated: true,
+                    actual_steps: input.steps.unwrap_or(1),
+                    final_url: Some(String::from("https://example.com/next")),
+                    title: Some(String::from("Next page")),
+                    load_state: Some(input.wait_for_load_state.unwrap_or(LoadState::Load)),
+                    history: BrowserHistoryState {
+                        can_go_back: true,
+                        can_go_forward: false,
+                        current_entry_index: Some(1),
+                        entry_count: 2,
+                    },
+                },
+                vec![String::from("went forward in history")],
+            )
+        }
+
+        fn execute_reload_page(&mut self, input: ReloadPageInput) -> ToolResult<ReloadPageData> {
+            self.last_reload_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::ReloadPage,
+                input.request_id,
+                ReloadPageData {
+                    reloaded: true,
+                    final_url: String::from("https://example.com/current"),
+                    title: Some(String::from("Current page")),
+                    load_state: input.wait_for_load_state.unwrap_or(LoadState::Load),
+                    http_status: None,
+                    history: BrowserHistoryState {
+                        can_go_back: true,
+                        can_go_forward: false,
+                        current_entry_index: Some(1),
+                        entry_count: 2,
+                    },
+                },
+                vec![String::from("reloaded the page")],
+            )
+        }
+
+        fn execute_scroll_page(&mut self, input: ScrollPageInput) -> ToolResult<ScrollPageData> {
+            self.last_scroll_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::ScrollPage,
+                input.request_id,
+                ScrollPageData {
+                    previous_scroll_y: 120.0,
+                    current_scroll_y: 640.0,
+                    reached_boundary: false,
+                },
+                vec![String::from("scrolled the page")],
             )
         }
 
@@ -1679,6 +1857,123 @@ mod tests {
         assert_eq!(
             data.get("load_state"),
             Some(&serde_json::Value::String(String::from("NetworkIdle")))
+        );
+    }
+
+    #[test]
+    fn dispatches_go_back_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-go-back"),
+            tool_name: ToolName::GoBack,
+            arguments: serde_json::json!({
+                "request_id": "req-go-back",
+                "timeout_ms": 1000,
+                "steps": 2,
+                "wait_for_load_state": "Load"
+            }),
+            purpose: String::from("go back in history"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_go_back_request
+                .as_ref()
+                .and_then(|input| input.steps),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn dispatches_go_forward_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-go-forward"),
+            tool_name: ToolName::GoForward,
+            arguments: serde_json::json!({
+                "request_id": "req-go-forward",
+                "timeout_ms": 1000,
+                "steps": 1,
+                "wait_for_load_state": "NetworkIdle"
+            }),
+            purpose: String::from("go forward in history"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_go_forward_request
+                .as_ref()
+                .and_then(|input| input.steps),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn dispatches_reload_page_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-reload"),
+            tool_name: ToolName::ReloadPage,
+            arguments: serde_json::json!({
+                "request_id": "req-reload",
+                "timeout_ms": 1000,
+                "hard_reload": true,
+                "wait_for_load_state": "Load"
+            }),
+            purpose: String::from("reload the current page"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_reload_request
+                .as_ref()
+                .map(|input| input.hard_reload),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn dispatches_scroll_page_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-scroll"),
+            tool_name: ToolName::ScrollPage,
+            arguments: serde_json::json!({
+                "request_id": "req-scroll",
+                "timeout_ms": 1000,
+                "direction": "Down",
+                "amount_px": 480.0,
+                "target": null
+            }),
+            purpose: String::from("scroll the page"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_scroll_request
+                .as_ref()
+                .and_then(|input| input.amount_px),
+            Some(480.0)
         );
     }
 

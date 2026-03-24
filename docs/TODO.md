@@ -84,15 +84,15 @@
 
 ### Deterministic Tool Core: Wave 1
 - [x] Implement `open_url`
-- [ ] Implement `go_back`
-- [ ] Implement `go_forward`
-- [ ] Implement `reload_page`
+- [x] Implement `go_back`
+- [x] Implement `go_forward`
+- [x] Implement `reload_page`
 - [x] Implement `get_page_snapshot`
 - [x] Implement `extract_page_model`
 - [x] Implement `list_interactive_elements`
 - [x] Implement `find_element`
 - [x] Implement `click_element`
-- [ ] Implement `scroll_page`
+- [x] Implement `scroll_page`
 - [ ] Implement `read_region`
 - [ ] Implement `read_next_region`
 - [ ] Implement `read_previous_region`
@@ -116,10 +116,10 @@
 - [ ] Launch Chromium browser (visible mode)
 - [ ] Add headless toggle
 - [ ] Implement open_url()
-- [ ] Implement go_back()
-- [ ] Implement go_forward()
-- [ ] Implement reload_page()
-- [ ] Track browser history state and expose can-go-back/can-go-forward signals
+- [x] Implement go_back()
+- [x] Implement go_forward()
+- [x] Implement reload_page()
+- [x] Track browser history state and expose can-go-back/can-go-forward signals
 - [ ] Implement runtime browser visibility switching when supported
 - [ ] Implement get_html()
 - [ ] Implement screenshot_png()

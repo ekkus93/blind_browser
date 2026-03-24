@@ -22,7 +22,7 @@ Phase 0 project setup is in place:
 Quick start on a new Linux machine:
 
 1. Install Rust stable with `rustup`.
-2. Install Node.js 20+ and enable `pnpm` with `corepack enable`.
+2. Install Node.js `20.19+` or `22.12+` and enable `pnpm` with `corepack enable`.
 3. Install the Linux native packages from the Tauri and OCR prerequisite sections below.
 4. Run `pnpm install` at the workspace root.
 5. Use the validation commands in the `Validation` section to confirm the environment is complete.
@@ -78,12 +78,23 @@ The Rust crate uses Tauri's standard Linux runtime, which depends on GTK/WebKit 
 Typical Ubuntu or Debian packages:
 
 ```bash
-sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libasound2-dev
+sudo apt install libwebkit2gtk-4.1-dev build-essential clang libclang-dev curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libasound2-dev
 ```
 
 The exact package names can vary by distribution.
 
 The audio stack depends on ALSA headers via `cpal` and `alsa-sys`. If `pkg-config` reports that it cannot find `alsa.pc`, the missing package is usually `libasound2-dev`.
+
+Rust crates that use `bindgen` may also require `clang` and `libclang-dev`. If a build fails while parsing system headers with errors such as `fatal error: 'stddef.h' file not found`, install those packages and rerun the build.
+
+The frontend build currently requires a Node.js version supported by Vite and its native bindings. If `pnpm build` reports that Vite needs `20.19+` or `22.12+`, switch to a supported version and reinstall JavaScript dependencies before retrying:
+
+```bash
+nvm install 22.12.0
+nvm use 22.12.0
+rm -rf node_modules
+pnpm install
+```
 
 ## Linux OCR Prerequisites
 

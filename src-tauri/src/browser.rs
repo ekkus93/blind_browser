@@ -2,9 +2,13 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 #[cfg(feature = "browser")]
-use chromiumoxide::{Browser, BrowserConfig, Page};
+use chromiumoxide::cdp::browser_protocol::page::{
+    GetNavigationHistoryParams, NavigateToHistoryEntryParams, NavigationEntry, ReloadParams,
+};
 #[cfg(feature = "browser")]
 use chromiumoxide::types::ClickOptions;
+#[cfg(feature = "browser")]
+use chromiumoxide::{Browser, BrowserConfig, Page};
 #[cfg(feature = "browser")]
 use futures::StreamExt;
 use schemars::JsonSchema;
@@ -14,7 +18,6 @@ use thiserror::Error;
 use crate::page_model::{
     ElementRole, InteractiveElement, PageModel, PageRegion, Rect, RegionSource,
 };
-
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum LoadState {
@@ -27,6 +30,22 @@ pub enum LoadState {
 pub enum BrowserVisibilityMode {
     Visible,
     Headless,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub enum ScrollDirection {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub enum ScrollTarget {
+    Top,
+    Bottom,
+    NextSection,
+    PreviousSection,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -48,6 +67,7 @@ impl Default for BrowserSessionConfig {
 pub struct BrowserPageState {
     pub url: String,
     pub title: Option<String>,
+    pub history: crate::state::BrowserHistoryState,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,6 +75,22 @@ pub struct BrowserClickState {
     pub url: String,
     pub title: Option<String>,
     pub page_changed: bool,
+    pub history: crate::state::BrowserHistoryState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BrowserNavigationState {
+    pub navigated: bool,
+    pub url: Option<String>,
+    pub title: Option<String>,
+    pub history: crate::state::BrowserHistoryState,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BrowserScrollState {
+    pub previous_scroll_y: f32,
+    pub current_scroll_y: f32,
+    pub reached_boundary: bool,
 }
 
 #[derive(Debug, Error)]
@@ -79,6 +115,12 @@ pub enum BrowserError {
     ElementNotFound { element_id: String, locator: String },
     #[error("failed to click the resolved DOM element: {0}")]
     Click(String),
+    #[error("failed to read browser navigation history: {0}")]
+    History(String),
+    #[error("failed to reload the active page: {0}")]
+    Reload(String),
+    #[error("failed to scroll the active page: {0}")]
+    Scroll(String),
 }
 
 pub struct BrowserController {
@@ -180,6 +222,7 @@ impl BrowserController {
                 page_changed: after.url != before.url,
                 url: after.url,
                 title: after.title,
+                history: after.history,
             })
         }
 
@@ -206,15 +249,187 @@ impl BrowserController {
         }
     }
 
+    pub fn go_back(
+        &mut self,
+        steps: u8,
+        load_state: LoadState,
+        timeout_ms: Option<u64>,
+    ) -> Result<BrowserNavigationState, BrowserError> {
+        self.navigate_history(-(steps as isize), load_state, timeout_ms)
+    }
+
+    pub fn go_forward(
+        &mut self,
+        steps: u8,
+        load_state: LoadState,
+        timeout_ms: Option<u64>,
+    ) -> Result<BrowserNavigationState, BrowserError> {
+        self.navigate_history(steps as isize, load_state, timeout_ms)
+    }
+
+    pub fn reload_page(
+        &mut self,
+        hard_reload: bool,
+        load_state: LoadState,
+        timeout_ms: Option<u64>,
+    ) -> Result<BrowserPageState, BrowserError> {
+        #[cfg(feature = "browser")]
+        {
+            let page = self
+                .ensure_session()?
+                .page
+                .clone()
+                .ok_or(BrowserError::NoActivePage)?;
+
+            tauri::async_runtime::block_on(async {
+                if hard_reload {
+                    page.execute(ReloadParams::builder().ignore_cache(true).build())
+                        .await
+                        .map_err(|error| BrowserError::Reload(error.to_string()))?;
+                    page.wait_for_navigation()
+                        .await
+                        .map_err(|error| BrowserError::Reload(error.to_string()))?;
+                } else {
+                    page.reload()
+                        .await
+                        .map_err(|error| BrowserError::Reload(error.to_string()))?;
+                }
+
+                let _ = load_state;
+                let _ = timeout_ms;
+                snapshot_page_state(&page).await
+            })
+        }
+
+        #[cfg(not(feature = "browser"))]
+        {
+            let _ = hard_reload;
+            let _ = load_state;
+            let _ = timeout_ms;
+            Err(BrowserError::FeatureDisabled)
+        }
+    }
+
+    pub fn scroll_page(
+        &mut self,
+        direction: ScrollDirection,
+        amount_px: Option<f32>,
+        target: Option<ScrollTarget>,
+        timeout_ms: Option<u64>,
+    ) -> Result<BrowserScrollState, BrowserError> {
+        #[cfg(feature = "browser")]
+        {
+            let page = self
+                .ensure_session()?
+                .page
+                .clone()
+                .ok_or(BrowserError::NoActivePage)?;
+
+            tauri::async_runtime::block_on(async {
+                let previous_scroll_y = current_scroll_y(&page).await?;
+                let scroll_instruction =
+                    build_scroll_instruction(direction, amount_px, target, &page).await?;
+                let result = page
+                    .evaluate_expression(scroll_instruction)
+                    .await
+                    .map_err(|error| BrowserError::Scroll(error.to_string()))?
+                    .into_value::<LiveScrollResult>()
+                    .map_err(|error| BrowserError::Scroll(error.to_string()))?;
+                wait_for_page_settle(timeout_ms);
+
+                Ok(BrowserScrollState {
+                    previous_scroll_y,
+                    current_scroll_y: result.current_scroll_y,
+                    reached_boundary: result.reached_boundary,
+                })
+            })
+        }
+
+        #[cfg(not(feature = "browser"))]
+        {
+            let _ = direction;
+            let _ = amount_px;
+            let _ = target;
+            let _ = timeout_ms;
+            Err(BrowserError::FeatureDisabled)
+        }
+    }
+
     #[cfg(feature = "browser")]
     fn ensure_session(&mut self) -> Result<&mut LiveBrowserSession, BrowserError> {
         if self.session.is_none() {
             self.session = Some(LiveBrowserSession::launch(&self.config)?);
         }
 
-        self.session
-            .as_mut()
-            .ok_or_else(|| BrowserError::Launch(String::from("chromium session was not initialized")))
+        self.session.as_mut().ok_or_else(|| {
+            BrowserError::Launch(String::from("chromium session was not initialized"))
+        })
+    }
+
+    fn navigate_history(
+        &mut self,
+        delta: isize,
+        load_state: LoadState,
+        timeout_ms: Option<u64>,
+    ) -> Result<BrowserNavigationState, BrowserError> {
+        #[cfg(feature = "browser")]
+        {
+            let page = self
+                .ensure_session()?
+                .page
+                .clone()
+                .ok_or(BrowserError::NoActivePage)?;
+
+            tauri::async_runtime::block_on(async {
+                let history_snapshot = read_navigation_history_snapshot(&page).await?;
+                let Some(current_index) = history_snapshot.current_index else {
+                    return Ok(BrowserNavigationState {
+                        navigated: false,
+                        url: None,
+                        title: None,
+                        history: history_snapshot.history,
+                    });
+                };
+
+                let target_index = current_index + delta;
+                if target_index < 0 || target_index >= history_snapshot.entries.len() as isize {
+                    let current_entry = history_snapshot.entries.get(current_index as usize);
+                    return Ok(BrowserNavigationState {
+                        navigated: false,
+                        url: current_entry.map(|entry| entry.url.clone()),
+                        title: current_entry
+                            .and_then(|entry| normalize_optional_text(&entry.title)),
+                        history: history_snapshot.history,
+                    });
+                }
+
+                let target_entry = &history_snapshot.entries[target_index as usize];
+                page.execute(NavigateToHistoryEntryParams::new(target_entry.id))
+                    .await
+                    .map_err(|error| BrowserError::Navigate(error.to_string()))?;
+                page.wait_for_navigation()
+                    .await
+                    .map_err(|error| BrowserError::Navigate(error.to_string()))?;
+                let _ = load_state;
+                let _ = timeout_ms;
+                let current_page = snapshot_page_state(&page).await?;
+
+                Ok(BrowserNavigationState {
+                    navigated: true,
+                    url: Some(current_page.url),
+                    title: current_page.title,
+                    history: current_page.history,
+                })
+            })
+        }
+
+        #[cfg(not(feature = "browser"))]
+        {
+            let _ = delta;
+            let _ = load_state;
+            let _ = timeout_ms;
+            Err(BrowserError::FeatureDisabled)
+        }
     }
 }
 
@@ -282,9 +497,7 @@ fn build_browser_config(config: &BrowserSessionConfig) -> Result<BrowserConfig, 
         builder = builder.with_head();
     }
 
-    builder
-        .build()
-        .map_err(BrowserError::Launch)
+    builder.build().map_err(BrowserError::Launch)
 }
 
 #[cfg(feature = "browser")]
@@ -300,16 +513,114 @@ async fn snapshot_page_state(page: &Page) -> Result<BrowserPageState, BrowserErr
         .map_err(|error| BrowserError::Inspect(error.to_string()))?
         .into_value::<Option<String>>()
         .map_err(|error| BrowserError::Inspect(error.to_string()))?
-        .and_then(|value| {
-            let trimmed = value.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed.to_string())
-            }
-        });
+        .and_then(|value| normalize_optional_text(&value));
 
-    Ok(BrowserPageState { url, title })
+    Ok(BrowserPageState {
+        url,
+        title,
+        history: read_browser_history(page).await?,
+    })
+}
+
+#[cfg(feature = "browser")]
+async fn read_browser_history(
+    page: &Page,
+) -> Result<crate::state::BrowserHistoryState, BrowserError> {
+    Ok(read_navigation_history_snapshot(page).await?.history)
+}
+
+#[cfg(feature = "browser")]
+async fn read_navigation_history_snapshot(
+    page: &Page,
+) -> Result<LiveNavigationHistorySnapshot, BrowserError> {
+    let history = page
+        .execute(GetNavigationHistoryParams::default())
+        .await
+        .map_err(|error| BrowserError::History(error.to_string()))?
+        .result;
+    let current_index = isize::try_from(history.current_index).ok();
+    let entry_count = history.entries.len();
+
+    Ok(LiveNavigationHistorySnapshot {
+        current_index,
+        history: crate::state::BrowserHistoryState {
+            can_go_back: current_index.is_some_and(|index| index > 0),
+            can_go_forward: current_index.is_some_and(|index| (index as usize) + 1 < entry_count),
+            current_entry_index: current_index.and_then(|index| usize::try_from(index).ok()),
+            entry_count,
+        },
+        entries: history.entries,
+    })
+}
+
+#[cfg(feature = "browser")]
+async fn current_scroll_y(page: &Page) -> Result<f32, BrowserError> {
+    let scroll_y = page
+        .evaluate_expression("window.scrollY")
+        .await
+        .map_err(|error| BrowserError::Scroll(error.to_string()))?
+        .into_value::<f64>()
+        .map_err(|error| BrowserError::Scroll(error.to_string()))?;
+    Ok(scroll_y as f32)
+}
+
+#[cfg(feature = "browser")]
+async fn build_scroll_instruction(
+    direction: ScrollDirection,
+    amount_px: Option<f32>,
+    target: Option<ScrollTarget>,
+    page: &Page,
+) -> Result<String, BrowserError> {
+    let metrics = page
+        .layout_metrics()
+        .await
+        .map_err(|error| BrowserError::Scroll(error.to_string()))?;
+    let viewport_height = metrics.css_layout_viewport.client_height as f32;
+    let default_amount = (viewport_height * 0.85).max(200.0);
+    let requested_amount = amount_px.unwrap_or(default_amount).max(0.0);
+    let axis = match direction {
+        ScrollDirection::Up | ScrollDirection::Down => "y",
+        ScrollDirection::Left | ScrollDirection::Right => "x",
+    };
+    let signed_amount = match direction {
+        ScrollDirection::Up | ScrollDirection::Left => -requested_amount,
+        ScrollDirection::Down | ScrollDirection::Right => requested_amount,
+    };
+    let target_expression = match target {
+        Some(ScrollTarget::Top) => "window.scrollTo({ top: 0, behavior: 'auto' });".to_string(),
+        Some(ScrollTarget::Bottom) => {
+            "window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });"
+                .to_string()
+        }
+        Some(ScrollTarget::NextSection) => {
+            "window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'auto' });".to_string()
+        }
+        Some(ScrollTarget::PreviousSection) => {
+            "window.scrollBy({ top: -window.innerHeight * 0.9, behavior: 'auto' });".to_string()
+        }
+        None => format!(
+            "window.scrollBy({{ {}: {}, behavior: 'auto' }});",
+            if axis == "y" { "top" } else { "left" },
+            signed_amount
+        ),
+    };
+
+    Ok(format!(
+        "(() => {{\
+            const previousY = window.scrollY;\
+            {target_expression}\
+            const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);\
+            return {{\
+                current_scroll_y: window.scrollY,\
+                reached_boundary: window.scrollY <= 0 || window.scrollY >= maxY || window.scrollY === previousY\
+            }};\
+        }})()"
+    ))
+}
+
+fn normalize_optional_text(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
 #[cfg(feature = "browser")]
@@ -319,6 +630,20 @@ struct LiveExtractedPage {
     url: Option<String>,
     regions: Vec<LiveExtractedRegion>,
     interactive_elements: Vec<LiveExtractedInteractiveElement>,
+}
+
+#[cfg(feature = "browser")]
+#[derive(Debug, Deserialize)]
+struct LiveScrollResult {
+    current_scroll_y: f32,
+    reached_boundary: bool,
+}
+
+#[cfg(feature = "browser")]
+struct LiveNavigationHistorySnapshot {
+    current_index: Option<isize>,
+    history: crate::state::BrowserHistoryState,
+    entries: Vec<NavigationEntry>,
 }
 
 #[cfg(feature = "browser")]

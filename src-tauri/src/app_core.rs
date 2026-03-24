@@ -10,11 +10,13 @@ use crate::commands::{
     ClickElementInput, ConfirmActionData, ConfirmActionInput, ConfirmActionResolution,
     DeterministicToolExecutor, ExecutionOutcome, ExtractPageModelData, ExtractPageModelInput,
     FindElementData, FindElementInput, GetAgentStateInput, GetPageSnapshotInput,
-    GetRuntimeStatusData, GetRuntimeStatusInput, ListInteractiveElementsData,
-    ListInteractiveElementsInput, OpenUrlData, OpenUrlInput, PageSnapshotData, PlannerOutput,
-    ProviderSelectionStatus, ReportResultData, ReportResultInput, SetBrowserVisibilityData,
-    SetBrowserVisibilityInput, SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData,
-    SetPlaybackVolumeInput, SetTtsVoiceData, SetTtsVoiceInput, ToolError, ToolName, ToolResult,
+    GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData,
+    GoForwardInput, ListInteractiveElementsData, ListInteractiveElementsInput, OpenUrlData,
+    OpenUrlInput, PageSnapshotData, PlannerOutput, ProviderSelectionStatus, ReloadPageData,
+    ReloadPageInput, ReportResultData, ReportResultInput, ScrollPageData, ScrollPageInput,
+    SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
+    SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
+    SetTtsVoiceInput, ToolError, ToolName, ToolResult,
 };
 use crate::config::{AppConfig, AudioSettings, ConfigError};
 use crate::page_model::{ElementRole, ExtractionSource, PageModel, RegionSource};
@@ -24,6 +26,8 @@ const DEFAULT_FIND_ELEMENT_MAX_CANDIDATES: usize = 3;
 const MAX_FIND_ELEMENT_CANDIDATES: usize = 5;
 const FIND_ELEMENT_STRONG_MATCH_BPS: u16 = 8_500;
 const FIND_ELEMENT_AMBIGUITY_MARGIN_BPS: u16 = 800;
+const MAX_HISTORY_STEPS: u8 = 5;
+const MAX_SCROLL_AMOUNT_PX: f32 = 4_000.0;
 
 pub struct AppCore {
     pub app_handle: AppHandle,
@@ -97,7 +101,10 @@ impl AppCore {
         };
 
         let load_state = input.wait_for_load_state.unwrap_or(LoadState::Load);
-        let browser_page = match self.browser.open_url(&final_url, load_state, input.timeout_ms) {
+        let browser_page = match self
+            .browser
+            .open_url(&final_url, load_state, input.timeout_ms)
+        {
             Ok(browser_page) => browser_page,
             Err(error) => {
                 return self.browser_tool_failure(
@@ -115,6 +122,7 @@ impl AppCore {
         if let Some(current_page) = self.state.current_page.as_mut() {
             current_page.title = browser_page.title.clone();
         }
+        self.state.browser_history = browser_page.history.clone();
 
         ToolResult::success(
             ToolName::OpenUrl,
@@ -125,7 +133,7 @@ impl AppCore {
                 page_id,
                 load_state,
                 http_status: None,
-                history: self.state.browser_history.clone(),
+                history: browser_page.history,
             },
             vec![
                 String::from(
@@ -135,6 +143,275 @@ impl AppCore {
                     "Runtime navigation state now reflects the live browser URL and document title.",
                 ),
             ],
+        )
+    }
+
+    pub fn execute_go_back(&mut self, input: GoBackInput) -> ToolResult<GoBackData> {
+        if self.state.current_page_id.is_none() {
+            return Self::browser_runtime_missing_page(ToolName::GoBack, input.request_id);
+        }
+
+        let requested_steps = input.steps.unwrap_or(1).clamp(1, MAX_HISTORY_STEPS);
+        let load_state = input.wait_for_load_state.unwrap_or(LoadState::Load);
+        let browser_navigation =
+            match self
+                .browser
+                .go_back(requested_steps, load_state, input.timeout_ms)
+            {
+                Ok(browser_navigation) => browser_navigation,
+                Err(error) => {
+                    return self.browser_tool_failure(
+                        ToolName::GoBack,
+                        input.request_id,
+                        String::from(
+                            "Live browser history navigation did not complete successfully.",
+                        ),
+                        error,
+                    )
+                }
+            };
+
+        self.state.browser_history = browser_navigation.history.clone();
+        if browser_navigation.navigated {
+            if let Some(current_page) = self.state.current_page.as_mut() {
+                current_page.url = browser_navigation.url.clone();
+                current_page.title = browser_navigation.title.clone();
+                current_page.regions.clear();
+                current_page.interactive_elements.clear();
+            }
+            self.state.narration_cursor = Default::default();
+        }
+
+        let mut observations = vec![format!(
+            "Requested backward history navigation for up to {} step(s).",
+            requested_steps
+        )];
+        if input.steps.is_some_and(|steps| steps > MAX_HISTORY_STEPS) {
+            observations.push(format!(
+                "Requested steps were clamped to the supported maximum of {}.",
+                MAX_HISTORY_STEPS
+            ));
+        }
+        observations.push(if browser_navigation.navigated {
+            String::from("The live browser moved backward in history and runtime page metadata was refreshed.")
+        } else {
+            String::from("The live browser was already at the earliest reachable history entry.")
+        });
+
+        ToolResult::success(
+            ToolName::GoBack,
+            input.request_id,
+            GoBackData {
+                navigated: browser_navigation.navigated,
+                actual_steps: if browser_navigation.navigated {
+                    requested_steps
+                } else {
+                    0
+                },
+                final_url: browser_navigation.url,
+                title: browser_navigation.title,
+                load_state: browser_navigation.navigated.then_some(load_state),
+                history: browser_navigation.history,
+            },
+            observations,
+        )
+    }
+
+    pub fn execute_go_forward(&mut self, input: GoForwardInput) -> ToolResult<GoForwardData> {
+        if self.state.current_page_id.is_none() {
+            return Self::browser_runtime_missing_page(ToolName::GoForward, input.request_id);
+        }
+
+        let requested_steps = input.steps.unwrap_or(1).clamp(1, MAX_HISTORY_STEPS);
+        let load_state = input.wait_for_load_state.unwrap_or(LoadState::Load);
+        let browser_navigation =
+            match self
+                .browser
+                .go_forward(requested_steps, load_state, input.timeout_ms)
+            {
+                Ok(browser_navigation) => browser_navigation,
+                Err(error) => {
+                    return self.browser_tool_failure(
+                        ToolName::GoForward,
+                        input.request_id,
+                        String::from(
+                            "Live browser forward navigation did not complete successfully.",
+                        ),
+                        error,
+                    )
+                }
+            };
+
+        self.state.browser_history = browser_navigation.history.clone();
+        if browser_navigation.navigated {
+            if let Some(current_page) = self.state.current_page.as_mut() {
+                current_page.url = browser_navigation.url.clone();
+                current_page.title = browser_navigation.title.clone();
+                current_page.regions.clear();
+                current_page.interactive_elements.clear();
+            }
+            self.state.narration_cursor = Default::default();
+        }
+
+        let mut observations = vec![format!(
+            "Requested forward history navigation for up to {} step(s).",
+            requested_steps
+        )];
+        if input.steps.is_some_and(|steps| steps > MAX_HISTORY_STEPS) {
+            observations.push(format!(
+                "Requested steps were clamped to the supported maximum of {}.",
+                MAX_HISTORY_STEPS
+            ));
+        }
+        observations.push(if browser_navigation.navigated {
+            String::from("The live browser moved forward in history and runtime page metadata was refreshed.")
+        } else {
+            String::from("The live browser was already at the latest reachable history entry.")
+        });
+
+        ToolResult::success(
+            ToolName::GoForward,
+            input.request_id,
+            GoForwardData {
+                navigated: browser_navigation.navigated,
+                actual_steps: if browser_navigation.navigated {
+                    requested_steps
+                } else {
+                    0
+                },
+                final_url: browser_navigation.url,
+                title: browser_navigation.title,
+                load_state: browser_navigation.navigated.then_some(load_state),
+                history: browser_navigation.history,
+            },
+            observations,
+        )
+    }
+
+    pub fn execute_reload_page(&mut self, input: ReloadPageInput) -> ToolResult<ReloadPageData> {
+        if self.state.current_page_id.is_none() {
+            return Self::browser_runtime_missing_page(ToolName::ReloadPage, input.request_id);
+        }
+
+        let load_state = input.wait_for_load_state.unwrap_or(LoadState::Load);
+        let browser_page =
+            match self
+                .browser
+                .reload_page(input.hard_reload, load_state, input.timeout_ms)
+            {
+                Ok(browser_page) => browser_page,
+                Err(error) => {
+                    return self.browser_tool_failure(
+                        ToolName::ReloadPage,
+                        input.request_id,
+                        String::from("Live browser reload did not complete successfully."),
+                        error,
+                    )
+                }
+            };
+
+        self.state.browser_history = browser_page.history.clone();
+        if let Some(current_page) = self.state.current_page.as_mut() {
+            current_page.url = Some(browser_page.url.clone());
+            current_page.title = browser_page.title.clone();
+            current_page.regions.clear();
+            current_page.interactive_elements.clear();
+        }
+        self.state.narration_cursor = Default::default();
+
+        let mut observations = vec![String::from(
+            "Reloaded the live browser page and refreshed runtime page metadata.",
+        )];
+        if input.hard_reload {
+            observations.push(String::from(
+                "The reload ignored browser cache as requested.",
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::ReloadPage,
+            input.request_id,
+            ReloadPageData {
+                reloaded: true,
+                final_url: browser_page.url,
+                title: browser_page.title,
+                load_state,
+                http_status: None,
+                history: browser_page.history,
+            },
+            observations,
+        )
+    }
+
+    pub fn execute_scroll_page(&mut self, input: ScrollPageInput) -> ToolResult<ScrollPageData> {
+        if self.state.current_page_id.is_none() {
+            return Self::browser_runtime_missing_page(ToolName::ScrollPage, input.request_id);
+        }
+
+        if input.amount_px.is_none() && input.target.is_none() {
+            return ToolResult::failure(
+                ToolName::ScrollPage,
+                input.request_id,
+                ToolError {
+                    code: String::from("invalid_scroll_request"),
+                    message: String::from(
+                        "scroll_page requires amount_px or target to be provided",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Scroll request was rejected because it did not specify an amount or a target.",
+                )],
+            );
+        }
+
+        let clamped_amount = input
+            .amount_px
+            .map(|amount| amount.clamp(0.0, MAX_SCROLL_AMOUNT_PX));
+        let scroll_state = match self.browser.scroll_page(
+            input.direction,
+            clamped_amount,
+            input.target,
+            input.timeout_ms,
+        ) {
+            Ok(scroll_state) => scroll_state,
+            Err(error) => {
+                return self.browser_tool_failure(
+                    ToolName::ScrollPage,
+                    input.request_id,
+                    String::from("Live browser scrolling did not complete successfully."),
+                    error,
+                )
+            }
+        };
+
+        let mut observations = vec![String::from("Executed a live browser scroll request.")];
+        if input
+            .amount_px
+            .zip(clamped_amount)
+            .is_some_and(|(requested, clamped)| (requested - clamped).abs() > f32::EPSILON)
+        {
+            observations.push(format!(
+                "Requested scroll amount was clamped to the supported maximum of {} px.",
+                MAX_SCROLL_AMOUNT_PX
+            ));
+        }
+        if scroll_state.reached_boundary {
+            observations.push(String::from(
+                "The scroll request reached a document boundary.",
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::ScrollPage,
+            input.request_id,
+            ScrollPageData {
+                previous_scroll_y: scroll_state.previous_scroll_y,
+                current_scroll_y: scroll_state.current_scroll_y,
+                reached_boundary: scroll_state.reached_boundary,
+            },
+            observations,
         )
     }
 
@@ -600,6 +877,7 @@ impl AppCore {
             current_page.url = Some(browser_click.url.clone());
             current_page.title = browser_click.title.clone();
         }
+        self.state.browser_history = browser_click.history.clone();
 
         let mut observations = vec![format!(
             "Triggered a live Chromium DOM click for element_id={}",
@@ -627,7 +905,9 @@ impl AppCore {
                 element_id: element.element_id.clone(),
                 action_performed: true,
                 page_changed: browser_click.page_changed,
-                navigation_url: browser_click.page_changed.then_some(browser_click.url.clone()),
+                navigation_url: browser_click
+                    .page_changed
+                    .then_some(browser_click.url.clone()),
                 resulting_title: browser_click.title,
             },
             observations,
@@ -1063,6 +1343,22 @@ impl AppCore {
         )
     }
 
+    fn browser_runtime_missing_page<T>(tool_name: ToolName, request_id: String) -> ToolResult<T> {
+        ToolResult::failure(
+            tool_name,
+            request_id,
+            ToolError {
+                code: String::from("no_active_page"),
+                message: String::from("browser tool requires an active page in runtime state"),
+                retryable: false,
+                details: None,
+            },
+            vec![String::from(
+                "Browser action could not run because no page has been opened yet.",
+            )],
+        )
+    }
+
     fn browser_tool_failure<T>(
         &self,
         tool_name: ToolName,
@@ -1100,6 +1396,22 @@ impl AppCore {
 impl DeterministicToolExecutor for AppCore {
     fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData> {
         AppCore::execute_open_url(self, input)
+    }
+
+    fn execute_go_back(&mut self, input: GoBackInput) -> ToolResult<GoBackData> {
+        AppCore::execute_go_back(self, input)
+    }
+
+    fn execute_go_forward(&mut self, input: GoForwardInput) -> ToolResult<GoForwardData> {
+        AppCore::execute_go_forward(self, input)
+    }
+
+    fn execute_reload_page(&mut self, input: ReloadPageInput) -> ToolResult<ReloadPageData> {
+        AppCore::execute_reload_page(self, input)
+    }
+
+    fn execute_scroll_page(&mut self, input: ScrollPageInput) -> ToolResult<ScrollPageData> {
+        AppCore::execute_scroll_page(self, input)
     }
 
     fn execute_list_interactive_elements(
@@ -1715,6 +2027,9 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
         BrowserError::Resolve(_) => "browser_element_resolution_failed",
         BrowserError::ElementNotFound { .. } => "browser_element_not_found",
         BrowserError::Click(_) => "browser_click_failed",
+        BrowserError::History(_) => "browser_history_failed",
+        BrowserError::Reload(_) => "browser_reload_failed",
+        BrowserError::Scroll(_) => "browser_scroll_failed",
     };
 
     ToolError {
@@ -1726,6 +2041,9 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
                 | BrowserError::CreatePage(_)
                 | BrowserError::Navigate(_)
                 | BrowserError::Inspect(_)
+                | BrowserError::History(_)
+                | BrowserError::Reload(_)
+                | BrowserError::Scroll(_)
         ),
         details: Some(serde_json::json!({ "reason": error.to_string() })),
     }
@@ -2061,5 +2379,4 @@ mod tests {
 
         assert_eq!(error.code, "missing_dom_locator");
     }
-
 }

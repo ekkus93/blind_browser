@@ -267,3 +267,63 @@
 - Fast setup order on a new Linux machine: install Rust stable via `rustup`, install Node.js 20+ and enable `pnpm` with `corepack enable`, install the apt packages listed in `README.md`, run `pnpm install`, then run the four validation commands from the README to confirm the machine is ready.
 - Native dependency failure hints: missing `alsa.pc` usually means `libasound2-dev` is missing, and missing `lept.pc` usually means `libleptonica-dev` is missing; full-feature Rust builds also need the GTK/WebKit packages listed in the README.
 - Next likely work from this checkpoint: continue Wave 1 browser tools after `click_element`, wire real scroll/read-region behaviors against the live browser state, and keep the voice-first confirmation/safety path aligned with the deterministic tool contracts.
+
+## 2026-03-24T09:05:32Z - GPT-5.4 - Project docs re-read for onboarding
+- Re-read `README.md`, `memory.md`, `docs/SPECS.md`, `docs/SKILLS.md`, and `docs/TODO.md` to refresh the current architecture, shipped defaults, planner/tool contracts, and active implementation frontier.
+- Core product shape remains a voice-first Rust + Tauri desktop browser for vision-impaired users with a bounded LLM planner over deterministic Rust tools, Chromium via `chromiumoxide`, DOM-first extraction, and OCR fallback.
+- Current implementation checkpoint is beyond initial scaffold work: live browser-backed `open_url`, `get_page_snapshot`, `extract_page_model`, `list_interactive_elements`, `find_element`, `click_element`, confirmation resume flow, and frontend confirmation UI are in place; major remaining Wave 1 gaps include `go_back`, `go_forward`, `reload_page`, `scroll_page`, narration tools, and listening/transcription tools.
+- Spec-critical rules to preserve in future work: stable `dom_locator` values for DOM-backed actions, submit actions always require confirmation, clicks may skip confirmation by default, ambiguous element matches must route through clarification, and planner output must stay bounded to registered deterministic tools plus validated schemas.
+
+## 2026-03-24T09:09:26Z - GPT-5.4 - Environment readiness check found setup blockers
+- Ran an environment readiness check on Ubuntu 24.04.4 by probing the Rust/Node toolchain and native libraries required by the README validation flow.
+- Current state: `node` is present via `nvm` at `v22.11.0`, but `rustc`, `cargo`, and `rustup` are not installed; `pkg-config` cannot find `webkit2gtk-4.1`, `alsa`, `lept`, or `tesseract`, so the documented Tauri, audio, and OCR native prerequisites are missing.
+- `corepack enable` did not complete cleanly in this environment because it hit a signature/key mismatch while trying to resolve `pnpm`, so even the JavaScript package manager is not yet ready from the current shell state.
+- Result: the machine is not ready to run `pnpm install`, `cargo clippy`, `cargo test`, `pnpm test:ui`, or `pnpm build` until Rust, pnpm, and the Linux native dependencies are installed per `README.md`.
+
+## 2026-03-24T09:13:26Z - GPT-5.4 - Validation attempt partially blocked by environment
+- Tried to lint and run the repo test suite from the current workspace state after confirming the declared scripts in `package.json` and Rust feature/dependency layout in `src-tauri/Cargo.toml`.
+- Rust validation could not start because `rustc` and `cargo` are still missing, so `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` and `cargo test --manifest-path src-tauri/Cargo.toml --all-features` remain blocked before project code execution.
+- Frontend/UI validation status from the current checkout: `npm run test:ui` passes with 3 tests green even without `node_modules`, but `npm run build` fails immediately with `tsc: not found` because dependencies are not installed and `node_modules/.bin/tsc` is absent.
+- Net result: only the dependency-free UI render tests could be executed successfully in the current environment; full lint/test/build validation still requires installing Rust plus the JavaScript and native prerequisites documented in `README.md`.
+
+## 2026-03-24T09:16:15Z - GPT-5.4 - Added runnable dev environment setup script
+- Added `setup-dev-env.sh` at the repo root so the user can run one script to install Rust, ensure `pnpm` is available, install the Ubuntu native dependencies from `README.md`, install JavaScript dependencies, and run the documented validation commands.
+- The script sources `$HOME/.cargo/env`, falls back to `npm install -g pnpm` if `corepack enable pnpm` fails, verifies the required `pkg-config` entries, and then runs `cargo clippy`, `cargo test`, `pnpm test:ui`, and `pnpm build`.
+
+## 2026-03-24T09:22:43Z - GPT-5.4 - setup-dev-env.sh hardened against corepack pnpm failures
+- Updated `setup-dev-env.sh` so the `pnpm` bootstrap path no longer depends on the failing `corepack enable pnpm` flow seen on this machine.
+- The script now tries a quieter `corepack enable` only if `pnpm` is still missing, then installs `pnpm` with `npm install -g pnpm` and adds the npm global bin directory to `PATH` for the current run before verifying `pnpm --version`.
+
+## 2026-03-24T09:24:58Z - GPT-5.4 - Removed corepack entirely from setup-dev-env.sh
+- The previous hardening was not sufficient because the script still contained a `corepack` branch and the user continued hitting the same key-signature failure during the `pnpm` bootstrap step.
+- `setup-dev-env.sh` now skips `corepack` completely and uses only `npm install -g pnpm`, then prepends the npm global bin directory to `PATH` for the current script execution before verifying `pnpm --version`.
+
+## 2026-03-24T09:26:36Z - GPT-5.4 - setup-dev-env.sh now removes the corepack pnpm shim
+- Confirmed the machine's `pnpm` path was `/home/phil/.nvm/versions/node/v22.11.0/bin/pnpm`, a symlink to `../lib/node_modules/corepack/dist/pnpm.js`, so merely checking `command -v pnpm` was not enough.
+- Updated `setup-dev-env.sh` to detect and remove that shim, run `npm install -g --force pnpm`, and then use the npm-global `pnpm` binary path directly for version check, dependency install, UI tests, and build.
+
+## 2026-03-24T09:36:21Z - GPT-5.4 - Validation status after environment repair
+- The shell session can now see `rustc 1.94.0`, `cargo 1.94.0`, and `pnpm 10.32.1`, so the basic Rust/Node toolchain setup is usable from the current environment.
+- `cargo test --manifest-path src-tauri/Cargo.toml` now passes with 39 Rust tests green, and `pnpm test:ui` passes with 3 UI tests green.
+- Full-feature validation is still blocked by native dependency/toolchain issues outside the Rust source: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` failed in `openssl-sys` because OpenSSL was not discoverable via `pkg-config`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features` failed in `leptonica-sys` because Clang could not find the standard header `stddef.h` while generating bindings.
+- The passing default Rust test run also surfaced code warnings in `src-tauri/src/browser.rs` (unused imports and an unread `config` field), which Clippy will require fixing once the remaining native environment blockers are resolved.
+
+## 2026-03-24T09:46:49Z - GPT-5.4 - Added clang/libclang to setup prerequisites
+- Updated `README.md` and confirmed `setup-dev-env.sh` includes `clang` and `libclang-dev` in the Ubuntu prerequisite list.
+- This is meant to unblock bindgen-driven crates such as `leptonica-sys`, which can fail with `fatal error: 'stddef.h' file not found` when libclang is missing even though GCC headers are present.
+
+## 2026-03-24T09:59:51Z - GPT-5.4 - setup-dev-env.sh now upgrades unsupported Node installs
+- Updated `setup-dev-env.sh` to require a Vite-compatible Node version and upgrade through `nvm` to `22.12.0` when the current shell is on an older release such as `22.11.0`.
+- The script now removes `node_modules` before reinstalling JavaScript dependencies so optional native packages like rolldown bindings are refreshed after a Node version change.
+- Updated `README.md` to document the supported Node ranges (`20.19+` or `22.12+`) and the manual recovery steps for the Vite/rolldown build failure seen in `output.log`.
+
+## 2026-03-24T10:04:24Z - GPT-5.4 - Full lint and unit tests green after environment fixes
+- Re-ran validation with `rustc 1.94.0`, `cargo 1.94.0`, `Node.js v22.12.0`, and `pnpm 10.32.1` visible in the active shell after the setup-script environment repairs.
+- `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` completed successfully, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passed with 39 Rust tests green, and `pnpm test:ui` passed with 3 UI tests green.
+- The previous native dependency blockers (`openssl-sys`, `leptonica-sys`, and the Vite/rolldown Node mismatch) are no longer preventing the documented validation flow on this machine.
+
+## 2026-03-24T10:40:41Z - GPT-5.4 - Wave 1 browser history and scroll tools implemented
+- Implemented `go_back`, `go_forward`, `reload_page`, and `scroll_page` end to end across `src-tauri/src/browser.rs`, `src-tauri/src/app_core.rs`, and `src-tauri/src/commands.rs`, including planner dispatch, executor trait support, mock dispatch tests, live Chromium history navigation, reload, and JS-backed scrolling.
+- Added shared `ScrollDirection` and `ScrollTarget` enums from the spec, and now derive runtime `BrowserHistoryState` from Chromium's actual navigation history instead of only synthetic state advancement.
+- Updated `docs/TODO.md` to mark the four Wave 1 browser tools complete and to mark browser history signal tracking complete.
+- Validation after the implementation: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passed with 43 Rust tests green, and `pnpm test:ui` passed with 3 UI tests green.
