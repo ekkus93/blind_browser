@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderConfirmationPanel, renderPushToTalkPanel } from "./confirmation-panel.ts";
+import {
+  renderAudioControlsPanel,
+  renderConfirmationPanel,
+  renderPushToTalkPanel,
+} from "./confirmation-panel.ts";
 
 function renderFixtures() {
   const nonRetryableHtml = renderConfirmationPanel({
@@ -154,5 +158,45 @@ test("renders push-to-talk errors when voice input fails", () => {
   });
 
   assert.match(html, /The microphone is unavailable\./);
+  assert.match(html, /role="alert"/);
+});
+
+test("renders nearby playback controls with volume and speed values", () => {
+  const html = renderAudioControlsPanel({
+    playbackVolume: 0.7,
+    playbackSpeed: 1.25,
+    isBusy: false,
+    error: null,
+  });
+
+  assert.match(html, /Playback controls/);
+  assert.match(html, /Volume/);
+  assert.match(html, /70%/);
+  assert.match(html, /Speed/);
+  assert.match(html, /1\.25x/);
+  assert.match(html, /data-audio-control="volume"/);
+  assert.match(html, /data-audio-control="speed"/);
+});
+
+test("disables nearby playback controls while audio settings are saving", () => {
+  const html = renderAudioControlsPanel({
+    playbackVolume: 1,
+    playbackSpeed: 1,
+    isBusy: true,
+    error: null,
+  });
+
+  assert.match(html, /disabled aria-disabled="true"/);
+});
+
+test("renders nearby playback control errors when syncing fails", () => {
+  const html = renderAudioControlsPanel({
+    playbackVolume: 1,
+    playbackSpeed: 1,
+    isBusy: false,
+    error: "The audio settings could not be loaded.",
+  });
+
+  assert.match(html, /The audio settings could not be loaded\./);
   assert.match(html, /role="alert"/);
 });

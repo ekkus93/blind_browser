@@ -114,6 +114,17 @@ export interface TranscribeCommandData {
   listening_state: ListeningState;
 }
 
+export interface SetPlaybackVolumeData {
+  playback_volume: number;
+  muted: boolean;
+  changed: boolean;
+}
+
+export interface SetPlaybackSpeedData {
+  playback_speed: number;
+  changed: boolean;
+}
+
 export interface BrowserHistoryState {
   can_go_back: boolean;
   can_go_forward: boolean;
@@ -345,6 +356,41 @@ export async function transcribeCommand(
   return unwrapToolResult(result);
 }
 
+export async function getAgentState(input: DirectToolRequestInput): Promise<AgentStateData> {
+  const result = await invoke<ToolResult<AgentStateData>>("get_agent_state", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    includeLastTranscript: false,
+  });
+  return unwrapToolResult(result);
+}
+
+export async function setPlaybackVolume(input: {
+  requestId: string;
+  timeoutMs?: number;
+  volume: number;
+}): Promise<SetPlaybackVolumeData> {
+  const result = await invoke<ToolResult<SetPlaybackVolumeData>>("set_playback_volume", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    volume: input.volume,
+  });
+  return unwrapToolResult(result);
+}
+
+export async function setPlaybackSpeed(input: {
+  requestId: string;
+  timeoutMs?: number;
+  speed: number;
+}): Promise<SetPlaybackSpeedData> {
+  const result = await invoke<ToolResult<SetPlaybackSpeedData>>("set_playback_speed", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    speed: input.speed,
+  });
+  return unwrapToolResult(result);
+}
+
 export function classifyInvokeFailure(error: unknown): InvokeFailure {
   const toolError = parseToolError(error);
   if (toolError) {
@@ -370,7 +416,7 @@ export function classifyInvokeFailure(error: unknown): InvokeFailure {
 
   return {
     kind: "transport-error",
-    message: "The app could not reach the confirmation command.",
+    message: "The app could not reach the requested Tauri command.",
   };
 }
 

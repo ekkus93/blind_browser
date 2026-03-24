@@ -302,8 +302,8 @@
 - [ ] Stop button
 - [ ] Next / Previous buttons
 - [x] Push-to-talk button
-- [ ] Add nearby playback volume control
-- [ ] Add nearby playback speed control
+- [x] Add nearby playback volume control
+- [x] Add nearby playback speed control
 - [ ] Ensure normal operation is fully voice-controlled
 
 ### Settings UI

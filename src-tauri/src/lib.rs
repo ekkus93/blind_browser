@@ -20,9 +20,10 @@ use tauri::Manager;
 
 use crate::app_core::AppCore;
 use crate::commands::{
-    ConfirmActionResolution, ExecutionOutcome, PlannerOutput, StartListeningData,
-    StartListeningInput, StopListeningData, StopListeningInput, ToolError, ToolResult,
-    TranscribeCommandData, TranscribeCommandInput,
+    AgentStateData, ConfirmActionResolution, ExecutionOutcome, GetAgentStateInput, PlannerOutput,
+    SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
+    StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
+    ToolResult, TranscribeCommandData, TranscribeCommandInput,
 };
 
 fn lock_app_core<'a>(
@@ -116,6 +117,54 @@ fn transcribe_command(
     }))
 }
 
+#[tauri::command]
+fn get_agent_state(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    include_last_transcript: bool,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<ToolResult<AgentStateData>, ToolError> {
+    let mut app_core = lock_app_core(&app_core)?;
+
+    Ok(app_core.execute_get_agent_state(GetAgentStateInput {
+        request_id,
+        timeout_ms,
+        include_last_transcript,
+    }))
+}
+
+#[tauri::command]
+fn set_playback_volume(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    volume: f32,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<ToolResult<SetPlaybackVolumeData>, ToolError> {
+    let mut app_core = lock_app_core(&app_core)?;
+
+    Ok(app_core.execute_set_playback_volume(SetPlaybackVolumeInput {
+        request_id,
+        timeout_ms,
+        volume,
+    }))
+}
+
+#[tauri::command]
+fn set_playback_speed(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    speed: f32,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<ToolResult<SetPlaybackSpeedData>, ToolError> {
+    let mut app_core = lock_app_core(&app_core)?;
+
+    Ok(app_core.execute_set_playback_speed(SetPlaybackSpeedInput {
+        request_id,
+        timeout_ms,
+        speed,
+    }))
+}
+
 pub fn run() {
     logging::init_logging();
 
@@ -126,7 +175,10 @@ pub fn run() {
             submit_confirmation_response,
             start_listening,
             stop_listening,
-            transcribe_command
+            transcribe_command,
+            get_agent_state,
+            set_playback_volume,
+            set_playback_speed
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

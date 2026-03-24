@@ -1,6 +1,12 @@
 import "./styles.css";
 
-import { renderConfirmationPanel, renderPushToTalkPanel, type PushToTalkPanelState } from "./confirmation-panel";
+import {
+  renderAudioControlsPanel,
+  renderConfirmationPanel,
+  renderPushToTalkPanel,
+  type AudioControlsPanelState,
+  type PushToTalkPanelState,
+} from "./confirmation-panel";
 import {
   createExecutionUiStore,
   describeConfirmationSubmissionFailure,
@@ -10,7 +16,10 @@ import {
 } from "./planner-orchestration";
 import {
   classifyInvokeFailure,
+  getAgentState,
   resolveCommand,
+  setPlaybackSpeed,
+  setPlaybackVolume,
   startListening,
   stopListening,
   transcribeCommand,
@@ -37,7 +46,10 @@ export {
 
 export {
   executePlannerOutput as invokeExecutePlannerOutput,
+  getAgentState as invokeGetAgentState,
   resolveCommand as invokeResolveCommand,
+  setPlaybackSpeed as invokeSetPlaybackSpeed,
+  setPlaybackVolume as invokeSetPlaybackVolume,
   startListening as invokeStartListening,
   stopListening as invokeStopListening,
   submitConfirmationResponse as invokeSubmitConfirmationResponse,
@@ -49,6 +61,7 @@ const uiStore = createExecutionUiStore();
 const PUSH_TO_TALK_RELEASE_CAPTURE_MS = 1;
 let currentExecutionUiState = uiStore.getState();
 let pushToTalkState: PushToTalkPanelState = createInitialPushToTalkState();
+let audioControlsState: AudioControlsPanelState = createInitialAudioControlsState();
 let activePushToTalkSource: "keyboard" | "pointer" | null = null;
 
 if (!app) {
@@ -66,7 +79,20 @@ function createInitialPushToTalkState(): PushToTalkPanelState {
   };
 }
 
-const renderApp = (uiState: ExecutionUiState, pushToTalk: PushToTalkPanelState) => {
+function createInitialAudioControlsState(): AudioControlsPanelState {
+  return {
+    playbackVolume: 1,
+    playbackSpeed: 1,
+    isBusy: false,
+    error: null,
+  };
+}
+
+const renderApp = (
+  uiState: ExecutionUiState,
+  pushToTalk: PushToTalkPanelState,
+  audioControls: AudioControlsPanelState,
+) => {
   app.innerHTML = `
     <main class="shell">
       <section class="hero">
@@ -102,18 +128,27 @@ const renderApp = (uiState: ExecutionUiState, pushToTalk: PushToTalkPanelState) 
       </section>
 
       ${renderPushToTalkPanel(pushToTalk)}
+      ${renderAudioControlsPanel(audioControls)}
       ${renderConfirmationPanel(uiState.confirmation)}
     </main>
   `;
 };
 
 function rerender() {
-  renderApp(currentExecutionUiState, pushToTalkState);
+  renderApp(currentExecutionUiState, pushToTalkState, audioControlsState);
 }
 
 function setPushToTalkState(nextState: Partial<PushToTalkPanelState>) {
   pushToTalkState = {
     ...pushToTalkState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setAudioControlsState(nextState: Partial<AudioControlsPanelState>) {
+  audioControlsState = {
+    ...audioControlsState,
     ...nextState,
   };
   rerender();
@@ -158,6 +193,84 @@ function describePushToTalkFailure(error: unknown): string {
   }
 
   return failure.message;
+}
+
+function describeAudioControlFailure(error: unknown): string {
+  const failure = classifyInvokeFailure(error);
+  if (failure.kind === "tool-error") {
+    return failure.toolError.message;
+  }
+
+  return failure.message;
+}
+
+async function refreshAudioControlsFromRuntime() {
+  try {
+    const agentState = await getAgentState({
+      requestId: createRequestId("audio-controls-state"),
+    });
+    setAudioControlsState({
+      playbackVolume: agentState.audio.playback_volume,
+      playbackSpeed: agentState.audio.playback_speed,
+      error: null,
+    });
+  } catch (error: unknown) {
+    setAudioControlsState({
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function persistPlaybackVolume(nextVolume: number) {
+  const previousState = audioControlsState;
+  setAudioControlsState({
+    playbackVolume: nextVolume,
+    isBusy: true,
+    error: null,
+  });
+
+  try {
+    const result = await setPlaybackVolume({
+      requestId: createRequestId("audio-volume"),
+      volume: nextVolume,
+    });
+    setAudioControlsState({
+      playbackVolume: result.playback_volume,
+      isBusy: false,
+    });
+  } catch (error: unknown) {
+    setAudioControlsState({
+      playbackVolume: previousState.playbackVolume,
+      isBusy: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function persistPlaybackSpeed(nextSpeed: number) {
+  const previousState = audioControlsState;
+  setAudioControlsState({
+    playbackSpeed: nextSpeed,
+    isBusy: true,
+    error: null,
+  });
+
+  try {
+    const result = await setPlaybackSpeed({
+      requestId: createRequestId("audio-speed"),
+      speed: nextSpeed,
+    });
+    setAudioControlsState({
+      playbackSpeed: result.playback_speed,
+      isBusy: false,
+    });
+  } catch (error: unknown) {
+    setAudioControlsState({
+      playbackSpeed: previousState.playbackSpeed,
+      isBusy: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
 }
 
 async function beginPushToTalk(source: "keyboard" | "pointer") {
@@ -259,6 +372,7 @@ async function releasePushToTalk(source: "keyboard" | "pointer") {
       transcription.transcript,
     );
     await runPlannerExecution(createRequestId("push-to-talk-execute"), plannerOutput, uiStore);
+    await refreshAudioControlsFromRuntime();
   } catch (error: unknown) {
     setPushToTalkState({
       isListening: false,
@@ -269,6 +383,7 @@ async function releasePushToTalk(source: "keyboard" | "pointer") {
 }
 
 rerender();
+void refreshAudioControlsFromRuntime();
 uiStore.subscribe((uiState) => {
   currentExecutionUiState = uiState;
   rerender();
@@ -310,10 +425,56 @@ app.addEventListener("click", (event) => {
       timedOut: false,
     },
     uiStore,
-  ).catch((error: unknown) => {
-    uiStore.setConfirmationError(confirmationId, describeConfirmationSubmissionFailure(error));
-    console.error("Failed to submit confirmation response.", error);
-  });
+  )
+    .then(async () => {
+      await refreshAudioControlsFromRuntime();
+    })
+    .catch((error: unknown) => {
+      uiStore.setConfirmationError(confirmationId, describeConfirmationSubmissionFailure(error));
+      console.error("Failed to submit confirmation response.", error);
+    });
+});
+
+app.addEventListener("input", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) {
+    return;
+  }
+
+  if (target.dataset.audioControl === "volume") {
+    setAudioControlsState({
+      playbackVolume: Number.parseFloat(target.value),
+      error: null,
+    });
+    return;
+  }
+
+  if (target.dataset.audioControl === "speed") {
+    setAudioControlsState({
+      playbackSpeed: Number.parseFloat(target.value),
+      error: null,
+    });
+  }
+});
+
+app.addEventListener("change", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) {
+    return;
+  }
+
+  if (audioControlsState.isBusy) {
+    return;
+  }
+
+  if (target.dataset.audioControl === "volume") {
+    void persistPlaybackVolume(Number.parseFloat(target.value));
+    return;
+  }
+
+  if (target.dataset.audioControl === "speed") {
+    void persistPlaybackSpeed(Number.parseFloat(target.value));
+  }
 });
 
 app.addEventListener("pointerdown", (event) => {

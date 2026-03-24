@@ -9,6 +9,13 @@ export interface PushToTalkPanelState {
   lastError: string | null;
 }
 
+export interface AudioControlsPanelState {
+  playbackVolume: number;
+  playbackSpeed: number;
+  isBusy: boolean;
+  error: string | null;
+}
+
 export function renderConfirmationPanel(state: ConfirmationUiState): string {
   if (state.kind !== "awaiting-confirmation") {
     return "";
@@ -142,6 +149,59 @@ export function renderPushToTalkPanel(state: PushToTalkPanelState): string {
       >
         ${escapeHtml(buttonLabel)}
       </button>
+    </section>
+  `;
+}
+
+export function renderAudioControlsPanel(state: AudioControlsPanelState): string {
+  const busyAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
+  const errorCopy = state.error
+    ? `<p class="audio-controls-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+
+  return `
+    <section class="audio-controls-panel" aria-labelledby="audio-controls-title">
+      <div class="audio-controls-copy">
+        <p class="audio-controls-eyebrow">Speech output</p>
+        <h2 id="audio-controls-title">Playback controls</h2>
+        <p class="audio-controls-description">
+          Adjust the nearby volume and speed controls when you want spoken feedback louder, quieter,
+          faster, or slower.
+        </p>
+        ${errorCopy}
+      </div>
+      <div class="audio-controls-grid">
+        <label class="audio-control" for="playback-volume-control">
+          <span class="audio-control-label">Volume</span>
+          <span class="audio-control-value">${Math.round(state.playbackVolume * 100)}%</span>
+          <input
+            id="playback-volume-control"
+            class="audio-control-input"
+            data-audio-control="volume"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value="${state.playbackVolume.toFixed(2)}"
+            ${busyAttribute}
+          />
+        </label>
+        <label class="audio-control" for="playback-speed-control">
+          <span class="audio-control-label">Speed</span>
+          <span class="audio-control-value">${state.playbackSpeed.toFixed(2)}x</span>
+          <input
+            id="playback-speed-control"
+            class="audio-control-input"
+            data-audio-control="speed"
+            type="range"
+            min="0.5"
+            max="5"
+            step="0.05"
+            value="${state.playbackSpeed.toFixed(2)}"
+            ${busyAttribute}
+          />
+        </label>
+      </div>
     </section>
   `;
 }
