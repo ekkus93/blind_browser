@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::audio_io::RuntimeAudioState;
 use crate::browser::{BrowserVisibilityMode, LoadState, ScrollDirection, ScrollTarget};
-use crate::config::ProviderMode;
+use crate::config::{ProviderMode, MAX_PLAYBACK_SPEED, MAX_PLAYBACK_VOLUME, MIN_PLAYBACK_SPEED};
 use crate::narration::NarrationCursor;
 use crate::page_model::{ExtractionSource, InteractiveElement, PageModel};
 use crate::state::{BrowserHistoryState, ListeningState};
@@ -993,6 +993,12 @@ pub struct ElementSearchResult {
 const MAX_SELECTED_PLANNER_SKILLS: usize = 3;
 const MAX_INITIAL_PLAN_STEPS: usize = 5;
 const BUNDLED_SKILLS_MARKDOWN: &str = include_str!("../../docs/SKILLS.md");
+const DEFAULT_VOLUME_STEP: f32 = 0.10;
+const SMALL_VOLUME_STEP: f32 = 0.05;
+const LARGE_VOLUME_STEP: f32 = 0.20;
+const DEFAULT_SPEED_STEP: f32 = 0.25;
+const SMALL_SPEED_STEP: f32 = 0.10;
+const LARGE_SPEED_STEP: f32 = 0.50;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlannerSkillSelection {
@@ -1205,6 +1211,12 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     }
     if normalized.contains("scroll ") {
         return IntentName::Scroll;
+    }
+    if is_volume_query_phrase(&normalized) {
+        return IntentName::GetPlaybackVolume;
+    }
+    if is_speed_query_phrase(&normalized) {
+        return IntentName::GetPlaybackSpeed;
     }
     if normalized.contains("volume")
         || normalized.contains("mute")
@@ -1963,12 +1975,30 @@ fn parse_intent_name_value(value: &str) -> Result<IntentName, String> {
     }
 }
 
-fn normalize_transcript_for_routing(transcript: &str) -> String {
+pub(crate) fn normalize_transcript_for_routing(transcript: &str) -> String {
     transcript
         .to_ascii_lowercase()
         .chars()
         .map(|character| {
             if character.is_ascii_alphanumeric() || character.is_ascii_whitespace() {
+                character
+            } else {
+                ' '
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn normalize_audio_command_text(transcript: &str) -> String {
+    transcript
+        .to_ascii_lowercase()
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character.is_ascii_whitespace() || character == '.'
+            {
                 character
             } else {
                 ' '
@@ -2006,18 +2036,414 @@ fn likely_tools_for_intent(intent: &IntentName) -> Vec<ToolName> {
         IntentName::SetTtsVoice => vec![ToolName::SetTtsVoice],
         IntentName::SetPlaybackVolume => vec![ToolName::SetPlaybackVolume],
         IntentName::SetPlaybackSpeed => vec![ToolName::SetPlaybackSpeed],
+        IntentName::GetPlaybackVolume | IntentName::GetPlaybackSpeed => {
+            vec![ToolName::GetRuntimeStatus, ToolName::ReportResult]
+        }
         IntentName::SetBrowserVisibility => vec![ToolName::SetBrowserVisibility],
         IntentName::GetStatus => vec![ToolName::GetRuntimeStatus, ToolName::ReportResult],
         IntentName::FindElement => vec![ToolName::FindElement],
         IntentName::ClickElement => vec![ToolName::FindElement, ToolName::ClickElement],
         IntentName::Scroll => vec![ToolName::ScrollPage],
         IntentName::OcrRecovery => vec![ToolName::GetPageSnapshot, ToolName::ReportResult],
-        IntentName::FillInput
-        | IntentName::SubmitForm
-        | IntentName::GetPlaybackVolume
-        | IntentName::GetPlaybackSpeed
-        | IntentName::Unknown => Vec::new(),
+        IntentName::FillInput | IntentName::SubmitForm | IntentName::Unknown => Vec::new(),
     }
+}
+
+pub(crate) fn resolve_direct_audio_command(
+    transcript: &str,
+    request_id: &str,
+    current_volume: f32,
+    current_speed: f32,
+    active_skill_names: &[String],
+) -> Option<PlannerOutput> {
+    let normalized = normalize_audio_command_text(transcript);
+    if normalized.is_empty() {
+        return None;
+    }
+
+    if is_volume_query_phrase(&normalized) {
+        let summary = format!("Playback volume is {}.", format_playback_volume(current_volume));
+        return Some(build_audio_report_planner_output(
+            request_id,
+            IntentName::GetPlaybackVolume,
+            String::from("Report the current playback volume."),
+            selected_audio_skill(active_skill_names, "get_volume"),
+            Some(format_playback_volume(current_volume)),
+            summary,
+        ));
+    }
+
+    if is_speed_query_phrase(&normalized) {
+        let summary = format!("Playback speed is {}.", format_playback_speed(current_speed));
+        return Some(build_audio_report_planner_output(
+            request_id,
+            IntentName::GetPlaybackSpeed,
+            String::from("Report the current playback speed."),
+            selected_audio_skill(active_skill_names, "get_playback_speed"),
+            Some(format_playback_speed(current_speed)),
+            summary,
+        ));
+    }
+
+    if let Some(volume) = parse_volume_command(&normalized, current_volume) {
+        let summary = format!("Playback volume set to {}.", format_playback_volume(volume.value));
+        return Some(build_audio_set_planner_output(AudioSetPlanSpec {
+            request_id,
+            intent_name: IntentName::SetPlaybackVolume,
+            goal: volume.goal,
+            selected_skills: selected_audio_skill(active_skill_names, volume.skill_name),
+            target_description: Some(format_playback_volume(volume.value)),
+            set_step_id: "set-playback-volume",
+            tool_name: ToolName::SetPlaybackVolume,
+            tool_arguments: serde_json::json!({
+                "request_id": request_id,
+                "timeout_ms": serde_json::Value::Null,
+                "volume": volume.value
+            }),
+            tool_purpose: String::from("Apply and persist the requested playback volume."),
+            report_step_id: "report-playback-volume",
+            report_summary: summary,
+        }));
+    }
+
+    if let Some(speed) = parse_speed_command(&normalized, current_speed) {
+        let summary = format!("Playback speed set to {}.", format_playback_speed(speed.value));
+        return Some(build_audio_set_planner_output(AudioSetPlanSpec {
+            request_id,
+            intent_name: IntentName::SetPlaybackSpeed,
+            goal: speed.goal,
+            selected_skills: selected_audio_skill(active_skill_names, speed.skill_name),
+            target_description: Some(format_playback_speed(speed.value)),
+            set_step_id: "set-playback-speed",
+            tool_name: ToolName::SetPlaybackSpeed,
+            tool_arguments: serde_json::json!({
+                "request_id": request_id,
+                "timeout_ms": serde_json::Value::Null,
+                "speed": speed.value
+            }),
+            tool_purpose: String::from("Apply and persist the requested playback speed."),
+            report_step_id: "report-playback-speed",
+            report_summary: summary,
+        }));
+    }
+
+    None
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct NormalizedAudioSetting {
+    value: f32,
+    goal: String,
+    skill_name: &'static str,
+}
+
+fn parse_volume_command(normalized: &str, current_volume: f32) -> Option<NormalizedAudioSetting> {
+    if normalized == "mute" || normalized.contains("mute volume") {
+        return Some(NormalizedAudioSetting {
+            value: 0.0,
+            goal: String::from("Set playback volume to muted."),
+            skill_name: "mute_volume",
+        });
+    }
+
+    if let Some(step) = volume_relative_step(normalized) {
+        let target = (current_volume + step).clamp(0.0, MAX_PLAYBACK_VOLUME);
+        let goal = if step.is_sign_positive() {
+            String::from("Increase playback volume by the requested normalized step.")
+        } else {
+            String::from("Decrease playback volume by the requested normalized step.")
+        };
+        let skill_name = if step.is_sign_positive() {
+            "increase_volume"
+        } else {
+            "decrease_volume"
+        };
+        return Some(NormalizedAudioSetting {
+            value: round_audio_setting_value(target),
+            goal,
+            skill_name,
+        });
+    }
+
+    if !normalized.contains("volume") {
+        return None;
+    }
+
+    parse_absolute_volume_value(normalized).map(|value| NormalizedAudioSetting {
+        value: round_audio_setting_value(value.clamp(0.0, MAX_PLAYBACK_VOLUME)),
+        goal: String::from("Set playback volume to the requested normalized value."),
+        skill_name: "set_volume",
+    })
+}
+
+fn parse_speed_command(normalized: &str, current_speed: f32) -> Option<NormalizedAudioSetting> {
+    if let Some(step) = speed_relative_step(normalized) {
+        let target = (current_speed + step).clamp(MIN_PLAYBACK_SPEED, MAX_PLAYBACK_SPEED);
+        let goal = if step.is_sign_positive() {
+            String::from("Increase playback speed by the requested normalized step.")
+        } else {
+            String::from("Decrease playback speed by the requested normalized step.")
+        };
+        let skill_name = if step.is_sign_positive() {
+            "increase_playback_speed"
+        } else {
+            "decrease_playback_speed"
+        };
+        return Some(NormalizedAudioSetting {
+            value: round_audio_setting_value(target),
+            goal,
+            skill_name,
+        });
+    }
+
+    if !normalized.contains("speed") {
+        return None;
+    }
+
+    parse_absolute_speed_value(normalized).map(|value| NormalizedAudioSetting {
+        value: round_audio_setting_value(value.clamp(MIN_PLAYBACK_SPEED, MAX_PLAYBACK_SPEED)),
+        goal: String::from("Set playback speed to the requested normalized value."),
+        skill_name: "set_playback_speed",
+    })
+}
+
+fn parse_absolute_volume_value(normalized: &str) -> Option<f32> {
+    let tokens = normalized.split_whitespace().collect::<Vec<_>>();
+
+    for (index, token) in tokens.iter().enumerate() {
+        let Ok(value) = token.parse::<f32>() else {
+            continue;
+        };
+
+        if tokens.get(index + 1).copied() == Some("percent") {
+            return Some(value / 100.0);
+        }
+        if value.fract() == 0.0 && (0.0..=100.0).contains(&value) {
+            return Some(value / 100.0);
+        }
+        return Some(value);
+    }
+
+    None
+}
+
+fn parse_absolute_speed_value(normalized: &str) -> Option<f32> {
+    let tokens = normalized.split_whitespace().collect::<Vec<_>>();
+
+    for (index, token) in tokens.iter().enumerate() {
+        if let Some(multiplier) = parse_multiplier_token(token) {
+            return Some(multiplier);
+        }
+
+        let Ok(value) = token.parse::<f32>() else {
+            continue;
+        };
+
+        if matches!(tokens.get(index + 1).copied(), Some("times") | Some("time")) {
+            return Some(value);
+        }
+        if tokens.get(index + 1).copied() == Some("percent") {
+            return Some(value / 100.0);
+        }
+        return Some(value);
+    }
+
+    None
+}
+
+fn parse_multiplier_token(token: &str) -> Option<f32> {
+    token
+        .strip_suffix('x')
+        .and_then(|value| (!value.is_empty()).then_some(value))
+        .and_then(|value| value.parse::<f32>().ok())
+}
+
+fn volume_relative_step(normalized: &str) -> Option<f32> {
+    if normalized.contains("increase volume")
+        || normalized.contains("turn it up")
+        || normalized.contains("volume up")
+        || normalized.contains("louder")
+    {
+        return Some(volume_step_size(normalized));
+    }
+
+    if normalized.contains("decrease volume")
+        || normalized.contains("turn it down")
+        || normalized.contains("volume down")
+        || normalized.contains("quieter")
+    {
+        return Some(-volume_step_size(normalized));
+    }
+
+    None
+}
+
+fn speed_relative_step(normalized: &str) -> Option<f32> {
+    if normalized.contains("increase playback speed")
+        || normalized.contains("speed up")
+        || normalized.contains("go faster")
+        || normalized == "faster"
+    {
+        return Some(speed_step_size(normalized));
+    }
+
+    if normalized.contains("decrease playback speed")
+        || normalized.contains("slow down")
+        || normalized.contains("go slower")
+        || normalized == "slower"
+    {
+        return Some(-speed_step_size(normalized));
+    }
+
+    None
+}
+
+fn volume_step_size(normalized: &str) -> f32 {
+    if normalized.contains("a little") || normalized.contains("slightly") {
+        SMALL_VOLUME_STEP
+    } else if normalized.contains("a lot") || normalized.contains("much") {
+        LARGE_VOLUME_STEP
+    } else {
+        DEFAULT_VOLUME_STEP
+    }
+}
+
+fn speed_step_size(normalized: &str) -> f32 {
+    if normalized.contains("a little") || normalized.contains("slightly") {
+        SMALL_SPEED_STEP
+    } else if normalized.contains("a lot") || normalized.contains("much") {
+        LARGE_SPEED_STEP
+    } else {
+        DEFAULT_SPEED_STEP
+    }
+}
+
+fn is_volume_query_phrase(normalized: &str) -> bool {
+    normalized.contains("what is the volume")
+        || normalized.contains("what s the volume")
+        || normalized.contains("current volume")
+        || normalized.contains("tell me the volume")
+}
+
+fn is_speed_query_phrase(normalized: &str) -> bool {
+    normalized.contains("what is the playback speed")
+        || normalized.contains("what s the playback speed")
+        || normalized.contains("current playback speed")
+        || normalized.contains("what speed am i on")
+        || normalized.contains("tell me the speed")
+}
+
+fn selected_audio_skill(active_skill_names: &[String], skill_name: &'static str) -> Vec<String> {
+    if active_skill_names.iter().any(|active_name| active_name == skill_name) {
+        vec![String::from(skill_name)]
+    } else {
+        Vec::new()
+    }
+}
+
+fn build_audio_set_planner_output(
+    spec: AudioSetPlanSpec<'_>,
+) -> PlannerOutput {
+    PlannerOutput {
+        status: PlannerStatus::Ready,
+        intent: IntentSummary {
+            name: spec.intent_name,
+            goal: spec.goal,
+            target_description: spec.target_description,
+        },
+        selected_skills: spec.selected_skills,
+        steps: vec![
+            PlannedStep {
+                step_id: String::from(spec.set_step_id),
+                tool_name: spec.tool_name,
+                arguments: spec.tool_arguments,
+                purpose: spec.tool_purpose,
+                on_success: StepTransition::NextStep {
+                    step_id: String::from(spec.report_step_id),
+                },
+                on_failure: StepTransition::Replan,
+            },
+            build_report_result_step(spec.request_id, spec.report_step_id, spec.report_summary),
+        ],
+        requires_confirmation: false,
+        confirmation_reason: None,
+        blocked_reason: None,
+        user_message: None,
+    }
+}
+
+fn build_audio_report_planner_output(
+    request_id: &str,
+    intent_name: IntentName,
+    goal: String,
+    selected_skills: Vec<String>,
+    target_description: Option<String>,
+    report_summary: String,
+) -> PlannerOutput {
+    PlannerOutput {
+        status: PlannerStatus::Ready,
+        intent: IntentSummary {
+            name: intent_name,
+            goal,
+            target_description,
+        },
+        selected_skills,
+        steps: vec![build_report_result_step(
+            request_id,
+            "report-audio-setting",
+            report_summary,
+        )],
+        requires_confirmation: false,
+        confirmation_reason: None,
+        blocked_reason: None,
+        user_message: None,
+    }
+}
+
+fn build_report_result_step(request_id: &str, step_id: &str, summary: String) -> PlannedStep {
+    PlannedStep {
+        step_id: String::from(step_id),
+        tool_name: ToolName::ReportResult,
+        arguments: serde_json::json!({
+            "request_id": request_id,
+            "timeout_ms": serde_json::Value::Null,
+            "status": ReportStatus::Success,
+            "summary": summary.clone(),
+            "next_recommended_action": serde_json::Value::Null,
+            "user_message": summary
+        }),
+        purpose: String::from("Report the resulting playback setting."),
+        on_success: StepTransition::Complete,
+        on_failure: StepTransition::Replan,
+    }
+}
+
+fn format_playback_volume(volume: f32) -> String {
+    format!("{}%", (volume * 100.0).round() as i32)
+}
+
+fn format_playback_speed(speed: f32) -> String {
+    let formatted = format!("{speed:.2}");
+    let trimmed = formatted.trim_end_matches('0').trim_end_matches('.');
+    format!("{trimmed}x")
+}
+
+fn round_audio_setting_value(value: f32) -> f32 {
+    (value * 100.0).round() / 100.0
+}
+
+struct AudioSetPlanSpec<'a> {
+    request_id: &'a str,
+    intent_name: IntentName,
+    goal: String,
+    selected_skills: Vec<String>,
+    target_description: Option<String>,
+    set_step_id: &'a str,
+    tool_name: ToolName,
+    tool_arguments: serde_json::Value,
+    tool_purpose: String,
+    report_step_id: &'a str,
+    report_summary: String,
 }
 
 fn score_skill(
@@ -4422,5 +4848,95 @@ mod tests {
         .expect_err("validation should reject malformed step arguments");
         assert_eq!(error.code, "invalid_planner_output");
         assert!(error.message.contains("expected schema"));
+    }
+
+    #[test]
+    fn infer_intent_hint_prefers_audio_queries_over_setters() {
+        assert_eq!(
+            infer_intent_hint("what is the volume"),
+            IntentName::GetPlaybackVolume
+        );
+        assert_eq!(
+            infer_intent_hint("what's the playback speed"),
+            IntentName::GetPlaybackSpeed
+        );
+    }
+
+    #[test]
+    fn resolve_direct_audio_command_normalizes_absolute_volume_percent() {
+        let planner_output = resolve_direct_audio_command(
+            "set volume to 70 percent",
+            "req-volume",
+            1.0,
+            1.0,
+            &[String::from("set_volume")],
+        )
+        .expect("volume command should normalize");
+
+        assert_eq!(planner_output.intent.name, IntentName::SetPlaybackVolume);
+        assert_eq!(planner_output.selected_skills, vec![String::from("set_volume")]);
+        assert_eq!(planner_output.steps.len(), 2);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::SetPlaybackVolume);
+        let volume = planner_output.steps[0]
+            .arguments
+            .get("volume")
+            .and_then(serde_json::Value::as_f64)
+            .expect("volume should be numeric");
+        assert!((volume - 0.7).abs() < 0.000_001);
+        assert_eq!(planner_output.steps[1].tool_name, ToolName::ReportResult);
+        assert_eq!(
+            planner_output.steps[1].arguments.get("summary"),
+            Some(&serde_json::json!("Playback volume set to 70%."))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_audio_command_applies_large_relative_speed_step() {
+        let planner_output = resolve_direct_audio_command(
+            "go faster a lot",
+            "req-speed",
+            1.0,
+            1.0,
+            &[String::from("increase_playback_speed")],
+        )
+        .expect("speed command should normalize");
+
+        assert_eq!(planner_output.intent.name, IntentName::SetPlaybackSpeed);
+        assert_eq!(
+            planner_output.selected_skills,
+            vec![String::from("increase_playback_speed")]
+        );
+        assert_eq!(
+            planner_output.steps[0].arguments.get("speed"),
+            Some(&serde_json::json!(1.5))
+        );
+        assert_eq!(
+            planner_output.steps[1].arguments.get("summary"),
+            Some(&serde_json::json!("Playback speed set to 1.5x."))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_audio_command_reports_current_speed_for_queries() {
+        let planner_output = resolve_direct_audio_command(
+            "tell me the speed",
+            "req-speed-query",
+            0.8,
+            1.25,
+            &[String::from("get_playback_speed")],
+        )
+        .expect("speed query should normalize");
+
+        assert_eq!(planner_output.intent.name, IntentName::GetPlaybackSpeed);
+        assert_eq!(
+            planner_output.selected_skills,
+            vec![String::from("get_playback_speed")]
+        );
+        assert_eq!(planner_output.steps.len(), 1);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ReportResult);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("summary"),
+            Some(&serde_json::json!("Playback speed is 1.25x."))
+        );
     }
 }

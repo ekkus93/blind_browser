@@ -243,15 +243,15 @@
   - set TTS voice
   - toggle browser visibility
   - get status
-- [ ] Normalize absolute volume commands from percent or normalized decimal input
-- [ ] Normalize relative volume commands using default, small, and large step sizes
-- [ ] Normalize volume query commands to `get_volume`
-- [ ] Normalize absolute playback speed commands from `x`, `times`, or percent input
-- [ ] Normalize relative playback speed commands using default, small, and large step sizes
-- [ ] Normalize playback speed query commands to `get_playback_speed`
+- [x] Normalize absolute volume commands from percent or normalized decimal input
+- [x] Normalize relative volume commands using default, small, and large step sizes
+- [x] Normalize volume query commands to `get_volume`
+- [x] Normalize absolute playback speed commands from `x`, `times`, or percent input
+- [x] Normalize relative playback speed commands using default, small, and large step sizes
+- [x] Normalize playback speed query commands to `get_playback_speed`
 - [ ] Normalize browser visibility commands into explicit target visibility updates
 - [ ] Route current-URL and runtime-status queries through `get_agent_state` and `get_runtime_status`
-- [ ] Normalize relative audio-setting phrases to `SetPlaybackVolume` and `SetPlaybackSpeed` planner intents
+- [x] Normalize relative audio-setting phrases to `SetPlaybackVolume` and `SetPlaybackSpeed` planner intents
 - [ ] Normalize status/history/listening phrases to their dedicated planner intent variants before tool selection
 - [ ] Normalize form-filling phrases to `FillInput` and form-submission phrases to `SubmitForm`
 - [ ] Add normalization examples for ambiguous utterances, mixed commands, and follow-up corrections
@@ -325,16 +325,16 @@
 - [ ] Provide an easy path to config controls from missing-model warnings/errors
 
 ### Voice Settings Control
-- [ ] Add voice commands for playback volume adjustment
-- [ ] Add voice commands for playback speed adjustment
-- [ ] Add voice commands for querying current playback volume
-- [ ] Add voice commands for querying current playback speed
-- [ ] Clamp voice-driven playback speed changes to configured limits
-- [ ] Clamp voice-driven volume changes to configured limits
-- [ ] Persist normalized voice-driven volume changes immediately
-- [ ] Persist normalized voice-driven playback speed changes immediately
-- [ ] Speak current playback volume on query
-- [ ] Speak current playback speed on query
+- [x] Add voice commands for playback volume adjustment
+- [x] Add voice commands for playback speed adjustment
+- [x] Add voice commands for querying current playback volume
+- [x] Add voice commands for querying current playback speed
+- [x] Clamp voice-driven playback speed changes to configured limits
+- [x] Clamp voice-driven volume changes to configured limits
+- [x] Persist normalized voice-driven volume changes immediately
+- [x] Persist normalized voice-driven playback speed changes immediately
+- [x] Speak current playback volume on query
+- [x] Speak current playback speed on query
 
 ### Status UI
 - [ ] Current page title
@@ -414,10 +414,10 @@
 - [ ] Runtime status schema serialization and provider-mode reporting
 - [ ] Deterministic listening state transitions and one-shot transcription tool behavior
 - [ ] Deterministic browser visibility and audio-setting tool clamping behavior
-- [ ] Voice command parsing for playback volume and playback speed
-- [ ] Volume normalization from percent, decimal, and relative phrases
-- [ ] Playback speed normalization from multiplier, percent, and relative phrases
-- [ ] Volume and playback speed query command normalization and spoken response formatting
+- [x] Voice command parsing for playback volume and playback speed
+- [x] Volume normalization from percent, decimal, and relative phrases
+- [x] Playback speed normalization from multiplier, percent, and relative phrases
+- [x] Volume and playback speed query command normalization and spoken response formatting
 - [ ] SKILL.md frontmatter validation and precedence resolution
 - [ ] Skill ranking and top-N selection behavior
 - [ ] Reject unknown tools and invalid planner transitions
@@ -451,7 +451,7 @@
 - [ ] Remote TTS selected → speech output succeeds
 - [x] Remote ASR selected → transcript is returned
 - [x] Playback volume and speed changes persist across app restart
-- [ ] Voice command changes to playback volume and speed persist across app restart
+- [x] Voice command changes to playback volume and speed persist across app restart
 - [ ] Changed speech settings apply on the next utterance only
 
 ### Agentic Tests

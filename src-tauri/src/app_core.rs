@@ -11,21 +11,21 @@ use crate::browser::{
 };
 use crate::commands::{
     build_planner_skill_selection, execute_planner_output, planner_available_tools,
-    planner_output_schema, resume_after_confirmation, tool_input_schema, validate_planner_output,
-    AgentStateData, ClickElementData, ClickElementInput, ConfirmActionData, ConfirmActionInput,
-    ConfirmActionResolution, DeterministicToolExecutor, ExecutionOutcome, ExtractPageModelData,
-    ExtractPageModelInput, FindElementData, FindElementInput, GetAgentStateInput,
-    GetPageSnapshotInput, GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput,
-    GoForwardData, GoForwardInput, ListInteractiveElementsData, ListInteractiveElementsInput,
-    OpenUrlData, OpenUrlInput, PageSnapshotData, PlannerInput, PlannerOutput,
-    ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
-    ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
-    ReportResultData, ReportResultInput, ScrollPageData, ScrollPageInput, SetBrowserVisibilityData,
-    SetBrowserVisibilityInput, SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData,
-    SetPlaybackVolumeInput, SetTtsVoiceData, SetTtsVoiceInput, StartListeningData,
-    StartListeningInput, StopListeningData, StopListeningInput, StopSpeakingData,
-    StopSpeakingInput, ToolError, ToolName, ToolResult, TranscribeCommandData,
-    TranscribeCommandInput,
+    planner_output_schema, resolve_direct_audio_command, resume_after_confirmation, tool_input_schema,
+    validate_planner_output, AgentStateData, ClickElementData, ClickElementInput, ConfirmActionData,
+    ConfirmActionInput, ConfirmActionResolution, DeterministicToolExecutor, ExecutionOutcome,
+    ExtractPageModelData, ExtractPageModelInput, FindElementData, FindElementInput,
+    GetAgentStateInput, GetPageSnapshotInput, GetRuntimeStatusData, GetRuntimeStatusInput,
+    GoBackData, GoBackInput, GoForwardData, GoForwardInput, ListInteractiveElementsData,
+    ListInteractiveElementsInput, OpenUrlData, OpenUrlInput, PageSnapshotData, PlannerInput,
+    PlannerOutput, ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput,
+    ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData, ReadRegionInput,
+    ReloadPageData, ReloadPageInput, ReportResultData, ReportResultInput, ScrollPageData,
+    ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
+    SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
+    SetTtsVoiceInput, StartListeningData, StartListeningInput, StopListeningData,
+    StopListeningInput, StopSpeakingData, StopSpeakingInput, ToolError, ToolName, ToolResult,
+    TranscribeCommandData, TranscribeCommandInput,
 };
 use crate::config::{
     AppConfig, AudioSettings, ConfigError, RemotePlannerProfile, RemoteProviderKind, SecretRef,
@@ -989,6 +989,21 @@ impl AppCore {
             &available_tools,
         );
 
+        if let Some(planner_output) = resolve_direct_audio_command(
+            transcript,
+            &request_id,
+            self.state.audio.playback_volume,
+            self.state.audio.playback_speed,
+            &skill_selection.active_skill_names,
+        ) {
+            validate_planner_output(
+                &planner_output,
+                &available_tools,
+                &skill_selection.active_skill_names,
+            )?;
+            return Ok(planner_output);
+        }
+
         let planner_input = PlannerInput {
             request_id: request_id.clone(),
             transcript: transcript.to_string(),
@@ -1732,6 +1747,18 @@ impl AppCore {
 
         let next_recommended_action = normalize_optional_text(input.next_recommended_action);
         let user_message = normalize_optional_text(input.user_message);
+        let spoken_message = user_message.clone().unwrap_or_else(|| summary.clone());
+
+        if let Err(error) = self.begin_feedback_narration(&spoken_message) {
+            return ToolResult::failure(
+                ToolName::ReportResult,
+                input.request_id,
+                error,
+                vec![String::from(
+                    "Final result reporting could not start audible feedback with the configured TTS backend.",
+                )],
+            );
+        }
 
         ToolResult::success(
             ToolName::ReportResult,
@@ -1742,9 +1769,10 @@ impl AppCore {
                 next_recommended_action,
                 user_message,
             },
-            vec![String::from(
-                "Reported the final planner result in a structured deterministic payload.",
-            )],
+            vec![
+                String::from("Reported the final planner result in a structured deterministic payload."),
+                String::from("Started spoken feedback for the reported result summary."),
+            ],
         )
     }
 
@@ -1855,6 +1883,41 @@ impl AppCore {
         self.state.start_speaking_region(region.region_id.clone());
 
         Ok(interrupted_region_id)
+    }
+
+    fn begin_feedback_narration(&mut self, spoken_text: &str) -> Result<(), ToolError> {
+        let spoken_text = spoken_text.trim();
+        if spoken_text.is_empty() {
+            return Err(ToolError {
+                code: String::from("empty_report_summary"),
+                message: String::from("spoken feedback requires a non-empty summary"),
+                retryable: false,
+                details: None,
+            });
+        }
+
+        self.sync_narration_playback_state();
+        let speech = self
+            .tts
+            .synthesize_narration(&self.config, &self.state.audio, spoken_text)
+            .map_err(tts_runtime_error_to_tool_error)?;
+
+        if self.state.speaking {
+            self.stop_narration_playback();
+        }
+
+        self.playback
+            .play_samples(
+                speech.samples,
+                speech.channels,
+                speech.sample_rate,
+                self.state.audio.playback_volume,
+            )
+            .map_err(audio_playback_error_to_tool_error)?;
+        self.state
+            .start_speaking_region(String::from("report-result-feedback"));
+
+        Ok(())
     }
 
     fn sync_narration_playback_state(&mut self) {
