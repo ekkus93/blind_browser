@@ -211,6 +211,7 @@ test("renders runtime status details from agent state", () => {
     browserVisibility: "Headless",
     canGoBack: true,
     canGoForward: false,
+    isUpdatingVisibility: false,
     error: null,
   });
 
@@ -221,6 +222,8 @@ test("renders runtime status details from agent state", () => {
   assert.match(html, /Active/);
   assert.match(html, /Browser mode/);
   assert.match(html, /Headless/);
+  assert.match(html, /data-browser-visibility-mode="Visible"/);
+  assert.match(html, /data-browser-visibility-mode="Headless"/);
   assert.match(html, /Back: Available\./);
   assert.match(html, /Forward: Unavailable\./);
 });
@@ -234,6 +237,7 @@ test("renders status panel fallbacks and errors when runtime sync fails", () => 
     browserVisibility: "Visible",
     canGoBack: false,
     canGoForward: false,
+    isUpdatingVisibility: false,
     error: "The runtime state could not be loaded.",
   });
 
@@ -241,4 +245,21 @@ test("renders status panel fallbacks and errors when runtime sync fails", () => 
   assert.match(html, /No current region/);
   assert.match(html, /The runtime state could not be loaded\./);
   assert.match(html, /role="alert"/);
+});
+
+test("disables browser visibility toggle buttons while visibility changes are in flight", () => {
+  const html = renderStatusPanel({
+    pageTitle: "Example Domain",
+    currentRegionLabel: "Region 1",
+    listening: false,
+    speaking: false,
+    browserVisibility: "Visible",
+    canGoBack: false,
+    canGoForward: false,
+    isUpdatingVisibility: true,
+    error: null,
+  });
+
+  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /status-toggle-button-active/);
 });

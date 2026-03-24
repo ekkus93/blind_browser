@@ -24,6 +24,7 @@ export interface StatusPanelState {
   browserVisibility: "Visible" | "Headless";
   canGoBack: boolean;
   canGoForward: boolean;
+  isUpdatingVisibility: boolean;
   error: string | null;
 }
 
@@ -223,6 +224,9 @@ export function renderStatusPanel(state: StatusPanelState): string {
   const errorCopy = state.error
     ? `<p class="status-panel-error" role="alert">${escapeHtml(state.error)}</p>`
     : "";
+  const visiblePressed = state.browserVisibility === "Visible";
+  const headlessPressed = state.browserVisibility === "Headless";
+  const visibilityDisabled = state.isUpdatingVisibility ? " disabled aria-disabled=\"true\"" : "";
 
   return `
     <section class="status-panel" aria-labelledby="status-panel-title">
@@ -262,7 +266,29 @@ export function renderStatusPanel(state: StatusPanelState): string {
         </div>
         <div class="status-card">
           <dt>Browser mode</dt>
-          <dd>${escapeHtml(state.browserVisibility)}</dd>
+          <dd>
+            <span class="status-mode-label">${escapeHtml(state.browserVisibility)}</span>
+            <div class="status-toggle-group" aria-label="Browser visibility mode">
+              <button
+                type="button"
+                class="status-toggle-button${visiblePressed ? " status-toggle-button-active" : ""}"
+                data-browser-visibility-mode="Visible"
+                aria-pressed="${visiblePressed}"
+                ${visibilityDisabled}
+              >
+                Visible
+              </button>
+              <button
+                type="button"
+                class="status-toggle-button${headlessPressed ? " status-toggle-button-active" : ""}"
+                data-browser-visibility-mode="Headless"
+                aria-pressed="${headlessPressed}"
+                ${visibilityDisabled}
+              >
+                Headless
+              </button>
+            </div>
+          </dd>
         </div>
         <div class="status-card">
           <dt>History</dt>

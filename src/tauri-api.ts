@@ -125,6 +125,12 @@ export interface SetPlaybackSpeedData {
   changed: boolean;
 }
 
+export interface SetBrowserVisibilityData {
+  mode: BrowserVisibilityMode;
+  changed: boolean;
+  supported: boolean;
+}
+
 export interface BrowserHistoryState {
   can_go_back: boolean;
   can_go_forward: boolean;
@@ -387,6 +393,19 @@ export async function setPlaybackSpeed(input: {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     speed: input.speed,
+  });
+  return unwrapToolResult(result);
+}
+
+export async function setBrowserVisibility(input: {
+  requestId: string;
+  timeoutMs?: number;
+  mode: BrowserVisibilityMode;
+}): Promise<SetBrowserVisibilityData> {
+  const result = await invoke<ToolResult<SetBrowserVisibilityData>>("set_browser_visibility", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    mode: input.mode,
   });
   return unwrapToolResult(result);
 }

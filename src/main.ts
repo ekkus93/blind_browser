@@ -21,6 +21,7 @@ import {
   type AgentStateData,
   getAgentState,
   resolveCommand,
+  setBrowserVisibility,
   setPlaybackSpeed,
   setPlaybackVolume,
   startListening,
@@ -53,6 +54,7 @@ export {
   resolveCommand as invokeResolveCommand,
   setPlaybackSpeed as invokeSetPlaybackSpeed,
   setPlaybackVolume as invokeSetPlaybackVolume,
+  setBrowserVisibility as invokeSetBrowserVisibility,
   startListening as invokeStartListening,
   stopListening as invokeStopListening,
   submitConfirmationResponse as invokeSubmitConfirmationResponse,
@@ -101,6 +103,7 @@ function createInitialStatusPanelState(): StatusPanelState {
     browserVisibility: "Visible",
     canGoBack: false,
     canGoForward: false,
+    isUpdatingVisibility: false,
     error: null,
   };
 }
@@ -270,6 +273,34 @@ async function refreshRuntimePanelsFromRuntime() {
     });
     setStatusPanelState({
       error: message,
+    });
+  }
+}
+
+async function persistBrowserVisibility(nextMode: "Visible" | "Headless") {
+  const previousMode = statusPanelState.browserVisibility;
+  setStatusPanelState({
+    browserVisibility: nextMode,
+    isUpdatingVisibility: true,
+    error: null,
+  });
+
+  try {
+    const result = await setBrowserVisibility({
+      requestId: createRequestId("browser-visibility"),
+      mode: nextMode,
+    });
+    setStatusPanelState({
+      browserVisibility: result.mode,
+      isUpdatingVisibility: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setStatusPanelState({
+      browserVisibility: previousMode,
+      isUpdatingVisibility: false,
+      error: describeAudioControlFailure(error),
     });
   }
 }
@@ -448,6 +479,19 @@ uiStore.subscribe((uiState) => {
 app.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const visibilityButton = target.closest<HTMLButtonElement>("[data-browser-visibility-mode]");
+  if (visibilityButton) {
+    if (statusPanelState.isUpdatingVisibility || visibilityButton.disabled) {
+      return;
+    }
+
+    const mode = visibilityButton.dataset.browserVisibilityMode;
+    if (mode === "Visible" || mode === "Headless") {
+      void persistBrowserVisibility(mode);
+    }
     return;
   }
 

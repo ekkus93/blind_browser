@@ -311,7 +311,7 @@
 - [ ] Voice selection
 - [ ] Speed control
 - [ ] Volume control
-- [ ] Visible/headless toggle
+- [x] Visible/headless toggle
 - [ ] Planner provider selection
 - [ ] TTS provider selection
 - [ ] ASR provider selection

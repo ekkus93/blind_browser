@@ -21,10 +21,12 @@ use tauri::Manager;
 use crate::app_core::AppCore;
 use crate::commands::{
     AgentStateData, ConfirmActionResolution, ExecutionOutcome, GetAgentStateInput, PlannerOutput,
-    SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
-    StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
-    ToolResult, TranscribeCommandData, TranscribeCommandInput,
+    SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
+    SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, StartListeningData,
+    StartListeningInput, StopListeningData, StopListeningInput, ToolError, ToolResult,
+    TranscribeCommandData, TranscribeCommandInput,
 };
+use crate::browser::BrowserVisibilityMode;
 
 fn lock_app_core<'a>(
     app_core: &'a tauri::State<'a, Mutex<AppCore>>,
@@ -165,6 +167,22 @@ fn set_playback_speed(
     }))
 }
 
+#[tauri::command]
+fn set_browser_visibility(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    mode: BrowserVisibilityMode,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<ToolResult<SetBrowserVisibilityData>, ToolError> {
+    let mut app_core = lock_app_core(&app_core)?;
+
+    Ok(app_core.execute_set_browser_visibility(SetBrowserVisibilityInput {
+        request_id,
+        timeout_ms,
+        mode,
+    }))
+}
+
 pub fn run() {
     logging::init_logging();
 
@@ -178,7 +196,8 @@ pub fn run() {
             transcribe_command,
             get_agent_state,
             set_playback_volume,
-            set_playback_speed
+            set_playback_speed,
+            set_browser_visibility
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

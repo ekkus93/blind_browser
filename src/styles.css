@@ -233,6 +233,57 @@ h1 {
   line-height: 1.45;
 }
 
+.status-mode-label {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.status-toggle-group {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-toggle-button {
+  appearance: none;
+  border: 1px solid rgba(123, 98, 70, 0.2);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #433d37;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease;
+}
+
+.status-toggle-button:hover,
+.status-toggle-button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(42, 55, 66, 0.12);
+}
+
+.status-toggle-button:focus-visible {
+  outline: 2px solid rgba(123, 98, 70, 0.3);
+  outline-offset: 2px;
+}
+
+.status-toggle-button-active {
+  background: rgba(31, 107, 87, 0.14);
+  border-color: rgba(31, 107, 87, 0.28);
+  color: #1f6b57;
+}
+
+.status-toggle-button:disabled {
+  cursor: progress;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
 .status-indicator {
   display: inline-flex;
   align-items: center;

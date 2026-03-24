@@ -454,3 +454,9 @@
 - `src/main.ts` now tracks a dedicated `StatusPanelState` and uses a shared `get_agent_state` refresh path to update both the status panel and nearby audio controls together on initial load, after successful push-to-talk transitions, and after planner execution or confirmation resume.
 - `src/styles.css` now styles the status panel to match the nearby voice/audio controls, and `docs/TODO.md` marks the Status UI checklist items complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (81 Rust tests green), `pnpm test:ui` (11 UI tests green), and `pnpm build` under Node `22.12.0`.
+
+## 2026-03-24T22:36:47Z - GPT-5.4 - Visible/headless browser mode is now directly toggleable in the UI
+- `src-tauri/src/lib.rs` now exposes a direct `set_browser_visibility` Tauri command on top of the existing deterministic Rust tool, and `src/tauri-api.ts` adds the typed frontend wrapper and response type for browser mode changes.
+- `src/confirmation-panel.ts`, `src/main.ts`, and `src/styles.css` now add a compact two-button `Visible`/`Headless` toggle inside the status panel, disable repeat clicks while a visibility change is in flight, refresh runtime panels after success, and surface inline errors while restoring the prior mode on failure.
+- `src/confirmation-panel.test.mjs` now covers the toggle markup and disabled in-flight state, and `docs/TODO.md` marks the visible/headless toggle item complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (81 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
