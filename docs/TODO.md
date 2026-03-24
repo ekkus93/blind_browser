@@ -171,8 +171,8 @@
 - [x] Implement playback volume control
 - [x] Expose deterministic playback-volume updates through `set_playback_volume`
 - [x] Expose deterministic playback-speed updates through `set_playback_speed`
-- [ ] Apply persisted playback volume on startup
-- [ ] Apply persisted playback speed on startup through the active TTS backend
+- [x] Apply persisted playback volume on startup
+- [x] Apply persisted playback speed on startup through the active TTS backend
 
 ---
 
@@ -409,7 +409,7 @@
 - [ ] Enum serialization/deserialization and validation
 - [ ] Provider config serialization/deserialization and validation
 - [ ] Secret reference resolution and masking behavior
-- [ ] Audio settings persistence and validation
+- [x] Audio settings persistence and validation
 - [ ] Browser history state serialization and boundary behavior
 - [ ] Runtime status schema serialization and provider-mode reporting
 - [ ] Deterministic listening state transitions and one-shot transcription tool behavior
@@ -435,7 +435,7 @@
 - [ ] Back/forward/reload tools update browser history state correctly
 - [ ] Browser visibility changes are reflected in runtime status and UI state
 - [ ] Listening start/stop/transcribe tools update runtime state correctly
-- [ ] Deterministic audio-setting tools persist and report the updated values
+- [x] Deterministic audio-setting tools persist and report the updated values
 - [ ] Planner requests confirmation before risky execution
 - [x] Queued confirmation flows resume at the stored follow-up step after explicit user approval
 - [x] Rejected or timed-out confirmation flows clear pending state and replan without executing the queued side-effecting step
@@ -450,7 +450,7 @@
 - [ ] LLM unavailable with no local provider → report command interpretation unavailable
 - [ ] Remote TTS selected → speech output succeeds
 - [x] Remote ASR selected → transcript is returned
-- [ ] Playback volume and speed changes persist across app restart
+- [x] Playback volume and speed changes persist across app restart
 - [ ] Voice command changes to playback volume and speed persist across app restart
 - [ ] Changed speech settings apply on the next utterance only
 

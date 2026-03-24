@@ -158,3 +158,34 @@ struct ActivePlayback {
     _device: MixerDeviceSink,
     player: Player,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RuntimeAudioState;
+    use crate::config::AudioSettings;
+
+    #[test]
+    fn runtime_audio_state_uses_persisted_audio_settings() {
+        let runtime = RuntimeAudioState::from(&AudioSettings {
+            playback_volume: 0.4,
+            playback_speed: 1.35,
+            default_tts_voice: String::from("Rosie"),
+        });
+
+        assert!((runtime.playback_volume - 0.4).abs() < f32::EPSILON);
+        assert!((runtime.playback_speed - 1.35).abs() < f32::EPSILON);
+        assert_eq!(runtime.tts_voice.as_deref(), Some("Rosie"));
+        assert!(!runtime.muted);
+    }
+
+    #[test]
+    fn runtime_audio_state_marks_zero_volume_as_muted() {
+        let runtime = RuntimeAudioState::from(&AudioSettings {
+            playback_volume: 0.0,
+            playback_speed: 1.0,
+            default_tts_voice: String::from("Bruno"),
+        });
+
+        assert!(runtime.muted);
+    }
+}

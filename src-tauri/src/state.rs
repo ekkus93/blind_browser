@@ -159,6 +159,7 @@ mod tests {
     use super::*;
 
     use crate::commands::{ExecutionTrace, IntentName, PendingPlanExecutionState, ToolError};
+    use crate::config::AppConfig;
 
     #[test]
     fn stores_pending_execution_from_awaiting_confirmation_outcome() {
@@ -268,5 +269,23 @@ mod tests {
         assert_eq!(interrupted_region_id.as_deref(), Some("region-2"));
         assert!(!state.speaking);
         assert!(state.speaking_region_id.is_none());
+    }
+
+    #[test]
+    fn from_config_hydrates_persisted_audio_settings() {
+        let config = AppConfig::load_from_str(
+            &AppConfig::default_template()
+                .replace("playback_volume = 1.0", "playback_volume = 0.25")
+                .replace("playback_speed = 1.0", "playback_speed = 1.6")
+                .replace("default_tts_voice = \"Bruno\"", "default_tts_voice = \"Rosie\""),
+        )
+        .expect("config should load");
+
+        let state = AppState::from_config(&config);
+
+        assert!((state.audio.playback_volume - 0.25).abs() < f32::EPSILON);
+        assert!((state.audio.playback_speed - 1.6).abs() < f32::EPSILON);
+        assert_eq!(state.audio.tts_voice.as_deref(), Some("Rosie"));
+        assert!(!state.audio.muted);
     }
 }
