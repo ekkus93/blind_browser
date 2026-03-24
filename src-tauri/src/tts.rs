@@ -71,10 +71,7 @@ pub enum TtsRuntimeError {
     )]
     UnsupportedLocalSampleRate { sample_rate: u32 },
     #[error("failed to load the local tts model from {model_path}: {reason}")]
-    LocalModelLoad {
-        model_path: String,
-        reason: String,
-    },
+    LocalModelLoad { model_path: String, reason: String },
     #[error("failed to synthesize narration audio: {reason}")]
     SynthesisFailed { reason: String },
 }

@@ -163,6 +163,11 @@
 
 ## 2026-03-23T20:26:44Z - GPT-5.4 - Retry-copy render coverage is now symmetric
 - `src/confirmation-panel.test.mjs` now also verifies that `Can retry.` appears only for retryable backend tool errors and does not appear for non-retryable backend or transport failures.
+
+## 2026-03-24T18:12:24Z - GPT-5.4 - Local planner and failover implemented
+- `src-tauri/src/app_core.rs` now supports local planner resolution through `llama-cpp-2`, using the configured local planner profile, model chat template, bounded token generation, and explicit extraction of the first complete JSON object before `PlannerOutput` deserialization.
+- Remote planner resolution now falls back to the configured local planner only when `providers.planner.failover_to_local = true`, and logs that failover path explicitly instead of silently changing providers.
+- `src-tauri/Cargo.toml` now enables `llama-cpp-2` with shared-library linking to avoid static `ggml` collisions with `whisper-rs`; validation passed with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, with a current upstream workaround of clearing copied `libllama.so`/`libggml*.so` symlinks between Cargo phases because `llama-cpp-sys-2` panics if those copied shared-library symlinks already exist in `target/debug`, `target/debug/deps`, or `target/debug/examples`.
 - The confirmation panel test now covers both backend retry states symmetrically across the same three render fixtures.
 - Validation after the symmetric retry-copy assertions: `pnpm test:ui` passes.
 
@@ -376,3 +381,19 @@
 ## 2026-03-24T13:26:11Z - GPT-5.4 - Planner command-resolution slice pushed to origin/master
 - Committed the planner command-resolution slice as `f337fde` (`Implement planner command resolution`) and pushed it to `origin/master`.
 - The pushed state includes `resolve_command`, bundled/project/user skill loading and ranking, remote OpenAI planner integration, planner-output validation, and the green validation baseline of clippy plus 66 Rust tests, 3 UI tests, and a passing frontend build.
+
+## 2026-03-24T18:25:30Z - GPT-5.4 - Ollama planner support added and validated
+- Added `RemoteProviderKind::Ollama`, an `ollama-default` remote planner profile, and runtime planner dispatch that targets Ollama's OpenAI-compatible `/v1/chat/completions` endpoint without replacing the existing OpenAI or local `llama.cpp` paths.
+- `src-tauri/src/app_core.rs` now uses an Ollama-specific request shape (`response_format = JsonObject`, `max_tokens`) while preserving the same bounded `PlannerOutput` validation path used by the other planner providers.
+- Replaced a brittle config-template assertion with a focused test that selects `ollama-default` explicitly and verifies the loaded provider/model/base URL, matching the config loader's behavior of materializing referenced profiles.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (68 Rust tests green), `pnpm test:ui` (3 tests green), and `pnpm build`; the known `llama-cpp-sys-2` shared-library symlink cleanup workaround between Cargo phases is still required.
+
+## 2026-03-24T19:05:55Z - GPT-5.4 - Removed llama.cpp planner support in favor of remote providers
+- Removed the `llama-cpp-2` dependency, the `local-planner` Cargo feature, the local planner runtime path in `src-tauri/src/app_core.rs`, and the shipped planner-local config/profile entries so command planning now uses only remote providers.
+- Planner config validation in `src-tauri/src/config.rs` now enforces `providers.planner.mode = "remote"` and rejects `local_profile` or `failover_to_local` for planning, while leaving local TTS and local ASR support intact.
+- Updated `config.example.toml`, `docs/SPECS.md`, `docs/TODO.md`, and `README.md` so the documented planner story is OpenAI or Ollama only, with no remaining `llama.cpp` or local-Qwen references in source/docs/config.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (68 Rust tests green), `pnpm test:ui` (3 tests green), and `pnpm build`; the Vite Node 22.11.0 warning still appears in this environment but the build succeeds.
+
+## 2026-03-24T19:09:00Z - GPT-5.4 - Added manual Node upgrade helper script
+- Added `fix-node-version.sh` at the repo root as a small manual helper that switches the shell to `Node.js 22.12.0` via `nvm`, clears `node_modules`, and reinstalls dependencies with `pnpm install`.
+- The script is intentionally narrower than `setup-dev-env.sh`: it only addresses the Vite warning caused by running under unsupported `Node.js 22.11.0`.

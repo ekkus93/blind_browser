@@ -1,8 +1,6 @@
 [providers.planner]
 mode = "remote"
 remote_profile = "openai-default"
-local_profile = "qwen2.5-3b-q4"
-failover_to_local = true
 
 [providers.tts]
 mode = "local"
@@ -49,6 +47,15 @@ temperature_milli = 200
 max_output_tokens = 1024
 timeout_ms = 30000
 
+[remote_profiles.ollama-default]
+provider = "Ollama"
+base_url = "http://localhost:11434/v1"
+model = "qwen2.5:3b-instruct"
+api_key = { inline = "ollama" }
+temperature_milli = 200
+max_output_tokens = 1024
+timeout_ms = 30000
+
 [remote_profiles.openai-tts-default]
 provider = "OpenAi"
 base_url = "https://api.openai.com/v1"
@@ -66,16 +73,6 @@ api_key = { from_env = "OPENAI_API_KEY" }
 language = "en"
 temperature_milli = 0
 timeout_ms = 30000
-
-[local_profiles."qwen2.5-3b-q4"]
-backend = "llama_cpp"
-model_id = "Qwen2.5-3B-Instruct"
-quantization = "Q4"
-model_path = "/path/to/Qwen2.5-3B-Instruct-Q4.gguf"
-context_window = 8192
-temperature_milli = 200
-max_output_tokens = 1024
-threads = 4
 
 [local_profiles.kitten-default]
 backend = "kitten_tts_rs"

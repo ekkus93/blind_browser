@@ -49,7 +49,11 @@ pub fn previous_region_index(cursor: &NarrationCursor, region_count: usize) -> O
 }
 
 pub fn spoken_text_for_region(region: &PageRegion) -> String {
-    let label = region.label.as_deref().map(str::trim).filter(|label| !label.is_empty());
+    let label = region
+        .label
+        .as_deref()
+        .map(str::trim)
+        .filter(|label| !label.is_empty());
     let text = region.text.trim();
 
     match (label, text.is_empty()) {

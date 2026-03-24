@@ -15,7 +15,7 @@ Phase 0 project setup is in place:
 - standard Tauri + Vite scaffold
 - Rust module boundaries for browser, extraction, narration, ASR, TTS, OCR, config, state, and commands
 - initial planner/tool schema layer matching the documented v1 contracts
-- feature-gated dependency declarations for browser, OCR, audio, local TTS, local ASR, and remote OpenAI integration
+- feature-gated dependency declarations for browser, OCR, audio, local TTS, local ASR, and remote planner integration via OpenAI-compatible APIs
 
 ## Local Development
 

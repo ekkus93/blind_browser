@@ -39,8 +39,6 @@ Provider configuration should live in the main TOML config and describe provider
 [providers.planner]
 mode = "remote"
 remote_profile = "openai-default"
-local_profile = "qwen2.5-3b-q4"
-failover_to_local = true
 
 [providers.tts]
 mode = "local"
@@ -100,16 +98,6 @@ language = "en"
 temperature = 0.0
 timeout_ms = 30000
 
-[local_profiles.qwen2.5-3b-q4]
-backend = "llama_cpp"
-model_id = "Qwen2.5-3B-Instruct"
-quantization = "Q4"
-model_path = "/path/to/Qwen2.5-3B-Instruct-Q4.gguf"
-context_window = 8192
-temperature = 0.2
-max_output_tokens = 1024
-threads = 4
-
 [local_profiles.kitten-default]
 backend = "kitten_tts_rs"
 model_id = "default"
@@ -149,7 +137,6 @@ struct ProviderSelection {
   mode: ProviderMode,
   remote_profile: Option<String>,
   local_profile: Option<String>,
-  failover_to_local: Option<bool>,
 }
 
 enum ProviderMode {
@@ -315,7 +302,6 @@ Recommended precedence for secrets:
 
 - `providers.planner.mode = "remote"` requires `remote_profile`.
 - `providers.planner.mode = "local"` requires `local_profile`.
-- `failover_to_local = true` requires a valid `local_profile`.
 - `tts` and `asr` may omit failover in v1.
 - Every referenced profile name must exist within the matching provider category.
 - Planner selections may only reference planner profiles; TTS selections may only reference TTS profiles; ASR selections may only reference ASR profiles.
@@ -324,9 +310,7 @@ Recommended precedence for secrets:
 - `timeout_ms` must be positive for all remote profiles.
 - `max_output_tokens` must be positive for planner profiles.
 - `model_path` is required for all local profiles in v1.
-- `quantization` is required for local planner profiles.
-- `context_window` must be positive for local planner profiles.
-- `threads` must be positive for local planner and local ASR profiles.
+- `threads` must be positive for local ASR profiles.
 - `sample_rate` must be positive for local TTS profiles.
 - `playback_volume` should be clamped to a safe range such as $0.0$ to $1.0$.
 - `playback_speed` should be clamped to a supported range such as $0.5$ to $5.0$.
@@ -338,7 +322,6 @@ Recommended precedence for secrets:
 
 - Planner default mode: `remote`
 - Planner remote profile: `openai-default`
-- Planner local profile: `qwen2.5-3b-q4`
 - Planner failover: enabled when local model is configured
 - TTS default mode: `local`
 - TTS local profile: `kitten-default`
@@ -369,8 +352,6 @@ Exact initial example contents:
 [providers.planner]
 mode = "remote"
 remote_profile = "openai-default"
-local_profile = "qwen2.5-3b-q4"
-failover_to_local = true
 
 [providers.tts]
 mode = "local"
@@ -434,16 +415,6 @@ language = "en"
 temperature = 0.0
 timeout_ms = 30000
 
-[local_profiles.planner.qwen2.5-3b-q4]
-backend = "llama_cpp"
-model_id = "Qwen2.5-3B-Instruct"
-quantization = "Q4"
-model_path = "/path/to/Qwen2.5-3B-Instruct-Q4.gguf"
-context_window = 8192
-temperature = 0.2
-max_output_tokens = 1024
-threads = 4
-
 [local_profiles.tts.kitten-default]
 backend = "kitten_tts_rs"
 model_id = "default"
@@ -461,14 +432,13 @@ threads = 4
 
 Exposed initial profile names:
 - Planner remote: `openai-default`
-- Planner local: `qwen2.5-3b-q4`
 - TTS remote: `openai-tts-default`
 - TTS local: `kitten-default`
 - ASR remote: `openai-transcribe-default`
 - ASR local: `whisper-default`
 
 User-facing default behavior on first launch:
-- planner uses remote OpenAI with local Qwen failover if configured
+- planner uses the configured remote planner provider (OpenAI or Ollama)
 - TTS uses local KittenTTS
 - ASR uses local Whisper
 - playback volume starts at `1.0`
@@ -617,12 +587,8 @@ Representative-page validation guidance:
 
 ### Commands
 - LLM-assisted intent parsing
-- OpenAI API provider first
-- Optional local LLM provider
-- Default local LLM target: `Qwen2.5-3B-Instruct`
-- Preferred local quantization target: `Q4`
-- Remote or local LLM provider selection
-- Optional failover from remote LLM to local LLM when configured
+- Remote planner providers: OpenAI API or Ollama via the OpenAI-compatible chat completions endpoint
+- Remote LLM provider selection
 
 ### Agent Runtime
 - Separates ASR, planning, skills, and deterministic tool execution
@@ -2927,7 +2893,6 @@ No extractable text or sparse extractable text → Screenshot → OCR → Merge 
 ## Performance Goals
 
 - Prefer the smallest workable local models
-- Default local planner target: `Qwen2.5-3B-Instruct` in `Q4`
 - Prefer local default TTS and ASR backends, with remote providers used optionally
 - Avoid full-page OCR
 - Minimal idle CPU
@@ -2963,4 +2928,3 @@ src/
   state/
   logging/
   ui_bridge/
-

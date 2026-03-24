@@ -42,11 +42,10 @@
 - [ ] Integrate kitten_tts_rs
 - [x] Add whisper backend bindings
 - [x] Add OpenAI API client support for command resolution
+- [x] Add Ollama API client support for command resolution
 - [x] Add OpenAI API client support for optional remote TTS
 - [x] Add OpenAI API client support for optional remote ASR/Whisper
-- [ ] Define optional local LLM integration path for command resolution
-- [x] Define LLM provider selection and remote-to-local failover policy
-- [x] Set default local LLM to `Qwen2.5-3B-Instruct` with `Q4` quantization target
+- [x] Define remote planner provider selection between OpenAI and Ollama
 - [x] Set default remote planner model to `gpt-5.4-mini`
 - [x] Set default remote ASR model to `gpt-4o-mini-transcribe`
 - [x] Set default local Whisper model size to `tiny`
@@ -66,7 +65,6 @@
 - [x] Define exact shipped `config.example.toml` contents and first-launch defaults
 - [x] Use the initial shipped profile names:
   - planner remote: `openai-default`
-  - planner local: `qwen2.5-3b-q4`
   - TTS remote: `openai-tts-default`
   - TTS local: `kitten-default`
   - ASR remote: `openai-transcribe-default`
@@ -194,10 +192,8 @@
 - [x] Define command resolver interface
 - [x] Define planner contract and status model
 - [x] Implement OpenAI-backed command resolver
-- [ ] Add optional local LLM command resolver
-- [ ] Integrate default local model profile for `Qwen2.5-3B-Instruct` `Q4`
-- [ ] Implement active LLM provider selection
-- [ ] Implement optional remote-to-local provider failover
+- [x] Implement Ollama-backed command resolver
+- [x] Implement active LLM provider selection
 - [x] Load Pi-style SKILL.md files as workflow guidance
 - [x] Discover skills from project, user, and bundled locations with precedence rules
 - [x] Load bundled built-in skill metadata from `docs/SKILLS.md` or generated equivalents
@@ -403,7 +399,6 @@
 ### Unit Tests
 - [ ] Command parsing
 - [ ] LLM provider selection behavior
-- [ ] Remote-to-local LLM failover behavior
 - [ ] Default local model profile selection behavior
 - [ ] TTS provider selection behavior
 - [ ] ASR provider selection behavior
@@ -452,7 +447,6 @@
 - [ ] Mixed commands such as fill-and-submit are decomposed into safe bounded plans
 - [ ] Follow-up corrections such as `no, the other field` reuse recent context when available
 - [ ] Replanning after tool failure or ambiguous result
-- [ ] Remote LLM unavailable → local LLM failover when configured
 - [ ] LLM unavailable with no local provider → report command interpretation unavailable
 - [ ] Remote TTS selected → speech output succeeds
 - [ ] Remote ASR selected → transcript is returned

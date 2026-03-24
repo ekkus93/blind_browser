@@ -112,6 +112,7 @@ pub struct SpeechFeedbackSettings {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum RemoteProviderKind {
     OpenAi,
+    Ollama,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -154,18 +155,6 @@ pub struct RemoteAsrProfile {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
-pub struct LocalPlannerProfile {
-    pub backend: String,
-    pub model_id: String,
-    pub quantization: String,
-    pub model_path: String,
-    pub context_window: u32,
-    pub temperature_milli: u16,
-    pub max_output_tokens: u32,
-    pub threads: u16,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct LocalTtsProfile {
     pub backend: String,
     pub model_id: String,
@@ -189,7 +178,6 @@ pub struct AppConfig {
     pub remote_planner_profiles: BTreeMap<String, RemotePlannerProfile>,
     pub remote_tts_profiles: BTreeMap<String, RemoteTtsProfile>,
     pub remote_asr_profiles: BTreeMap<String, RemoteAsrProfile>,
-    pub local_planner_profiles: BTreeMap<String, LocalPlannerProfile>,
     pub local_tts_profiles: BTreeMap<String, LocalTtsProfile>,
     pub local_asr_profiles: BTreeMap<String, LocalAsrProfile>,
     pub audio: AudioSettings,
@@ -310,17 +298,13 @@ impl AppConfig {
         let mut remote_planner_profiles = BTreeMap::new();
         let mut remote_tts_profiles = BTreeMap::new();
         let mut remote_asr_profiles = BTreeMap::new();
-        let mut local_planner_profiles = BTreeMap::new();
         let mut local_tts_profiles = BTreeMap::new();
         let mut local_asr_profiles = BTreeMap::new();
 
-        load_provider_profiles(
-            "planner",
+        load_planner_profiles(
             &raw.providers.planner,
             &raw.remote_profiles,
-            &raw.local_profiles,
             &mut remote_planner_profiles,
-            &mut local_planner_profiles,
             &mut issues,
         );
         load_provider_profiles(
@@ -351,7 +335,6 @@ impl AppConfig {
             remote_planner_profiles,
             remote_tts_profiles,
             remote_asr_profiles,
-            local_planner_profiles,
             local_tts_profiles,
             local_asr_profiles,
             audio: raw.audio,
@@ -376,6 +359,47 @@ fn load_document_table_from_str(contents: &str) -> Result<toml::Table, ConfigErr
     toml::from_str(contents).map_err(ConfigError::Parse)
 }
 
+fn load_planner_profiles(
+    selection: &ProviderSelection,
+    remote_profiles: &BTreeMap<String, toml::Table>,
+    resolved_remote_profiles: &mut BTreeMap<String, RemotePlannerProfile>,
+    issues: &mut Vec<String>,
+) {
+    if selection.mode != ProviderMode::Remote {
+        issues.push(String::from(
+            "providers.planner.mode must be \"remote\"; local planner support has been removed",
+        ));
+    }
+
+    if selection.local_profile.is_some() {
+        issues.push(String::from(
+            "providers.planner.local_profile is not supported; use a remote planner profile such as openai-default or ollama-default",
+        ));
+    }
+
+    if selection.failover_to_local.is_some() {
+        issues.push(String::from(
+            "providers.planner.failover_to_local is not supported; use the selected remote planner directly",
+        ));
+    }
+
+    if let Some(profile_name) = selection.remote_profile.as_deref() {
+        if let Some(profile) = resolve_profile::<RemotePlannerProfile>(
+            "remote_profiles",
+            "planner",
+            profile_name,
+            remote_profiles,
+            issues,
+        ) {
+            resolved_remote_profiles.insert(profile_name.to_owned(), profile);
+        }
+    } else {
+        issues.push(String::from(
+            "providers.planner.remote_profile is required when mode = \"remote\"",
+        ));
+    }
+}
+
 fn load_provider_profiles<RemoteProfile, LocalProfile>(
     category: &str,
     selection: &ProviderSelection,
@@ -388,12 +412,6 @@ fn load_provider_profiles<RemoteProfile, LocalProfile>(
     RemoteProfile: DeserializeOwned,
     LocalProfile: DeserializeOwned,
 {
-    if selection.failover_to_local == Some(true) && selection.mode != ProviderMode::Remote {
-        issues.push(format!(
-            "providers.{category}.failover_to_local can only be enabled when mode = \"remote\""
-        ));
-    }
-
     if let Some(profile_name) = selection.remote_profile.as_deref() {
         if let Some(profile) = resolve_profile::<RemoteProfile>(
             "remote_profiles",
@@ -420,9 +438,9 @@ fn load_provider_profiles<RemoteProfile, LocalProfile>(
         ) {
             resolved_local_profiles.insert(profile_name.to_owned(), profile);
         }
-    } else if selection.mode == ProviderMode::Local || selection.failover_to_local == Some(true) {
+    } else if selection.mode == ProviderMode::Local {
         issues.push(format!(
-            "providers.{category}.local_profile is required when mode = \"local\" or failover_to_local = true"
+            "providers.{category}.local_profile is required when mode = \"local\""
         ));
     }
 }
@@ -516,6 +534,19 @@ impl Default for AppConfig {
             max_output_tokens: 1024,
             timeout_ms: 30_000,
         };
+        let planner_ollama = RemotePlannerProfile {
+            provider: RemoteProviderKind::Ollama,
+            base_url: String::from("http://localhost:11434/v1"),
+            model: String::from("qwen2.5:3b-instruct"),
+            api_key: SecretRef::Inline {
+                inline: String::from("ollama"),
+            },
+            organization: None,
+            project: None,
+            temperature_milli: 200,
+            max_output_tokens: 1024,
+            timeout_ms: 30_000,
+        };
 
         let tts_remote = RemoteTtsProfile {
             provider: RemoteProviderKind::OpenAi,
@@ -547,27 +578,13 @@ impl Default for AppConfig {
 
         let mut remote_planner_profiles = std::collections::BTreeMap::new();
         remote_planner_profiles.insert(String::from("openai-default"), planner_remote);
+        remote_planner_profiles.insert(String::from("ollama-default"), planner_ollama);
 
         let mut remote_tts_profiles = std::collections::BTreeMap::new();
         remote_tts_profiles.insert(String::from("openai-tts-default"), tts_remote);
 
         let mut remote_asr_profiles = std::collections::BTreeMap::new();
         remote_asr_profiles.insert(String::from("openai-transcribe-default"), asr_remote);
-
-        let mut local_planner_profiles = std::collections::BTreeMap::new();
-        local_planner_profiles.insert(
-            String::from("qwen2.5-3b-q4"),
-            LocalPlannerProfile {
-                backend: String::from("llama_cpp"),
-                model_id: String::from("Qwen2.5-3B-Instruct"),
-                quantization: String::from("Q4"),
-                model_path: String::from("/path/to/Qwen2.5-3B-Instruct-Q4.gguf"),
-                context_window: 8192,
-                temperature_milli: 200,
-                max_output_tokens: 1024,
-                threads: 4,
-            },
-        );
 
         let mut local_tts_profiles = std::collections::BTreeMap::new();
         local_tts_profiles.insert(
@@ -598,8 +615,8 @@ impl Default for AppConfig {
                 planner: ProviderSelection {
                     mode: ProviderMode::Remote,
                     remote_profile: Some(String::from("openai-default")),
-                    local_profile: Some(String::from("qwen2.5-3b-q4")),
-                    failover_to_local: Some(true),
+                    local_profile: None,
+                    failover_to_local: None,
                 },
                 tts: ProviderSelection {
                     mode: ProviderMode::Local,
@@ -617,7 +634,6 @@ impl Default for AppConfig {
             remote_planner_profiles,
             remote_tts_profiles,
             remote_asr_profiles,
-            local_planner_profiles,
             local_tts_profiles,
             local_asr_profiles,
             audio: AudioSettings {
@@ -650,7 +666,7 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{AppConfig, AudioSettings, ConfigError};
+    use super::{AppConfig, AudioSettings, ConfigError, RemoteProviderKind};
 
     fn test_config_path(label: &str) -> PathBuf {
         let unique_id = SystemTime::now()
@@ -679,9 +695,163 @@ mod tests {
         assert!(config
             .remote_planner_profiles
             .contains_key("openai-default"));
-        assert!(config.local_planner_profiles.contains_key("qwen2.5-3b-q4"));
         assert!(config.local_tts_profiles.contains_key("kitten-default"));
         assert!(config.local_asr_profiles.contains_key("whisper-default"));
+    }
+
+    #[test]
+    fn parses_ollama_planner_profile_when_selected() {
+        let config = AppConfig::load_from_str(
+            r#"
+[providers.planner]
+mode = "remote"
+remote_profile = "ollama-default"
+
+[providers.tts]
+mode = "local"
+local_profile = "kitten-default"
+
+[providers.asr]
+mode = "local"
+local_profile = "whisper-default"
+
+[audio]
+playback_volume = 1.0
+playback_speed = 1.0
+default_tts_voice = "Bruno"
+
+[safety]
+confirmation_confidence_threshold = 0.9
+allow_click_without_confirmation = true
+always_confirm_submit = true
+
+[ocr]
+trigger_on_no_extractable_text = true
+sparse_text_char_threshold = 200
+sparse_text_region_threshold = 2
+prefer_region_ocr = true
+
+[models]
+models_dir = "~/.config/blind_browser/models"
+check_on_startup = true
+auto_download_missing = false
+
+[speech_feedback]
+style = "Short"
+confirm_setting_changes = true
+include_previous_value = false
+
+[remote_profiles.ollama-default]
+provider = "Ollama"
+base_url = "http://localhost:11434/v1"
+model = "qwen2.5:3b-instruct"
+api_key = { inline = "ollama" }
+temperature_milli = 200
+max_output_tokens = 1024
+timeout_ms = 30000
+
+[local_profiles.kitten-default]
+backend = "kitten_tts_rs"
+model_id = "default"
+model_path = "/path/to/kitten/model"
+default_voice = "Bruno"
+sample_rate = 24000
+
+[local_profiles.whisper-default]
+backend = "whisper"
+model_id = "tiny"
+model_path = "/path/to/whisper/model"
+language = "en"
+threads = 4
+"#,
+        )
+        .expect("Ollama planner config should parse and validate");
+
+        let profile = config
+            .remote_planner_profiles
+            .get("ollama-default")
+            .expect("selected Ollama profile should be loaded");
+        assert_eq!(profile.provider, RemoteProviderKind::Ollama);
+        assert_eq!(profile.base_url, "http://localhost:11434/v1");
+        assert_eq!(profile.model, "qwen2.5:3b-instruct");
+    }
+
+    #[test]
+    fn rejects_local_planner_configuration() {
+        let invalid = r#"
+[providers.planner]
+mode = "local"
+local_profile = "ollama-default"
+failover_to_local = true
+
+[providers.tts]
+mode = "local"
+local_profile = "kitten-default"
+
+[providers.asr]
+mode = "local"
+local_profile = "whisper-default"
+
+[audio]
+playback_volume = 1.0
+playback_speed = 1.0
+default_tts_voice = "Bruno"
+
+[safety]
+confirmation_confidence_threshold = 0.9
+allow_click_without_confirmation = true
+always_confirm_submit = true
+
+[ocr]
+trigger_on_no_extractable_text = true
+sparse_text_char_threshold = 200
+sparse_text_region_threshold = 2
+prefer_region_ocr = true
+
+[models]
+models_dir = "~/.config/blind_browser/models"
+check_on_startup = true
+auto_download_missing = false
+
+[speech_feedback]
+style = "Short"
+confirm_setting_changes = true
+include_previous_value = false
+
+[remote_profiles.ollama-default]
+provider = "Ollama"
+base_url = "http://localhost:11434/v1"
+model = "qwen2.5:3b-instruct"
+api_key = { inline = "ollama" }
+temperature_milli = 200
+max_output_tokens = 1024
+timeout_ms = 30000
+
+[local_profiles.kitten-default]
+backend = "kitten_tts_rs"
+model_id = "default"
+model_path = "/path/to/kitten/model"
+default_voice = "Bruno"
+sample_rate = 24000
+
+[local_profiles.whisper-default]
+backend = "whisper"
+model_id = "tiny"
+model_path = "/path/to/whisper/model"
+language = "en"
+threads = 4
+"#;
+
+        let error = AppConfig::load_from_str(invalid).expect_err("config should be invalid");
+
+        match error {
+            ConfigError::Validation(message) => {
+                assert!(message.contains("providers.planner.mode must be \"remote\""));
+                assert!(message.contains("providers.planner.local_profile is not supported"));
+                assert!(message.contains("providers.planner.failover_to_local is not supported"));
+            }
+            other => panic!("expected validation error, got {other}"),
+        }
     }
 
     #[test]

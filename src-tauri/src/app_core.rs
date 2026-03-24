@@ -2,9 +2,6 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use serde::Serialize;
-use tauri::{AppHandle, Manager};
-
 use crate::asr::{
     AsrController, AsrRuntimeError, DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS,
 };
@@ -14,25 +11,24 @@ use crate::browser::{
 };
 use crate::commands::{
     build_planner_skill_selection, execute_planner_output, planner_available_tools,
-    planner_output_schema, resume_after_confirmation, tool_input_schema,
-    validate_planner_output, AgentStateData, ClickElementData, ClickElementInput,
-    ConfirmActionData, ConfirmActionInput, ConfirmActionResolution,
-    DeterministicToolExecutor, ExecutionOutcome, ExtractPageModelData, ExtractPageModelInput,
-    FindElementData, FindElementInput, GetAgentStateInput, GetPageSnapshotInput,
-    GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData,
-    GoForwardInput, ListInteractiveElementsData, ListInteractiveElementsInput, OpenUrlData,
-    OpenUrlInput, PageSnapshotData, PlannerInput, PlannerOutput, ProviderSelectionStatus,
-    ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData, ReadPreviousRegionInput,
-    ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput, ReportResultData,
-    ReportResultInput, ScrollPageData, ScrollPageInput, SetBrowserVisibilityData,
-    SetBrowserVisibilityInput, SetPlaybackSpeedData, SetPlaybackSpeedInput,
-    SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData, SetTtsVoiceInput,
-    StartListeningData, StartListeningInput, StopListeningData, StopListeningInput,
-    StopSpeakingData, StopSpeakingInput, ToolError, ToolName, ToolResult,
-    TranscribeCommandData, TranscribeCommandInput,
+    planner_output_schema, resume_after_confirmation, tool_input_schema, validate_planner_output,
+    AgentStateData, ClickElementData, ClickElementInput, ConfirmActionData, ConfirmActionInput,
+    ConfirmActionResolution, DeterministicToolExecutor, ExecutionOutcome, ExtractPageModelData,
+    ExtractPageModelInput, FindElementData, FindElementInput, GetAgentStateInput,
+    GetPageSnapshotInput, GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput,
+    GoForwardData, GoForwardInput, ListInteractiveElementsData, ListInteractiveElementsInput,
+    OpenUrlData, OpenUrlInput, PageSnapshotData, PlannerInput, PlannerOutput,
+    ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
+    ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
+    ReportResultData, ReportResultInput, ScrollPageData, ScrollPageInput, SetBrowserVisibilityData,
+    SetBrowserVisibilityInput, SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData,
+    SetPlaybackVolumeInput, SetTtsVoiceData, SetTtsVoiceInput, StartListeningData,
+    StartListeningInput, StopListeningData, StopListeningInput, StopSpeakingData,
+    StopSpeakingInput, ToolError, ToolName, ToolResult, TranscribeCommandData,
+    TranscribeCommandInput,
 };
 use crate::config::{
-    AppConfig, AudioSettings, ConfigError, ProviderMode, RemotePlannerProfile, SecretRef,
+    AppConfig, AudioSettings, ConfigError, RemotePlannerProfile, RemoteProviderKind, SecretRef,
 };
 use crate::narration::{
     cursor_for_index, find_region_index, next_region_index, previous_region_index,
@@ -42,6 +38,8 @@ use crate::page_model::PageRegion;
 use crate::page_model::{ElementRole, ExtractionSource, PageModel, RegionSource};
 use crate::state::AppState;
 use crate::tts::{TtsController, TtsRuntimeError};
+use serde::Serialize;
+use tauri::{AppHandle, Manager};
 
 const DEFAULT_FIND_ELEMENT_MAX_CANDIDATES: usize = 3;
 const MAX_FIND_ELEMENT_CANDIDATES: usize = 5;
@@ -49,7 +47,6 @@ const FIND_ELEMENT_STRONG_MATCH_BPS: u16 = 8_500;
 const FIND_ELEMENT_AMBIGUITY_MARGIN_BPS: u16 = 800;
 const MAX_HISTORY_STEPS: u8 = 5;
 const MAX_SCROLL_AMOUNT_PX: f32 = 4_000.0;
-
 #[derive(Serialize)]
 struct PlannerPromptPayload<'a> {
     planner_input: &'a PlannerInput,
@@ -345,7 +342,7 @@ impl AppCore {
                         error,
                     )
                 }
-        };
+            };
 
         self.state.browser_history = browser_page.history.clone();
         self.stop_narration_playback();
@@ -1322,23 +1319,20 @@ impl AppCore {
             }
         };
 
-        let interrupted_region_id = match self.begin_region_narration(
-            region_index,
-            &region,
-            input.interrupt_current,
-        ) {
-            Ok(interrupted_region_id) => interrupted_region_id,
-            Err(error) => {
-                return ToolResult::failure(
-                    ToolName::ReadRegion,
-                    input.request_id,
-                    error,
-                    vec![String::from(
-                        "Narration request could not start playback for the requested region.",
-                    )],
-                )
-            }
-        };
+        let interrupted_region_id =
+            match self.begin_region_narration(region_index, &region, input.interrupt_current) {
+                Ok(interrupted_region_id) => interrupted_region_id,
+                Err(error) => {
+                    return ToolResult::failure(
+                        ToolName::ReadRegion,
+                        input.request_id,
+                        error,
+                        vec![String::from(
+                            "Narration request could not start playback for the requested region.",
+                        )],
+                    )
+                }
+            };
 
         let mut observations = vec![format!(
             "Moved the narration cursor to region_id={} at index {}.",
@@ -1374,14 +1368,16 @@ impl AppCore {
         self.sync_narration_playback_state();
         let regions = match self.readable_regions() {
             Ok(regions) => regions,
-            Err(error) => return ToolResult::failure(
-                ToolName::ReadNextRegion,
-                input.request_id,
-                error,
-                vec![String::from(
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::ReadNextRegion,
+                    input.request_id,
+                    error,
+                    vec![String::from(
                     "Narration could not advance because the current page has no readable regions.",
                 )],
-            ),
+                )
+            }
         };
 
         let Some(region_index) = next_region_index(&self.state.narration_cursor, regions.len())
@@ -1479,23 +1475,20 @@ impl AppCore {
             );
         };
         let region = regions[region_index].clone();
-        let interrupted_region_id = match self.begin_region_narration(
-            region_index,
-            &region,
-            input.interrupt_current,
-        ) {
-            Ok(interrupted_region_id) => interrupted_region_id,
-            Err(error) => {
-                return ToolResult::failure(
-                    ToolName::ReadPreviousRegion,
-                    input.request_id,
-                    error,
-                    vec![String::from(
+        let interrupted_region_id =
+            match self.begin_region_narration(region_index, &region, input.interrupt_current) {
+                Ok(interrupted_region_id) => interrupted_region_id,
+                Err(error) => {
+                    return ToolResult::failure(
+                        ToolName::ReadPreviousRegion,
+                        input.request_id,
+                        error,
+                        vec![String::from(
                         "Narration could not move backward to the previous region for playback.",
                     )],
-                )
-            }
-        };
+                    )
+                }
+            };
 
         let mut observations = vec![format!(
             "Moved narration backward to region_id={} at index {}.",
@@ -1564,7 +1557,9 @@ impl AppCore {
                     vec![if activated {
                         String::from("Started microphone capture for voice input.")
                     } else {
-                        String::from("Listening was already active, so capture continued unchanged.")
+                        String::from(
+                            "Listening was already active, so capture continued unchanged.",
+                        )
                     }],
                 )
             }
@@ -1648,7 +1643,10 @@ impl AppCore {
                         MAX_TRANSCRIBE_DURATION_MS
                     ));
                 }
-                if input.timeout_ms.is_some_and(|timeout_ms| timeout_ms < effective_duration_ms) {
+                if input
+                    .timeout_ms
+                    .is_some_and(|timeout_ms| timeout_ms < effective_duration_ms)
+                {
                     observations.push(String::from(
                         "Capture duration was reduced to respect the requested tool timeout.",
                     ));
@@ -1906,7 +1904,10 @@ impl AppCore {
         }
     }
 
-    fn current_runtime_status_snapshot(&self, include_provider_modes: bool) -> GetRuntimeStatusData {
+    fn current_runtime_status_snapshot(
+        &self,
+        include_provider_modes: bool,
+    ) -> GetRuntimeStatusData {
         GetRuntimeStatusData {
             page_id: self.state.current_page_id.clone(),
             url: self
@@ -1964,21 +1965,11 @@ impl AppCore {
         })
     }
 
-    fn resolve_planner_output(&self, planner_input: &PlannerInput) -> Result<PlannerOutput, ToolError> {
-        match self.config.providers.planner.mode {
-            ProviderMode::Remote => self.resolve_remote_planner_output(planner_input),
-            ProviderMode::Local => Err(ToolError {
-                code: String::from("planner_provider_unimplemented"),
-                message: String::from(
-                    "local planner resolution is not implemented yet for the command resolver",
-                ),
-                retryable: false,
-                details: Some(serde_json::json!({
-                    "mode": "local",
-                    "profile": self.config.providers.planner.local_profile,
-                })),
-            }),
-        }
+    fn resolve_planner_output(
+        &self,
+        planner_input: &PlannerInput,
+    ) -> Result<PlannerOutput, ToolError> {
+        self.resolve_remote_planner_output(planner_input)
     }
 
     fn resolve_remote_planner_output(
@@ -1996,13 +1987,37 @@ impl AppCore {
         let Some(profile) = self.config.remote_planner_profiles.get(profile_name) else {
             return Err(ToolError {
                 code: String::from("planner_profile_unavailable"),
-                message: format!("configured remote planner profile '{profile_name}' was not found"),
+                message: format!(
+                    "configured remote planner profile '{profile_name}' was not found"
+                ),
                 retryable: false,
                 details: None,
             });
         };
 
-        self.resolve_with_openai_planner(profile, planner_input)
+        match profile.provider {
+            RemoteProviderKind::OpenAi => self.resolve_with_openai_planner(profile, planner_input),
+            RemoteProviderKind::Ollama => self.resolve_with_ollama_planner(profile, planner_input),
+        }
+    }
+
+    fn planner_prompt_payload<'a>(
+        &self,
+        planner_input: &'a PlannerInput,
+    ) -> PlannerPromptPayload<'a> {
+        let tool_schemas = planner_input
+            .available_tools
+            .iter()
+            .filter_map(|tool| {
+                tool_input_schema(&tool.name).map(|schema| (format!("{:?}", tool.name), schema))
+            })
+            .collect::<BTreeMap<_, _>>();
+
+        PlannerPromptPayload {
+            planner_input,
+            planner_output_schema: planner_output_schema(),
+            tool_input_schemas: tool_schemas,
+        }
     }
 
     #[cfg(feature = "remote-openai")]
@@ -2029,35 +2044,24 @@ impl AppCore {
             .with_api_base(profile.base_url.clone())
             .with_api_key(api_key);
         if let Some(organization) = profile.organization.as_ref() {
-            openai_config = openai_config.with_org_id(
-                resolve_secret_ref(organization).map_err(|reason| ToolError {
-                    code: String::from("planner_secret_unavailable"),
-                    message: String::from(
-                        "remote planner organization secret could not be resolved",
-                    ),
-                    retryable: false,
-                    details: Some(serde_json::json!({ "reason": reason })),
-                })?,
-            );
+            openai_config =
+                openai_config.with_org_id(resolve_secret_ref(organization).map_err(|reason| {
+                    ToolError {
+                        code: String::from("planner_secret_unavailable"),
+                        message: String::from(
+                            "remote planner organization secret could not be resolved",
+                        ),
+                        retryable: false,
+                        details: Some(serde_json::json!({ "reason": reason })),
+                    }
+                })?);
         }
         if let Some(project) = profile.project.as_ref() {
             openai_config = openai_config.with_project_id(project.clone());
         }
 
         let client = Client::with_config(openai_config);
-        let tool_schemas = planner_input
-            .available_tools
-            .iter()
-            .filter_map(|tool| {
-                tool_input_schema(&tool.name).map(|schema| (format!("{:?}", tool.name), schema))
-            })
-            .collect::<BTreeMap<_, _>>();
-
-        let prompt_payload = PlannerPromptPayload {
-            planner_input,
-            planner_output_schema: planner_output_schema(),
-            tool_input_schemas: tool_schemas,
-        };
+        let prompt_payload = self.planner_prompt_payload(planner_input);
         let user_content =
             serde_json::to_string_pretty(&prompt_payload).expect("planner prompt should serialize");
         let request = CreateChatCompletionRequestArgs::default()
@@ -2109,15 +2113,17 @@ impl AppCore {
             })?;
 
         let response =
-            futures::executor::block_on(client.chat().create(request)).map_err(|error| ToolError {
-                code: String::from("planner_request_failed"),
-                message: format!("remote planner request failed: {error}"),
-                retryable: true,
-                details: Some(serde_json::json!({
-                    "provider": "OpenAI",
-                    "model": profile.model,
-                    "base_url": profile.base_url,
-                })),
+            futures::executor::block_on(client.chat().create(request)).map_err(|error| {
+                ToolError {
+                    code: String::from("planner_request_failed"),
+                    message: format!("remote planner request failed: {error}"),
+                    retryable: true,
+                    details: Some(serde_json::json!({
+                        "provider": "OpenAI",
+                        "model": profile.model,
+                        "base_url": profile.base_url,
+                    })),
+                }
             })?;
         let content = response
             .choices
@@ -2147,9 +2153,121 @@ impl AppCore {
     ) -> Result<PlannerOutput, ToolError> {
         Err(ToolError {
             code: String::from("planner_backend_unavailable"),
-            message: String::from(
-                "remote OpenAI planner support is not enabled in this build",
-            ),
+            message: String::from("remote OpenAI planner support is not enabled in this build"),
+            retryable: false,
+            details: None,
+        })
+    }
+
+    #[cfg(feature = "remote-openai")]
+    fn resolve_with_ollama_planner(
+        &self,
+        profile: &RemotePlannerProfile,
+        planner_input: &PlannerInput,
+    ) -> Result<PlannerOutput, ToolError> {
+        use async_openai::types::chat::ResponseFormat;
+        use async_openai::types::chat::{
+            ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
+            CreateChatCompletionRequestArgs,
+        };
+        use async_openai::{config::OpenAIConfig, Client};
+
+        let api_key = resolve_secret_ref(&profile.api_key).map_err(|reason| ToolError {
+            code: String::from("planner_secret_unavailable"),
+            message: String::from("Ollama planner API key placeholder could not be resolved"),
+            retryable: false,
+            details: Some(serde_json::json!({ "reason": reason })),
+        })?;
+
+        let client = Client::with_config(
+            OpenAIConfig::new()
+                .with_api_base(profile.base_url.clone())
+                .with_api_key(api_key),
+        );
+        let prompt_payload = self.planner_prompt_payload(planner_input);
+        let user_content =
+            serde_json::to_string_pretty(&prompt_payload).expect("planner prompt should serialize");
+        let request = CreateChatCompletionRequestArgs::default()
+            .model(profile.model.clone())
+            .temperature(profile.temperature_milli as f32 / 1_000.0)
+            .max_tokens(profile.max_output_tokens)
+            .response_format(ResponseFormat::JsonObject)
+            .messages([
+                ChatCompletionRequestSystemMessageArgs::default()
+                    .content(planner_system_prompt())
+                    .build()
+                    .map_err(|error| ToolError {
+                        code: String::from("planner_request_build_failed"),
+                        message: format!(
+                            "failed to build planner system message for Ollama resolution: {error}"
+                        ),
+                        retryable: false,
+                        details: None,
+                    })?
+                    .into(),
+                ChatCompletionRequestUserMessageArgs::default()
+                    .content(user_content)
+                    .build()
+                    .map_err(|error| ToolError {
+                        code: String::from("planner_request_build_failed"),
+                        message: format!(
+                            "failed to build planner user message for Ollama resolution: {error}"
+                        ),
+                        retryable: false,
+                        details: None,
+                    })?
+                    .into(),
+            ])
+            .build()
+            .map_err(|error| ToolError {
+                code: String::from("planner_request_build_failed"),
+                message: format!("failed to build Ollama planner request: {error}"),
+                retryable: false,
+                details: None,
+            })?;
+
+        let response =
+            futures::executor::block_on(client.chat().create(request)).map_err(|error| {
+                ToolError {
+                    code: String::from("planner_request_failed"),
+                    message: format!("Ollama planner request failed: {error}"),
+                    retryable: true,
+                    details: Some(serde_json::json!({
+                        "provider": "Ollama",
+                        "model": profile.model,
+                        "base_url": profile.base_url,
+                    })),
+                }
+            })?;
+        let content = response
+            .choices
+            .into_iter()
+            .next()
+            .and_then(|choice| choice.message.content)
+            .ok_or_else(|| ToolError {
+                code: String::from("planner_response_missing"),
+                message: String::from("Ollama planner returned no structured content"),
+                retryable: true,
+                details: None,
+            })?;
+
+        serde_json::from_str::<PlannerOutput>(&content).map_err(|error| ToolError {
+            code: String::from("planner_response_invalid"),
+            message: format!("Ollama planner returned invalid planner JSON: {error}"),
+            retryable: true,
+            details: Some(serde_json::json!({ "content": content })),
+        })
+    }
+
+    #[cfg(not(feature = "remote-openai"))]
+    fn resolve_with_ollama_planner(
+        &self,
+        _profile: &RemotePlannerProfile,
+        _planner_input: &PlannerInput,
+    ) -> Result<PlannerOutput, ToolError> {
+        Err(ToolError {
+            code: String::from("planner_backend_unavailable"),
+            message: String::from("remote Ollama planner support is not enabled in this build"),
             retryable: false,
             details: None,
         })
@@ -2261,7 +2379,10 @@ impl DeterministicToolExecutor for AppCore {
         AppCore::execute_start_listening(self, input)
     }
 
-    fn execute_stop_listening(&mut self, input: StopListeningInput) -> ToolResult<StopListeningData> {
+    fn execute_stop_listening(
+        &mut self,
+        input: StopListeningInput,
+    ) -> ToolResult<StopListeningData> {
         AppCore::execute_stop_listening(self, input)
     }
 

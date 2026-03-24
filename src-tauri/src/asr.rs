@@ -84,10 +84,7 @@ pub enum AsrRuntimeError {
     #[error("local asr model path does not exist: {model_path}")]
     MissingLocalModelPath { model_path: String },
     #[error("failed to load the local asr model from {model_path}: {reason}")]
-    LocalModelLoad {
-        model_path: String,
-        reason: String,
-    },
+    LocalModelLoad { model_path: String, reason: String },
     #[error("captured audio buffer was empty")]
     NoAudioCaptured,
     #[error("failed to transcribe captured audio: {reason}")]
@@ -266,9 +263,11 @@ impl CaptureSession {
         })?;
         let buffer = Arc::new(Mutex::new(Vec::new()));
         let stream = build_input_stream(&device, &config, Arc::clone(&buffer))?;
-        stream.play().map_err(|error| AsrRuntimeError::StartInputStream {
-            reason: error.to_string(),
-        })?;
+        stream
+            .play()
+            .map_err(|error| AsrRuntimeError::StartInputStream {
+                reason: error.to_string(),
+            })?;
 
         Ok(Self {
             buffer,
@@ -425,7 +424,9 @@ fn resample_linear(samples: &[f32], input_sample_rate: u32, output_sample_rate: 
     for output_index in 0..output_len {
         let source_position = output_index as f64 / ratio;
         let lower_index = source_position.floor() as usize;
-        let upper_index = lower_index.saturating_add(1).min(samples.len().saturating_sub(1));
+        let upper_index = lower_index
+            .saturating_add(1)
+            .min(samples.len().saturating_sub(1));
         let fraction = (source_position - lower_index as f64) as f32;
         let lower = samples[lower_index];
         let upper = samples[upper_index];
@@ -460,14 +461,15 @@ fn transcribe_with_whisper(
 
     let context = WhisperContext::new_with_params(model_path, WhisperContextParameters::default())
         .map_err(|error| AsrRuntimeError::LocalModelLoad {
-        model_path: model_path.to_string(),
-        reason: error.to_string(),
-    })?;
-    let mut state = context
-        .create_state()
-        .map_err(|error| AsrRuntimeError::TranscriptionFailed {
+            model_path: model_path.to_string(),
             reason: error.to_string(),
         })?;
+    let mut state =
+        context
+            .create_state()
+            .map_err(|error| AsrRuntimeError::TranscriptionFailed {
+                reason: error.to_string(),
+            })?;
     let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 0 });
     params.set_n_threads(i32::from(profile.threads.max(1)));
     params.set_translate(false);

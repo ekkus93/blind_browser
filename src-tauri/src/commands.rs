@@ -145,7 +145,10 @@ pub trait DeterministicToolExecutor {
         &mut self,
         input: StartListeningInput,
     ) -> ToolResult<StartListeningData>;
-    fn execute_stop_listening(&mut self, input: StopListeningInput) -> ToolResult<StopListeningData>;
+    fn execute_stop_listening(
+        &mut self,
+        input: StopListeningInput,
+    ) -> ToolResult<StopListeningData>;
     fn execute_transcribe_command(
         &mut self,
         input: TranscribeCommandInput,
@@ -1188,7 +1191,9 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     if normalized.contains("read page") || normalized.contains("read this page") {
         return IntentName::ReadPage;
     }
-    if normalized.contains("open ") || normalized.contains("go to ") || normalized.contains("visit ")
+    if normalized.contains("open ")
+        || normalized.contains("go to ")
+        || normalized.contains("visit ")
     {
         return IntentName::OpenUrl;
     }
@@ -1325,7 +1330,10 @@ pub fn validate_planner_output(
                 Some(serde_json::json!({ "step_id": step.step_id })),
             ));
         }
-        if !available_tool_names.iter().any(|tool_name| tool_name == &step.tool_name) {
+        if !available_tool_names
+            .iter()
+            .any(|tool_name| tool_name == &step.tool_name)
+        {
             return Err(invalid_planner_output(
                 format!("planner referenced unavailable tool {:?}", step.tool_name),
                 Some(serde_json::json!({ "step_id": step.step_id })),
@@ -1393,7 +1401,9 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
         ToolName::GoForward => validate_tool_arguments::<GoForwardInput>(step),
         ToolName::ReloadPage => validate_tool_arguments::<ReloadPageInput>(step),
         ToolName::ScrollPage => validate_tool_arguments::<ScrollPageInput>(step),
-        ToolName::SetBrowserVisibility => validate_tool_arguments::<SetBrowserVisibilityInput>(step),
+        ToolName::SetBrowserVisibility => {
+            validate_tool_arguments::<SetBrowserVisibilityInput>(step)
+        }
         ToolName::GetPageSnapshot => validate_tool_arguments::<GetPageSnapshotInput>(step),
         ToolName::ExtractPageModel => validate_tool_arguments::<ExtractPageModelInput>(step),
         ToolName::ListInteractiveElements => {
@@ -1487,7 +1497,9 @@ fn discover_skills(
     }
 
     for skill in parse_bundled_skills(BUNDLED_SKILLS_MARKDOWN, &available_tool_names) {
-        discovered.entry(skill.summary.name.clone()).or_insert(skill);
+        discovered
+            .entry(skill.summary.name.clone())
+            .or_insert(skill);
     }
 
     discovered.into_values().collect()
@@ -1547,7 +1559,9 @@ fn load_skills_from_directory(
                     );
                     continue;
                 }
-                discovered.entry(skill.summary.name.clone()).or_insert(skill);
+                discovered
+                    .entry(skill.summary.name.clone())
+                    .or_insert(skill);
             }
             Err(error) => {
                 tracing::warn!(
@@ -1761,7 +1775,10 @@ fn skill_frontmatter_from_parts(
             let mut resolved_tools = Vec::new();
             for tool_name in tool_names {
                 let tool = parse_tool_name_value(tool_name)?;
-                if !available_tool_names.iter().any(|available| available == &tool) {
+                if !available_tool_names
+                    .iter()
+                    .any(|available| available == &tool)
+                {
                     return Err(format!("skill references unavailable tool '{tool_name}'"));
                 }
                 resolved_tools.push(tool);
@@ -1995,8 +2012,11 @@ fn likely_tools_for_intent(intent: &IntentName) -> Vec<ToolName> {
         IntentName::ClickElement => vec![ToolName::FindElement, ToolName::ClickElement],
         IntentName::Scroll => vec![ToolName::ScrollPage],
         IntentName::OcrRecovery => vec![ToolName::GetPageSnapshot, ToolName::ReportResult],
-        IntentName::FillInput | IntentName::SubmitForm | IntentName::GetPlaybackVolume
-        | IntentName::GetPlaybackSpeed | IntentName::Unknown => Vec::new(),
+        IntentName::FillInput
+        | IntentName::SubmitForm
+        | IntentName::GetPlaybackVolume
+        | IntentName::GetPlaybackSpeed
+        | IntentName::Unknown => Vec::new(),
     }
 }
 
@@ -2024,7 +2044,8 @@ fn score_skill(
         .allowed_tools
         .as_ref()
         .map(|tools| {
-            tools.iter()
+            tools
+                .iter()
                 .filter(|tool| likely_tools.iter().any(|candidate| candidate == *tool))
                 .count() as i32
         })
@@ -2055,13 +2076,15 @@ where
 {
     serde_json::from_value::<Input>(step.arguments.clone())
         .map(|_| ())
-        .map_err(|error| invalid_planner_output(
-            format!("tool arguments did not match the expected schema: {error}"),
-            Some(serde_json::json!({
-                "step_id": step.step_id,
-                "tool_name": step.tool_name,
-            })),
-        ))
+        .map_err(|error| {
+            invalid_planner_output(
+                format!("tool arguments did not match the expected schema: {error}"),
+                Some(serde_json::json!({
+                    "step_id": step.step_id,
+                    "tool_name": step.tool_name,
+                })),
+            )
+        })
 }
 
 fn execute_planner_output_with_runner<Runner>(
@@ -4291,17 +4314,15 @@ mod tests {
     fn planner_available_tools_exclude_unwired_tools() {
         let available_tools = planner_available_tools();
 
-        assert!(
-            available_tools
-                .iter()
-                .all(|tool| !matches!(tool.name, ToolName::CaptureScreenshot | ToolName::RunOcr))
-        );
-        assert!(available_tools.iter().any(|tool| tool.name == ToolName::OpenUrl));
-        assert!(
-            available_tools
-                .iter()
-                .any(|tool| tool.name == ToolName::TranscribeCommand)
-        );
+        assert!(available_tools
+            .iter()
+            .all(|tool| !matches!(tool.name, ToolName::CaptureScreenshot | ToolName::RunOcr)));
+        assert!(available_tools
+            .iter()
+            .any(|tool| tool.name == ToolName::OpenUrl));
+        assert!(available_tools
+            .iter()
+            .any(|tool| tool.name == ToolName::TranscribeCommand));
     }
 
     #[test]
@@ -4314,7 +4335,10 @@ mod tests {
             &available_tools,
         );
 
-        assert!(selection.active_skill_names.iter().any(|name| name == "go_back"));
+        assert!(selection
+            .active_skill_names
+            .iter()
+            .any(|name| name == "go_back"));
         assert_eq!(
             selection
                 .relevant_skill_summaries
