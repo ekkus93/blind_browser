@@ -146,14 +146,14 @@
 ### TTS Module
 - [x] Wrap kitten_tts_rs
 - [x] Keep local TTS as the default provider
-- [ ] Add optional OpenAI-backed remote TTS provider
+- [x] Add optional OpenAI-backed remote TTS provider
 - [x] Load model
 - [x] Implement synthesize()
 - [x] Add voice + speed config
 - [x] Expose deterministic voice-selection updates through `set_tts_voice`
 - [x] Apply persisted playback speed through kitten_tts_rs native speed control
-- [ ] Apply persisted playback speed through OpenAI TTS native speed control when remote TTS is active
-- [ ] Add TTS provider selection
+- [x] Apply persisted playback speed through OpenAI TTS native speed control when remote TTS is active
+- [x] Add TTS provider selection
 - [ ] Expose KittenTTS voice choices: `Bella`, `Jasper`, `Luna`, `Bruno`, `Rosie`, `Hugo`, `Kiki`, `Leo`
 - [ ] Add caching layer (optional)
 

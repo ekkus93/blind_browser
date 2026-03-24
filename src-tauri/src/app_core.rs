@@ -2507,14 +2507,15 @@ fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolError {
         },
         TtsRuntimeError::MissingLocalProfile
         | TtsRuntimeError::MissingLocalProfileDefinition { .. }
-        | TtsRuntimeError::MissingRemoteProfile => ToolError {
+        | TtsRuntimeError::MissingRemoteProfile
+        | TtsRuntimeError::MissingRemoteProfileDefinition { .. } => ToolError {
             code: String::from("tts_profile_unavailable"),
             message: error.to_string(),
             retryable: false,
             details: None,
         },
-        TtsRuntimeError::RemoteProviderUnimplemented { .. } => ToolError {
-            code: String::from("tts_provider_unimplemented"),
+        TtsRuntimeError::UnsupportedRemoteProvider { .. } => ToolError {
+            code: String::from("unsupported_tts_provider"),
             message: error.to_string(),
             retryable: false,
             details: None,
@@ -2525,8 +2526,45 @@ fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolError {
             retryable: false,
             details: None,
         },
-        TtsRuntimeError::LocalTtsFeatureUnavailable => ToolError {
+        TtsRuntimeError::LocalTtsFeatureUnavailable
+        | TtsRuntimeError::RemoteTtsFeatureUnavailable => ToolError {
             code: String::from("tts_backend_unavailable"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::EmptyRemoteVoice => ToolError {
+            code: String::from("tts_voice_unavailable"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::RemoteSecretUnavailable { .. } => ToolError {
+            code: String::from("tts_secret_unavailable"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::RemoteRequestBuildFailed { .. } => ToolError {
+            code: String::from("tts_request_build_failed"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::RemoteRequestFailed { .. } => ToolError {
+            code: String::from("tts_request_failed"),
+            message: error.to_string(),
+            retryable: true,
+            details: None,
+        },
+        TtsRuntimeError::UnsupportedRemoteAudioFormat { .. } => ToolError {
+            code: String::from("unsupported_tts_audio_format"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::RemoteResponseDecodeFailed { .. } => ToolError {
+            code: String::from("tts_response_invalid"),
             message: error.to_string(),
             retryable: false,
             details: None,

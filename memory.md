@@ -397,3 +397,24 @@
 ## 2026-03-24T19:09:00Z - GPT-5.4 - Added manual Node upgrade helper script
 - Added `fix-node-version.sh` at the repo root as a small manual helper that switches the shell to `Node.js 22.12.0` via `nvm`, clears `node_modules`, and reinstalls dependencies with `pnpm install`.
 - The script is intentionally narrower than `setup-dev-env.sh`: it only addresses the Vite warning caused by running under unsupported `Node.js 22.11.0`.
+
+## 2026-03-24T19:27:47Z - GPT-5.4 - Remote OpenAI TTS selection implemented
+- `src-tauri/src/tts.rs` now implements the remote TTS path for `providers.tts.mode = "remote"` using the existing `async-openai` client with its `audio` feature enabled, issuing OpenAI speech requests and decoding WAV responses into the same `SynthesizedSpeech` sample buffer shape used by local playback.
+- Remote voice selection now uses an OpenAI-compatible runtime voice override when the current voice is one of the built-in OpenAI voices; otherwise it falls back to the configured remote profile voice so the default local `Bruno` voice does not break remote TTS mode.
+- Added focused TTS unit tests for remote voice resolution, remote audio-format validation, and WAV decoding, and updated `docs/TODO.md` to mark remote OpenAI TTS, remote TTS provider selection, and remote native speed control as implemented.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (72 Rust tests green), `pnpm test:ui` (3 tests green), and `pnpm build`; the current shell still prints the known Vite warning because it is using Node 22.11.0.
+
+## 2026-03-24T19:31:07Z - GPT-5.4 - Validation rerun after remote TTS landed
+- Re-ran the standard validation commands successfully after sourcing Cargo's shell environment in this session: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- Current validated baseline is `72` passing Rust tests and `3` passing UI tests with no lint errors; the only remaining noise is Node's experimental warning during `pnpm test:ui`.
+
+## 2026-03-24T19:33:06Z - GPT-5.4 - Verified Node 22.12.0 clears the Vite version warning
+- Switching the shell to `Node.js 22.12.0` with `nvm use 22.12.0` removes the Vite unsupported-version warning seen under `Node.js 22.11.0`; `pnpm build` then runs cleanly with no Node-version warning.
+
+## 2026-03-24T19:37:57Z - GPT-5.4 - UI test script now suppresses only the known Node experimental warning
+- Updated `package.json` so `pnpm test:ui` runs `node --disable-warning=ExperimentalWarning --experimental-strip-types --experimental-specifier-resolution=node --test src/**/*.test.mjs`, preserving the direct `.ts` test import path while silencing only the known process warning emitted by Node's type-stripping runtime.
+- Verified the script still passes cleanly under `Node.js 22.12.0` with `3` passing UI tests and no experimental warning noise.
+
+## 2026-03-24T19:40:00Z - GPT-5.4 - Cargo is now available automatically in fresh bash shells
+- Moved the guarded `~/.cargo/env` sourcing to the top of `~/.bashrc`, before the existing non-interactive early return, so fresh bash shells now get Cargo on `PATH` without manually running `source "$HOME/.cargo/env"`.
+- Verified with both `bash -lc 'command -v cargo && cargo --version'` and `bash -ic 'command -v cargo && cargo --version'`.
