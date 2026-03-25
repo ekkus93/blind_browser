@@ -736,3 +736,13 @@
 ## 2026-03-25T20:16:08Z - GPT-5.4 - Link extraction prepared for check-in
 - Verified the worktree contains only the expected extract-links slice files: `docs/SPECS.md`, `docs/TODO.md`, `src-tauri/src/app_core.rs`, and `memory.md`.
 - This slice is ready to commit and push on `master` after the green validation run that completed at `160` Rust tests and `12` UI tests.
+
+## 2026-03-25T20:28:08Z - GPT-5.4 - Region screenshot cropping enabled
+- Updated `src-tauri/src/app_core.rs` so `capture_screenshot` can target `region_id` by resolving the current page model’s stored `PageRegion.bbox` and passing that crop rectangle into the browser screenshot path.
+- Added a regression test for region bbox resolution and kept failure handling explicit with `unknown_region_id`, `missing_region_bbox`, and `invalid_region_bbox`.
+- Updated `docs/SPECS.md` and `docs/TODO.md` to reflect that region-targeted screenshots now require a positive stored bounding box and to mark `Crop screenshot regions` complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `161` Rust tests and `12` UI tests.
+
+## 2026-03-25T20:30:59Z - GPT-5.4 - Region screenshot slice prepared for check-in
+- Verified the worktree contains only the expected region-screenshot slice files: `docs/SPECS.md`, `docs/TODO.md`, `src-tauri/src/app_core.rs`, and `memory.md`.
+- This slice is ready to commit and push on `master` after the green validation run that completed at `161` Rust tests and `12` UI tests.

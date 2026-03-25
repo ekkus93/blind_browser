@@ -283,7 +283,7 @@
 
 ### OCR Module
 - [ ] Integrate leptess
-- [ ] Crop screenshot regions
+- [x] Crop screenshot regions
 - [ ] Run OCR on region
 - [ ] Merge OCR into PageModel
 - [ ] Trigger OCR when no extractable text is found

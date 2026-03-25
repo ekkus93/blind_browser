@@ -620,11 +620,13 @@ impl AppCore {
             return Self::browser_runtime_missing_page(ToolName::CaptureScreenshot, input.request_id);
         }
 
-        let region_id_active = input
+        let region_id = input
             .region_id
             .as_deref()
             .map(str::trim)
-            .is_some_and(|region_id| !region_id.is_empty());
+            .filter(|region_id| !region_id.is_empty())
+            .map(ToOwned::to_owned);
+        let region_id_active = input.region_id.as_deref().is_some();
         let targeting_modes =
             usize::from(input.full_page) + usize::from(region_id_active) + usize::from(input.bbox.is_some());
         if targeting_modes > 1 {
@@ -641,29 +643,6 @@ impl AppCore {
                 },
                 vec![String::from(
                     "Screenshot request was rejected because it combined multiple targeting modes.",
-                )],
-            );
-        }
-
-        if let Some(region_id) = input
-            .region_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|region_id| !region_id.is_empty())
-        {
-            return ToolResult::failure(
-                ToolName::CaptureScreenshot,
-                input.request_id,
-                ToolError {
-                    code: String::from("region_geometry_unavailable"),
-                    message: String::from(
-                        "capture_screenshot region_id targeting is not available until page regions carry bounding boxes",
-                    ),
-                    retryable: false,
-                    details: Some(serde_json::json!({ "region_id": region_id })),
-                },
-                vec![String::from(
-                    "Region-targeted screenshots are blocked until region bounding boxes are available in the page model.",
                 )],
             );
         }
@@ -693,10 +672,44 @@ impl AppCore {
             }
         }
 
+        let screenshot_bbox = if let Some(region_id) = region_id.as_deref() {
+            let regions = match self.readable_regions() {
+                Ok(regions) => regions,
+                Err(error) => {
+                    return ToolResult::failure(
+                        ToolName::CaptureScreenshot,
+                        input.request_id,
+                        error,
+                        vec![String::from(
+                            "Region-targeted screenshot capture requires readable regions in the current page model.",
+                        )],
+                    )
+                }
+            };
+
+            let bbox = match region_bbox_by_id(regions, region_id) {
+                Ok(bbox) => bbox,
+                Err(error) => {
+                    return ToolResult::failure(
+                        ToolName::CaptureScreenshot,
+                        input.request_id,
+                        error,
+                        vec![String::from(
+                            "Region-targeted screenshot capture could not resolve a usable bounding box for the requested region.",
+                        )],
+                    )
+                }
+            };
+
+            Some(bbox)
+        } else {
+            input.bbox.clone()
+        };
+
         let browser_screenshot =
             match self
                 .browser
-                .capture_screenshot(input.full_page, input.bbox.clone(), input.timeout_ms)
+                .capture_screenshot(input.full_page, screenshot_bbox.clone(), input.timeout_ms)
             {
                 Ok(browser_screenshot) => browser_screenshot,
                 Err(error) => {
@@ -754,6 +767,10 @@ impl AppCore {
         if input.full_page {
             observations.push(String::from(
                 "The screenshot targeted the full page rather than only the current viewport.",
+            ));
+        } else if region_id.is_some() {
+            observations.push(String::from(
+                "The screenshot was clipped to the requested page region using its stored bounding box.",
             ));
         } else if browser_screenshot.bbox.is_some() {
             observations.push(String::from(
@@ -3938,6 +3955,50 @@ fn normalize_optional_text(value: Option<String>) -> Option<String> {
     })
 }
 
+fn region_bbox_by_id(regions: &[PageRegion], region_id: &str) -> Result<Rect, ToolError> {
+    let Some(region_index) = find_region_index(regions, region_id) else {
+        return Err(ToolError {
+            code: String::from("unknown_region_id"),
+            message: String::from(
+                "capture_screenshot could not find the requested region_id in the current page model",
+            ),
+            retryable: false,
+            details: Some(serde_json::json!({ "region_id": region_id })),
+        });
+    };
+
+    let region = &regions[region_index];
+    let Some(bbox) = region.bbox.clone() else {
+        return Err(ToolError {
+            code: String::from("missing_region_bbox"),
+            message: String::from(
+                "capture_screenshot requires a bounding box for the requested region_id",
+            ),
+            retryable: false,
+            details: Some(serde_json::json!({ "region_id": region_id })),
+        });
+    };
+
+    if bbox.width <= 0.0 || bbox.height <= 0.0 {
+        return Err(ToolError {
+            code: String::from("invalid_region_bbox"),
+            message: String::from(
+                "capture_screenshot requires a positive bounding box for the requested region_id",
+            ),
+            retryable: false,
+            details: Some(serde_json::json!({
+                "region_id": region_id,
+                "x": bbox.x,
+                "y": bbox.y,
+                "width": bbox.width,
+                "height": bbox.height,
+            })),
+        });
+    }
+
+    Ok(bbox)
+}
+
 fn merge_ocr_text_into_page_model(
     page: &mut PageModel,
     region_id: Option<&str>,
@@ -5731,7 +5792,8 @@ mod tests {
         determine_find_element_resolution, execute_bounded_replanning_loop,
         filter_interactive_elements, infer_extraction_source, normalize_absolute_url,
         merge_ocr_text_into_page_model, merged_region_text, normalize_optional_text,
-        planner_system_prompt, rank_find_element_candidates, resolve_clickable_element,
+        planner_system_prompt, rank_find_element_candidates, region_bbox_by_id,
+        resolve_clickable_element,
         resolve_direct_fill_and_submit_command,
         resolve_direct_fill_field_command,
         resolve_direct_focus_field_command, resolve_direct_submit_form_command,
@@ -5746,7 +5808,6 @@ mod tests {
         ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, Rect,
         RegionSource,
     };
-
     #[test]
     fn normalize_optional_text_trims_and_drops_empty_values() {
         assert_eq!(normalize_optional_text(None), None);
@@ -5806,6 +5867,32 @@ mod tests {
         assert_eq!(
             build_visible_text_excerpt(&page, Some(5)),
             String::from("First")
+        );
+    }
+
+    #[test]
+    fn region_bbox_by_id_returns_region_geometry_when_available() {
+        let regions = vec![PageRegion {
+            region_id: String::from("region-1"),
+            label: Some(String::from("Main")),
+            text: String::from("Text"),
+            bbox: Some(Rect {
+                x: 10.0,
+                y: 20.0,
+                width: 30.0,
+                height: 40.0,
+            }),
+            source: RegionSource::Dom,
+        }];
+
+        assert_eq!(
+            region_bbox_by_id(&regions, "region-1").expect("region bbox should resolve"),
+            Rect {
+                x: 10.0,
+                y: 20.0,
+                width: 30.0,
+                height: 40.0,
+            }
         );
     }
 
