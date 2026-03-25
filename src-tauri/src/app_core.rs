@@ -1343,13 +1343,13 @@ impl AppCore {
             ));
         }
 
-        if should_trigger_no_extractable_text_ocr_fallback(
+        if should_trigger_extract_page_model_ocr_fallback(
             input.use_dom_extraction,
             &base_page_model,
             &self.config.ocr,
         ) {
             observations.push(String::from(
-                "Live DOM extraction did not produce readable text, so OCR fallback was triggered.",
+                "Live DOM extraction did not produce enough readable text, so OCR fallback was triggered.",
             ));
 
             let screenshot_result = self.execute_capture_screenshot(CaptureScreenshotInput {
@@ -4166,17 +4166,31 @@ fn merge_ocr_text_into_page_model(
     }
 }
 
-fn should_trigger_no_extractable_text_ocr_fallback(
+fn extracted_text_metrics(page: &PageModel) -> (usize, usize) {
+    page.regions.iter().fold((0usize, 0usize), |(chars, regions), region| {
+        let trimmed = region.text.trim();
+        if trimmed.is_empty() {
+            (chars, regions)
+        } else {
+            (chars + trimmed.chars().count(), regions + 1)
+        }
+    })
+}
+
+fn should_trigger_extract_page_model_ocr_fallback(
     use_dom_extraction: bool,
     page: &PageModel,
     ocr_settings: &OcrSettings,
 ) -> bool {
-    use_dom_extraction
-        && ocr_settings.trigger_on_no_extractable_text
-        && !page
-            .regions
-            .iter()
-            .any(|region| !region.text.trim().is_empty())
+    if !use_dom_extraction || !ocr_settings.trigger_on_no_extractable_text {
+        return false;
+    }
+
+    let (readable_char_count, readable_region_count) = extracted_text_metrics(page);
+
+    readable_region_count == 0
+        || readable_char_count <= ocr_settings.sparse_text_char_threshold as usize
+        || readable_region_count < ocr_settings.sparse_text_region_threshold as usize
 }
 
 fn merged_region_text(existing_text: &str, ocr_text: &str) -> String {
@@ -5958,10 +5972,11 @@ mod tests {
     use super::{
         build_extracted_page_model, build_find_element_query, build_visible_text_excerpt,
         determine_find_element_resolution, execute_bounded_replanning_loop,
+        extracted_text_metrics,
         filter_interactive_elements, infer_extraction_source, normalize_absolute_url,
         merge_ocr_text_into_page_model, merged_region_text, normalize_optional_text,
         planner_system_prompt, rank_find_element_candidates, region_bbox_by_id,
-        resolve_clickable_element, should_trigger_no_extractable_text_ocr_fallback,
+        resolve_clickable_element, should_trigger_extract_page_model_ocr_fallback,
         resolve_direct_fill_and_submit_command,
         resolve_direct_fill_field_command,
         resolve_direct_focus_field_command, resolve_direct_submit_form_command,
@@ -6248,7 +6263,7 @@ mod tests {
             interactive_elements: Vec::new(),
         };
 
-        assert!(should_trigger_no_extractable_text_ocr_fallback(
+        assert!(should_trigger_extract_page_model_ocr_fallback(
             true,
             &page,
             &OcrSettings::default()
@@ -6256,29 +6271,124 @@ mod tests {
     }
 
     #[test]
-    fn should_not_trigger_no_extractable_text_ocr_fallback_when_readable_text_exists() {
+    fn extracted_text_metrics_counts_trimmed_text_and_regions() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![
+                PageRegion {
+                    region_id: String::from("region-1"),
+                    label: None,
+                    text: String::from("  Visible DOM text  "),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("region-2"),
+                    label: None,
+                    text: String::from(" "),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+            ],
+            interactive_elements: Vec::new(),
+        };
+
+        assert_eq!(extracted_text_metrics(&page), (16, 1));
+    }
+
+    #[test]
+    fn should_trigger_extract_page_model_ocr_fallback_when_text_is_below_char_threshold() {
         let page = PageModel {
             title: Some(String::from("Example")),
             url: Some(String::from("https://example.com")),
             regions: vec![PageRegion {
                 region_id: String::from("region-1"),
                 label: None,
-                text: String::from("Visible DOM text"),
+                text: String::from("Short text"),
                 bbox: None,
                 source: RegionSource::Dom,
             }],
             interactive_elements: Vec::new(),
         };
+        let settings = OcrSettings {
+            sparse_text_char_threshold: 20,
+            sparse_text_region_threshold: 1,
+            ..OcrSettings::default()
+        };
 
-        assert!(!should_trigger_no_extractable_text_ocr_fallback(
+        assert!(should_trigger_extract_page_model_ocr_fallback(
             true,
             &page,
-            &OcrSettings::default()
+            &settings
         ));
     }
 
     #[test]
-    fn should_not_trigger_no_extractable_text_ocr_fallback_when_disabled_or_non_dom() {
+    fn should_trigger_extract_page_model_ocr_fallback_when_region_count_is_below_threshold() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![PageRegion {
+                region_id: String::from("region-1"),
+                label: None,
+                text: String::from("This region has enough text to pass the char threshold alone."),
+                bbox: None,
+                source: RegionSource::Dom,
+            }],
+            interactive_elements: Vec::new(),
+        };
+        let settings = OcrSettings {
+            sparse_text_char_threshold: 10,
+            sparse_text_region_threshold: 2,
+            ..OcrSettings::default()
+        };
+
+        assert!(should_trigger_extract_page_model_ocr_fallback(
+            true,
+            &page,
+            &settings
+        ));
+    }
+
+    #[test]
+    fn should_not_trigger_extract_page_model_ocr_fallback_when_thresholds_are_satisfied() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![
+                PageRegion {
+                    region_id: String::from("region-1"),
+                    label: None,
+                    text: String::from("This first region contains comfortably more than twenty characters."),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("region-2"),
+                    label: None,
+                    text: String::from("This second region also contains enough text."),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+            ],
+            interactive_elements: Vec::new(),
+        };
+        let settings = OcrSettings {
+            sparse_text_char_threshold: 20,
+            sparse_text_region_threshold: 2,
+            ..OcrSettings::default()
+        };
+
+        assert!(!should_trigger_extract_page_model_ocr_fallback(
+            true,
+            &page,
+            &settings
+        ));
+    }
+
+    #[test]
+    fn should_not_trigger_extract_page_model_ocr_fallback_when_disabled_or_non_dom() {
         let page = PageModel {
             title: Some(String::from("Example")),
             url: Some(String::from("https://example.com")),
@@ -6296,12 +6406,12 @@ mod tests {
             ..OcrSettings::default()
         };
 
-        assert!(!should_trigger_no_extractable_text_ocr_fallback(
+        assert!(!should_trigger_extract_page_model_ocr_fallback(
             true,
             &page,
             &disabled_settings
         ));
-        assert!(!should_trigger_no_extractable_text_ocr_fallback(
+        assert!(!should_trigger_extract_page_model_ocr_fallback(
             false,
             &page,
             &OcrSettings::default()

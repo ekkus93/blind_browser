@@ -765,3 +765,9 @@
 - Added regression coverage for the no-text fallback trigger helper, keeping this slice scoped to the “no extractable text” case while leaving sparse-text heuristics for the next follow-up.
 - Updated `docs/SPECS.md` and `docs/TODO.md` to document the extraction-time OCR fallback and mark `Trigger OCR when no extractable text is found` complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `165` Rust tests and `12` UI tests.
+
+## 2026-03-25T21:32:31Z - GPT-5.4 - Sparse-text OCR thresholds now drive fallback
+- Updated `src-tauri/src/app_core.rs` so extraction-time OCR fallback now uses the configured `ocr.sparse_text_char_threshold` and `ocr.sparse_text_region_threshold` instead of only the empty-text case.
+- Added helper coverage for extracted-text metrics plus sparse-threshold-triggered and threshold-satisfied cases, keeping this slice focused on configurability rather than region-preference strategy.
+- Updated `docs/SPECS.md` and `docs/TODO.md` to document threshold-aware fallback and mark `Make sparse-text OCR thresholds configurable` complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `168` Rust tests and `12` UI tests.
