@@ -162,7 +162,7 @@
 - [ ] Read title
 - [x] Read next region
 - [x] Read previous region
-- [ ] Repeat region
+- [x] Repeat region
 - [x] Stop playback
 
 ### Audio IO

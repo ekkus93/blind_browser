@@ -1172,6 +1172,10 @@ struct ReadPreviousRegionInput {
 }
 ```
 
+Narration behavior notes:
+- Spoken repeat commands such as `repeat`, `repeat that`, `read that again`, and `say that again` should resolve against the current narration cursor and restart the current region with `interrupt_current = true`.
+- If no current narration region is available yet, the runtime should return a bounded follow-up message instead of guessing which content to repeat.
+
 #### `stop_speaking`
 
 ```rust

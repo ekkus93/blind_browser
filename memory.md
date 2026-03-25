@@ -502,3 +502,9 @@
 - `src/tauri-api.ts`, `src/confirmation-panel.ts`, and `src/styles.css` now support and render a dedicated `Last transcript` status card with readable wrapping, while the existing inline push-to-talk transcript remains in place for immediate feedback.
 - `src/confirmation-panel.test.mjs` now covers both transcript-present and transcript-empty status-panel rendering, and `docs/TODO.md` now marks `Display transcript in UI` complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (89 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
+
+## 2026-03-25T03:51:12Z - GPT-5.4 - Repeat-region voice commands now resolve directly from the narration cursor
+- `src-tauri/src/commands.rs` now recognizes bounded repeat phrases such as `repeat`, `repeat that`, `read that again`, and `say that again`, and `resolve_direct_repeat_command(...)` converts them into a deterministic `read_region` replay against the current narration cursor with `interrupt_current = true`.
+- When no current narration region is available yet, the repeat resolver now returns a bounded `report_result` follow-up message instead of guessing what to replay, preserving the voice-first flow without open-ended fallback behavior.
+- `src-tauri/src/app_core.rs` now checks the direct repeat resolver before broader planner resolution, `docs/TODO.md` marks `Repeat region` complete, and `docs/SPECS.md` documents the cursor-based repeat behavior.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (92 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.

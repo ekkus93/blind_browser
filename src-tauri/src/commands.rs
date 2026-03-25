@@ -1205,7 +1205,7 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     if normalized.contains("read previous") || normalized.contains("previous region") {
         return IntentName::ReadPrevious;
     }
-    if normalized.contains("repeat") {
+    if is_repeat_phrase(&normalized) {
         return IntentName::Repeat;
     }
     if normalized.contains("stop reading")
@@ -2394,6 +2394,82 @@ pub(crate) fn resolve_direct_status_query_command(
     None
 }
 
+pub(crate) fn resolve_direct_repeat_command(
+    transcript: &str,
+    request_id: &str,
+    agent_state: &AgentStateData,
+    active_skill_names: &[String],
+) -> Option<PlannerOutput> {
+    let normalized = normalize_transcript_for_routing(transcript);
+    if normalized.is_empty() || !is_repeat_phrase(&normalized) {
+        return None;
+    }
+
+    let selected_skills = selected_skill(active_skill_names, "repeat");
+    let Some(region_id) = agent_state
+        .narration_cursor
+        .as_ref()
+        .and_then(|cursor| cursor.current_region_id.as_deref())
+    else {
+        let summary = String::from("There is no current region to repeat yet.");
+        return Some(PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::Repeat,
+                goal: String::from("Repeat the current narration region."),
+                target_description: Some(String::from("current narration region")),
+            },
+            selected_skills,
+            steps: vec![PlannedStep {
+                step_id: String::from("report-missing-repeat-region"),
+                tool_name: ToolName::ReportResult,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "status": ReportStatus::NeedsFollowUp,
+                    "summary": summary.clone(),
+                    "next_recommended_action": "Read the page or move to a region first.",
+                    "user_message": summary
+                }),
+                purpose: String::from("Report that no current narration region is available to repeat."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        });
+    };
+
+    Some(PlannerOutput {
+        status: PlannerStatus::Ready,
+        intent: IntentSummary {
+            name: IntentName::Repeat,
+            goal: String::from("Repeat the current narration region."),
+            target_description: Some(String::from("current narration region")),
+        },
+        selected_skills,
+        steps: vec![PlannedStep {
+            step_id: String::from("repeat-current-region"),
+            tool_name: ToolName::ReadRegion,
+            arguments: serde_json::json!({
+                "request_id": request_id,
+                "timeout_ms": serde_json::Value::Null,
+                "region_id": region_id,
+                "interrupt_current": true
+            }),
+            purpose: String::from("Repeat the current narration region from the stored narration cursor."),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        }],
+        requires_confirmation: false,
+        confirmation_reason: None,
+        blocked_reason: None,
+        user_message: None,
+    })
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct NormalizedAudioSetting {
     value: f32,
@@ -2653,6 +2729,16 @@ fn is_browser_mode_query_phrase(normalized: &str) -> bool {
         || normalized.contains("is browser visible")
         || normalized.contains("is it headless")
         || normalized.contains("are we headless")
+}
+
+fn is_repeat_phrase(normalized: &str) -> bool {
+    normalized == "repeat"
+        || normalized.contains("repeat that")
+        || normalized.contains("repeat this")
+        || normalized.contains("repeat region")
+        || normalized.contains("read that again")
+        || normalized.contains("say that again")
+        || normalized.contains("say this again")
 }
 
 fn is_fill_and_submit_phrase(normalized: &str) -> bool {
@@ -5608,6 +5694,14 @@ mod tests {
     }
 
     #[test]
+    fn infer_intent_hint_recognizes_repeat_phrases() {
+        assert_eq!(infer_intent_hint("repeat"), IntentName::Repeat);
+        assert_eq!(infer_intent_hint("repeat that"), IntentName::Repeat);
+        assert_eq!(infer_intent_hint("read that again"), IntentName::Repeat);
+        assert_eq!(infer_intent_hint("say that again"), IntentName::Repeat);
+    }
+
+    #[test]
     fn resolve_direct_audio_command_normalizes_absolute_volume_percent() {
         let planner_output = resolve_direct_audio_command(
             "set volume to 70 percent",
@@ -5928,6 +6022,91 @@ mod tests {
         assert_eq!(
             fuzzy_planner_output.steps[1].arguments.get("summary"),
             Some(&serde_json::json!("Listening is on."))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_repeat_command_replays_current_region() {
+        let agent_state = AgentStateData {
+            page_id: Some(String::from("page-1")),
+            url: Some(String::from("https://example.com/article")),
+            title: Some(String::from("Example article")),
+            browser_visibility: BrowserVisibilityMode::Visible,
+            browser_history: BrowserHistoryState::default(),
+            narration_cursor: Some(NarrationCursor {
+                current_region_id: Some(String::from("region-2")),
+                current_index: Some(1),
+                total_regions: 3,
+            }),
+            speaking: false,
+            listening_state: ListeningState::default(),
+            audio: RuntimeAudioState::default(),
+            last_transcript: None,
+            last_action: None,
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+        };
+
+        let planner_output = resolve_direct_repeat_command(
+            "say that again",
+            "req-repeat",
+            &agent_state,
+            &[String::from("repeat")],
+        )
+        .expect("repeat command should normalize");
+
+        assert_eq!(planner_output.intent.name, IntentName::Repeat);
+        assert_eq!(planner_output.selected_skills, vec![String::from("repeat")]);
+        assert_eq!(planner_output.steps.len(), 1);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ReadRegion);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("region_id"),
+            Some(&serde_json::json!("region-2"))
+        );
+        assert_eq!(
+            planner_output.steps[0].arguments.get("interrupt_current"),
+            Some(&serde_json::json!(true))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_repeat_command_reports_missing_current_region() {
+        let agent_state = AgentStateData {
+            page_id: Some(String::from("page-1")),
+            url: Some(String::from("https://example.com/article")),
+            title: Some(String::from("Example article")),
+            browser_visibility: BrowserVisibilityMode::Visible,
+            browser_history: BrowserHistoryState::default(),
+            narration_cursor: Some(NarrationCursor::default()),
+            speaking: false,
+            listening_state: ListeningState::default(),
+            audio: RuntimeAudioState::default(),
+            last_transcript: None,
+            last_action: None,
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+        };
+
+        let planner_output =
+            resolve_direct_repeat_command("repeat that", "req-repeat-missing", &agent_state, &[])
+                .expect("repeat command should still produce a bounded response");
+
+        assert_eq!(planner_output.intent.name, IntentName::Repeat);
+        assert_eq!(planner_output.steps.len(), 1);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ReportResult);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("status"),
+            Some(&serde_json::json!(ReportStatus::NeedsFollowUp))
+        );
+        assert_eq!(
+            planner_output.steps[0].arguments.get("summary"),
+            Some(&serde_json::json!("There is no current region to repeat yet."))
+        );
+        assert_eq!(
+            planner_output.steps[0]
+                .arguments
+                .get("next_recommended_action"),
+            Some(&serde_json::json!("Read the page or move to a region first."))
         );
     }
 }
