@@ -285,7 +285,7 @@
 - [ ] Integrate leptess
 - [x] Crop screenshot regions
 - [x] Run OCR on region
-- [ ] Merge OCR into PageModel
+- [x] Merge OCR into PageModel
 - [ ] Trigger OCR when no extractable text is found
 - [ ] Make sparse-text OCR thresholds configurable
 - [ ] Default sparse-text OCR thresholds to `200` characters or fewer than `2` readable regions

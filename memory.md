@@ -752,3 +752,9 @@
 - Kept OCR source selection explicit: `region_id` OCR now requires an `image_id` for the cached screenshot, avoiding any implicit image fallback while still returning the resolved `source_bbox`.
 - Updated `docs/SPECS.md` and `docs/TODO.md` to reflect that region-targeted OCR now requires a positive stored bounding box plus an explicit cached screenshot source.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `161` Rust tests and `12` UI tests.
+
+## 2026-03-25T20:50:24Z - GPT-5.4 - OCR merge geometry preserved in page model
+- Updated `src-tauri/src/app_core.rs` so `merge_ocr_into_page_model` fills an existing region’s missing stored `bbox` from the OCR `source_bbox`, while preserving any region geometry that is already present.
+- Added regression coverage for both merge cases: existing regions now adopt missing geometry when OCR supplies it, and already-known region bounds are not overwritten by a later OCR merge.
+- Updated `docs/SPECS.md` and `docs/TODO.md` to document the merge behavior and mark `Merge OCR into PageModel` complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `162` Rust tests and `12` UI tests.

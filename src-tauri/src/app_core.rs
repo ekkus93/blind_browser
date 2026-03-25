@@ -4051,6 +4051,9 @@ fn merge_ocr_text_into_page_model(
             RegionSource::Dom | RegionSource::Mixed => RegionSource::Mixed,
             RegionSource::Ocr => RegionSource::Ocr,
         };
+        if region.bbox.is_none() {
+            region.bbox = source_bbox;
+        }
 
         Ok(vec![region.region_id.clone()])
     } else {
@@ -6095,7 +6098,7 @@ mod tests {
     }
 
     #[test]
-    fn merge_ocr_text_into_page_model_updates_existing_region_as_mixed() {
+    fn merge_ocr_text_into_page_model_updates_existing_region_as_mixed_and_adopts_bbox() {
         let mut page = PageModel {
             title: Some(String::from("Example")),
             url: Some(String::from("https://example.com")),
@@ -6126,6 +6129,61 @@ mod tests {
         assert_eq!(updated_region_ids, vec![String::from("region-1")]);
         assert_eq!(page.regions[0].source, RegionSource::Mixed);
         assert_eq!(page.regions[0].text, String::from("DOM summary\n\nOCR detail"));
+        assert_eq!(
+            page.regions[0].bbox,
+            Some(Rect {
+                x: 10.0,
+                y: 20.0,
+                width: 30.0,
+                height: 40.0,
+            })
+        );
+    }
+
+    #[test]
+    fn merge_ocr_text_into_page_model_preserves_existing_region_bbox() {
+        let mut page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![PageRegion {
+                region_id: String::from("region-1"),
+                label: Some(String::from("Main")),
+                text: String::from("DOM summary"),
+                bbox: Some(Rect {
+                    x: 1.0,
+                    y: 2.0,
+                    width: 3.0,
+                    height: 4.0,
+                }),
+                source: RegionSource::Dom,
+            }],
+            interactive_elements: Vec::new(),
+        };
+
+        let updated_region_ids = merge_ocr_text_into_page_model(
+            &mut page,
+            Some("region-1"),
+            "OCR detail",
+            Some(Rect {
+                x: 10.0,
+                y: 20.0,
+                width: 30.0,
+                height: 40.0,
+            }),
+            String::from("unused"),
+        )
+        .expect("merge should update the requested region");
+
+        assert_eq!(updated_region_ids, vec![String::from("region-1")]);
+        assert_eq!(
+            page.regions[0].bbox,
+            Some(Rect {
+                x: 1.0,
+                y: 2.0,
+                width: 3.0,
+                height: 4.0,
+            })
+        );
     }
 
     #[test]

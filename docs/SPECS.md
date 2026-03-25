@@ -1319,6 +1319,10 @@ Validation notes:
 - `region_id`, when provided, must refer to an existing page region.
 - `source_bbox`, when provided, must have positive `width` and `height`.
 
+Behavior notes:
+- When `region_id` targets an existing page region, OCR text is merged into that region, DOM-backed regions become `RegionSource::Mixed`, and a missing stored region `bbox` is filled from `source_bbox` when one is provided.
+- When `region_id` is omitted, OCR text is appended as a new `RegionSource::Ocr` page region using `source_bbox` as its stored geometry when available.
+
 #### `set_tts_voice`
 
 ```rust
