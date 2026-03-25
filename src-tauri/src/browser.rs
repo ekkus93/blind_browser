@@ -97,6 +97,15 @@ pub struct BrowserTypeState {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BrowserSubmitState {
+    pub url: String,
+    pub title: Option<String>,
+    pub page_changed: bool,
+    pub submitted: bool,
+    pub history: crate::state::BrowserHistoryState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BrowserNavigationState {
     pub navigated: bool,
     pub url: Option<String>,
@@ -137,6 +146,8 @@ pub enum BrowserError {
     Focus(String),
     #[error("failed to type into the resolved DOM element: {0}")]
     Type(String),
+    #[error("failed to submit the resolved DOM form: {0}")]
+    Submit(String),
     #[error("failed to read browser navigation history: {0}")]
     History(String),
     #[error("failed to reload the active page: {0}")]
@@ -450,6 +461,127 @@ impl BrowserController {
             let _ = text;
             let _ = clear_first;
             let _ = submit_after;
+            let _ = timeout_ms;
+            Err(BrowserError::FeatureDisabled)
+        }
+    }
+
+    pub fn submit_active_form(
+        &mut self,
+        form: Option<&InteractiveElement>,
+        timeout_ms: Option<u64>,
+    ) -> Result<BrowserSubmitState, BrowserError> {
+        #[cfg(feature = "browser")]
+        {
+            let session = self.ensure_session()?;
+            let page = session.page.clone().ok_or(BrowserError::NoActivePage)?;
+            let before = tauri::async_runtime::block_on(snapshot_page_state(&page))?;
+
+            let submit_result = if let Some(form) = form {
+                let selector = stable_dom_selector(form)?;
+                ensure_live_element(&page, form, selector)?;
+                let selector_literal = serde_json::to_string(selector)
+                    .map_err(|error| BrowserError::Resolve(error.to_string()))?;
+
+                tauri::async_runtime::block_on(async {
+                    page.evaluate(format!(
+                        r#"(() => {{
+                            const selector = {selector_literal};
+                            const form = document.querySelector(selector);
+                            if (!(form instanceof HTMLFormElement)) {{
+                                return {{ found: false, ambiguous: false, submitted: false }};
+                            }}
+                            if (typeof form.requestSubmit === 'function') {{
+                                form.requestSubmit();
+                            }} else {{
+                                form.submit();
+                            }}
+                            return {{ found: true, ambiguous: false, submitted: true }};
+                        }})()"#
+                    ))
+                    .await
+                    .map_err(|error| BrowserError::Submit(error.to_string()))?
+                    .into_value::<LiveSubmitResult>()
+                    .map_err(|error| BrowserError::Submit(error.to_string()))
+                })?
+            } else {
+                tauri::async_runtime::block_on(async {
+                    page.evaluate(
+                        r#"(() => {
+                            const isVisible = (element) => {
+                                if (!(element instanceof Element)) {
+                                    return false;
+                                }
+                                const style = window.getComputedStyle(element);
+                                if (style.display === 'none' || style.visibility === 'hidden') {
+                                    return false;
+                                }
+                                const rect = element.getBoundingClientRect();
+                                return rect.width > 0 && rect.height > 0;
+                            };
+
+                            const activeElement = document.activeElement;
+                            const activeForm = activeElement instanceof HTMLElement ? activeElement.form : null;
+                            if (activeForm instanceof HTMLFormElement) {
+                                if (typeof activeForm.requestSubmit === 'function') {
+                                    activeForm.requestSubmit();
+                                } else {
+                                    activeForm.submit();
+                                }
+                                return { found: true, ambiguous: false, submitted: true };
+                            }
+
+                            const visibleForms = Array.from(document.forms).filter((form) => isVisible(form));
+                            if (visibleForms.length !== 1) {
+                                return {
+                                    found: false,
+                                    ambiguous: visibleForms.length > 1,
+                                    submitted: false
+                                };
+                            }
+
+                            const resolvedForm = visibleForms[0];
+                            if (typeof resolvedForm.requestSubmit === 'function') {
+                                resolvedForm.requestSubmit();
+                            } else {
+                                resolvedForm.submit();
+                            }
+                            return { found: true, ambiguous: false, submitted: true };
+                        })()"#,
+                    )
+                    .await
+                    .map_err(|error| BrowserError::Submit(error.to_string()))?
+                    .into_value::<LiveSubmitResult>()
+                    .map_err(|error| BrowserError::Submit(error.to_string()))
+                })?
+            };
+
+            if !submit_result.found {
+                if submit_result.ambiguous {
+                    return Err(BrowserError::Resolve(String::from(
+                        "multiple visible forms are present and no active form could be determined",
+                    )));
+                }
+                return Err(BrowserError::Resolve(String::from(
+                    "no active or uniquely visible form could be determined",
+                )));
+            }
+
+            wait_for_page_settle(timeout_ms);
+            let after = tauri::async_runtime::block_on(snapshot_page_state(&page))?;
+
+            Ok(BrowserSubmitState {
+                page_changed: after.url != before.url,
+                url: after.url,
+                title: after.title,
+                submitted: submit_result.submitted,
+                history: after.history,
+            })
+        }
+
+        #[cfg(not(feature = "browser"))]
+        {
+            let _ = form;
             let _ = timeout_ms;
             Err(BrowserError::FeatureDisabled)
         }
@@ -780,6 +912,14 @@ struct LiveTypeResult {
     found: bool,
     accepted_input: bool,
     value_after: Option<String>,
+}
+
+#[cfg(feature = "browser")]
+#[derive(Debug, Deserialize)]
+struct LiveSubmitResult {
+    found: bool,
+    ambiguous: bool,
+    submitted: bool,
 }
 
 #[cfg(feature = "browser")]

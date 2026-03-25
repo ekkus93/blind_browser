@@ -11,8 +11,8 @@ use crate::browser::{
 };
 use crate::commands::{
     build_planner_skill_selection, canonical_planner_output_examples, execute_planner_output,
-    parse_direct_fill_field_command, parse_direct_focus_field_command, planner_available_tools,
-    planner_output_schema, resolve_direct_audio_command,
+    is_direct_submit_form_command, parse_direct_fill_field_command, parse_direct_focus_field_command,
+    planner_available_tools, planner_output_schema, resolve_direct_audio_command,
     resolve_direct_browser_visibility_command, resolve_direct_navigation_readback_command,
     resolve_direct_open_url_command, resolve_direct_read_page_command,
     resolve_direct_read_title_command,
@@ -32,6 +32,7 @@ use crate::commands::{
     SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
     SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
     SetTtsVoiceInput, StartListeningData, StartListeningInput, StepTransition,
+    SubmitActiveFormData, SubmitActiveFormInput,
     StopListeningData, StopListeningInput, StopSpeakingData, StopSpeakingInput,
     ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData, TranscribeCommandData,
     TranscribeCommandInput, TypeIntoElementData, TypeIntoElementInput,
@@ -1326,6 +1327,131 @@ impl AppCore {
         )
     }
 
+    pub fn execute_submit_active_form(
+        &mut self,
+        input: SubmitActiveFormInput,
+    ) -> ToolResult<SubmitActiveFormData> {
+        let Some(page_id) = self.state.current_page_id.clone() else {
+            return ToolResult::failure(
+                ToolName::SubmitActiveForm,
+                input.request_id,
+                ToolError {
+                    code: String::from("no_active_page"),
+                    message: String::from(
+                        "submit_active_form requires an active page in runtime state",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Form submission could not run because no page has been opened yet.",
+                )],
+            );
+        };
+
+        let form = match input.form_element_id.as_deref() {
+            Some(form_element_id) => {
+                let Some(current_page) = self.state.current_page.as_ref() else {
+                    return ToolResult::failure(
+                        ToolName::SubmitActiveForm,
+                        input.request_id,
+                        ToolError {
+                            code: String::from("missing_page_model"),
+                            message: String::from(
+                                "submit_active_form requires runtime page data for the active page",
+                            ),
+                            retryable: false,
+                            details: Some(serde_json::json!({ "page_id": page_id })),
+                        },
+                        vec![String::from(
+                            "Form submission could not run because the runtime page model is missing.",
+                        )],
+                    );
+                };
+
+                match resolve_form_element(current_page, form_element_id) {
+                    Ok(form) => Some(form.clone()),
+                    Err(error) => {
+                        return ToolResult::failure(
+                            ToolName::SubmitActiveForm,
+                            input.request_id,
+                            error,
+                            vec![String::from(
+                                "Form submission could not run because the requested form target was not currently submittable.",
+                            )],
+                        )
+                    }
+                }
+            }
+            None => None,
+        };
+
+        let browser_submit = match self
+            .browser
+            .submit_active_form(form.as_ref(), input.timeout_ms)
+        {
+            Ok(browser_submit) => browser_submit,
+            Err(error) => {
+                return self.browser_tool_failure(
+                    ToolName::SubmitActiveForm,
+                    input.request_id,
+                    String::from("Live browser form submission did not complete successfully."),
+                    error,
+                )
+            }
+        };
+
+        if browser_submit.page_changed {
+            let next_page_id = self.next_page_id(&input.request_id);
+            self.state
+                .record_navigation(next_page_id, browser_submit.url.clone());
+            if let Some(current_page) = self.state.current_page.as_mut() {
+                current_page.title = browser_submit.title.clone();
+            }
+        } else if let Some(current_page) = self.state.current_page.as_mut() {
+            current_page.url = Some(browser_submit.url.clone());
+            current_page.title = browser_submit.title.clone();
+        }
+        self.state.browser_history = browser_submit.history.clone();
+
+        let mut observations = vec![String::from(
+            "Triggered a live browser form submission request.",
+        )];
+        if let Some(form) = form.as_ref() {
+            observations.push(format!(
+                "The submission targeted deterministic form element_id={}.",
+                form.element_id
+            ));
+        } else {
+            observations.push(String::from(
+                "The browser backend resolved the active or uniquely visible form at submit time.",
+            ));
+        }
+        if browser_submit.page_changed {
+            observations.push(String::from(
+                "Submitting the form changed the live browser URL, so runtime page state advanced to a new page.",
+            ));
+        } else {
+            observations.push(String::from(
+                "The submission request completed without a live browser navigation.",
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::SubmitActiveForm,
+            input.request_id,
+            SubmitActiveFormData {
+                form_element_id: form.as_ref().map(|form| form.element_id.clone()),
+                submitted: browser_submit.submitted,
+                page_changed: browser_submit.page_changed,
+                navigation_url: browser_submit
+                    .page_changed
+                    .then_some(browser_submit.url.clone()),
+            },
+            observations,
+        )
+    }
+
     pub fn execute_planner_output(
         &mut self,
         request_id: String,
@@ -1459,6 +1585,20 @@ impl AppCore {
             self.state.current_page.as_ref(),
             &skill_selection.active_skill_names,
             self.config.safety.confirmation_confidence_threshold,
+        ) {
+            validate_planner_output(
+                &planner_output,
+                &available_tools,
+                &skill_selection.active_skill_names,
+            )?;
+            return Ok(planner_output);
+        }
+
+        if let Some(planner_output) = resolve_direct_submit_form_command(
+            transcript,
+            &request_id,
+            self.state.current_page.as_ref(),
+            &skill_selection.active_skill_names,
         ) {
             validate_planner_output(
                 &planner_output,
@@ -3107,6 +3247,13 @@ impl DeterministicToolExecutor for AppCore {
         AppCore::execute_type_into_element(self, input)
     }
 
+    fn execute_submit_active_form(
+        &mut self,
+        input: SubmitActiveFormInput,
+    ) -> ToolResult<SubmitActiveFormData> {
+        AppCore::execute_submit_active_form(self, input)
+    }
+
     fn execute_extract_page_model(
         &mut self,
         input: ExtractPageModelInput,
@@ -3787,6 +3934,143 @@ fn resolve_direct_fill_field_command(
     ))
 }
 
+fn resolve_direct_submit_form_command(
+    transcript: &str,
+    request_id: &str,
+    current_page: Option<&PageModel>,
+    active_skill_names: &[String],
+) -> Option<PlannerOutput> {
+    if !is_direct_submit_form_command(transcript) {
+        return None;
+    }
+
+    let selected_skills = if active_skill_names
+        .iter()
+        .any(|active_name| active_name == "submit_form")
+    {
+        vec![String::from("submit_form")]
+    } else {
+        Vec::new()
+    };
+
+    let Some(current_page) = current_page else {
+        return Some(build_direct_follow_up_output(
+            request_id,
+            DirectFollowUpSpec {
+                intent_name: IntentName::SubmitForm,
+                goal: String::from("Submit the active form."),
+                target_description: Some(String::from("current form")),
+                selected_skills,
+                summary: String::from("There is no current page to submit a form on yet."),
+                next_recommended_action: Some(String::from(
+                    "Open a page first, then ask me to submit the form.",
+                )),
+                step_id: String::from("report-missing-submit-page"),
+                purpose: String::from("Report that there is no active page available for form submission."),
+            },
+        ));
+    };
+
+    let candidate_forms = submittable_form_elements(current_page);
+    let resolved_form = if current_page.interactive_elements.is_empty() {
+        None
+    } else if candidate_forms.len() == 1 {
+        Some(candidate_forms[0].clone())
+    } else if candidate_forms.is_empty() {
+        return Some(build_direct_follow_up_output(
+            request_id,
+            DirectFollowUpSpec {
+                intent_name: IntentName::SubmitForm,
+                goal: String::from("Submit the active form."),
+                target_description: Some(String::from("current form")),
+                selected_skills,
+                summary: String::from("I could not identify a submittable form on the current page."),
+                next_recommended_action: Some(String::from(
+                    "Focus a field in the form or describe which form you want to submit.",
+                )),
+                step_id: String::from("report-missing-submit-form"),
+                purpose: String::from("Report that no submittable form could be identified on the current page."),
+            },
+        ));
+    } else {
+        let candidate_names = summarize_form_candidate_names(&candidate_forms);
+        let summary = if candidate_names.is_empty() {
+            String::from("I found multiple forms on the current page. Please tell me which one to submit.")
+        } else {
+            format!(
+                "I found multiple forms on the current page: {}. Please tell me which one to submit.",
+                candidate_names.join(", ")
+            )
+        };
+        return Some(build_direct_follow_up_output(
+            request_id,
+            DirectFollowUpSpec {
+                intent_name: IntentName::SubmitForm,
+                goal: String::from("Submit the active form."),
+                target_description: Some(String::from("current form")),
+                selected_skills,
+                summary,
+                next_recommended_action: Some(String::from(
+                    "Name the form or focus a field in it before asking me to submit.",
+                )),
+                step_id: String::from("report-ambiguous-submit-form"),
+                purpose: String::from(
+                    "Report that multiple possible forms are available and submission is ambiguous.",
+                ),
+            },
+        ));
+    };
+
+    let target_description = resolved_form.as_ref().map(describe_form_element);
+    let prompt_text = match target_description.as_deref() {
+        Some(description) => format!("Do you want me to submit {description} now?"),
+        None => String::from("Do you want me to submit the active form now?"),
+    };
+    let confirmation_reason = String::from("submitting the form may send data");
+    let user_message = String::from("Please confirm before I submit the form.");
+
+    Some(PlannerOutput {
+        status: PlannerStatus::NeedsConfirmation,
+        intent: IntentSummary {
+            name: IntentName::SubmitForm,
+            goal: String::from("Submit the active form."),
+            target_description,
+        },
+        selected_skills,
+        steps: vec![
+            PlannedStep {
+                step_id: String::from("confirm-submit-form"),
+                tool_name: ToolName::ConfirmAction,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "prompt_text": prompt_text,
+                    "reason": confirmation_reason
+                }),
+                purpose: String::from("Require explicit confirmation before submitting the form."),
+                on_success: StepTransition::RequestConfirmation,
+                on_failure: StepTransition::Replan,
+            },
+            PlannedStep {
+                step_id: String::from("submit-active-form"),
+                tool_name: ToolName::SubmitActiveForm,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "form_element_id": resolved_form.as_ref().map(|form| form.element_id.clone())
+                }),
+                purpose: String::from("Submit the confirmed active form in the live browser."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ],
+        requires_confirmation: true,
+        confirmation_reason: Some(String::from("submitting the form may send data")),
+        blocked_reason: None,
+        user_message: Some(user_message),
+    })
+}
+
 fn build_visible_text_excerpt(page: &PageModel, max_chars: Option<usize>) -> String {
     let joined_text = page
         .regions
@@ -3881,6 +4165,19 @@ fn focusable_field_elements(page: &PageModel) -> Vec<crate::page_model::Interact
     .collect()
 }
 
+fn submittable_form_elements(page: &PageModel) -> Vec<crate::page_model::InteractiveElement> {
+    filter_interactive_elements(&page.interactive_elements, true, Some(&[ElementRole::Form]))
+        .into_iter()
+        .filter(|element| {
+            element
+                .dom_locator
+                .as_deref()
+                .map(str::trim)
+                .is_some_and(|locator| !locator.is_empty())
+        })
+        .collect()
+}
+
 fn summarize_candidate_names(
     page: &PageModel,
     candidates: &[crate::commands::ElementCandidate],
@@ -3893,6 +4190,16 @@ fn summarize_candidate_names(
                 .find(|element| element.element_id == candidate.element_id)
                 .map(describe_field_element)
         })
+        .take(MAX_DIRECT_FIELD_CANDIDATE_NAMES)
+        .collect()
+}
+
+fn summarize_form_candidate_names(
+    forms: &[crate::page_model::InteractiveElement],
+) -> Vec<String> {
+    forms
+        .iter()
+        .map(describe_form_element)
         .take(MAX_DIRECT_FIELD_CANDIDATE_NAMES)
         .collect()
 }
@@ -3919,6 +4226,31 @@ fn describe_field_element(element: &crate::page_model::InteractiveElement) -> St
         })
         .map(String::from)
         .unwrap_or_else(|| element.element_id.clone())
+}
+
+fn describe_form_element(element: &crate::page_model::InteractiveElement) -> String {
+    element
+        .accessible_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            element
+                .text
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
+        .or_else(|| {
+            element
+                .attributes
+                .get("id")
+                .map(String::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
+        .map(|description| format!("the {description} form"))
+        .unwrap_or_else(|| String::from("the current form"))
 }
 
 fn filter_interactive_elements(
@@ -4127,6 +4459,25 @@ fn resolve_typeable_element<'a>(
             code: String::from("element_not_editable"),
             message: String::from(
                 "type_into_element requires an input, textarea, or select element",
+            ),
+            retryable: false,
+            details: Some(serde_json::json!({ "element_id": element.element_id })),
+        });
+    }
+
+    Ok(element)
+}
+
+fn resolve_form_element<'a>(
+    page: &'a PageModel,
+    element_id: &str,
+) -> Result<&'a crate::page_model::InteractiveElement, ToolError> {
+    let element = resolve_clickable_element(page, element_id)?;
+    if element.role != ElementRole::Form {
+        return Err(ToolError {
+            code: String::from("element_not_form"),
+            message: String::from(
+                "submit_active_form requires a form element from the current page model",
             ),
             retryable: false,
             details: Some(serde_json::json!({ "element_id": element.element_id })),
@@ -4400,6 +4751,7 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
         BrowserError::Click(_) => "browser_click_failed",
         BrowserError::Focus(_) => "browser_focus_failed",
         BrowserError::Type(_) => "browser_type_failed",
+        BrowserError::Submit(_) => "browser_submit_failed",
         BrowserError::History(_) => "browser_history_failed",
         BrowserError::Reload(_) => "browser_reload_failed",
         BrowserError::Scroll(_) => "browser_scroll_failed",
@@ -4430,7 +4782,8 @@ mod tests {
         filter_interactive_elements, infer_extraction_source, normalize_absolute_url,
         normalize_optional_text, planner_system_prompt, rank_find_element_candidates,
         resolve_clickable_element, resolve_direct_fill_field_command,
-        resolve_direct_focus_field_command, resolve_typeable_element, ReplanningRuntime,
+        resolve_direct_focus_field_command, resolve_direct_submit_form_command,
+        resolve_form_element, resolve_typeable_element, ReplanningRuntime,
     };
     use crate::commands::{
         ExecutionOutcome, ExecutionTrace, ExtractPageModelInput, FindElementInput, IntentName,
@@ -4877,6 +5230,133 @@ mod tests {
         let error = resolve_typeable_element(&page, "button-1")
             .expect_err("non-field roles should be rejected");
         assert_eq!(error.code, "element_not_editable");
+    }
+
+    #[test]
+    fn resolve_direct_submit_form_command_builds_confirmation_gated_submit_plan() {
+        let page = PageModel {
+            title: Some(String::from("Login")),
+            url: Some(String::from("https://example.com/login")),
+            regions: Vec::new(),
+            interactive_elements: vec![InteractiveElement {
+                element_id: String::from("form-login"),
+                dom_locator: Some(String::from("#login-form")),
+                role: ElementRole::Form,
+                tag_name: String::from("form"),
+                text: Some(String::from("Sign in")),
+                accessible_name: Some(String::from("Login")),
+                placeholder: None,
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::new(),
+            }],
+        };
+
+        let planner_output = resolve_direct_submit_form_command(
+            "submit form",
+            "req-submit-form",
+            Some(&page),
+            &[String::from("submit_form")],
+        )
+        .expect("submit-form command should resolve");
+
+        assert_eq!(planner_output.status, PlannerStatus::NeedsConfirmation);
+        assert_eq!(planner_output.intent.name, IntentName::SubmitForm);
+        assert_eq!(planner_output.selected_skills, vec![String::from("submit_form")]);
+        assert_eq!(planner_output.steps.len(), 2);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ConfirmAction);
+        assert_eq!(planner_output.steps[1].tool_name, ToolName::SubmitActiveForm);
+        assert_eq!(
+            planner_output.steps[1].arguments.get("form_element_id"),
+            Some(&serde_json::json!("form-login"))
+        );
+        assert!(planner_output.requires_confirmation);
+    }
+
+    #[test]
+    fn resolve_direct_submit_form_command_reports_ambiguous_forms() {
+        let page = PageModel {
+            title: Some(String::from("Checkout")),
+            url: Some(String::from("https://example.com/checkout")),
+            regions: Vec::new(),
+            interactive_elements: vec![
+                InteractiveElement {
+                    element_id: String::from("form-shipping"),
+                    dom_locator: Some(String::from("#shipping-form")),
+                    role: ElementRole::Form,
+                    tag_name: String::from("form"),
+                    text: Some(String::from("Shipping")),
+                    accessible_name: Some(String::from("Shipping")),
+                    placeholder: None,
+                    href: None,
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                },
+                InteractiveElement {
+                    element_id: String::from("form-billing"),
+                    dom_locator: Some(String::from("#billing-form")),
+                    role: ElementRole::Form,
+                    tag_name: String::from("form"),
+                    text: Some(String::from("Billing")),
+                    accessible_name: Some(String::from("Billing")),
+                    placeholder: None,
+                    href: None,
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                },
+            ],
+        };
+
+        let planner_output = resolve_direct_submit_form_command(
+            "submit form",
+            "req-submit-form-ambiguous",
+            Some(&page),
+            &[String::from("submit_form")],
+        )
+        .expect("submit-form command should resolve");
+
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ReportResult);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("status"),
+            Some(&serde_json::json!(ReportStatus::NeedsFollowUp))
+        );
+    }
+
+    #[test]
+    fn resolve_form_element_rejects_non_form_roles() {
+        let page = PageModel {
+            title: Some(String::from("Example page")),
+            url: Some(String::from("https://example.com")),
+            regions: Vec::new(),
+            interactive_elements: vec![InteractiveElement {
+                element_id: String::from("button-1"),
+                dom_locator: Some(String::from("#button-1")),
+                role: ElementRole::Button,
+                tag_name: String::from("button"),
+                text: Some(String::from("Submit")),
+                accessible_name: Some(String::from("Submit")),
+                placeholder: None,
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::new(),
+            }],
+        };
+
+        let error =
+            resolve_form_element(&page, "button-1").expect_err("non-form roles should be rejected");
+        assert_eq!(error.code, "element_not_form");
     }
 
     #[test]

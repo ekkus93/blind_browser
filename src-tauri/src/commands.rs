@@ -29,6 +29,7 @@ pub enum ToolName {
     ClickElement,
     FocusElement,
     TypeIntoElement,
+    SubmitActiveForm,
     ReadRegion,
     ReadNextRegion,
     ReadPreviousRegion,
@@ -134,6 +135,10 @@ pub trait DeterministicToolExecutor {
         &mut self,
         input: TypeIntoElementInput,
     ) -> ToolResult<TypeIntoElementData>;
+    fn execute_submit_active_form(
+        &mut self,
+        input: SubmitActiveFormInput,
+    ) -> ToolResult<SubmitActiveFormData>;
     fn execute_extract_page_model(
         &mut self,
         input: ExtractPageModelInput,
@@ -794,6 +799,21 @@ pub struct TypeIntoElementData {
     pub accepted_input: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct SubmitActiveFormInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub form_element_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct SubmitActiveFormData {
+    pub form_element_id: Option<String>,
+    pub submitted: bool,
+    pub page_changed: bool,
+    pub navigation_url: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct ExtractPageModelData {
     pub page_model: PageModel,
@@ -973,6 +993,12 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
             executor,
             |executor, input| executor.execute_type_into_element(input),
         ),
+        ToolName::SubmitActiveForm => execute_serialized_tool(
+            step,
+            ToolName::SubmitActiveForm,
+            executor,
+            |executor, input| executor.execute_submit_active_form(input),
+        ),
         ToolName::ExtractPageModel => execute_serialized_tool(
             step,
             ToolName::ExtractPageModel,
@@ -1131,6 +1157,9 @@ pub fn registered_tools() -> Vec<AvailableTool> {
         ListInteractiveElements,
         FindElement,
         ClickElement,
+        FocusElement,
+        TypeIntoElement,
+        SubmitActiveForm,
         ReadRegion,
         ReadNextRegion,
         ReadPreviousRegion,
@@ -1412,6 +1441,7 @@ pub fn tool_input_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
         ToolName::ClickElement => Some(schema_json::<ClickElementInput>()),
         ToolName::FocusElement => Some(schema_json::<FocusElementInput>()),
         ToolName::TypeIntoElement => Some(schema_json::<TypeIntoElementInput>()),
+        ToolName::SubmitActiveForm => Some(schema_json::<SubmitActiveFormInput>()),
         ToolName::ReadRegion => Some(schema_json::<ReadRegionInput>()),
         ToolName::ReadNextRegion => Some(schema_json::<ReadNextRegionInput>()),
         ToolName::ReadPreviousRegion => Some(schema_json::<ReadPreviousRegionInput>()),
@@ -1865,6 +1895,7 @@ fn is_plannable_tool(tool_name: &ToolName) -> bool {
             | ToolName::ClickElement
             | ToolName::FocusElement
             | ToolName::TypeIntoElement
+            | ToolName::SubmitActiveForm
             | ToolName::ReadRegion
             | ToolName::ReadNextRegion
             | ToolName::ReadPreviousRegion
@@ -1905,6 +1936,7 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
         ToolName::ClickElement => validate_tool_arguments::<ClickElementInput>(step),
         ToolName::FocusElement => validate_tool_arguments::<FocusElementInput>(step),
         ToolName::TypeIntoElement => validate_tool_arguments::<TypeIntoElementInput>(step),
+        ToolName::SubmitActiveForm => validate_tool_arguments::<SubmitActiveFormInput>(step),
         ToolName::ReadRegion => validate_tool_arguments::<ReadRegionInput>(step),
         ToolName::ReadNextRegion => validate_tool_arguments::<ReadNextRegionInput>(step),
         ToolName::ReadPreviousRegion => validate_tool_arguments::<ReadPreviousRegionInput>(step),
@@ -2406,6 +2438,7 @@ fn parse_tool_name_value(value: &str) -> Result<ToolName, String> {
         "click_element" => Ok(ToolName::ClickElement),
         "focus_element" => Ok(ToolName::FocusElement),
         "type_into_element" => Ok(ToolName::TypeIntoElement),
+        "submit_active_form" => Ok(ToolName::SubmitActiveForm),
         "read_region" => Ok(ToolName::ReadRegion),
         "read_next_region" => Ok(ToolName::ReadNextRegion),
         "read_previous_region" => Ok(ToolName::ReadPreviousRegion),
@@ -2678,9 +2711,10 @@ fn likely_tools_for_intent(intent: &IntentName) -> Vec<ToolName> {
         IntentName::FindElement => vec![ToolName::FindElement],
         IntentName::ClickElement => vec![ToolName::FindElement, ToolName::ClickElement],
         IntentName::FillInput => vec![ToolName::FocusElement, ToolName::TypeIntoElement],
+        IntentName::SubmitForm => vec![ToolName::ConfirmAction, ToolName::SubmitActiveForm],
         IntentName::Scroll => vec![ToolName::ScrollPage],
         IntentName::OcrRecovery => vec![ToolName::GetPageSnapshot, ToolName::ReportResult],
-        IntentName::SubmitForm | IntentName::Unknown => Vec::new(),
+        IntentName::Unknown => Vec::new(),
     }
 }
 
@@ -3730,7 +3764,10 @@ pub(crate) fn parse_direct_focus_field_command(transcript: &str) -> Option<Focus
 
 pub(crate) fn parse_direct_fill_field_command(transcript: &str) -> Option<FillFieldCommand> {
     let normalized = normalize_transcript_for_routing(transcript);
-    if normalized.is_empty() || !is_fill_input_phrase(&normalized) || is_focus_field_phrase(&normalized)
+    if normalized.is_empty()
+        || !is_fill_input_phrase(&normalized)
+        || is_focus_field_phrase(&normalized)
+        || is_fill_and_submit_phrase(&normalized)
     {
         return None;
     }
@@ -3761,6 +3798,11 @@ pub(crate) fn parse_direct_fill_field_command(transcript: &str) -> Option<FillFi
         description: parse_fill_field_description_only(&collapsed),
         text: None,
     })
+}
+
+pub(crate) fn is_direct_submit_form_command(transcript: &str) -> bool {
+    let normalized = normalize_transcript_for_routing(transcript);
+    !normalized.is_empty() && is_submit_form_phrase(&normalized)
 }
 
 fn is_go_forward_phrase(normalized: &str) -> bool {
@@ -5030,6 +5072,7 @@ mod tests {
         last_click_request: Option<ClickElementInput>,
         last_focus_request: Option<FocusElementInput>,
         last_type_request: Option<TypeIntoElementInput>,
+        last_submit_request: Option<SubmitActiveFormInput>,
         last_extract_request: Option<ExtractPageModelInput>,
         last_voice: Option<String>,
         last_volume: Option<f32>,
@@ -5423,6 +5466,24 @@ mod tests {
                     accepted_input: true,
                 },
                 vec![String::from("typed into the requested element")],
+            )
+        }
+
+        fn execute_submit_active_form(
+            &mut self,
+            input: SubmitActiveFormInput,
+        ) -> ToolResult<SubmitActiveFormData> {
+            self.last_submit_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::SubmitActiveForm,
+                input.request_id,
+                SubmitActiveFormData {
+                    form_element_id: input.form_element_id,
+                    submitted: true,
+                    page_changed: true,
+                    navigation_url: Some(String::from("https://example.com/submitted")),
+                },
+                vec![String::from("submitted the active form")],
             )
         }
 
@@ -6266,6 +6327,37 @@ mod tests {
     }
 
     #[test]
+    fn dispatches_submit_active_form_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-submit"),
+            tool_name: ToolName::SubmitActiveForm,
+            arguments: serde_json::json!({
+                "request_id": "req-submit",
+                "timeout_ms": 1000,
+                "form_element_id": "form-login"
+            }),
+            purpose: String::from("submit the active form"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_submit_request
+                .as_ref()
+                .and_then(|input| input.form_element_id.as_deref()),
+            Some("form-login")
+        );
+        let data = result.data.expect("submit_active_form should serialize");
+        assert_eq!(data.get("submitted"), Some(&serde_json::Value::Bool(true)));
+        assert_eq!(data.get("page_changed"), Some(&serde_json::Value::Bool(true)));
+    }
+
+    #[test]
     fn dispatches_extract_page_model_from_planned_step() {
         let mut executor = MockExecutor::default();
         let step = PlannedStep {
@@ -6883,6 +6975,15 @@ mod tests {
         assert!(available_tools
             .iter()
             .any(|tool| tool.name == ToolName::TranscribeCommand));
+        assert!(available_tools
+            .iter()
+            .any(|tool| tool.name == ToolName::FocusElement));
+        assert!(available_tools
+            .iter()
+            .any(|tool| tool.name == ToolName::TypeIntoElement));
+        assert!(available_tools
+            .iter()
+            .any(|tool| tool.name == ToolName::SubmitActiveForm));
     }
 
     #[test]

@@ -644,3 +644,13 @@
 ## 2026-03-25T17:56:13Z - GPT-5.4 - Fill-field slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The fill-field slice remains green at `135` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing and form-entry-tool change is clean going into commit and push.
+
+## 2026-03-25T18:07:55Z - GPT-5.4 - Submit-form direct routing landed
+- `src-tauri/src/commands.rs` now exposes `submit_active_form`, validates it as a planner-visible tool, adds it to `registered_tools()`, and prevents `fill ... and submit` utterances from being consumed by the direct fill-field shortcut.
+- `src-tauri/src/browser.rs` now implements live `submit_active_form(...)`, resolving a specific form, the focused form, or the sole visible form before submitting and then refreshing page state/history metadata.
+- `src-tauri/src/app_core.rs` now executes `submit_active_form` and routes direct `submit form` utterances into a confirmation-gated `confirm_action` + `submit_active_form` plan when the form target is deterministic, while using bounded follow-ups for ambiguity.
+- Validation baseline for this slice is green: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` all pass; the Vite build still emits the existing Node `22.11.0` vs `22.12.0+` warning.
+
+## 2026-03-25T18:14:42Z - GPT-5.4 - Submit-form slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The submit-form slice remains green at `139` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing and form-submission-tool change is clean going into commit and push.

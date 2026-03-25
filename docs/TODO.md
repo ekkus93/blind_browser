@@ -229,7 +229,7 @@
   - [x] focus field
   - [x] fill field
   - [x] type into field
-  - [ ] submit form
+  - [x] submit form
   - [ ] fill and submit form
   - [x] set volume
   - [x] increase volume
@@ -268,7 +268,7 @@
 ### Deterministic Tool Core: Wave 2
 - [x] Implement `focus_element`
 - [x] Implement `type_into_element`
-- [ ] Implement `submit_active_form`
+- [x] Implement `submit_active_form`
 - [ ] Implement `capture_screenshot`
 - [ ] Implement `run_ocr`
 - [ ] Implement `merge_ocr_into_page_model`
