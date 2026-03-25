@@ -2950,6 +2950,7 @@ The planner should prefer `NeedsConfirmation` or `RequestConfirmation` when:
 4. Executor runs one step at a time.
 5. After each step, executor may continue, stop, or request replanning based on `on_success` or `on_failure`.
 6. Replanning uses updated `recent_tool_results`, `agent_state`, and page context.
+7. In v1, executor should attempt at most one replan cycle for a single command before returning an `Aborted` recovery error.
 
 #### `PlannerStatus` to `ExecutionOutcome` Mapping
 
@@ -2969,6 +2970,7 @@ Mapping notes:
 - `BlockedReason = UnsupportedCapability` means the planner understood the request but could not map it to the current bounded capabilities.
 - `NeedsConfirmation` is not itself the waiting outcome; the executor enters `AwaitingConfirmation` only after the confirmation step has been validated and the returned `confirmation_id` has been persisted.
 - `Ready` may still transition into `AwaitingConfirmation` if a later step returns `RequestConfirmation`.
+- In v1, a single command may trigger at most one bounded replan cycle; if a second `NeedsReplan` outcome occurs, the executor should stop and return an `Aborted` recovery error instead of looping indefinitely.
 
 #### Runtime State Summary
 

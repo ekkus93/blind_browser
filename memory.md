@@ -560,3 +560,13 @@
 - Conversely, `Ready`, `Blocked`, and `Complete` planner outputs may no longer include `confirm_action`, set `requires_confirmation = true`, or carry `confirmation_reason`, so confirmation-only metadata cannot leak into non-gated plans.
 - The submit-specific validator still runs first so `SubmitForm` retains its clearer specialized diagnostics, but click and other risky/ambiguous plans now follow the same bounded confirmation contract.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (111 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build`; the current shell still warns on Node `22.11.0`, so the repo baseline remains `22.12.0+`.
+
+## 2026-03-25T05:33:15Z - GPT-5.4 - Push-to-talk execution now uses a bounded replanning loop
+- `src-tauri/src/app_core.rs` now implements an app-level bounded replanning loop above the low-level step runner. It converts accumulated execution traces into `recent_tool_results`, replans once with fresh runtime state, and aborts with `replan_limit_exceeded` if replanning is requested again.
+- The low-level commands executor still emits `NeedsReplan` as before, but `transcribe_and_execute_command(...)` now routes spoken commands through the bounded loop so the user-facing push-to-talk path actually exercises the replanning contract.
+- App-core regression tests now cover both a successful single replan with carried-forward tool history and the capped second replan case, preventing silent infinite-loop regressions.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (113 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build`; the current shell still warns on Node `22.11.0`, so the repo baseline remains `22.12.0+`.
+
+## 2026-03-25T05:39:43Z - GPT-5.4 - Bounded replanning slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The bounded replanning slice remained green at `113` Rust tests and `12` UI tests, so the current repo baseline for this area is still clean going into commit and push.

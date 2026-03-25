@@ -17,19 +17,19 @@ use crate::commands::{
     tool_input_schema,
     validate_planner_output, AgentStateData, ClickElementData, ClickElementInput,
     ConfirmActionData, ConfirmActionInput, ConfirmActionResolution, DeterministicToolExecutor,
-    ExecutionOutcome, ExtractPageModelData, ExtractPageModelInput, FindElementData,
+    ExecutionOutcome, ExecutionTrace, ExtractPageModelData, ExtractPageModelInput, FindElementData,
     FindElementInput, GetAgentStateInput, GetPageSnapshotInput, GetRuntimeStatusData,
     GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData, GoForwardInput,
     ListInteractiveElementsData, ListInteractiveElementsInput, OpenUrlData, OpenUrlInput,
-    PageSnapshotData, PlannerInput, PlannerOutput, ProviderSelectionStatus, ReadNextRegionData,
-    ReadNextRegionInput, ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData,
-    ReadRegionInput, ReloadPageData, ReloadPageInput, ReportResultData, ReportResultInput,
-    ScrollPageData, ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput,
-    SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
-    SetTtsVoiceData, SetTtsVoiceInput, StartListeningData, StartListeningInput,
-    StopListeningData, StopListeningInput, StopSpeakingData, StopSpeakingInput,
-    TranscribeAndExecuteCommandData, ToolError, ToolName, ToolResult, TranscribeCommandData,
-    TranscribeCommandInput,
+    PageSnapshotData, PlannerInput, PlannerOutput, PlannerToolHistoryEntry,
+    ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
+    ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
+    ReportResultData, ReportResultInput, ScrollPageData, ScrollPageInput,
+    SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
+    SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
+    SetTtsVoiceInput, StartListeningData, StartListeningInput, StopListeningData,
+    StopListeningInput, StopSpeakingData, StopSpeakingInput, TranscribeAndExecuteCommandData,
+    ToolError, ToolName, ToolResult, TranscribeCommandData, TranscribeCommandInput,
 };
 use crate::config::{
     AppConfig, AudioSettings, ConfigError, RemotePlannerProfile, RemoteProviderKind, SecretRef,
@@ -50,6 +50,8 @@ const MAX_FIND_ELEMENT_CANDIDATES: usize = 5;
 const FIND_ELEMENT_AMBIGUITY_MARGIN_BPS: u16 = 800;
 const MAX_HISTORY_STEPS: u8 = 5;
 const MAX_SCROLL_AMOUNT_PX: f32 = 4_000.0;
+const MAX_COMMAND_REPLAN_CYCLES: usize = 1;
+
 #[derive(Serialize)]
 struct PlannerPromptPayload<'a> {
     planner_input: &'a PlannerInput,
@@ -66,6 +68,149 @@ pub struct AppCore {
     tts: TtsController,
     playback: AudioPlaybackController,
     asr: AsrController,
+}
+
+trait ReplanningRuntime {
+    fn resolve_plan(
+        &mut self,
+        request_id: String,
+        transcript: &str,
+        recent_tool_results: &[PlannerToolHistoryEntry],
+    ) -> Result<PlannerOutput, ToolError>;
+
+    fn execute_plan(&mut self, request_id: String, planner_output: &PlannerOutput) -> ExecutionOutcome;
+}
+
+fn execution_trace_to_tool_history_entries(trace: &ExecutionTrace) -> Vec<PlannerToolHistoryEntry> {
+    trace
+        .tool_results
+        .iter()
+        .map(|result| PlannerToolHistoryEntry {
+            tool_name: result.tool_name.clone(),
+            ok: result.ok,
+            observation_summary: result.observations.clone(),
+        })
+        .collect()
+}
+
+fn append_execution_trace(into: &mut ExecutionTrace, trace: ExecutionTrace) {
+    into.executed_step_ids.extend(trace.executed_step_ids);
+    into.tool_results.extend(trace.tool_results);
+}
+
+fn merge_execution_outcome_trace(
+    mut trace: ExecutionTrace,
+    outcome: ExecutionOutcome,
+) -> ExecutionOutcome {
+    match outcome {
+        ExecutionOutcome::Complete { trace: next_trace } => {
+            append_execution_trace(&mut trace, next_trace);
+            ExecutionOutcome::Complete { trace }
+        }
+        ExecutionOutcome::AwaitingConfirmation {
+            trace: next_trace,
+            pending_confirmation_id,
+            pending_plan_execution,
+        } => {
+            append_execution_trace(&mut trace, next_trace);
+            ExecutionOutcome::AwaitingConfirmation {
+                trace,
+                pending_confirmation_id,
+                pending_plan_execution,
+            }
+        }
+        ExecutionOutcome::NeedsReplan { trace: next_trace } => {
+            append_execution_trace(&mut trace, next_trace);
+            ExecutionOutcome::NeedsReplan { trace }
+        }
+        ExecutionOutcome::Aborted {
+            trace: next_trace,
+            error,
+        } => {
+            append_execution_trace(&mut trace, next_trace);
+            ExecutionOutcome::Aborted { trace, error }
+        }
+    }
+}
+
+fn replanning_request_id(base_request_id: &str, phase: &str, replan_cycle: usize) -> String {
+    if replan_cycle == 0 {
+        format!("{base_request_id}-{phase}")
+    } else {
+        format!("{base_request_id}-{phase}-replan-{replan_cycle}")
+    }
+}
+
+fn execute_bounded_replanning_loop<R: ReplanningRuntime>(
+    runtime: &mut R,
+    request_id: &str,
+    transcript: &str,
+) -> Result<ExecutionOutcome, ToolError> {
+    let mut replan_cycle = 0usize;
+    let mut recent_tool_results = Vec::<PlannerToolHistoryEntry>::new();
+    let mut accumulated_trace = ExecutionTrace {
+        executed_step_ids: Vec::new(),
+        tool_results: Vec::new(),
+    };
+
+    loop {
+        let planner_output = match runtime.resolve_plan(
+            replanning_request_id(request_id, "resolve", replan_cycle),
+            transcript,
+            &recent_tool_results,
+        ) {
+            Ok(planner_output) => planner_output,
+            Err(error) => {
+                if accumulated_trace.executed_step_ids.is_empty()
+                    && accumulated_trace.tool_results.is_empty()
+                {
+                    return Err(error);
+                }
+
+                return Ok(ExecutionOutcome::Aborted {
+                    trace: accumulated_trace,
+                    error,
+                });
+            }
+        };
+
+        let outcome = runtime.execute_plan(
+            replanning_request_id(request_id, "execute", replan_cycle),
+            &planner_output,
+        );
+        recent_tool_results.extend(execution_trace_to_tool_history_entries(match &outcome {
+            ExecutionOutcome::Complete { trace }
+            | ExecutionOutcome::AwaitingConfirmation { trace, .. }
+            | ExecutionOutcome::NeedsReplan { trace }
+            | ExecutionOutcome::Aborted { trace, .. } => trace,
+        }));
+
+        match outcome {
+            ExecutionOutcome::NeedsReplan { trace } => {
+                append_execution_trace(&mut accumulated_trace, trace);
+                if replan_cycle >= MAX_COMMAND_REPLAN_CYCLES {
+                    return Ok(ExecutionOutcome::Aborted {
+                        trace: accumulated_trace,
+                        error: ToolError {
+                            code: String::from("replan_limit_exceeded"),
+                            message: format!(
+                                "planner requested replanning more than {} time(s) for this command",
+                                MAX_COMMAND_REPLAN_CYCLES
+                            ),
+                            retryable: true,
+                            details: Some(serde_json::json!({
+                                "max_replan_cycles": MAX_COMMAND_REPLAN_CYCLES,
+                            })),
+                        },
+                    });
+                }
+                replan_cycle += 1;
+            }
+            other => {
+                return Ok(merge_execution_outcome_trace(accumulated_trace, other));
+            }
+        }
+    }
 }
 
 impl AppCore {
@@ -966,10 +1111,27 @@ impl AppCore {
         outcome
     }
 
+    fn execute_command_with_replanning(
+        &mut self,
+        request_id: String,
+        transcript: String,
+    ) -> Result<ExecutionOutcome, ToolError> {
+        execute_bounded_replanning_loop(self, &request_id, &transcript)
+    }
+
     pub fn resolve_command(
         &mut self,
         request_id: String,
         transcript: String,
+    ) -> Result<PlannerOutput, ToolError> {
+        self.resolve_command_with_recent_results(request_id, &transcript, Vec::new())
+    }
+
+    fn resolve_command_with_recent_results(
+        &mut self,
+        request_id: String,
+        transcript: &str,
+        recent_tool_results: Vec<PlannerToolHistoryEntry>,
     ) -> Result<PlannerOutput, ToolError> {
         let transcript = transcript.trim();
         if transcript.is_empty() {
@@ -1082,7 +1244,7 @@ impl AppCore {
             relevant_skill_summaries: skill_selection.relevant_skill_summaries.clone(),
             page_snapshot: self.current_page_snapshot(Some(1_200), true),
             page_model: self.state.current_page.clone(),
-            recent_tool_results: Vec::new(),
+            recent_tool_results,
         };
 
         let planner_output = self.resolve_planner_output(&planner_input)?;
@@ -1794,10 +1956,10 @@ impl AppCore {
         };
 
         let (command_error, execution_outcome) = if let Some(transcript) = transcription.transcript.clone() {
-            match self.resolve_command(format!("{request_id}-resolve"), transcript) {
-                Ok(planner_output) => (
+            match self.execute_command_with_replanning(request_id.clone(), transcript) {
+                Ok(outcome) => (
                     None,
-                    Some(self.execute_planner_output(format!("{request_id}-execute"), &planner_output)),
+                    Some(outcome),
                 ),
                 Err(error) => (Some(error), None),
             }
@@ -2520,6 +2682,29 @@ impl AppCore {
             Err(_) => 0,
         };
         format!("page-{request_id}-{timestamp_ms}")
+    }
+}
+
+impl ReplanningRuntime for AppCore {
+    fn resolve_plan(
+        &mut self,
+        request_id: String,
+        transcript: &str,
+        recent_tool_results: &[PlannerToolHistoryEntry],
+    ) -> Result<PlannerOutput, ToolError> {
+        self.resolve_command_with_recent_results(
+            request_id,
+            transcript,
+            recent_tool_results.to_vec(),
+        )
+    }
+
+    fn execute_plan(
+        &mut self,
+        request_id: String,
+        planner_output: &PlannerOutput,
+    ) -> ExecutionOutcome {
+        self.execute_planner_output(request_id, planner_output)
     }
 }
 
@@ -3437,11 +3622,16 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
 mod tests {
     use super::{
         build_extracted_page_model, build_find_element_query, build_visible_text_excerpt,
-        determine_find_element_resolution, filter_interactive_elements, infer_extraction_source,
-        normalize_absolute_url, normalize_optional_text, planner_system_prompt,
-        rank_find_element_candidates, resolve_clickable_element,
+        determine_find_element_resolution, execute_bounded_replanning_loop,
+        filter_interactive_elements, infer_extraction_source, normalize_absolute_url,
+        normalize_optional_text, planner_system_prompt, rank_find_element_candidates,
+        resolve_clickable_element, ReplanningRuntime,
     };
-    use crate::commands::{ExtractPageModelInput, FindElementInput};
+    use crate::commands::{
+        ExecutionOutcome, ExecutionTrace, ExtractPageModelInput, FindElementInput, IntentName,
+        IntentSummary, PlannedStep, PlannerOutput, PlannerStatus, PlannerToolHistoryEntry,
+        StepTransition, ToolName, ToolResult,
+    };
     use crate::page_model::{
         ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, RegionSource,
     };
@@ -3737,6 +3927,136 @@ mod tests {
         assert!(prompt.contains("planner_input.safety.allow_click_without_confirmation"));
         assert!(prompt.contains("ordinary ClickElement plans may use Ready"));
         assert!(prompt.contains("planner_input.safety.confirmation_confidence_threshold"));
+    }
+
+    struct MockReplanningRuntime {
+        resolve_results: Vec<Result<PlannerOutput, crate::commands::ToolError>>,
+        execute_results: Vec<ExecutionOutcome>,
+        resolve_recent_tool_results: Vec<Vec<PlannerToolHistoryEntry>>,
+    }
+
+    impl ReplanningRuntime for MockReplanningRuntime {
+        fn resolve_plan(
+            &mut self,
+            _request_id: String,
+            _transcript: &str,
+            recent_tool_results: &[PlannerToolHistoryEntry],
+        ) -> Result<PlannerOutput, crate::commands::ToolError> {
+            self.resolve_recent_tool_results
+                .push(recent_tool_results.to_vec());
+            self.resolve_results.remove(0)
+        }
+
+        fn execute_plan(
+            &mut self,
+            _request_id: String,
+            _planner_output: &PlannerOutput,
+        ) -> ExecutionOutcome {
+            self.execute_results.remove(0)
+        }
+    }
+
+    fn mock_planner_output(step_id: &str) -> PlannerOutput {
+        PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::GetStatus,
+                goal: String::from("report runtime status"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("get_status")],
+            steps: vec![PlannedStep {
+                step_id: step_id.to_string(),
+                tool_name: ToolName::GetRuntimeStatus,
+                arguments: serde_json::json!({
+                    "request_id": format!("req-{step_id}"),
+                    "timeout_ms": null,
+                    "include_provider_modes": false
+                }),
+                purpose: String::from("read runtime status"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        }
+    }
+
+    fn mock_trace(step_id: &str, tool_name: ToolName, observation: &str) -> ExecutionTrace {
+        ExecutionTrace {
+            executed_step_ids: vec![step_id.to_string()],
+            tool_results: vec![ToolResult::success(
+                tool_name,
+                format!("req-{step_id}"),
+                serde_json::json!({}),
+                vec![observation.to_string()],
+            )],
+        }
+    }
+
+    #[test]
+    fn bounded_replanning_loop_replans_once_with_recent_tool_history() {
+        let mut runtime = MockReplanningRuntime {
+            resolve_results: vec![Ok(mock_planner_output("step-1")), Ok(mock_planner_output("step-2"))],
+            execute_results: vec![
+                ExecutionOutcome::NeedsReplan {
+                    trace: mock_trace("step-1", ToolName::GetRuntimeStatus, "first plan failed"),
+                },
+                ExecutionOutcome::Complete {
+                    trace: mock_trace("step-2", ToolName::ReportResult, "second plan succeeded"),
+                },
+            ],
+            resolve_recent_tool_results: Vec::new(),
+        };
+
+        let outcome = execute_bounded_replanning_loop(&mut runtime, "req", "what is the status")
+            .expect("bounded replanning should succeed");
+
+        match outcome {
+            ExecutionOutcome::Complete { trace } => {
+                assert_eq!(trace.executed_step_ids, vec!["step-1", "step-2"]);
+                assert_eq!(trace.tool_results.len(), 2);
+            }
+            other => panic!("expected complete outcome, got {other:?}"),
+        }
+
+        assert_eq!(runtime.resolve_recent_tool_results.len(), 2);
+        assert!(runtime.resolve_recent_tool_results[0].is_empty());
+        assert_eq!(runtime.resolve_recent_tool_results[1].len(), 1);
+        assert_eq!(
+            runtime.resolve_recent_tool_results[1][0].observation_summary,
+            vec![String::from("first plan failed")]
+        );
+    }
+
+    #[test]
+    fn bounded_replanning_loop_stops_after_replan_limit() {
+        let mut runtime = MockReplanningRuntime {
+            resolve_results: vec![Ok(mock_planner_output("step-1")), Ok(mock_planner_output("step-2"))],
+            execute_results: vec![
+                ExecutionOutcome::NeedsReplan {
+                    trace: mock_trace("step-1", ToolName::GetRuntimeStatus, "first replan requested"),
+                },
+                ExecutionOutcome::NeedsReplan {
+                    trace: mock_trace("step-2", ToolName::GetRuntimeStatus, "second replan requested"),
+                },
+            ],
+            resolve_recent_tool_results: Vec::new(),
+        };
+
+        let outcome = execute_bounded_replanning_loop(&mut runtime, "req", "what is the status")
+            .expect("bounded replanning should return an execution outcome");
+
+        match outcome {
+            ExecutionOutcome::Aborted { trace, error } => {
+                assert_eq!(error.code, "replan_limit_exceeded");
+                assert_eq!(trace.executed_step_ids, vec!["step-1", "step-2"]);
+                assert_eq!(trace.tool_results.len(), 2);
+            }
+            other => panic!("expected aborted outcome, got {other:?}"),
+        }
     }
 
     #[test]

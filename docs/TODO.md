@@ -207,7 +207,7 @@
 - [x] Validate planner tool names and argument schemas before execution
 - [x] Add canonical planner JSON examples that match the documented `IntentName` strings and tool argument field names
 - [x] Add schema/fixture validation so planner example payloads stay aligned with generated JSON schema
-- [ ] Implement bounded step execution and replanning loop
+- [x] Implement bounded step execution and replanning loop
 - [x] Enforce confirmation policy for ambiguous or risky actions
 - [x] Make confirmation confidence threshold configurable with default `0.90`
 - [x] Allow click actions without confirmation by default, via config
