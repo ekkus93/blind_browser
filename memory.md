@@ -778,3 +778,9 @@
 - Added helper coverage for selecting region-first OCR targets and for respecting the `ocr.prefer_region_ocr` toggle.
 - Updated `docs/SPECS.md` and `docs/TODO.md` to document the behavior and mark `Prefer region OCR before broader OCR when possible` complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `170` Rust tests and `12` UI tests.
+
+## 2026-03-25T21:52:53Z - GPT-5.4 - Sparse OCR default policy locked in
+- Confirmed the shipped OCR defaults already match the intended v1 fallback policy: `OcrSettings::default()`, `config.example.toml`, and the default config template all use `sparse_text_char_threshold = 200` and `sparse_text_region_threshold = 2`.
+- Added regression coverage in `src-tauri/src/app_core.rs` for the exact default boundaries: fallback now stays explicitly covered at `200` readable characters, at `1` readable region, and above both boundaries.
+- Added direct default/config coverage in `src-tauri/src/ocr.rs` and `src-tauri/src/config.rs`, then updated `docs/SPECS.md` and `docs/TODO.md` to state and mark complete the shipped policy of `200` readable characters or fewer than `2` readable regions.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `174` Rust tests and `12` UI tests.

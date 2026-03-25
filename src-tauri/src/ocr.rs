@@ -149,8 +149,22 @@ fn normalized_ocr_bbox(bbox: &Rect) -> Result<(i32, i32, i32, i32), OcrRuntimeEr
 mod tests {
     use super::{
         normalize_ocr_confidence, normalize_ocr_text, normalized_ocr_bbox, OcrRuntimeError,
+        OcrSettings,
     };
     use crate::page_model::Rect;
+
+    #[test]
+    fn default_ocr_settings_use_shipped_sparse_text_thresholds() {
+        assert_eq!(
+            OcrSettings::default(),
+            OcrSettings {
+                trigger_on_no_extractable_text: true,
+                sparse_text_char_threshold: 200,
+                sparse_text_region_threshold: 2,
+                prefer_region_ocr: true,
+            }
+        );
+    }
 
     #[test]
     fn normalize_ocr_text_trims_outer_whitespace() {

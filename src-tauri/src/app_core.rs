@@ -6463,6 +6463,90 @@ mod tests {
     }
 
     #[test]
+    fn should_trigger_extract_page_model_ocr_fallback_at_default_char_boundary() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![
+                PageRegion {
+                    region_id: String::from("region-1"),
+                    label: None,
+                    text: "a".repeat(100),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("region-2"),
+                    label: None,
+                    text: "b".repeat(100),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+            ],
+            interactive_elements: Vec::new(),
+        };
+
+        assert!(should_trigger_extract_page_model_ocr_fallback(
+            true,
+            &page,
+            &OcrSettings::default()
+        ));
+    }
+
+    #[test]
+    fn should_trigger_extract_page_model_ocr_fallback_at_default_region_boundary() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![PageRegion {
+                region_id: String::from("region-1"),
+                label: None,
+                text: "a".repeat(201),
+                bbox: None,
+                source: RegionSource::Dom,
+            }],
+            interactive_elements: Vec::new(),
+        };
+
+        assert!(should_trigger_extract_page_model_ocr_fallback(
+            true,
+            &page,
+            &OcrSettings::default()
+        ));
+    }
+
+    #[test]
+    fn should_not_trigger_extract_page_model_ocr_fallback_above_default_boundaries() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![
+                PageRegion {
+                    region_id: String::from("region-1"),
+                    label: None,
+                    text: "a".repeat(101),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("region-2"),
+                    label: None,
+                    text: "b".repeat(100),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+            ],
+            interactive_elements: Vec::new(),
+        };
+
+        assert!(!should_trigger_extract_page_model_ocr_fallback(
+            true,
+            &page,
+            &OcrSettings::default()
+        ));
+    }
+
+    #[test]
     fn should_not_trigger_extract_page_model_ocr_fallback_when_thresholds_are_satisfied() {
         let page = PageModel {
             title: Some(String::from("Example")),

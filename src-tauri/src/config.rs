@@ -697,6 +697,10 @@ mod tests {
             .contains_key("openai-default"));
         assert!(config.local_tts_profiles.contains_key("kitten-default"));
         assert!(config.local_asr_profiles.contains_key("whisper-default"));
+        assert!(config.ocr.trigger_on_no_extractable_text);
+        assert_eq!(config.ocr.sparse_text_char_threshold, 200);
+        assert_eq!(config.ocr.sparse_text_region_threshold, 2);
+        assert!(config.ocr.prefer_region_ocr);
     }
 
     #[test]

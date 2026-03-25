@@ -498,9 +498,7 @@ OCR thresholds are configurable in the main config.
 
 Default v1 behavior:
 - trigger OCR when no extractable text is found
-- also trigger OCR when extracted text is sparse, using:
-  - `sparse_text_char_threshold = 200`
-  - `sparse_text_region_threshold = 2`
+- also trigger OCR when extracted text is sparse, with defaults of `200` readable characters or fewer than `2` readable regions
 - prefer region-level OCR before broader OCR when possible
 
 Provisional extraction-quality heuristic for v1:
@@ -1067,7 +1065,8 @@ Validation notes:
 
 Behavior notes:
 - When `use_dom_extraction` is `true`, `extract_page_model` triggers deterministic OCR fallback when `ocr.trigger_on_no_extractable_text` is enabled and live DOM extraction yields either no readable region text or text that remains below the configured sparse-text thresholds.
-- Sparse-text fallback currently uses `ocr.sparse_text_char_threshold` as a maximum readable-character threshold and `ocr.sparse_text_region_threshold` as a minimum readable-region threshold.
+- By default, sparse-text fallback treats DOM extraction as weak when it yields `200` readable characters or fewer than `2` readable regions.
+- Sparse-text fallback uses `ocr.sparse_text_char_threshold` as a maximum readable-character threshold and `ocr.sparse_text_region_threshold` as a minimum readable-region threshold, so those defaults remain configurable.
 - When `ocr.prefer_region_ocr` is enabled and sparse DOM extraction still includes bbox-backed readable regions, fallback tries region-targeted OCR and merges those results before widening to broader full-page OCR.
 - The current fallback path captures a full-page screenshot, runs OCR on that cached image, and merges recovered text back into the runtime page model before returning the extracted result.
 
