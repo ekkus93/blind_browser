@@ -209,7 +209,7 @@
 - [x] Add schema/fixture validation so planner example payloads stay aligned with generated JSON schema
 - [ ] Implement bounded step execution and replanning loop
 - [ ] Enforce confirmation policy for ambiguous or risky actions
-- [ ] Make confirmation confidence threshold configurable with default `0.90`
+- [x] Make confirmation confidence threshold configurable with default `0.90`
 - [x] Allow click actions without confirmation by default, via config
 - [x] Always require confirmation for submit actions
 - [ ] Map phrases to intents:

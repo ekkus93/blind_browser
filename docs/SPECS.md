@@ -488,6 +488,7 @@ This policy is intentionally provisional.
 ## Confirmation Policy
 
 - `confirmation_confidence_threshold` is configurable and defaults to `0.90`.
+- Side-effecting actions that depend on grounding confidence, such as choosing a click target from ranked candidates, should require confirmation when the best grounded confidence falls below `confirmation_confidence_threshold`.
 - Click actions may proceed without confirmation when `allow_click_without_confirmation = true`.
 - Submit actions must always require confirmation in v1.
 
@@ -1732,6 +1733,7 @@ The planner is the LLM-facing component that converts a user transcript plus cur
 - Select zero or more Pi-style SKILL.md workflow guides to inform planning.
 - Produce a structured plan using only known tool names.
 - Mark ambiguous or risky actions as requiring confirmation.
+- Honor `planner_input.safety.confirmation_confidence_threshold` when deciding whether the grounded confidence for a side-effecting action is high enough to proceed without confirmation.
 - Stop and report blocked status when the request cannot be grounded safely.
 - Use the configured active LLM provider, with optional remote-to-local failover when enabled.
 

@@ -47,7 +47,6 @@ use tauri::{AppHandle, Manager};
 
 const DEFAULT_FIND_ELEMENT_MAX_CANDIDATES: usize = 3;
 const MAX_FIND_ELEMENT_CANDIDATES: usize = 5;
-const FIND_ELEMENT_STRONG_MATCH_BPS: u16 = 8_500;
 const FIND_ELEMENT_AMBIGUITY_MARGIN_BPS: u16 = 800;
 const MAX_HISTORY_STEPS: u8 = 5;
 const MAX_SCROLL_AMOUNT_PX: f32 = 4_000.0;
@@ -788,7 +787,10 @@ impl AppCore {
         let ranked_candidates =
             rank_find_element_candidates(&elements, &search_query, candidate_limit);
         let (chosen_element_id, chosen_confidence, requires_confirmation) =
-            determine_find_element_resolution(&ranked_candidates);
+            determine_find_element_resolution(
+                &ranked_candidates,
+                self.config.safety.confirmation_confidence_threshold,
+            );
 
         let mut observations = vec![format!(
             "Searched {} interactive element(s) from the current runtime page state.",
@@ -2874,7 +2876,7 @@ Use only tool names that appear in planner_input.available_tools and only select
 Every step arguments object must match the corresponding tool_input_schemas entry exactly, including snake_case field names.
 Use canonical_planner_output_examples only as shape references; adapt the returned tools, skills, and arguments to the current planner_input.
 Keep plans linear and short: at most five steps, with at most one NextStep edge from any step.
-When planner_input.safety.allow_click_without_confirmation is true, ordinary ClickElement plans may use Ready without confirm_action; reserve NeedsConfirmation for ambiguous or risky clicks.
+When planner_input.safety.allow_click_without_confirmation is true, ordinary ClickElement plans may use Ready without confirm_action; reserve NeedsConfirmation for clicks whose grounded confidence falls below planner_input.safety.confirmation_confidence_threshold or remains ambiguous/risky.
 Use NeedsConfirmation plus a confirm_action step when the request is risky or ambiguous before side effects.
 SubmitForm plans must always use NeedsConfirmation with confirm_action before any submit side effect.
 Use Blocked only when the request cannot be grounded safely or is outside the supported tool set.
@@ -3053,21 +3055,24 @@ fn rank_find_element_candidates(
 
 fn determine_find_element_resolution(
     candidates: &[crate::commands::ElementCandidate],
+    confirmation_confidence_threshold: f32,
 ) -> (Option<String>, Option<f32>, bool) {
     let Some(top_candidate) = candidates.first() else {
         return (None, None, false);
     };
 
     let top_confidence = Some(f32::from(top_candidate.confidence_bps) / 10_000.0);
-    let ambiguous = candidates.get(1).is_some_and(|second_candidate| {
-        top_candidate.confidence_bps < FIND_ELEMENT_STRONG_MATCH_BPS
-            || top_candidate
-                .confidence_bps
-                .saturating_sub(second_candidate.confidence_bps)
-                <= FIND_ELEMENT_AMBIGUITY_MARGIN_BPS
+    let required_confidence_bps =
+        (confirmation_confidence_threshold.clamp(0.0, 1.0) * 10_000.0).round() as u16;
+    let below_threshold = top_candidate.confidence_bps < required_confidence_bps;
+    let ambiguous_with_runner_up = candidates.get(1).is_some_and(|second_candidate| {
+        top_candidate
+            .confidence_bps
+            .saturating_sub(second_candidate.confidence_bps)
+            <= FIND_ELEMENT_AMBIGUITY_MARGIN_BPS
     });
 
-    if ambiguous {
+    if below_threshold || ambiguous_with_runner_up {
         (None, top_confidence, true)
     } else {
         (
@@ -3696,11 +3701,33 @@ mod tests {
         ];
 
         let (chosen_element_id, chosen_confidence, requires_confirmation) =
-            determine_find_element_resolution(&candidates);
+            determine_find_element_resolution(&candidates, 0.9);
 
         assert_eq!(chosen_element_id, None);
         assert_eq!(chosen_confidence, Some(0.89));
         assert!(requires_confirmation);
+    }
+
+    #[test]
+    fn determine_find_element_resolution_uses_configured_confidence_threshold() {
+        let candidates = vec![crate::commands::ElementCandidate {
+            element_id: String::from("link-help"),
+            confidence_bps: 8_800,
+            matched_on: vec![String::from("accessible_name")],
+            rationale_codes: vec![String::from("accessible_name_exact")],
+        }];
+
+        let (chosen_element_id, chosen_confidence, requires_confirmation) =
+            determine_find_element_resolution(&candidates, 0.9);
+        assert_eq!(chosen_element_id, None);
+        assert_eq!(chosen_confidence, Some(0.88));
+        assert!(requires_confirmation);
+
+        let (chosen_element_id, chosen_confidence, requires_confirmation) =
+            determine_find_element_resolution(&candidates, 0.85);
+        assert_eq!(chosen_element_id, Some(String::from("link-help")));
+        assert_eq!(chosen_confidence, Some(0.88));
+        assert!(!requires_confirmation);
     }
 
     #[test]
@@ -3709,6 +3736,7 @@ mod tests {
 
         assert!(prompt.contains("planner_input.safety.allow_click_without_confirmation"));
         assert!(prompt.contains("ordinary ClickElement plans may use Ready"));
+        assert!(prompt.contains("planner_input.safety.confirmation_confidence_threshold"));
     }
 
     #[test]
