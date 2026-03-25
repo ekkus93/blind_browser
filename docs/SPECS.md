@@ -1173,6 +1173,8 @@ struct ReadPreviousRegionInput {
 ```
 
 Narration behavior notes:
+- Spoken title commands such as `read title`, `read the page title`, and `what is the title` should resolve to a bounded spoken title response based on the current page state.
+- If the current page does not have a readable title yet, the runtime should speak a clear bounded follow-up message instead of inventing one.
 - Spoken repeat commands such as `repeat`, `repeat that`, `read that again`, and `say that again` should resolve against the current narration cursor and restart the current region with `interrupt_current = true`.
 - If no current narration region is available yet, the runtime should return a bounded follow-up message instead of guessing which content to repeat.
 
@@ -1935,6 +1937,7 @@ enum IntentName {
   ReloadPage,
   GetCurrentUrl,
   ReadPage,
+  ReadTitle,
   ReadNext,
   ReadPrevious,
   Repeat,
@@ -1973,6 +1976,7 @@ Intent alignment rules:
 - `IntentName` should cover every planner-visible built-in action family that has a dedicated deterministic tool or normalized deterministic tool path.
 - Relative audio commands such as `increase volume`, `decrease volume`, `mute`, `increase playback speed`, and `decrease playback speed` should normalize to `SetPlaybackVolume` or `SetPlaybackSpeed` before planner execution.
 - Status queries such as current URL and general runtime status should normalize to `GetCurrentUrl` or `GetStatus`.
+- Title-reading phrases such as `read title`, `read the page title`, and `what is the title` should normalize to `ReadTitle`.
 - Minor ASR drift or single-typo variants of existing command keywords should normalize to the same bounded intent families when the correction is unambiguous, for example `volum`, `play back spead`, `browsr`, or `listenin`.
 - Mixed commands such as `fill the email field and then submit` should normalize to the `SubmitForm` family so later planning can preserve both the fill and submit workflow.
 - Ambiguous-but-bounded form choices such as `choose California from the state list` should normalize to `FillInput` rather than a generic click family.

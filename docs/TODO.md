@@ -159,7 +159,7 @@
 
 ### Narration Module
 - [x] Implement cursor state
-- [ ] Read title
+- [x] Read title
 - [x] Read next region
 - [x] Read previous region
 - [x] Repeat region

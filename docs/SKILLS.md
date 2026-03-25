@@ -53,8 +53,8 @@ The metadata here is the authoritative source for bundled default skills shipped
 - description: Read the current page from the title and then through readable regions.
 
 #### read_title
-- intent_tags: `read-title`, `reading`
-- allowed_tools: `get_page_snapshot`, `read_region`
+- intent_tags: `read-title`, `reading`, `intent:ReadTitle`
+- allowed_tools: `report_result`
 - requires_confirmation: `false`
 - description: Read only the current page title.
 

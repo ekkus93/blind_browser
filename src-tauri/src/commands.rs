@@ -298,6 +298,7 @@ pub enum IntentName {
     ReloadPage,
     GetCurrentUrl,
     ReadPage,
+    ReadTitle,
     ReadNext,
     ReadPrevious,
     Repeat,
@@ -1205,6 +1206,9 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     if normalized.contains("read previous") || normalized.contains("previous region") {
         return IntentName::ReadPrevious;
     }
+    if is_read_title_phrase(&normalized) {
+        return IntentName::ReadTitle;
+    }
     if is_repeat_phrase(&normalized) {
         return IntentName::Repeat;
     }
@@ -1976,6 +1980,7 @@ fn parse_intent_name_value(value: &str) -> Result<IntentName, String> {
         "ReloadPage" => Ok(IntentName::ReloadPage),
         "GetCurrentUrl" => Ok(IntentName::GetCurrentUrl),
         "ReadPage" => Ok(IntentName::ReadPage),
+        "ReadTitle" => Ok(IntentName::ReadTitle),
         "ReadNext" => Ok(IntentName::ReadNext),
         "ReadPrevious" => Ok(IntentName::ReadPrevious),
         "Repeat" => Ok(IntentName::Repeat),
@@ -2192,6 +2197,7 @@ fn likely_tools_for_intent(intent: &IntentName) -> Vec<ToolName> {
         IntentName::ReloadPage => vec![ToolName::ReloadPage],
         IntentName::GetCurrentUrl => vec![ToolName::GetAgentState, ToolName::ReportResult],
         IntentName::ReadPage => vec![ToolName::ExtractPageModel, ToolName::ReadRegion],
+        IntentName::ReadTitle => vec![ToolName::ReportResult],
         IntentName::ReadNext => vec![ToolName::ReadNextRegion],
         IntentName::ReadPrevious => vec![ToolName::ReadPreviousRegion],
         IntentName::Repeat => vec![ToolName::GetAgentState, ToolName::ReadRegion],
@@ -2392,6 +2398,52 @@ pub(crate) fn resolve_direct_status_query_command(
     }
 
     None
+}
+
+pub(crate) fn resolve_direct_read_title_command(
+    transcript: &str,
+    request_id: &str,
+    agent_state: &AgentStateData,
+    active_skill_names: &[String],
+) -> Option<PlannerOutput> {
+    let normalized = normalize_transcript_for_routing(transcript);
+    if normalized.is_empty() || !is_read_title_phrase(&normalized) {
+        return None;
+    }
+
+    let summary = match normalized_optional_text(agent_state.title.as_deref()) {
+        Some(title) => format!("Page title is {title}."),
+        None => String::from("This page does not have a readable title yet."),
+    };
+
+    Some(PlannerOutput {
+        status: PlannerStatus::Ready,
+        intent: IntentSummary {
+            name: IntentName::ReadTitle,
+            goal: String::from("Read the current page title."),
+            target_description: Some(String::from("current page title")),
+        },
+        selected_skills: selected_skill(active_skill_names, "read_title"),
+        steps: vec![PlannedStep {
+            step_id: String::from("report-page-title"),
+            tool_name: ToolName::ReportResult,
+            arguments: serde_json::json!({
+                "request_id": request_id,
+                "timeout_ms": serde_json::Value::Null,
+                "status": ReportStatus::Success,
+                "summary": summary.clone(),
+                "next_recommended_action": serde_json::Value::Null,
+                "user_message": summary
+            }),
+            purpose: String::from("Speak the current page title."),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        }],
+        requires_confirmation: false,
+        confirmation_reason: None,
+        blocked_reason: None,
+        user_message: None,
+    })
 }
 
 pub(crate) fn resolve_direct_repeat_command(
@@ -2739,6 +2791,16 @@ fn is_repeat_phrase(normalized: &str) -> bool {
         || normalized.contains("read that again")
         || normalized.contains("say that again")
         || normalized.contains("say this again")
+}
+
+fn is_read_title_phrase(normalized: &str) -> bool {
+    normalized == "read title"
+        || normalized.contains("read the title")
+        || normalized.contains("read page title")
+        || normalized.contains("read the page title")
+        || normalized.contains("what is the title")
+        || normalized.contains("what s the title")
+        || normalized.contains("tell me the title")
 }
 
 fn is_fill_and_submit_phrase(normalized: &str) -> bool {
@@ -5702,6 +5764,13 @@ mod tests {
     }
 
     #[test]
+    fn infer_intent_hint_recognizes_read_title_phrases() {
+        assert_eq!(infer_intent_hint("read title"), IntentName::ReadTitle);
+        assert_eq!(infer_intent_hint("read the page title"), IntentName::ReadTitle);
+        assert_eq!(infer_intent_hint("what is the title"), IntentName::ReadTitle);
+    }
+
+    #[test]
     fn resolve_direct_audio_command_normalizes_absolute_volume_percent() {
         let planner_output = resolve_direct_audio_command(
             "set volume to 70 percent",
@@ -6107,6 +6176,73 @@ mod tests {
                 .arguments
                 .get("next_recommended_action"),
             Some(&serde_json::json!("Read the page or move to a region first."))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_read_title_command_reports_current_title() {
+        let agent_state = AgentStateData {
+            page_id: Some(String::from("page-1")),
+            url: Some(String::from("https://example.com/article")),
+            title: Some(String::from("Example article")),
+            browser_visibility: BrowserVisibilityMode::Visible,
+            browser_history: BrowserHistoryState::default(),
+            narration_cursor: Some(NarrationCursor::default()),
+            speaking: false,
+            listening_state: ListeningState::default(),
+            audio: RuntimeAudioState::default(),
+            last_transcript: None,
+            last_action: None,
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+        };
+
+        let planner_output = resolve_direct_read_title_command(
+            "read the page title",
+            "req-read-title",
+            &agent_state,
+            &[String::from("read_title")],
+        )
+        .expect("read title command should normalize");
+
+        assert_eq!(planner_output.intent.name, IntentName::ReadTitle);
+        assert_eq!(planner_output.selected_skills, vec![String::from("read_title")]);
+        assert_eq!(planner_output.steps.len(), 1);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ReportResult);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("summary"),
+            Some(&serde_json::json!("Page title is Example article."))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_read_title_command_reports_missing_title() {
+        let agent_state = AgentStateData {
+            page_id: Some(String::from("page-1")),
+            url: Some(String::from("https://example.com/article")),
+            title: None,
+            browser_visibility: BrowserVisibilityMode::Visible,
+            browser_history: BrowserHistoryState::default(),
+            narration_cursor: Some(NarrationCursor::default()),
+            speaking: false,
+            listening_state: ListeningState::default(),
+            audio: RuntimeAudioState::default(),
+            last_transcript: None,
+            last_action: None,
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+        };
+
+        let planner_output =
+            resolve_direct_read_title_command("what is the title", "req-read-title-missing", &agent_state, &[])
+                .expect("missing-title command should still produce a bounded response");
+
+        assert_eq!(planner_output.intent.name, IntentName::ReadTitle);
+        assert_eq!(planner_output.steps.len(), 1);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ReportResult);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("summary"),
+            Some(&serde_json::json!("This page does not have a readable title yet."))
         );
     }
 }

@@ -508,3 +508,13 @@
 - When no current narration region is available yet, the repeat resolver now returns a bounded `report_result` follow-up message instead of guessing what to replay, preserving the voice-first flow without open-ended fallback behavior.
 - `src-tauri/src/app_core.rs` now checks the direct repeat resolver before broader planner resolution, `docs/TODO.md` marks `Repeat region` complete, and `docs/SPECS.md` documents the cursor-based repeat behavior.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (92 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
+
+## 2026-03-25T04:07:40Z - GPT-5.4 - Read-title voice commands now resolve directly from current page state
+- `src-tauri/src/commands.rs` now defines `IntentName::ReadTitle`, recognizes bounded title-reading phrases such as `read title`, `read the page title`, and `what is the title`, and `resolve_direct_read_title_command(...)` converts them into a deterministic spoken `report_result` step based on the current page title.
+- When the current page does not have a readable title yet, the title resolver now returns a clear bounded spoken message instead of inventing one, preserving the voice-first flow without open-ended fallback behavior.
+- `src-tauri/src/app_core.rs` now checks the direct read-title resolver before broader planner resolution, `docs/SKILLS.md` aligns the bundled `read_title` skill with `intent:ReadTitle`, and `docs/TODO.md` plus `docs/SPECS.md` now mark and describe the read-title behavior.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (95 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
+
+## 2026-03-25T04:18:09Z - GPT-5.4 - Read-title slice prepared for commit and push
+- The user requested that the validated `Read title` slice be checked in and pushed to `master`, so the current worktree should contain only the bounded title-reading command work plus its docs and memory updates.
+- This keeps the project history aligned with the thin-slice workflow used so far: implement a bounded voice-first feature, validate it with the standard Rust and UI commands, then commit and push as a focused change.
