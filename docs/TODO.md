@@ -223,9 +223,9 @@
   - [x] reload page
   - [x] get current url
   - [ ] read page
-  - [ ] start listening
-  - [ ] stop listening
-  - [ ] transcribe command
+  - [x] start listening
+  - [x] stop listening
+  - [x] transcribe command
   - [ ] focus field
   - [ ] fill field
   - [ ] type into field

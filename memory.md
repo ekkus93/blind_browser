@@ -590,3 +590,13 @@
 ## 2026-03-25T06:11:52Z - GPT-5.4 - Navigation/readback phrase slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The navigation/readback phrase-routing slice remained green at `116` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing change is clean going into commit and push.
+
+## 2026-03-25T06:16:20Z - GPT-5.4 - Voice-input phrase routing now bypasses the planner
+- `src-tauri/src/commands.rs` now adds `resolve_direct_voice_input_command(...)`, generating bounded direct `PlannerOutput` values for `start listening`, `stop listening`, and `transcribe command` style phrases instead of sending those simple requests through the planner.
+- The shared phrase helpers now drive both `infer_intent_hint(...)` and the direct voice-input resolver, keeping intent hinting aligned with runtime shortcut behavior for phrases like `listen now`, `stop listenin`, and `what did i just say`.
+- `src-tauri/src/app_core.rs` now runs that voice-input resolver before the planner path, and `docs/TODO.md` now checks off `start listening`, `stop listening`, and `transcribe command` within the broader phrase-mapping backlog.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (119 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build`; the current shell still warns on Node `22.11.0`, so the repo baseline remains `22.12.0+`.
+
+## 2026-03-25T06:20:37Z - GPT-5.4 - Voice-input phrase slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The voice-input phrase-routing slice remained green at `119` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing change is clean going into commit and push.

@@ -1203,6 +1203,9 @@ struct StartListeningInput {
 }
 ```
 
+Routing notes:
+- Spoken voice-input commands such as `start listening`, `listen now`, and `begin listening` should resolve directly to `start_listening`.
+
 #### `stop_listening`
 
 ```rust
@@ -1211,6 +1214,9 @@ struct StopListeningInput {
   timeout_ms: Option<u64>,
 }
 ```
+
+Routing notes:
+- Spoken voice-input commands such as `stop listening`, `stop listenin`, and `quit listening` should resolve directly to `stop_listening`.
 
 #### `transcribe_command`
 
@@ -1222,6 +1228,9 @@ struct TranscribeCommandInput {
   auto_stop: bool,
 }
 ```
+
+Routing notes:
+- Spoken voice-input commands such as `transcribe`, `transcribe this`, `what did i say`, and `what did i just say` should resolve directly to `transcribe_command` with bounded defaults such as `auto_stop = true`.
 
 Validation notes:
 - `max_duration_ms`, when provided, must be positive and clamped to a short-command upper bound.

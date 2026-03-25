@@ -1418,13 +1418,13 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
         return IntentName::Unknown;
     }
 
-    if normalized.contains("start listening") || normalized.contains("listen now") {
+    if is_start_listening_phrase(&normalized) {
         return IntentName::StartListening;
     }
-    if normalized.contains("stop listening") {
+    if is_stop_listening_phrase(&normalized) {
         return IntentName::StopListening;
     }
-    if normalized.contains("transcribe") || normalized.contains("what did i say") {
+    if is_transcribe_command_phrase(&normalized) {
         return IntentName::TranscribeCommand;
     }
     if is_back_history_query_phrase(&normalized)
@@ -2873,6 +2873,87 @@ pub(crate) fn resolve_direct_navigation_readback_command(
     None
 }
 
+pub(crate) fn resolve_direct_voice_input_command(
+    transcript: &str,
+    request_id: &str,
+    active_skill_names: &[String],
+) -> Option<PlannerOutput> {
+    let normalized = normalize_transcript_for_routing(transcript);
+    if normalized.is_empty() {
+        return None;
+    }
+
+    if is_start_listening_phrase(&normalized) {
+        return Some(build_single_step_planner_output(
+            IntentSummary {
+                name: IntentName::StartListening,
+                goal: String::from("Start listening for voice input."),
+                target_description: Some(String::from("voice input")),
+            },
+            selected_skill(active_skill_names, "start_listening"),
+            PlannedStep {
+                step_id: String::from("start-listening"),
+                tool_name: ToolName::StartListening,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null
+                }),
+                purpose: String::from("Start listening for the next spoken command."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ));
+    }
+
+    if is_stop_listening_phrase(&normalized) {
+        return Some(build_single_step_planner_output(
+            IntentSummary {
+                name: IntentName::StopListening,
+                goal: String::from("Stop listening for voice input."),
+                target_description: Some(String::from("voice input")),
+            },
+            selected_skill(active_skill_names, "stop_listening"),
+            PlannedStep {
+                step_id: String::from("stop-listening"),
+                tool_name: ToolName::StopListening,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null
+                }),
+                purpose: String::from("Stop active voice listening."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ));
+    }
+
+    if is_transcribe_command_phrase(&normalized) {
+        return Some(build_single_step_planner_output(
+            IntentSummary {
+                name: IntentName::TranscribeCommand,
+                goal: String::from("Capture and transcribe a short spoken command."),
+                target_description: Some(String::from("spoken command")),
+            },
+            selected_skill(active_skill_names, "transcribe_command"),
+            PlannedStep {
+                step_id: String::from("transcribe-command"),
+                tool_name: ToolName::TranscribeCommand,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "max_duration_ms": serde_json::Value::Null,
+                    "auto_stop": true
+                }),
+                purpose: String::from("Capture and transcribe a bounded spoken command."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ));
+    }
+
+    None
+}
+
 pub(crate) fn resolve_direct_status_query_command(
     transcript: &str,
     request_id: &str,
@@ -3281,6 +3362,24 @@ fn is_current_url_query_phrase(normalized: &str) -> bool {
 
 fn is_go_back_phrase(normalized: &str) -> bool {
     normalized == "back" || normalized.contains("go back")
+}
+
+fn is_start_listening_phrase(normalized: &str) -> bool {
+    normalized.contains("start listening")
+        || normalized.contains("listen now")
+        || normalized.contains("begin listening")
+}
+
+fn is_stop_listening_phrase(normalized: &str) -> bool {
+    normalized.contains("stop listening")
+        || normalized.contains("stop listen")
+        || normalized.contains("quit listening")
+}
+
+fn is_transcribe_command_phrase(normalized: &str) -> bool {
+    normalized.contains("transcribe")
+        || normalized.contains("what did i say")
+        || normalized.contains("what did i just say")
 }
 
 fn is_go_forward_phrase(normalized: &str) -> bool {
@@ -6837,6 +6936,26 @@ mod tests {
     }
 
     #[test]
+    fn infer_intent_hint_recognizes_voice_input_phrases() {
+        assert_eq!(
+            infer_intent_hint("start listening"),
+            IntentName::StartListening
+        );
+        assert_eq!(
+            infer_intent_hint("stop listenin"),
+            IntentName::StopListening
+        );
+        assert_eq!(
+            infer_intent_hint("what did i just say"),
+            IntentName::TranscribeCommand
+        );
+        assert_eq!(
+            infer_intent_hint("transcribe this"),
+            IntentName::TranscribeCommand
+        );
+    }
+
+    #[test]
     fn infer_intent_hint_recognizes_form_filling_and_submission_phrases() {
         assert_eq!(
             infer_intent_hint("focus the email field"),
@@ -7150,6 +7269,63 @@ mod tests {
             vec![String::from("stop_reading")]
         );
         assert_eq!(stop_plan.steps[0].tool_name, ToolName::StopSpeaking);
+    }
+
+    #[test]
+    fn resolve_direct_voice_input_command_builds_start_and_stop_listening_plans() {
+        let start_plan = resolve_direct_voice_input_command(
+            "start listening",
+            "req-start-listening",
+            &[String::from("start_listening")],
+        )
+        .expect("start listening command should normalize");
+
+        assert_eq!(start_plan.intent.name, IntentName::StartListening);
+        assert_eq!(
+            start_plan.selected_skills,
+            vec![String::from("start_listening")]
+        );
+        assert_eq!(start_plan.steps[0].tool_name, ToolName::StartListening);
+
+        let stop_plan = resolve_direct_voice_input_command(
+            "stop listenin",
+            "req-stop-listening",
+            &[String::from("stop_listening")],
+        )
+        .expect("stop listening command should normalize");
+
+        assert_eq!(stop_plan.intent.name, IntentName::StopListening);
+        assert_eq!(
+            stop_plan.selected_skills,
+            vec![String::from("stop_listening")]
+        );
+        assert_eq!(stop_plan.steps[0].tool_name, ToolName::StopListening);
+    }
+
+    #[test]
+    fn resolve_direct_voice_input_command_builds_transcribe_plan() {
+        let planner_output = resolve_direct_voice_input_command(
+            "what did i just say",
+            "req-transcribe",
+            &[String::from("transcribe_command")],
+        )
+        .expect("transcribe command should normalize");
+
+        assert_eq!(planner_output.intent.name, IntentName::TranscribeCommand);
+        assert_eq!(
+            planner_output.selected_skills,
+            vec![String::from("transcribe_command")]
+        );
+        assert_eq!(planner_output.steps.len(), 1);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::TranscribeCommand);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("auto_stop"),
+            Some(&serde_json::json!(true))
+        );
+        assert_eq!(
+            planner_output.steps[0].arguments.get("max_duration_ms"),
+            Some(&serde_json::Value::Null)
+        );
     }
 
     #[test]
