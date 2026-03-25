@@ -570,3 +570,13 @@
 ## 2026-03-25T05:39:43Z - GPT-5.4 - Bounded replanning slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The bounded replanning slice remained green at `113` Rust tests and `12` UI tests, so the current repo baseline for this area is still clean going into commit and push.
+
+## 2026-03-25T05:46:52Z - GPT-5.4 - Agent state now reports structured last tool-call metadata
+- `src-tauri/src/commands.rs` now replaces the leftover `AgentStateData.last_action: Option<String>` field with `last_tool_call: Option<LastToolCallSummary>`, using structured `request_id`, `tool_name`, `ok`, and observation summary fields instead of free-form action text.
+- `src-tauri/src/state.rs` now derives that runtime field from the latest serialized tool result in each `ExecutionOutcome` trace, so agent-state snapshots carry real executed-tool metadata rather than a placeholder string.
+- `src/tauri-api.ts` and `docs/SPECS.md` now mirror the same structured contract, and `docs/TODO.md` marks `Return structured tool calls instead of free-form action text` complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (113 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build`; the current shell still warns on Node `22.11.0`, so the repo baseline remains `22.12.0+`.
+
+## 2026-03-25T05:48:59Z - GPT-5.4 - Structured tool-call slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The structured tool-call slice remained green at `113` Rust tests and `12` UI tests, so the current repo baseline for this agent-state contract change is clean going into commit and push.

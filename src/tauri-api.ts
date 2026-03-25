@@ -173,6 +173,13 @@ export interface ToolHistoryEntry {
   observation_summary: string[];
 }
 
+export interface LastToolCallSummary {
+  request_id: string;
+  tool_name: ToolName;
+  ok: boolean;
+  observation_summary: string[];
+}
+
 export interface IntentSummary {
   name: IntentName;
   goal: string;
@@ -216,7 +223,7 @@ export interface AgentStateData {
   listening_state: ListeningState;
   audio: RuntimeAudioState;
   last_transcript: string | null;
-  last_action: string | null;
+  last_tool_call: LastToolCallSummary | null;
   pending_confirmation_id: string | null;
   pending_plan_execution: PendingPlanExecutionState | null;
 }

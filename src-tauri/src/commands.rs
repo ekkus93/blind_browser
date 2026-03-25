@@ -202,6 +202,14 @@ pub struct PlannerToolHistoryEntry {
     pub observation_summary: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct LastToolCallSummary {
+    pub request_id: String,
+    pub tool_name: ToolName,
+    pub ok: bool,
+    pub observation_summary: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct AgentStateData {
     pub page_id: Option<String>,
@@ -214,7 +222,7 @@ pub struct AgentStateData {
     pub listening_state: ListeningState,
     pub audio: RuntimeAudioState,
     pub last_transcript: Option<String>,
-    pub last_action: Option<String>,
+    pub last_tool_call: Option<LastToolCallSummary>,
     pub pending_confirmation_id: Option<String>,
     pub pending_plan_execution: Option<PendingPlanExecutionState>,
 }
@@ -4682,7 +4690,12 @@ mod tests {
                     } else {
                         None
                     },
-                    last_action: Some(String::from("get_agent_state")),
+                    last_tool_call: Some(LastToolCallSummary {
+                        request_id: String::from("req-5"),
+                        tool_name: ToolName::GetAgentState,
+                        ok: true,
+                        observation_summary: vec![String::from("agent state read")],
+                    }),
                     pending_confirmation_id: None,
                     pending_plan_execution: None,
                 },
@@ -5456,6 +5469,11 @@ mod tests {
         assert!(result.ok);
         let data = result.data.expect("agent state should serialize");
         assert_eq!(data.get("last_transcript"), Some(&serde_json::Value::Null));
+        assert_eq!(
+            data.get("last_tool_call")
+                .and_then(|entry| entry.get("tool_name")),
+            Some(&serde_json::Value::String(String::from("GetAgentState")))
+        );
     }
 
     #[test]
@@ -6174,7 +6192,7 @@ mod tests {
                 listening_state: ListeningState::default(),
                 audio: RuntimeAudioState::default(),
                 last_transcript: None,
-                last_action: None,
+                last_tool_call: None,
                 pending_confirmation_id: None,
                 pending_plan_execution: None,
             },
@@ -6825,7 +6843,7 @@ mod tests {
             listening_state: ListeningState::default(),
             audio: RuntimeAudioState::default(),
             last_transcript: None,
-            last_action: None,
+            last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
         };
@@ -6884,7 +6902,7 @@ mod tests {
             listening_state: ListeningState::default(),
             audio: RuntimeAudioState::default(),
             last_transcript: None,
-            last_action: None,
+            last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
         };
@@ -6935,7 +6953,7 @@ mod tests {
             },
             audio: RuntimeAudioState::default(),
             last_transcript: None,
-            last_action: None,
+            last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
         };
@@ -7000,7 +7018,7 @@ mod tests {
             listening_state: ListeningState::default(),
             audio: RuntimeAudioState::default(),
             last_transcript: None,
-            last_action: None,
+            last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
         };
@@ -7040,7 +7058,7 @@ mod tests {
             listening_state: ListeningState::default(),
             audio: RuntimeAudioState::default(),
             last_transcript: None,
-            last_action: None,
+            last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
         };
@@ -7081,7 +7099,7 @@ mod tests {
             listening_state: ListeningState::default(),
             audio: RuntimeAudioState::default(),
             last_transcript: None,
-            last_action: None,
+            last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
         };
@@ -7117,7 +7135,7 @@ mod tests {
             listening_state: ListeningState::default(),
             audio: RuntimeAudioState::default(),
             last_transcript: None,
-            last_action: None,
+            last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
         };

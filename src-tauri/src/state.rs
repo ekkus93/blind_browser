@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::audio_io::RuntimeAudioState;
 use crate::browser::BrowserVisibilityMode;
-use crate::commands::{ExecutionOutcome, PendingPlanExecutionState};
+use crate::commands::{ExecutionOutcome, LastToolCallSummary, PendingPlanExecutionState};
 use crate::config::{AppConfig, AudioSettings};
 use crate::narration::NarrationCursor;
 use crate::page_model::PageModel;
@@ -43,6 +43,7 @@ pub struct AppState {
     pub audio: RuntimeAudioState,
     pub listening: ListeningState,
     pub last_transcript: Option<String>,
+    pub last_tool_call: Option<LastToolCallSummary>,
     pub pending_confirmation_id: Option<String>,
     pub pending_plan_execution: Option<PendingPlanExecutionState>,
 }
@@ -60,6 +61,7 @@ impl Default for AppState {
             audio: RuntimeAudioState::default(),
             listening: ListeningState::default(),
             last_transcript: None,
+            last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
         }
@@ -117,6 +119,8 @@ impl AppState {
     }
 
     pub fn apply_execution_outcome(&mut self, outcome: &ExecutionOutcome) {
+        self.last_tool_call = execution_outcome_last_tool_call(outcome);
+
         match outcome {
             ExecutionOutcome::AwaitingConfirmation {
                 pending_confirmation_id,
@@ -140,6 +144,22 @@ impl AppState {
     }
 }
 
+fn execution_outcome_last_tool_call(outcome: &ExecutionOutcome) -> Option<LastToolCallSummary> {
+    let trace = match outcome {
+        ExecutionOutcome::Complete { trace }
+        | ExecutionOutcome::AwaitingConfirmation { trace, .. }
+        | ExecutionOutcome::NeedsReplan { trace }
+        | ExecutionOutcome::Aborted { trace, .. } => trace,
+    };
+
+    trace.tool_results.last().map(|result| LastToolCallSummary {
+        request_id: result.request_id.clone(),
+        tool_name: result.tool_name.clone(),
+        ok: result.ok,
+        observation_summary: result.observations.clone(),
+    })
+}
+
 fn next_history_state_after_navigation(history: &BrowserHistoryState) -> BrowserHistoryState {
     let next_index = history
         .current_entry_index
@@ -158,7 +178,10 @@ fn next_history_state_after_navigation(history: &BrowserHistoryState) -> Browser
 mod tests {
     use super::*;
 
-    use crate::commands::{ExecutionTrace, IntentName, PendingPlanExecutionState, ToolError};
+    use crate::commands::{
+        ExecutionTrace, IntentName, PendingPlanExecutionState, SerializedToolResult, ToolError,
+        ToolName,
+    };
     use crate::config::AppConfig;
 
     #[test]
@@ -167,7 +190,14 @@ mod tests {
         let outcome = ExecutionOutcome::AwaitingConfirmation {
             trace: ExecutionTrace {
                 executed_step_ids: vec![String::from("step-1")],
-                tool_results: Vec::new(),
+                tool_results: vec![SerializedToolResult::success(
+                    ToolName::ConfirmAction,
+                    String::from("req-1"),
+                    serde_json::json!({
+                        "confirmation_id": "confirm-1",
+                    }),
+                    vec![String::from("confirmation requested")],
+                )],
             },
             pending_confirmation_id: String::from("confirm-1"),
             pending_plan_execution: PendingPlanExecutionState {
@@ -185,6 +215,13 @@ mod tests {
         state.apply_execution_outcome(&outcome);
 
         assert_eq!(state.pending_confirmation_id.as_deref(), Some("confirm-1"));
+        assert_eq!(
+            state
+                .last_tool_call
+                .as_ref()
+                .map(|entry| (&entry.tool_name, entry.ok, entry.request_id.as_str())),
+            Some((&ToolName::ConfirmAction, true, "req-1"))
+        );
         assert_eq!(
             state
                 .pending_plan_execution
@@ -208,13 +245,29 @@ mod tests {
                 queued_step_ids: vec![String::from("step-2")],
                 queued_steps: Vec::new(),
             }),
+            last_tool_call: Some(LastToolCallSummary {
+                request_id: String::from("req-old"),
+                tool_name: ToolName::GetAgentState,
+                ok: true,
+                observation_summary: vec![String::from("agent state read")],
+            }),
             ..AppState::default()
         };
 
         let outcome = ExecutionOutcome::Aborted {
             trace: ExecutionTrace {
                 executed_step_ids: vec![String::from("step-1")],
-                tool_results: Vec::new(),
+                tool_results: vec![SerializedToolResult::failure(
+                    ToolName::SetPlaybackVolume,
+                    String::from("req-2"),
+                    ToolError {
+                        code: String::from("aborted"),
+                        message: String::from("execution stopped"),
+                        retryable: false,
+                        details: None,
+                    },
+                    vec![String::from("volume update failed")],
+                )],
             },
             error: ToolError {
                 code: String::from("aborted"),
@@ -228,6 +281,13 @@ mod tests {
 
         assert!(state.pending_confirmation_id.is_none());
         assert!(state.pending_plan_execution.is_none());
+        assert_eq!(
+            state
+                .last_tool_call
+                .as_ref()
+                .map(|entry| (&entry.tool_name, entry.ok, entry.request_id.as_str())),
+            Some((&ToolName::SetPlaybackVolume, false, "req-2"))
+        );
     }
 
     #[test]

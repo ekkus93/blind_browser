@@ -1660,11 +1660,13 @@ struct AgentStateData {
   listening_state: ListeningState,
   audio: RuntimeAudioState,
   last_transcript: Option<String>,
-  last_action: Option<String>,
+  last_tool_call: Option<LastToolCallSummary>,
   pending_confirmation_id: Option<String>,
   pending_plan_execution: Option<PendingPlanExecutionState>,
 }
 ```
+
+`last_tool_call` should summarize the latest executed deterministic tool with structured fields such as `request_id`, `tool_name`, `ok`, and observation summary text. Runtime state should not use a free-form action string as the system of record.
 
 #### `get_runtime_status`
 

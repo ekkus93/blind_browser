@@ -2237,7 +2237,7 @@ impl AppCore {
             } else {
                 None
             },
-            last_action: None,
+            last_tool_call: self.state.last_tool_call.clone(),
             pending_confirmation_id: self.state.pending_confirmation_id.clone(),
             pending_plan_execution: self.state.pending_plan_execution.clone(),
         }

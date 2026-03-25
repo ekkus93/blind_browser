@@ -203,7 +203,7 @@
 - [x] Rank eligible skills by precedence, intent match, lexical overlap, and tool alignment
 - [x] Load only top-ranked skills into planner context
 - [x] Select deterministic tools from planner output
-- [ ] Return structured tool calls instead of free-form action text
+- [x] Return structured tool calls instead of free-form action text
 - [x] Validate planner tool names and argument schemas before execution
 - [x] Add canonical planner JSON examples that match the documented `IntentName` strings and tool argument field names
 - [x] Add schema/fixture validation so planner example payloads stay aligned with generated JSON schema
