@@ -11,13 +11,13 @@ use crate::browser::{
 };
 use crate::commands::{
     build_planner_skill_selection, canonical_planner_output_examples, execute_planner_output,
-    is_direct_submit_form_command, parse_direct_fill_field_command, parse_direct_focus_field_command,
-    planner_available_tools, planner_output_schema, resolve_direct_audio_command,
-    resolve_direct_browser_visibility_command, resolve_direct_navigation_readback_command,
-    resolve_direct_open_url_command, resolve_direct_read_page_command,
-    resolve_direct_read_title_command,
-    resolve_direct_repeat_command, resolve_direct_status_query_command,
-    resolve_direct_voice_input_command, resume_after_confirmation, tool_input_schema, validate_planner_output,
+    is_direct_submit_form_command, parse_direct_fill_and_submit_command,
+    parse_direct_fill_field_command, parse_direct_focus_field_command, planner_available_tools,
+    planner_output_schema, resolve_direct_audio_command, resolve_direct_browser_visibility_command,
+    resolve_direct_navigation_readback_command, resolve_direct_open_url_command,
+    resolve_direct_read_page_command, resolve_direct_read_title_command,
+    resolve_direct_repeat_command, resolve_direct_status_query_command, resolve_direct_voice_input_command,
+    resume_after_confirmation, tool_input_schema, validate_planner_output,
     AgentStateData, ClickElementData, ClickElementInput, ConfirmActionData, ConfirmActionInput,
     ConfirmActionResolution, DeterministicToolExecutor, ExecutionOutcome, ExecutionTrace,
     ExtractPageModelData, ExtractPageModelInput, FindElementData, FindElementInput,
@@ -1570,6 +1570,21 @@ impl AppCore {
             self.state.current_page.as_ref(),
             &current_agent_state,
             &skill_selection.active_skill_names,
+        ) {
+            validate_planner_output(
+                &planner_output,
+                &available_tools,
+                &skill_selection.active_skill_names,
+            )?;
+            return Ok(planner_output);
+        }
+
+        if let Some(planner_output) = resolve_direct_fill_and_submit_command(
+            transcript,
+            &request_id,
+            self.state.current_page.as_ref(),
+            &skill_selection.active_skill_names,
+            self.config.safety.confirmation_confidence_threshold,
         ) {
             validate_planner_output(
                 &planner_output,
@@ -3934,6 +3949,251 @@ fn resolve_direct_fill_field_command(
     ))
 }
 
+fn resolve_direct_fill_and_submit_command(
+    transcript: &str,
+    request_id: &str,
+    current_page: Option<&PageModel>,
+    active_skill_names: &[String],
+    confirmation_confidence_threshold: f32,
+) -> Option<PlannerOutput> {
+    let command = parse_direct_fill_and_submit_command(transcript)?;
+    let selected_skills = if active_skill_names
+        .iter()
+        .any(|active_name| active_name == "fill_and_submit_form")
+    {
+        vec![String::from("fill_and_submit_form")]
+    } else {
+        Vec::new()
+    };
+
+    let Some(description) = command.description else {
+        return Some(build_direct_follow_up_output(
+            request_id,
+            DirectFollowUpSpec {
+                intent_name: IntentName::SubmitForm,
+                goal: String::from("Fill the requested field and submit the form."),
+                target_description: Some(String::from("field fill target")),
+                selected_skills,
+                summary: String::from("Please tell me which field to fill before I submit."),
+                next_recommended_action: Some(String::from(
+                    "Say the field name and value, like fill the email field with phil@example.com and submit.",
+                )),
+                step_id: String::from("report-missing-fill-submit-field-description"),
+                purpose: String::from(
+                    "Report that the field name is required before filling and submitting.",
+                ),
+            },
+        ));
+    };
+
+    let Some(text) = command.text else {
+        return Some(build_direct_follow_up_output(
+            request_id,
+            DirectFollowUpSpec {
+                intent_name: IntentName::SubmitForm,
+                goal: String::from("Fill the requested field and submit the form."),
+                target_description: Some(description),
+                selected_skills,
+                summary: String::from("Please tell me what text to enter before I submit."),
+                next_recommended_action: Some(String::from(
+                    "Say the value after the field name, like fill the email field with phil@example.com and submit.",
+                )),
+                step_id: String::from("report-missing-fill-submit-text"),
+                purpose: String::from(
+                    "Report that the requested field value is required before filling and submitting.",
+                ),
+            },
+        ));
+    };
+
+    let Some(current_page) = current_page else {
+        return Some(build_direct_follow_up_output(
+            request_id,
+            DirectFollowUpSpec {
+                intent_name: IntentName::SubmitForm,
+                goal: String::from("Fill the requested field and submit the form."),
+                target_description: None,
+                selected_skills,
+                summary: String::from("There is no current page to fill and submit a form on yet."),
+                next_recommended_action: Some(String::from(
+                    "Open a page first, then ask me to fill a field and submit the form.",
+                )),
+                step_id: String::from("report-missing-fill-submit-page"),
+                purpose: String::from(
+                    "Report that there is no active page available for filling and submitting.",
+                ),
+            },
+        ));
+    };
+
+    let field_elements = focusable_field_elements(current_page);
+    if field_elements.is_empty() {
+        return Some(build_direct_follow_up_output(
+            request_id,
+            DirectFollowUpSpec {
+                intent_name: IntentName::SubmitForm,
+                goal: String::from("Fill the requested field and submit the form."),
+                target_description: Some(description.clone()),
+                selected_skills,
+                summary: String::from("I could not find any fillable fields on the current page."),
+                next_recommended_action: Some(String::from(
+                    "Try again after the page finishes loading or becomes interactive.",
+                )),
+                step_id: String::from("report-missing-fill-submit-fields"),
+                purpose: String::from(
+                    "Report that no editable fields are available for filling and submitting.",
+                ),
+            },
+        ));
+    }
+
+    let query = FindElementInput {
+        request_id: request_id.to_string(),
+        timeout_ms: None,
+        description: description.clone(),
+        text: None,
+        role: None,
+        color_hint: None,
+        nearby_text: None,
+        selector_hint: None,
+        visible_only: true,
+        max_candidates: Some(DEFAULT_FIND_ELEMENT_MAX_CANDIDATES),
+    };
+    let search_query = build_find_element_query(&query).ok()?;
+    let candidates = rank_find_element_candidates(
+        &field_elements,
+        &search_query,
+        DEFAULT_FIND_ELEMENT_MAX_CANDIDATES,
+    );
+    let (chosen_element_id, _, requires_confirmation) = if candidates.len() == 1 {
+        (Some(candidates[0].element_id.clone()), None, false)
+    } else {
+        determine_find_element_resolution(&candidates, confirmation_confidence_threshold)
+    };
+
+    if let Some(element_id) = chosen_element_id {
+        let prompt_text =
+            format!("Do you want me to fill the {description} field with {text} and then submit that form?");
+        let confirmation_reason =
+            String::from("filling the field and submitting the form may change or send data");
+        return Some(PlannerOutput {
+            status: PlannerStatus::NeedsConfirmation,
+            intent: IntentSummary {
+                name: IntentName::SubmitForm,
+                goal: String::from("Fill the requested field and submit the form."),
+                target_description: Some(description),
+            },
+            selected_skills,
+            steps: vec![
+                PlannedStep {
+                    step_id: String::from("confirm-fill-and-submit-form"),
+                    tool_name: ToolName::ConfirmAction,
+                    arguments: serde_json::json!({
+                        "request_id": request_id,
+                        "timeout_ms": serde_json::Value::Null,
+                        "prompt_text": prompt_text,
+                        "reason": confirmation_reason
+                    }),
+                    purpose: String::from(
+                        "Require explicit confirmation before filling the field and submitting the form.",
+                    ),
+                    on_success: StepTransition::RequestConfirmation,
+                    on_failure: StepTransition::Replan,
+                },
+                PlannedStep {
+                    step_id: String::from("focus-fill-submit-field"),
+                    tool_name: ToolName::FocusElement,
+                    arguments: serde_json::json!({
+                        "request_id": request_id,
+                        "timeout_ms": serde_json::Value::Null,
+                        "element_id": element_id
+                    }),
+                    purpose: String::from("Move focus to the requested field before typing."),
+                    on_success: StepTransition::NextStep {
+                        step_id: String::from("type-fill-submit-field"),
+                    },
+                    on_failure: StepTransition::Replan,
+                },
+                PlannedStep {
+                    step_id: String::from("type-fill-submit-field"),
+                    tool_name: ToolName::TypeIntoElement,
+                    arguments: serde_json::json!({
+                        "request_id": request_id,
+                        "timeout_ms": serde_json::Value::Null,
+                        "element_id": element_id,
+                        "text": text,
+                        "clear_first": true,
+                        "submit_after": false
+                    }),
+                    purpose: String::from(
+                        "Replace the requested field contents with the spoken value before submission.",
+                    ),
+                    on_success: StepTransition::NextStep {
+                        step_id: String::from("submit-fill-submit-form"),
+                    },
+                    on_failure: StepTransition::Replan,
+                },
+                PlannedStep {
+                    step_id: String::from("submit-fill-submit-form"),
+                    tool_name: ToolName::SubmitActiveForm,
+                    arguments: serde_json::json!({
+                        "request_id": request_id,
+                        "timeout_ms": serde_json::Value::Null,
+                        "form_element_id": serde_json::Value::Null
+                    }),
+                    purpose: String::from(
+                        "Submit the form that owns the focused field after the fill step succeeds.",
+                    ),
+                    on_success: StepTransition::Complete,
+                    on_failure: StepTransition::Replan,
+                },
+            ],
+            requires_confirmation: true,
+            confirmation_reason: Some(String::from(
+                "filling the field and submitting the form may change or send data",
+            )),
+            blocked_reason: None,
+            user_message: Some(String::from(
+                "Please confirm before I fill the field and submit the form.",
+            )),
+        });
+    }
+
+    let summary = if requires_confirmation {
+        let candidate_names = summarize_candidate_names(current_page, &candidates);
+        if candidate_names.is_empty() {
+            format!(
+                "I found multiple possible fields for {description}. Please be more specific before I submit."
+            )
+        } else {
+            format!(
+                "I found multiple possible fields for {description}: {}. Please be more specific before I submit.",
+                candidate_names.join(", ")
+            )
+        }
+    } else {
+        format!("I could not find a visible field matching {description}.")
+    };
+
+    Some(build_direct_follow_up_output(
+        request_id,
+        DirectFollowUpSpec {
+            intent_name: IntentName::SubmitForm,
+            goal: String::from("Fill the requested field and submit the form."),
+            target_description: Some(description),
+            selected_skills,
+            summary,
+            next_recommended_action: Some(String::from(
+                "Try naming the field label or placeholder more specifically.",
+            )),
+            step_id: String::from("report-fill-submit-follow-up"),
+            purpose: String::from(
+                "Report that the requested field could not be filled and submitted deterministically.",
+            ),
+        },
+    ))
+}
+
 fn resolve_direct_submit_form_command(
     transcript: &str,
     request_id: &str,
@@ -4781,7 +5041,8 @@ mod tests {
         determine_find_element_resolution, execute_bounded_replanning_loop,
         filter_interactive_elements, infer_extraction_source, normalize_absolute_url,
         normalize_optional_text, planner_system_prompt, rank_find_element_candidates,
-        resolve_clickable_element, resolve_direct_fill_field_command,
+        resolve_clickable_element, resolve_direct_fill_and_submit_command,
+        resolve_direct_fill_field_command,
         resolve_direct_focus_field_command, resolve_direct_submit_form_command,
         resolve_form_element, resolve_typeable_element, ReplanningRuntime,
     };
@@ -5197,6 +5458,86 @@ mod tests {
         )
         .expect("fill-field command should resolve");
 
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ReportResult);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("status"),
+            Some(&serde_json::json!(ReportStatus::NeedsFollowUp))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_fill_and_submit_command_builds_confirmation_gated_plan() {
+        let page = PageModel {
+            title: Some(String::from("Example form")),
+            url: Some(String::from("https://example.com/form")),
+            regions: Vec::new(),
+            interactive_elements: vec![InteractiveElement {
+                element_id: String::from("input-email"),
+                dom_locator: Some(String::from("#email")),
+                role: ElementRole::Input,
+                tag_name: String::from("input"),
+                text: None,
+                accessible_name: Some(String::from("Email")),
+                placeholder: Some(String::from("Email address")),
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::new(),
+            }],
+        };
+
+        let planner_output = resolve_direct_fill_and_submit_command(
+            "fill the email field with phil@example.com and then submit",
+            "req-fill-submit",
+            Some(&page),
+            &[String::from("fill_and_submit_form")],
+            0.9,
+        )
+        .expect("fill-and-submit command should resolve");
+
+        assert_eq!(planner_output.intent.name, IntentName::SubmitForm);
+        assert_eq!(planner_output.status, PlannerStatus::NeedsConfirmation);
+        assert_eq!(
+            planner_output.selected_skills,
+            vec![String::from("fill_and_submit_form")]
+        );
+        assert_eq!(planner_output.steps.len(), 4);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ConfirmAction);
+        assert_eq!(planner_output.steps[1].tool_name, ToolName::FocusElement);
+        assert_eq!(planner_output.steps[2].tool_name, ToolName::TypeIntoElement);
+        assert_eq!(planner_output.steps[3].tool_name, ToolName::SubmitActiveForm);
+        assert_eq!(
+            planner_output.steps[2].arguments.get("text"),
+            Some(&serde_json::json!("phil@example.com"))
+        );
+        assert_eq!(
+            planner_output.steps[3].arguments.get("form_element_id"),
+            Some(&serde_json::Value::Null)
+        );
+        assert!(planner_output.requires_confirmation);
+    }
+
+    #[test]
+    fn resolve_direct_fill_and_submit_command_reports_missing_value() {
+        let page = PageModel {
+            title: Some(String::from("Example form")),
+            url: Some(String::from("https://example.com/form")),
+            regions: Vec::new(),
+            interactive_elements: Vec::new(),
+        };
+
+        let planner_output = resolve_direct_fill_and_submit_command(
+            "fill the email field and submit",
+            "req-fill-submit-missing-value",
+            Some(&page),
+            &[String::from("fill_and_submit_form")],
+            0.9,
+        )
+        .expect("fill-and-submit command should resolve");
+
+        assert_eq!(planner_output.intent.name, IntentName::SubmitForm);
         assert_eq!(planner_output.steps[0].tool_name, ToolName::ReportResult);
         assert_eq!(
             planner_output.steps[0].arguments.get("status"),

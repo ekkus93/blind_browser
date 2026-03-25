@@ -230,7 +230,7 @@
   - [x] fill field
   - [x] type into field
   - [x] submit form
-  - [ ] fill and submit form
+  - [x] fill and submit form
   - [x] set volume
   - [x] increase volume
   - [x] decrease volume

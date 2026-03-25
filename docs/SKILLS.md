@@ -156,7 +156,7 @@ The metadata here is the authoritative source for bundled default skills shipped
 - intent_tags: `fill-and-submit-form`, `forms`, `intent:FillInput`, `intent:SubmitForm`
 - allowed_tools: `find_element`, `focus_element`, `type_into_element`, `submit_active_form`, `confirm_action`
 - requires_confirmation: `true`
-- description: Complete one or more form fields and submit the form, with confirmation before submission.
+- description: Fill a deterministically resolved field and then submit that form, with explicit confirmation before any side effects run.
 
 ### 5. Structure Navigation Skills
 

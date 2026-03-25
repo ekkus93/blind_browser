@@ -654,3 +654,13 @@
 ## 2026-03-25T18:14:42Z - GPT-5.4 - Submit-form slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The submit-form slice remains green at `139` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing and form-submission-tool change is clean going into commit and push.
+
+## 2026-03-25T18:23:07Z - GPT-5.4 - Fill-and-submit direct routing landed
+- `src-tauri/src/commands.rs` now parses mixed utterances like `fill the email field with phil@example.com and then submit` via `parse_direct_fill_and_submit_command(...)`, stripping bounded submit suffixes while preserving the dictated field value text.
+- `src-tauri/src/app_core.rs` now routes those mixed commands before the plain fill/submit shortcuts and emits a single confirmation-gated `confirm_action` → `focus_element` → `type_into_element` → `submit_active_form` plan when the field target grounds deterministically.
+- The combined route intentionally submits with `form_element_id: null` so `submit_active_form` can use the focused field's owning form after the fill step succeeds, which keeps the workflow bounded without requiring brittle form-association recovery from the page model.
+- Validation baseline for this slice is green: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` all pass; the Vite build still emits the existing Node `22.11.0` vs `22.12.0+` warning.
+
+## 2026-03-25T18:26:19Z - GPT-5.4 - Fill-and-submit slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The fill-and-submit slice remains green at `142` Rust tests and `12` UI tests, so the current repo baseline for this combined direct-routing flow is clean going into commit and push.

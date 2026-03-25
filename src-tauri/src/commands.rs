@@ -3800,6 +3800,17 @@ pub(crate) fn parse_direct_fill_field_command(transcript: &str) -> Option<FillFi
     })
 }
 
+pub(crate) fn parse_direct_fill_and_submit_command(transcript: &str) -> Option<FillFieldCommand> {
+    let normalized = normalize_transcript_for_routing(transcript);
+    if normalized.is_empty() || !is_fill_and_submit_phrase(&normalized) {
+        return None;
+    }
+
+    let collapsed = collapse_transcript_whitespace(transcript);
+    let fill_portion = strip_fill_and_submit_suffix(&collapsed)?;
+    parse_direct_fill_field_command(&fill_portion)
+}
+
 pub(crate) fn is_direct_submit_form_command(transcript: &str) -> bool {
     let normalized = normalize_transcript_for_routing(transcript);
     !normalized.is_empty() && is_submit_form_phrase(&normalized)
@@ -4010,6 +4021,47 @@ fn parse_fill_field_description_only(transcript: &str) -> Option<String> {
     };
 
     normalize_field_target(remainder)
+}
+
+fn strip_fill_and_submit_suffix(transcript: &str) -> Option<String> {
+    let normalized = collapse_transcript_whitespace(transcript);
+    if normalized.is_empty() {
+        return None;
+    }
+
+    let lowered = normalized.to_ascii_lowercase();
+    for suffix in [
+        " and then submit this form",
+        " and then submit form",
+        " and then send this form",
+        " and then send form",
+        " and then press submit",
+        " and then hit submit",
+        " and then submit",
+        " then submit this form",
+        " then submit form",
+        " then send this form",
+        " then send form",
+        " then press submit",
+        " then hit submit",
+        " then submit",
+        " and submit this form",
+        " and submit form",
+        " and send this form",
+        " and send form",
+        " and press submit",
+        " and hit submit",
+        " and submit",
+    ] {
+        if lowered.ends_with(suffix) {
+            let trimmed = normalized
+                .get(..normalized.len().saturating_sub(suffix.len()))?
+                .trim();
+            return (!trimmed.is_empty()).then(|| trimmed.to_string());
+        }
+    }
+
+    None
 }
 
 fn split_case_insensitive_once<'a>(text: &'a str, separator: &str) -> Option<(&'a str, &'a str)> {
@@ -7785,6 +7837,39 @@ mod tests {
             })
         );
         assert_eq!(parse_direct_fill_field_command("focus the email field"), None);
+    }
+
+    #[test]
+    fn parse_direct_fill_and_submit_command_extracts_description_and_text() {
+        assert_eq!(
+            parse_direct_fill_and_submit_command(
+                "fill the email field with phil@example.com and then submit"
+            ),
+            Some(FillFieldCommand {
+                description: Some(String::from("email")),
+                text: Some(String::from("phil@example.com"))
+            })
+        );
+        assert_eq!(
+            parse_direct_fill_and_submit_command(
+                "type hello world into the search field and submit form"
+            ),
+            Some(FillFieldCommand {
+                description: Some(String::from("search")),
+                text: Some(String::from("hello world"))
+            })
+        );
+        assert_eq!(
+            parse_direct_fill_and_submit_command("fill the email field and submit"),
+            Some(FillFieldCommand {
+                description: Some(String::from("email")),
+                text: None
+            })
+        );
+        assert_eq!(
+            parse_direct_fill_and_submit_command("submit form"),
+            None
+        );
     }
 
     #[test]
