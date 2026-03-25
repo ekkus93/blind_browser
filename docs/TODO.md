@@ -217,7 +217,7 @@
   - [x] previous
   - [x] repeat
   - [x] stop
-  - [ ] open url
+  - [x] open url
   - [x] go back
   - [x] go forward
   - [x] reload page

@@ -600,3 +600,13 @@
 ## 2026-03-25T06:20:37Z - GPT-5.4 - Voice-input phrase slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The voice-input phrase-routing slice remained green at `119` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing change is clean going into commit and push.
+
+## 2026-03-25T06:33:33Z - GPT-5.4 - Open-url phrase routing now bypasses the planner
+- `src-tauri/src/commands.rs` now adds `resolve_direct_open_url_command(...)`, generating a bounded direct `PlannerOutput` for spoken open-url commands instead of sending those simple requests through the planner.
+- The open-url shortcut includes a small spoken URL normalizer that accepts explicit absolute URLs plus bounded spoken forms such as `github dot com slash features` and `localhost colon 3000`, defaulting to `https://` for ordinary hosts and `http://` for local development targets.
+- `src-tauri/src/app_core.rs` now runs that resolver before the planner path, and `docs/TODO.md` now checks off `open url` within the broader phrase-mapping backlog.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (121 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build`; the current shell still warns on Node `22.11.0`, so the repo baseline remains `22.12.0+`.
+
+## 2026-03-25T06:40:44Z - GPT-5.4 - Open-url phrase slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The open-url phrase-routing slice remained green at `121` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing change is clean going into commit and push.

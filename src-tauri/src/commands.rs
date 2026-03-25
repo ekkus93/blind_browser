@@ -2954,6 +2954,36 @@ pub(crate) fn resolve_direct_voice_input_command(
     None
 }
 
+pub(crate) fn resolve_direct_open_url_command(
+    transcript: &str,
+    request_id: &str,
+    active_skill_names: &[String],
+) -> Option<PlannerOutput> {
+    let url = parse_direct_open_url_target(transcript)?;
+
+    Some(build_single_step_planner_output(
+        IntentSummary {
+            name: IntentName::OpenUrl,
+            goal: String::from("Open the requested URL."),
+            target_description: Some(url.clone()),
+        },
+        selected_skill(active_skill_names, "open_url"),
+        PlannedStep {
+            step_id: String::from("open-url"),
+            tool_name: ToolName::OpenUrl,
+            arguments: serde_json::json!({
+                "request_id": request_id,
+                "timeout_ms": serde_json::Value::Null,
+                "url": url,
+                "wait_for_load_state": LoadState::Load
+            }),
+            purpose: String::from("Open the requested URL and wait for the page to load."),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        },
+    ))
+}
+
 pub(crate) fn resolve_direct_status_query_command(
     transcript: &str,
     request_id: &str,
@@ -3380,6 +3410,83 @@ fn is_transcribe_command_phrase(normalized: &str) -> bool {
     normalized.contains("transcribe")
         || normalized.contains("what did i say")
         || normalized.contains("what did i just say")
+}
+
+fn parse_direct_open_url_target(transcript: &str) -> Option<String> {
+    let trimmed = transcript.trim();
+    let lowercase = trimmed.to_ascii_lowercase();
+
+    let raw_target = ["open ", "go to ", "visit "]
+        .iter()
+        .find_map(|prefix| {
+            lowercase
+                .strip_prefix(prefix)
+                .map(|_| &trimmed[prefix.len()..])
+        })?
+        .trim()
+        .trim_matches(|character: char| matches!(character, '.' | ',' | ';' | ':' | '"' | '\''));
+
+    normalize_spoken_url_target(raw_target)
+}
+
+fn normalize_spoken_url_target(target: &str) -> Option<String> {
+    let trimmed = target.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if trimmed.eq_ignore_ascii_case("about blank") || trimmed.eq_ignore_ascii_case("about:blank") {
+        return Some(String::from("about:blank"));
+    }
+
+    if trimmed.contains("://") || trimmed.to_ascii_lowercase().starts_with("about:") {
+        return Some(trimmed.split_whitespace().collect());
+    }
+
+    if looks_like_host_without_scheme(trimmed) {
+        return Some(prepend_default_scheme(trimmed));
+    }
+
+    let normalized = normalize_transcript_for_routing(trimmed);
+    if normalized.is_empty() {
+        return None;
+    }
+
+    let mut rebuilt = String::new();
+    for token in normalized.split_whitespace() {
+        match token {
+            "dot" => rebuilt.push('.'),
+            "slash" => rebuilt.push('/'),
+            "colon" => rebuilt.push(':'),
+            "dash" | "hyphen" => rebuilt.push('-'),
+            "underscore" => rebuilt.push('_'),
+            other => rebuilt.push_str(other),
+        }
+    }
+
+    looks_like_host_without_scheme(&rebuilt).then(|| prepend_default_scheme(&rebuilt))
+}
+
+fn looks_like_host_without_scheme(value: &str) -> bool {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed.contains(' ') {
+        return false;
+    }
+
+    trimmed == "localhost" || trimmed.starts_with("localhost:") || trimmed.contains('.')
+}
+
+fn prepend_default_scheme(value: &str) -> String {
+    let trimmed = value.trim();
+    if trimmed == "localhost"
+        || trimmed.starts_with("localhost:")
+        || trimmed.starts_with("127.0.0.1")
+        || trimmed.starts_with("0.0.0.0")
+    {
+        format!("http://{trimmed}")
+    } else {
+        format!("https://{trimmed}")
+    }
 }
 
 fn is_go_forward_phrase(normalized: &str) -> bool {
@@ -6956,6 +7063,22 @@ mod tests {
     }
 
     #[test]
+    fn infer_intent_hint_recognizes_open_url_phrases() {
+        assert_eq!(
+            infer_intent_hint("open github dot com"),
+            IntentName::OpenUrl
+        );
+        assert_eq!(
+            infer_intent_hint("go to https://example.com"),
+            IntentName::OpenUrl
+        );
+        assert_eq!(
+            infer_intent_hint("visit localhost colon 3000"),
+            IntentName::OpenUrl
+        );
+    }
+
+    #[test]
     fn infer_intent_hint_recognizes_form_filling_and_submission_phrases() {
         assert_eq!(
             infer_intent_hint("focus the email field"),
@@ -7010,8 +7133,14 @@ mod tests {
     #[test]
     fn infer_intent_hint_recognizes_read_title_phrases() {
         assert_eq!(infer_intent_hint("read title"), IntentName::ReadTitle);
-        assert_eq!(infer_intent_hint("read the page title"), IntentName::ReadTitle);
-        assert_eq!(infer_intent_hint("what is the title"), IntentName::ReadTitle);
+        assert_eq!(
+            infer_intent_hint("read the page title"),
+            IntentName::ReadTitle
+        );
+        assert_eq!(
+            infer_intent_hint("what is the title"),
+            IntentName::ReadTitle
+        );
     }
 
     #[test]
@@ -7046,9 +7175,15 @@ mod tests {
         .expect("volume command should normalize");
 
         assert_eq!(planner_output.intent.name, IntentName::SetPlaybackVolume);
-        assert_eq!(planner_output.selected_skills, vec![String::from("set_volume")]);
+        assert_eq!(
+            planner_output.selected_skills,
+            vec![String::from("set_volume")]
+        );
         assert_eq!(planner_output.steps.len(), 2);
-        assert_eq!(planner_output.steps[0].tool_name, ToolName::SetPlaybackVolume);
+        assert_eq!(
+            planner_output.steps[0].tool_name,
+            ToolName::SetPlaybackVolume
+        );
         let volume = planner_output.steps[0]
             .arguments
             .get("volume")
@@ -7200,7 +7335,10 @@ mod tests {
         assert_eq!(go_back_plan.selected_skills, vec![String::from("go_back")]);
         assert_eq!(go_back_plan.steps.len(), 1);
         assert_eq!(go_back_plan.steps[0].tool_name, ToolName::GoBack);
-        assert_eq!(go_back_plan.steps[0].arguments.get("steps"), Some(&serde_json::json!(1)));
+        assert_eq!(
+            go_back_plan.steps[0].arguments.get("steps"),
+            Some(&serde_json::json!(1))
+        );
         assert_eq!(
             go_back_plan.steps[0].arguments.get("wait_for_load_state"),
             Some(&serde_json::json!(LoadState::Load))
@@ -7254,7 +7392,10 @@ mod tests {
             previous_plan.selected_skills,
             vec![String::from("read_previous")]
         );
-        assert_eq!(previous_plan.steps[0].tool_name, ToolName::ReadPreviousRegion);
+        assert_eq!(
+            previous_plan.steps[0].tool_name,
+            ToolName::ReadPreviousRegion
+        );
 
         let stop_plan = resolve_direct_navigation_readback_command(
             "stpo reading",
@@ -7317,7 +7458,10 @@ mod tests {
             vec![String::from("transcribe_command")]
         );
         assert_eq!(planner_output.steps.len(), 1);
-        assert_eq!(planner_output.steps[0].tool_name, ToolName::TranscribeCommand);
+        assert_eq!(
+            planner_output.steps[0].tool_name,
+            ToolName::TranscribeCommand
+        );
         assert_eq!(
             planner_output.steps[0].arguments.get("auto_stop"),
             Some(&serde_json::json!(true))
@@ -7325,6 +7469,53 @@ mod tests {
         assert_eq!(
             planner_output.steps[0].arguments.get("max_duration_ms"),
             Some(&serde_json::Value::Null)
+        );
+    }
+
+    #[test]
+    fn resolve_direct_open_url_command_normalizes_spoken_and_absolute_urls() {
+        let spoken_plan = resolve_direct_open_url_command(
+            "open github dot com slash features",
+            "req-open-spoken",
+            &[String::from("open_url")],
+        )
+        .expect("spoken open-url command should normalize");
+
+        assert_eq!(spoken_plan.intent.name, IntentName::OpenUrl);
+        assert_eq!(spoken_plan.selected_skills, vec![String::from("open_url")]);
+        assert_eq!(spoken_plan.steps.len(), 1);
+        assert_eq!(spoken_plan.steps[0].tool_name, ToolName::OpenUrl);
+        assert_eq!(
+            spoken_plan.steps[0].arguments.get("url"),
+            Some(&serde_json::json!("https://github.com/features"))
+        );
+        assert_eq!(
+            spoken_plan.steps[0].arguments.get("wait_for_load_state"),
+            Some(&serde_json::json!(LoadState::Load))
+        );
+
+        let localhost_plan = resolve_direct_open_url_command(
+            "visit localhost colon 3000",
+            "req-open-localhost",
+            &[String::from("open_url")],
+        )
+        .expect("localhost command should normalize");
+
+        assert_eq!(
+            localhost_plan.steps[0].arguments.get("url"),
+            Some(&serde_json::json!("http://localhost:3000"))
+        );
+
+        let absolute_plan = resolve_direct_open_url_command(
+            "go to https://example.com/docs",
+            "req-open-absolute",
+            &[String::from("open_url")],
+        )
+        .expect("absolute open-url command should normalize");
+
+        assert_eq!(
+            absolute_plan.steps[0].arguments.get("url"),
+            Some(&serde_json::json!("https://example.com/docs"))
         );
     }
 
@@ -7428,7 +7619,10 @@ mod tests {
         .expect("back history query should normalize");
 
         assert_eq!(planner_output.intent.name, IntentName::GetStatus);
-        assert_eq!(planner_output.steps[0].tool_name, ToolName::GetRuntimeStatus);
+        assert_eq!(
+            planner_output.steps[0].tool_name,
+            ToolName::GetRuntimeStatus
+        );
         assert_eq!(
             planner_output.steps[1].arguments.get("summary"),
             Some(&serde_json::json!("Back navigation is available."))
@@ -7574,13 +7768,17 @@ mod tests {
         );
         assert_eq!(
             planner_output.steps[0].arguments.get("summary"),
-            Some(&serde_json::json!("There is no current region to repeat yet."))
+            Some(&serde_json::json!(
+                "There is no current region to repeat yet."
+            ))
         );
         assert_eq!(
             planner_output.steps[0]
                 .arguments
                 .get("next_recommended_action"),
-            Some(&serde_json::json!("Read the page or move to a region first."))
+            Some(&serde_json::json!(
+                "Read the page or move to a region first."
+            ))
         );
     }
 
@@ -7611,7 +7809,10 @@ mod tests {
         .expect("read title command should normalize");
 
         assert_eq!(planner_output.intent.name, IntentName::ReadTitle);
-        assert_eq!(planner_output.selected_skills, vec![String::from("read_title")]);
+        assert_eq!(
+            planner_output.selected_skills,
+            vec![String::from("read_title")]
+        );
         assert_eq!(planner_output.steps.len(), 1);
         assert_eq!(planner_output.steps[0].tool_name, ToolName::ReportResult);
         assert_eq!(
@@ -7638,19 +7839,28 @@ mod tests {
             pending_plan_execution: None,
         };
 
-        let planner_output =
-            resolve_direct_read_title_command("what is the title", "req-read-title-missing", &agent_state, &[])
-                .expect("missing-title command should still produce a bounded response");
+        let planner_output = resolve_direct_read_title_command(
+            "what is the title",
+            "req-read-title-missing",
+            &agent_state,
+            &[],
+        )
+        .expect("missing-title command should still produce a bounded response");
 
         assert_eq!(planner_output.intent.name, IntentName::ReadTitle);
         assert_eq!(planner_output.steps.len(), 1);
         assert_eq!(planner_output.steps[0].tool_name, ToolName::ReportResult);
         assert_eq!(
             planner_output.steps[0].arguments.get("summary"),
-            Some(&serde_json::json!("This page does not have a readable title yet."))
+            Some(&serde_json::json!(
+                "This page does not have a readable title yet."
+            ))
         );
     }
-    fn assert_json_matches_schema(instance: &serde_json::Value, schema: &serde_json::Value) -> Result<(), String> {
+    fn assert_json_matches_schema(
+        instance: &serde_json::Value,
+        schema: &serde_json::Value,
+    ) -> Result<(), String> {
         assert_json_matches_schema_at(instance, schema, schema, "$")
     }
 
@@ -7739,7 +7949,10 @@ mod tests {
             }
         }
 
-        if let Some(properties) = schema.get("properties").and_then(serde_json::Value::as_object) {
+        if let Some(properties) = schema
+            .get("properties")
+            .and_then(serde_json::Value::as_object)
+        {
             let Some(object) = instance.as_object() else {
                 return Err(format!("{path}: properties only apply to objects"));
             };
@@ -7825,5 +8038,4 @@ mod tests {
             _ => false,
         }
     }
-
 }

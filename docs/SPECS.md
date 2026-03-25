@@ -974,6 +974,10 @@ Validation notes:
 - `url` must be absolute.
 - `wait_for_load_state` is constrained by `LoadState`.
 
+Routing notes:
+- Spoken open-url commands such as `open github dot com`, `go to https://example.com/docs`, and `visit localhost colon 3000` should resolve directly to `open_url`.
+- Spoken hostnames without an explicit scheme should normalize to absolute URLs before execution; ordinary domains should default to `https://`, while local development targets such as `localhost:3000` should default to `http://`.
+
 #### `go_back`
 
 ```rust
