@@ -1995,38 +1995,178 @@ fn parse_intent_name_value(value: &str) -> Result<IntentName, String> {
 }
 
 pub(crate) fn normalize_transcript_for_routing(transcript: &str) -> String {
-    transcript
-        .to_ascii_lowercase()
-        .chars()
-        .map(|character| {
-            if character.is_ascii_alphanumeric() || character.is_ascii_whitespace() {
-                character
-            } else {
-                ' '
-            }
-        })
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    normalize_command_text(transcript, false)
 }
 
 fn normalize_audio_command_text(transcript: &str) -> String {
-    transcript
+    normalize_command_text(transcript, true)
+}
+
+fn normalize_command_text(transcript: &str, allow_decimal: bool) -> String {
+    let sanitized = transcript
         .to_ascii_lowercase()
         .chars()
         .map(|character| {
-            if character.is_ascii_alphanumeric() || character.is_ascii_whitespace() || character == '.'
+            if character.is_ascii_alphanumeric()
+                || character.is_ascii_whitespace()
+                || (allow_decimal && character == '.')
             {
                 character
             } else {
                 ' '
             }
         })
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+        .collect::<String>();
+
+    merge_compound_command_tokens(
+        sanitized
+            .split_whitespace()
+            .map(String::from)
+            .collect::<Vec<_>>(),
+    )
+    .into_iter()
+    .map(|token| canonicalize_command_token(&token))
+    .collect::<Vec<_>>()
+    .join(" ")
+}
+
+fn merge_compound_command_tokens(tokens: Vec<String>) -> Vec<String> {
+    let mut merged = Vec::with_capacity(tokens.len());
+    let mut index = 0;
+
+    while index < tokens.len() {
+        if let Some(next_token) = tokens.get(index + 1) {
+            match (tokens[index].as_str(), next_token.as_str()) {
+                ("play", "back") => {
+                    merged.push(String::from("playback"));
+                    index += 2;
+                    continue;
+                }
+                ("head", "less") => {
+                    merged.push(String::from("headless"));
+                    index += 2;
+                    continue;
+                }
+                _ => {}
+            }
+        }
+
+        merged.push(tokens[index].clone());
+        index += 1;
+    }
+
+    merged
+}
+
+fn canonicalize_command_token(token: &str) -> String {
+    const FUZZY_COMMAND_KEYWORDS: &[&str] = &[
+        "browser",
+        "current",
+        "field",
+        "focus",
+        "forward",
+        "headless",
+        "listening",
+        "playback",
+        "reload",
+        "refresh",
+        "speed",
+        "status",
+        "submit",
+        "url",
+        "visible",
+        "volume",
+    ];
+
+    if token.len() < 4
+        || token.contains('.')
+        || token.chars().any(|character| character.is_ascii_digit())
+    {
+        return token.to_string();
+    }
+
+    let mut matches = FUZZY_COMMAND_KEYWORDS
+        .iter()
+        .copied()
+        .filter(|keyword| is_unambiguous_fuzzy_keyword_match(token, keyword));
+
+    match (matches.next(), matches.next()) {
+        (Some(keyword), None) => String::from(keyword),
+        _ => token.to_string(),
+    }
+}
+
+fn is_unambiguous_fuzzy_keyword_match(token: &str, keyword: &str) -> bool {
+    if token == keyword {
+        return true;
+    }
+
+    if token.len().abs_diff(keyword.len()) > 1 {
+        return false;
+    }
+
+    if token
+        .chars()
+        .next()
+        .zip(keyword.chars().next())
+        .is_none_or(|(left, right)| left != right)
+    {
+        return false;
+    }
+
+    is_single_edit_or_transposition(token, keyword)
+}
+
+fn is_single_edit_or_transposition(left: &str, right: &str) -> bool {
+    let left_chars = left.chars().collect::<Vec<_>>();
+    let right_chars = right.chars().collect::<Vec<_>>();
+
+    match left_chars.len().cmp(&right_chars.len()) {
+        std::cmp::Ordering::Equal => {
+            let mismatches = left_chars
+                .iter()
+                .zip(right_chars.iter())
+                .enumerate()
+                .filter_map(|(index, (left_char, right_char))| {
+                    (left_char != right_char).then_some(index)
+                })
+                .collect::<Vec<_>>();
+
+            match mismatches.as_slice() {
+                [single_mismatch] => left_chars[*single_mismatch] != right_chars[*single_mismatch],
+                [first, second] if *second == *first + 1 => {
+                    left_chars[*first] == right_chars[*second]
+                        && left_chars[*second] == right_chars[*first]
+                }
+                _ => false,
+            }
+        }
+        std::cmp::Ordering::Less => is_single_insertion_or_deletion(&left_chars, &right_chars),
+        std::cmp::Ordering::Greater => is_single_insertion_or_deletion(&right_chars, &left_chars),
+    }
+}
+
+fn is_single_insertion_or_deletion(shorter: &[char], longer: &[char]) -> bool {
+    let mut shorter_index = 0;
+    let mut longer_index = 0;
+    let mut skipped = false;
+
+    while shorter_index < shorter.len() && longer_index < longer.len() {
+        if shorter[shorter_index] == longer[longer_index] {
+            shorter_index += 1;
+            longer_index += 1;
+            continue;
+        }
+
+        if skipped {
+            return false;
+        }
+
+        skipped = true;
+        longer_index += 1;
+    }
+
+    true
 }
 
 fn tokenize_text(text: &str) -> HashSet<String> {
@@ -5358,6 +5498,14 @@ mod tests {
             infer_intent_hint("what's the playback speed"),
             IntentName::GetPlaybackSpeed
         );
+        assert_eq!(
+            infer_intent_hint("what is the volum"),
+            IntentName::GetPlaybackVolume
+        );
+        assert_eq!(
+            infer_intent_hint("what s the play back spead"),
+            IntentName::GetPlaybackSpeed
+        );
     }
 
     #[test]
@@ -5368,6 +5516,14 @@ mod tests {
         );
         assert_eq!(
             infer_intent_hint("make the browser visible"),
+            IntentName::SetBrowserVisibility
+        );
+        assert_eq!(
+            infer_intent_hint("show the browsr"),
+            IntentName::SetBrowserVisibility
+        );
+        assert_eq!(
+            infer_intent_hint("go head less"),
             IntentName::SetBrowserVisibility
         );
     }
@@ -5384,6 +5540,18 @@ mod tests {
         );
         assert_eq!(
             infer_intent_hint("what page am i on"),
+            IntentName::GetCurrentUrl
+        );
+        assert_eq!(
+            infer_intent_hint("what is the statuz"),
+            IntentName::GetStatus
+        );
+        assert_eq!(
+            infer_intent_hint("are you listenin"),
+            IntentName::GetStatus
+        );
+        assert_eq!(
+            infer_intent_hint("what is the curent url"),
             IntentName::GetCurrentUrl
         );
     }
@@ -5422,6 +5590,14 @@ mod tests {
             infer_intent_hint("choose California from the state list"),
             IntentName::FillInput
         );
+        assert_eq!(
+            infer_intent_hint("foccus the email feild"),
+            IntentName::FillInput
+        );
+        assert_eq!(
+            infer_intent_hint("submitt this form"),
+            IntentName::SubmitForm
+        );
     }
 
     #[test]
@@ -5450,6 +5626,22 @@ mod tests {
             planner_output.steps[1].arguments.get("summary"),
             Some(&serde_json::json!("Playback volume set to 70%."))
         );
+
+        let fuzzy_planner_output = resolve_direct_audio_command(
+            "set volum to 70 percent",
+            "req-volume-fuzzy",
+            1.0,
+            1.0,
+            &[String::from("set_volume")],
+        )
+        .expect("fuzzy volume command should normalize");
+
+        let fuzzy_volume = fuzzy_planner_output.steps[0]
+            .arguments
+            .get("volume")
+            .and_then(serde_json::Value::as_f64)
+            .expect("fuzzy volume should be numeric");
+        assert!((fuzzy_volume - 0.7).abs() < 0.000_001);
     }
 
     #[test]
@@ -5525,6 +5717,19 @@ mod tests {
         assert_eq!(
             planner_output.steps[1].arguments.get("summary"),
             Some(&serde_json::json!("Browser mode set to headless."))
+        );
+
+        let fuzzy_planner_output = resolve_direct_browser_visibility_command(
+            "show the browsr",
+            "req-visible-fuzzy",
+            BrowserVisibilityMode::Headless,
+            &[String::from("toggle_browser_visibility")],
+        )
+        .expect("fuzzy visibility command should normalize");
+
+        assert_eq!(
+            fuzzy_planner_output.steps[0].arguments.get("mode"),
+            Some(&serde_json::json!(BrowserVisibilityMode::Visible))
         );
     }
 
@@ -5701,6 +5906,20 @@ mod tests {
         assert_eq!(planner_output.intent.name, IntentName::GetStatus);
         assert_eq!(
             planner_output.steps[1].arguments.get("summary"),
+            Some(&serde_json::json!("Listening is on."))
+        );
+
+        let fuzzy_planner_output = resolve_direct_status_query_command(
+            "are you listenin",
+            "req-listening-status-fuzzy",
+            &agent_state,
+            &runtime_status,
+            &[String::from("get_status")],
+        )
+        .expect("fuzzy listening query should normalize");
+
+        assert_eq!(
+            fuzzy_planner_output.steps[1].arguments.get("summary"),
             Some(&serde_json::json!("Listening is on."))
         );
     }

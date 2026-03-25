@@ -484,3 +484,9 @@
 - `src-tauri/src/commands.rs` now classifies `the other field` and `there instead` as bounded `FillInput` follow-up phrases, and the command tests assert those documented examples directly so the spec and router stay aligned.
 - This slice still stops at intent-family normalization; later context resolution is still responsible for deciding which field or value a follow-up correction refers to.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (89 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
+
+## 2026-03-25T00:53:41Z - GPT-5.4 - Bounded fuzzy matching now corrects small command-keyword drift
+- `src-tauri/src/commands.rs` now routes transcripts through a bounded canonicalization layer that fixes unambiguous single-typo or ASR-drift variants of existing command keywords such as `volum`, `spead`, `browsr`, `listenin`, `submitt`, `curent`, and `feild`, and also merges split compounds like `play back` and `head less`.
+- The fuzzy layer stays deterministic and narrow: it only corrects a small whitelist of already-supported command words when the correction is unambiguous, and it does not add open-ended semantic recovery.
+- Added regression coverage for fuzzy audio, browser visibility, status/current-URL, and form utterances, and `docs/TODO.md` plus `docs/SPECS.md` now mark and describe this bounded fuzzy-matching behavior.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (89 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
