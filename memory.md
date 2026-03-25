@@ -771,3 +771,10 @@
 - Added helper coverage for extracted-text metrics plus sparse-threshold-triggered and threshold-satisfied cases, keeping this slice focused on configurability rather than region-preference strategy.
 - Updated `docs/SPECS.md` and `docs/TODO.md` to document threshold-aware fallback and mark `Make sparse-text OCR thresholds configurable` complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `168` Rust tests and `12` UI tests.
+
+## 2026-03-25T21:46:52Z - GPT-5.4 - Region-first OCR fallback now preferred
+- Updated `src-tauri/src/app_core.rs` so sparse extraction fallback now prefers bbox-backed readable regions for `run_ocr(region_id=...)` before widening to full-page OCR when `ocr.prefer_region_ocr` is enabled.
+- The region-first path reuses a single cached full-page screenshot, merges successful region OCR back into the matching page regions, and only falls back to broad OCR when region recovery is unavailable or does not recover enough text.
+- Added helper coverage for selecting region-first OCR targets and for respecting the `ocr.prefer_region_ocr` toggle.
+- Updated `docs/SPECS.md` and `docs/TODO.md` to document the behavior and mark `Prefer region OCR before broader OCR when possible` complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `170` Rust tests and `12` UI tests.

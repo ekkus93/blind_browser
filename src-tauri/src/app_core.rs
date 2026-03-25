@@ -1378,60 +1378,149 @@ impl AppCore {
                 );
             };
 
-            let ocr_result = self.execute_run_ocr(RunOcrInput {
-                request_id: format!("{}-ocr-fallback-run", input.request_id),
-                timeout_ms: input.timeout_ms,
-                image_id: Some(screenshot_data.image_id.clone()),
-                region_id: None,
-                bbox: None,
-            });
-            if !ocr_result.ok {
-                return nested_tool_failure_as_extract_page_model(
-                    input.request_id,
-                    observations,
-                    ocr_result,
-                    String::from(
-                        "OCR fallback could not extract readable text from the recovery screenshot.",
-                    ),
-                );
-            }
-            observations.extend(ocr_result.observations.clone());
-            let Some(ocr_data) = ocr_result.data else {
-                return extract_page_model_internal_failure(
-                    input.request_id,
-                    String::from("OCR fallback result did not include OCR data"),
-                    observations,
-                );
-            };
+            let region_first_targets =
+                region_first_ocr_target_ids(&base_page_model, &self.config.ocr);
+            let had_region_first_targets = !region_first_targets.is_empty();
+            let mut recovered_region_text = false;
 
-            if ocr_data.extracted_text.is_empty() {
-                observations.push(String::from(
-                    "OCR fallback completed, but it still did not recover readable text.",
+            if !region_first_targets.is_empty() {
+                observations.push(format!(
+                    "OCR fallback is trying {} bbox-backed readable regions before broader OCR.",
+                    region_first_targets.len()
                 ));
-            } else {
-                let merge_result =
-                    self.execute_merge_ocr_into_page_model(MergeOcrIntoPageModelInput {
-                        request_id: format!("{}-ocr-fallback-merge", input.request_id),
+
+                for region_id in region_first_targets {
+                    let ocr_result = self.execute_run_ocr(RunOcrInput {
+                        request_id: format!("{}-ocr-fallback-run-{region_id}", input.request_id),
                         timeout_ms: input.timeout_ms,
-                        page_id: page_id.clone(),
-                        region_id: None,
-                        ocr_text: ocr_data.extracted_text,
-                        source_bbox: ocr_data.source_bbox,
+                        image_id: Some(screenshot_data.image_id.clone()),
+                        region_id: Some(region_id.clone()),
+                        bbox: None,
                     });
-                if !merge_result.ok {
+                    observations.extend(ocr_result.observations.clone());
+
+                    if !ocr_result.ok {
+                        let failure_code = ocr_result
+                            .error
+                            .as_ref()
+                            .map(|error| error.code.as_str())
+                            .unwrap_or("unknown_ocr_error");
+                        observations.push(format!(
+                            "Region-first OCR for region_id={region_id} did not succeed ({failure_code}), so broader OCR may still be needed."
+                        ));
+                        continue;
+                    }
+
+                    let Some(ocr_data) = ocr_result.data else {
+                        return extract_page_model_internal_failure(
+                            input.request_id,
+                            String::from("Region-first OCR result did not include OCR data"),
+                            observations,
+                        );
+                    };
+
+                    if ocr_data.extracted_text.is_empty() {
+                        observations.push(format!(
+                            "Region-first OCR completed for region_id={region_id}, but it did not recover readable text."
+                        ));
+                        continue;
+                    }
+
+                    let merge_result =
+                        self.execute_merge_ocr_into_page_model(MergeOcrIntoPageModelInput {
+                            request_id: format!("{}-ocr-fallback-merge-{region_id}", input.request_id),
+                            timeout_ms: input.timeout_ms,
+                            page_id: page_id.clone(),
+                            region_id: Some(region_id.clone()),
+                            ocr_text: ocr_data.extracted_text,
+                            source_bbox: ocr_data.source_bbox,
+                        });
+                    if !merge_result.ok {
+                        return nested_tool_failure_as_extract_page_model(
+                            input.request_id,
+                            observations,
+                            merge_result,
+                            String::from(
+                                "Region-first OCR recovered text, but merging it into the page model failed.",
+                            ),
+                        );
+                    }
+                    observations.extend(merge_result.observations);
+                    observations.push(format!(
+                        "Region-first OCR recovered readable text for region_id={region_id}."
+                    ));
+                    recovered_region_text = true;
+                }
+            }
+
+            if !recovered_region_text {
+                if self.config.ocr.prefer_region_ocr {
+                    if !had_region_first_targets {
+                        observations.push(String::from(
+                            "Region-first OCR was unavailable because no bbox-backed readable regions were present, so fallback widened to the full-page screenshot.",
+                        ));
+                    } else {
+                        observations.push(String::from(
+                            "Region-first OCR did not recover enough text, so fallback widened to the full-page screenshot.",
+                        ));
+                    }
+                }
+
+                let ocr_result = self.execute_run_ocr(RunOcrInput {
+                    request_id: format!("{}-ocr-fallback-run", input.request_id),
+                    timeout_ms: input.timeout_ms,
+                    image_id: Some(screenshot_data.image_id.clone()),
+                    region_id: None,
+                    bbox: None,
+                });
+                if !ocr_result.ok {
                     return nested_tool_failure_as_extract_page_model(
                         input.request_id,
                         observations,
-                        merge_result,
+                        ocr_result,
                         String::from(
-                            "OCR fallback recovered text, but merging it into the page model failed.",
+                            "OCR fallback could not extract readable text from the recovery screenshot.",
                         ),
                     );
                 }
-                observations.extend(merge_result.observations);
-                observations.push(String::from(
-                    "OCR fallback recovered readable text and merged it into the runtime page model.",
-                ));
+                observations.extend(ocr_result.observations.clone());
+                let Some(ocr_data) = ocr_result.data else {
+                    return extract_page_model_internal_failure(
+                        input.request_id,
+                        String::from("OCR fallback result did not include OCR data"),
+                        observations,
+                    );
+                };
+
+                if ocr_data.extracted_text.is_empty() {
+                    observations.push(String::from(
+                        "OCR fallback completed, but it still did not recover readable text.",
+                    ));
+                } else {
+                    let merge_result =
+                        self.execute_merge_ocr_into_page_model(MergeOcrIntoPageModelInput {
+                            request_id: format!("{}-ocr-fallback-merge", input.request_id),
+                            timeout_ms: input.timeout_ms,
+                            page_id: page_id.clone(),
+                            region_id: None,
+                            ocr_text: ocr_data.extracted_text,
+                            source_bbox: ocr_data.source_bbox,
+                        });
+                    if !merge_result.ok {
+                        return nested_tool_failure_as_extract_page_model(
+                            input.request_id,
+                            observations,
+                            merge_result,
+                            String::from(
+                                "OCR fallback recovered text, but merging it into the page model failed.",
+                            ),
+                        );
+                    }
+                    observations.extend(merge_result.observations);
+                    observations.push(String::from(
+                        "OCR fallback recovered readable text and merged it into the runtime page model.",
+                    ));
+                }
             }
         }
 
@@ -4177,6 +4266,29 @@ fn extracted_text_metrics(page: &PageModel) -> (usize, usize) {
     })
 }
 
+fn has_positive_bbox(region: &PageRegion) -> bool {
+    matches!(
+        region.bbox,
+        Some(Rect {
+            width,
+            height,
+            ..
+        }) if width > 0.0 && height > 0.0
+    )
+}
+
+fn region_first_ocr_target_ids(page: &PageModel, ocr_settings: &OcrSettings) -> Vec<String> {
+    if !ocr_settings.prefer_region_ocr {
+        return Vec::new();
+    }
+
+    page.regions
+        .iter()
+        .filter(|region| !region.text.trim().is_empty() && has_positive_bbox(region))
+        .map(|region| region.region_id.clone())
+        .collect()
+}
+
 fn should_trigger_extract_page_model_ocr_fallback(
     use_dom_extraction: bool,
     page: &PageModel,
@@ -5971,11 +6083,10 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
 mod tests {
     use super::{
         build_extracted_page_model, build_find_element_query, build_visible_text_excerpt,
-        determine_find_element_resolution, execute_bounded_replanning_loop,
-        extracted_text_metrics,
+        determine_find_element_resolution, execute_bounded_replanning_loop, extracted_text_metrics,
         filter_interactive_elements, infer_extraction_source, normalize_absolute_url,
         merge_ocr_text_into_page_model, merged_region_text, normalize_optional_text,
-        planner_system_prompt, rank_find_element_candidates, region_bbox_by_id,
+        planner_system_prompt, rank_find_element_candidates, region_bbox_by_id, region_first_ocr_target_ids,
         resolve_clickable_element, should_trigger_extract_page_model_ocr_fallback,
         resolve_direct_fill_and_submit_command,
         resolve_direct_fill_field_command,
@@ -6416,6 +6527,92 @@ mod tests {
             &page,
             &OcrSettings::default()
         ));
+    }
+
+    #[test]
+    fn region_first_ocr_target_ids_prefers_bbox_backed_readable_regions() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![
+                PageRegion {
+                    region_id: String::from("region-1"),
+                    label: None,
+                    text: String::from("Readable text"),
+                    bbox: Some(Rect {
+                        x: 1.0,
+                        y: 2.0,
+                        width: 30.0,
+                        height: 40.0,
+                    }),
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("region-2"),
+                    label: None,
+                    text: String::from("Readable but no bbox"),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("region-3"),
+                    label: None,
+                    text: String::from(""),
+                    bbox: Some(Rect {
+                        x: 5.0,
+                        y: 6.0,
+                        width: 50.0,
+                        height: 60.0,
+                    }),
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("region-4"),
+                    label: None,
+                    text: String::from("Readable but invalid bbox"),
+                    bbox: Some(Rect {
+                        x: 0.0,
+                        y: 0.0,
+                        width: 0.0,
+                        height: 10.0,
+                    }),
+                    source: RegionSource::Dom,
+                },
+            ],
+            interactive_elements: Vec::new(),
+        };
+
+        assert_eq!(
+            region_first_ocr_target_ids(&page, &OcrSettings::default()),
+            vec![String::from("region-1")]
+        );
+    }
+
+    #[test]
+    fn region_first_ocr_target_ids_respects_preference_toggle() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![PageRegion {
+                region_id: String::from("region-1"),
+                label: None,
+                text: String::from("Readable text"),
+                bbox: Some(Rect {
+                    x: 1.0,
+                    y: 2.0,
+                    width: 30.0,
+                    height: 40.0,
+                }),
+                source: RegionSource::Dom,
+            }],
+            interactive_elements: Vec::new(),
+        };
+        let settings = OcrSettings {
+            prefer_region_ocr: false,
+            ..OcrSettings::default()
+        };
+
+        assert!(region_first_ocr_target_ids(&page, &settings).is_empty());
     }
 
     #[test]
