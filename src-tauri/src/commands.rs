@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -1079,6 +1079,187 @@ pub fn planner_available_tools() -> Vec<AvailableTool> {
 
 pub fn planner_output_schema() -> serde_json::Value {
     schema_json::<PlannerOutput>()
+}
+
+pub fn canonical_planner_output_examples() -> BTreeMap<String, PlannerOutput> {
+    BTreeMap::from([
+        (
+            String::from("get_status"),
+            PlannerOutput {
+                status: PlannerStatus::Ready,
+                intent: IntentSummary {
+                    name: IntentName::GetStatus,
+                    goal: String::from("Report the current runtime status."),
+                    target_description: None,
+                },
+                selected_skills: vec![String::from("get_status")],
+                steps: vec![
+                    PlannedStep {
+                        step_id: String::from("fetch-runtime-status"),
+                        tool_name: ToolName::GetRuntimeStatus,
+                        arguments: serde_json::json!({
+                            "request_id": "example-get-status",
+                            "timeout_ms": null,
+                            "include_provider_modes": true
+                        }),
+                        purpose: String::from("Read the current runtime status before speaking."),
+                        on_success: StepTransition::NextStep {
+                            step_id: String::from("report-runtime-status"),
+                        },
+                        on_failure: StepTransition::Replan,
+                    },
+                    PlannedStep {
+                        step_id: String::from("report-runtime-status"),
+                        tool_name: ToolName::ReportResult,
+                        arguments: serde_json::json!({
+                            "request_id": "example-get-status",
+                            "timeout_ms": null,
+                            "status": "Success",
+                            "summary": "Browser is visible, listening is idle, and nothing is currently speaking.",
+                            "next_recommended_action": null,
+                            "user_message": "Browser visible. Listening idle. Not speaking."
+                        }),
+                        purpose: String::from("Speak a short status summary to the user."),
+                        on_success: StepTransition::Complete,
+                        on_failure: StepTransition::Replan,
+                    },
+                ],
+                requires_confirmation: false,
+                confirmation_reason: None,
+                blocked_reason: None,
+                user_message: None,
+            },
+        ),
+        (
+            String::from("read_title"),
+            PlannerOutput {
+                status: PlannerStatus::Ready,
+                intent: IntentSummary {
+                    name: IntentName::ReadTitle,
+                    goal: String::from("Read the current page title."),
+                    target_description: None,
+                },
+                selected_skills: vec![String::from("read_title")],
+                steps: vec![PlannedStep {
+                    step_id: String::from("report-page-title"),
+                    tool_name: ToolName::ReportResult,
+                    arguments: serde_json::json!({
+                        "request_id": "example-read-title",
+                        "timeout_ms": null,
+                        "status": "Success",
+                        "summary": "Page title is Example article.",
+                        "next_recommended_action": null,
+                        "user_message": "Page title is Example article."
+                    }),
+                    purpose: String::from("Speak the current page title."),
+                    on_success: StepTransition::Complete,
+                    on_failure: StepTransition::Replan,
+                }],
+                requires_confirmation: false,
+                confirmation_reason: None,
+                blocked_reason: None,
+                user_message: None,
+            },
+        ),
+        (
+            String::from("set_playback_volume"),
+            PlannerOutput {
+                status: PlannerStatus::Ready,
+                intent: IntentSummary {
+                    name: IntentName::SetPlaybackVolume,
+                    goal: String::from("Set playback volume to 70%."),
+                    target_description: Some(String::from("70%")),
+                },
+                selected_skills: vec![String::from("set_volume")],
+                steps: vec![
+                    PlannedStep {
+                        step_id: String::from("set-playback-volume"),
+                        tool_name: ToolName::SetPlaybackVolume,
+                        arguments: serde_json::json!({
+                            "request_id": "example-set-volume",
+                            "timeout_ms": null,
+                            "volume": 0.7
+                        }),
+                        purpose: String::from("Apply and persist the requested playback volume."),
+                        on_success: StepTransition::NextStep {
+                            step_id: String::from("report-playback-volume"),
+                        },
+                        on_failure: StepTransition::Replan,
+                    },
+                    PlannedStep {
+                        step_id: String::from("report-playback-volume"),
+                        tool_name: ToolName::ReportResult,
+                        arguments: serde_json::json!({
+                            "request_id": "example-set-volume",
+                            "timeout_ms": null,
+                            "status": "Success",
+                            "summary": "Playback volume set to 70%.",
+                            "next_recommended_action": null,
+                            "user_message": "Playback volume set to 70%."
+                        }),
+                        purpose: String::from("Confirm the updated playback volume."),
+                        on_success: StepTransition::Complete,
+                        on_failure: StepTransition::Replan,
+                    },
+                ],
+                requires_confirmation: false,
+                confirmation_reason: None,
+                blocked_reason: None,
+                user_message: None,
+            },
+        ),
+        (
+            String::from("click_element_with_confirmation"),
+            PlannerOutput {
+                status: PlannerStatus::NeedsConfirmation,
+                intent: IntentSummary {
+                    name: IntentName::ClickElement,
+                    goal: String::from("Open the submit button after confirmation."),
+                    target_description: Some(String::from("submit button")),
+                },
+                selected_skills: vec![
+                    String::from("open_link_by_text"),
+                    String::from("confirm_action"),
+                ],
+                steps: vec![
+                    PlannedStep {
+                        step_id: String::from("confirm-click-target"),
+                        tool_name: ToolName::ConfirmAction,
+                        arguments: serde_json::json!({
+                            "request_id": "example-confirm-click",
+                            "timeout_ms": null,
+                            "prompt_text": "Do you want me to activate the submit button?",
+                            "reason": "The requested click may submit data or navigate away."
+                        }),
+                        purpose: String::from("Ask for confirmation before the protected click."),
+                        on_success: StepTransition::RequestConfirmation,
+                        on_failure: StepTransition::Replan,
+                    },
+                    PlannedStep {
+                        step_id: String::from("click-submit-button"),
+                        tool_name: ToolName::ClickElement,
+                        arguments: serde_json::json!({
+                            "request_id": "example-confirm-click",
+                            "timeout_ms": null,
+                            "element_id": "button-submit",
+                            "double_click": false
+                        }),
+                        purpose: String::from("Activate the confirmed target element."),
+                        on_success: StepTransition::Complete,
+                        on_failure: StepTransition::Replan,
+                    },
+                ],
+                requires_confirmation: true,
+                confirmation_reason: Some(String::from(
+                    "Clicking the submit button may send data or change page context.",
+                )),
+                blocked_reason: None,
+                user_message: Some(String::from(
+                    "Please confirm before I activate the submit button.",
+                )),
+            },
+        ),
+    ])
 }
 
 pub fn tool_input_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
@@ -5652,6 +5833,77 @@ mod tests {
         assert!(
             missing.is_empty(),
             "bundled skills are missing explicit intent coverage for {missing:?}"
+        );
+    }
+
+    #[test]
+    fn canonical_planner_output_examples_validate_against_current_contract() {
+        let available_tools = planner_available_tools();
+        let active_skill_names = build_planner_skill_selection(None, None, "", &available_tools)
+            .active_skill_names;
+
+        for (example_name, planner_output) in canonical_planner_output_examples() {
+            validate_planner_output(&planner_output, &available_tools, &active_skill_names)
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "canonical planner example '{example_name}' should validate: {error:?}"
+                    )
+                });
+        }
+    }
+
+    #[test]
+    fn canonical_planner_output_examples_serialize_expected_strings_and_fields() {
+        let examples = canonical_planner_output_examples();
+
+        let set_volume = serde_json::to_value(
+            examples
+                .get("set_playback_volume")
+                .expect("set_playback_volume example should exist"),
+        )
+        .expect("planner example should serialize");
+        assert_eq!(
+            set_volume.pointer("/intent/name"),
+            Some(&serde_json::json!("SetPlaybackVolume"))
+        );
+        assert_eq!(
+            set_volume.pointer("/steps/0/arguments/request_id"),
+            Some(&serde_json::json!("example-set-volume"))
+        );
+        assert_eq!(
+            set_volume.pointer("/steps/0/arguments/volume"),
+            Some(&serde_json::json!(0.7))
+        );
+        assert_eq!(
+            set_volume.pointer("/steps/0/on_success"),
+            Some(&serde_json::json!({
+                "NextStep": {
+                    "step_id": "report-playback-volume"
+                }
+            }))
+        );
+        assert_eq!(
+            set_volume.pointer("/steps/1/on_success"),
+            Some(&serde_json::json!("Complete"))
+        );
+
+        let needs_confirmation = serde_json::to_value(
+            examples
+                .get("click_element_with_confirmation")
+                .expect("click_element_with_confirmation example should exist"),
+        )
+        .expect("planner example should serialize");
+        assert_eq!(
+            needs_confirmation.pointer("/status"),
+            Some(&serde_json::json!("NeedsConfirmation"))
+        );
+        assert_eq!(
+            needs_confirmation.pointer("/steps/0/on_success"),
+            Some(&serde_json::json!("RequestConfirmation"))
+        );
+        assert_eq!(
+            needs_confirmation.pointer("/steps/1/arguments/element_id"),
+            Some(&serde_json::json!("button-submit"))
         );
     }
 

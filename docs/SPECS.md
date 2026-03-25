@@ -1967,7 +1967,7 @@ JSON representation rules:
 - `BlockedReason` should serialize as the exact PascalCase enum variant string, for example `Gatekept`, `MissingContext`, or `UnsupportedCapability`.
 - `IntentSummary.name` should serialize as the exact PascalCase enum variant string, for example `GetStatus` or `SetPlaybackVolume`.
 - Example planner payloads, generated JSON Schema enums, and test fixtures should all reuse these exact strings.
-- `StepTransition` should serialize as a tagged object with a required `kind` field and an optional `step_id` field for `NextStep`.
+- `StepTransition` should serialize using serde's externally tagged enum form: `{"NextStep":{"step_id":"..."}}` for the structured variant, or a bare string such as `"Complete"`, `"RequestConfirmation"`, or `"Replan"` for unit variants.
 - Tool argument objects in planner JSON should use the exact field names from the matching deterministic tool input shape.
 
 
@@ -1999,7 +1999,6 @@ enum StepTransition {
   Complete,
   RequestConfirmation,
   Replan,
-  Abort,
 }
 
 enum ExecutionOutcome {
@@ -2663,28 +2662,213 @@ Future JSON Schema examples should expose the same enum literals and nested fiel
   "oneOf": [
     {
       "type": "object",
-      "required": ["kind", "step_id"],
+      "required": ["NextStep"],
       "properties": {
-        "kind": {
-          "const": "NextStep"
-        },
-        "step_id": {
-          "type": "string"
+        "NextStep": {
+          "type": "object",
+          "required": ["step_id"],
+          "properties": {
+            "step_id": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
     },
     {
-      "type": "object",
-      "required": ["kind"],
-      "properties": {
-        "kind": {
-          "enum": ["Complete", "RequestConfirmation", "Replan", "Abort"]
-        }
-      },
-      "additionalProperties": false
+      "type": "string",
+      "enum": ["Complete", "RequestConfirmation", "Replan"]
     }
   ]
+}
+```
+
+#### Canonical `PlannerOutput` JSON Examples
+
+These examples are canonical shape references for planner outputs. They use the exact current enum strings and tool argument field names emitted by the Rust types.
+
+##### `get_status`
+
+```json
+{
+  "status": "Ready",
+  "intent": {
+    "name": "GetStatus",
+    "goal": "Report the current runtime status.",
+    "target_description": null
+  },
+  "selected_skills": ["get_status"],
+  "steps": [
+    {
+      "step_id": "fetch-runtime-status",
+      "tool_name": "GetRuntimeStatus",
+      "arguments": {
+        "request_id": "example-get-status",
+        "timeout_ms": null,
+        "include_provider_modes": true
+      },
+      "purpose": "Read the current runtime status before speaking.",
+      "on_success": {
+        "NextStep": {
+          "step_id": "report-runtime-status"
+        }
+      },
+      "on_failure": "Replan"
+    },
+    {
+      "step_id": "report-runtime-status",
+      "tool_name": "ReportResult",
+      "arguments": {
+        "request_id": "example-get-status",
+        "timeout_ms": null,
+        "status": "Success",
+        "summary": "Browser is visible, listening is idle, and nothing is currently speaking.",
+        "next_recommended_action": null,
+        "user_message": "Browser visible. Listening idle. Not speaking."
+      },
+      "purpose": "Speak a short status summary to the user.",
+      "on_success": "Complete",
+      "on_failure": "Replan"
+    }
+  ],
+  "requires_confirmation": false,
+  "confirmation_reason": null,
+  "blocked_reason": null,
+  "user_message": null
+}
+```
+
+##### `read_title`
+
+```json
+{
+  "status": "Ready",
+  "intent": {
+    "name": "ReadTitle",
+    "goal": "Read the current page title.",
+    "target_description": null
+  },
+  "selected_skills": ["read_title"],
+  "steps": [
+    {
+      "step_id": "report-page-title",
+      "tool_name": "ReportResult",
+      "arguments": {
+        "request_id": "example-read-title",
+        "timeout_ms": null,
+        "status": "Success",
+        "summary": "Page title is Example article.",
+        "next_recommended_action": null,
+        "user_message": "Page title is Example article."
+      },
+      "purpose": "Speak the current page title.",
+      "on_success": "Complete",
+      "on_failure": "Replan"
+    }
+  ],
+  "requires_confirmation": false,
+  "confirmation_reason": null,
+  "blocked_reason": null,
+  "user_message": null
+}
+```
+
+##### `set_playback_volume`
+
+```json
+{
+  "status": "Ready",
+  "intent": {
+    "name": "SetPlaybackVolume",
+    "goal": "Set playback volume to 70%.",
+    "target_description": "70%"
+  },
+  "selected_skills": ["set_volume"],
+  "steps": [
+    {
+      "step_id": "set-playback-volume",
+      "tool_name": "SetPlaybackVolume",
+      "arguments": {
+        "request_id": "example-set-volume",
+        "timeout_ms": null,
+        "volume": 0.7
+      },
+      "purpose": "Apply and persist the requested playback volume.",
+      "on_success": {
+        "NextStep": {
+          "step_id": "report-playback-volume"
+        }
+      },
+      "on_failure": "Replan"
+    },
+    {
+      "step_id": "report-playback-volume",
+      "tool_name": "ReportResult",
+      "arguments": {
+        "request_id": "example-set-volume",
+        "timeout_ms": null,
+        "status": "Success",
+        "summary": "Playback volume set to 70%.",
+        "next_recommended_action": null,
+        "user_message": "Playback volume set to 70%."
+      },
+      "purpose": "Confirm the updated playback volume.",
+      "on_success": "Complete",
+      "on_failure": "Replan"
+    }
+  ],
+  "requires_confirmation": false,
+  "confirmation_reason": null,
+  "blocked_reason": null,
+  "user_message": null
+}
+```
+
+##### `click_element_with_confirmation`
+
+```json
+{
+  "status": "NeedsConfirmation",
+  "intent": {
+    "name": "ClickElement",
+    "goal": "Open the submit button after confirmation.",
+    "target_description": "submit button"
+  },
+  "selected_skills": ["open_link_by_text", "confirm_action"],
+  "steps": [
+    {
+      "step_id": "confirm-click-target",
+      "tool_name": "ConfirmAction",
+      "arguments": {
+        "request_id": "example-confirm-click",
+        "timeout_ms": null,
+        "prompt_text": "Do you want me to activate the submit button?",
+        "reason": "The requested click may submit data or navigate away."
+      },
+      "purpose": "Ask for confirmation before the protected click.",
+      "on_success": "RequestConfirmation",
+      "on_failure": "Replan"
+    },
+    {
+      "step_id": "click-submit-button",
+      "tool_name": "ClickElement",
+      "arguments": {
+        "request_id": "example-confirm-click",
+        "timeout_ms": null,
+        "element_id": "button-submit",
+        "double_click": false
+      },
+      "purpose": "Activate the confirmed target element.",
+      "on_success": "Complete",
+      "on_failure": "Replan"
+    }
+  ],
+  "requires_confirmation": true,
+  "confirmation_reason": "Clicking the submit button may send data or change page context.",
+  "blocked_reason": null,
+  "user_message": "Please confirm before I activate the submit button."
 }
 ```
 

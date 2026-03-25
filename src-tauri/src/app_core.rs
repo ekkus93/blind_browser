@@ -10,10 +10,11 @@ use crate::browser::{
     BrowserController, BrowserError, BrowserSessionConfig, BrowserVisibilityMode, LoadState,
 };
 use crate::commands::{
-    build_planner_skill_selection, execute_planner_output, planner_available_tools,
-    planner_output_schema, resolve_direct_audio_command, resolve_direct_browser_visibility_command,
-    resolve_direct_read_title_command, resolve_direct_repeat_command, resolve_direct_status_query_command,
-    resume_after_confirmation, tool_input_schema,
+    build_planner_skill_selection, canonical_planner_output_examples, execute_planner_output,
+    planner_available_tools, planner_output_schema, resolve_direct_audio_command,
+    resolve_direct_browser_visibility_command, resolve_direct_read_title_command,
+    resolve_direct_repeat_command, resolve_direct_status_query_command, resume_after_confirmation,
+    tool_input_schema,
     validate_planner_output, AgentStateData, ClickElementData, ClickElementInput,
     ConfirmActionData, ConfirmActionInput, ConfirmActionResolution, DeterministicToolExecutor,
     ExecutionOutcome, ExtractPageModelData, ExtractPageModelInput, FindElementData,
@@ -55,6 +56,7 @@ struct PlannerPromptPayload<'a> {
     planner_input: &'a PlannerInput,
     planner_output_schema: serde_json::Value,
     tool_input_schemas: BTreeMap<String, serde_json::Value>,
+    canonical_planner_output_examples: BTreeMap<String, crate::commands::PlannerOutput>,
 }
 
 pub struct AppCore {
@@ -2189,6 +2191,7 @@ impl AppCore {
             planner_input,
             planner_output_schema: planner_output_schema(),
             tool_input_schemas: tool_schemas,
+            canonical_planner_output_examples: canonical_planner_output_examples(),
         }
     }
 
@@ -2868,6 +2871,7 @@ fn planner_system_prompt() -> &'static str {
 Return only JSON that matches the provided planner_output_schema.
 Use only tool names that appear in planner_input.available_tools and only selected_skills that appear in planner_input.active_skill_names.
 Every step arguments object must match the corresponding tool_input_schemas entry exactly, including snake_case field names.
+Use canonical_planner_output_examples only as shape references; adapt the returned tools, skills, and arguments to the current planner_input.
 Keep plans linear and short: at most five steps, with at most one NextStep edge from any step.
 Use NeedsConfirmation plus a confirm_action step when the request is risky or ambiguous before side effects.
 Use Blocked only when the request cannot be grounded safely or is outside the supported tool set.
