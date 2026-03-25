@@ -1273,6 +1273,9 @@ struct RunOcrInput {
 
 Validation notes:
 - At least one of `image_id`, `region_id`, or `bbox` must be provided.
+- `bbox`, when provided, must have positive `width` and `height`.
+- `region_id` targeting should fail clearly until page regions carry geometry.
+- `bbox`-only OCR should not assume an implicit source image; use `image_id` when OCR needs cached screenshot pixels.
 
 #### `merge_ocr_into_page_model`
 

@@ -124,6 +124,7 @@ pub trait DeterministicToolExecutor {
         &mut self,
         input: CaptureScreenshotInput,
     ) -> ToolResult<CaptureScreenshotData>;
+    fn execute_run_ocr(&mut self, input: RunOcrInput) -> ToolResult<RunOcrData>;
     fn execute_get_page_snapshot(
         &mut self,
         input: GetPageSnapshotInput,
@@ -601,6 +602,24 @@ pub struct CaptureScreenshotData {
     pub height: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct RunOcrInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub image_id: Option<String>,
+    pub region_id: Option<String>,
+    pub bbox: Option<Rect>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct RunOcrData {
+    pub image_id: Option<String>,
+    pub extracted_text: String,
+    pub text_length: usize,
+    pub confidence: Option<f32>,
+    pub source_bbox: Option<Rect>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct ReadRegionInput {
     pub request_id: String,
@@ -948,6 +967,11 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
             executor,
             |executor, input| executor.execute_capture_screenshot(input),
         ),
+        ToolName::RunOcr => {
+            execute_serialized_tool(step, ToolName::RunOcr, executor, |executor, input| {
+                executor.execute_run_ocr(input)
+            })
+        }
         ToolName::ReadRegion => {
             execute_serialized_tool(step, ToolName::ReadRegion, executor, |executor, input| {
                 executor.execute_read_region(input)
@@ -1462,6 +1486,7 @@ pub fn tool_input_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
         ToolName::ReloadPage => Some(schema_json::<ReloadPageInput>()),
         ToolName::ScrollPage => Some(schema_json::<ScrollPageInput>()),
         ToolName::CaptureScreenshot => Some(schema_json::<CaptureScreenshotInput>()),
+        ToolName::RunOcr => Some(schema_json::<RunOcrInput>()),
         ToolName::SetBrowserVisibility => Some(schema_json::<SetBrowserVisibilityInput>()),
         ToolName::GetPageSnapshot => Some(schema_json::<GetPageSnapshotInput>()),
         ToolName::ExtractPageModel => Some(schema_json::<ExtractPageModelInput>()),
@@ -1917,6 +1942,7 @@ fn is_plannable_tool(tool_name: &ToolName) -> bool {
             | ToolName::ReloadPage
             | ToolName::ScrollPage
             | ToolName::CaptureScreenshot
+            | ToolName::RunOcr
             | ToolName::SetBrowserVisibility
             | ToolName::GetPageSnapshot
             | ToolName::ExtractPageModel
@@ -1966,6 +1992,20 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
                     )
                 })?;
             validate_capture_screenshot_input(&input)
+        }
+        ToolName::RunOcr => {
+            let input = serde_json::from_value::<RunOcrInput>(step.arguments.clone()).map_err(
+                |error| {
+                    invalid_planner_output(
+                        format!("tool arguments did not match the expected schema: {error}"),
+                        Some(serde_json::json!({
+                            "step_id": step.step_id,
+                            "tool_name": step.tool_name,
+                        })),
+                    )
+                },
+            )?;
+            validate_run_ocr_input(&input)
         }
         ToolName::SetBrowserVisibility => {
             validate_tool_arguments::<SetBrowserVisibilityInput>(step)
@@ -2020,6 +2060,42 @@ fn validate_capture_screenshot_input(input: &CaptureScreenshotInput) -> Result<(
         if bbox.width <= 0.0 || bbox.height <= 0.0 {
             return Err(invalid_planner_output(
                 "capture_screenshot bbox requires positive width and height",
+                Some(serde_json::json!({
+                    "x": bbox.x,
+                    "y": bbox.y,
+                    "width": bbox.width,
+                    "height": bbox.height,
+                })),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_run_ocr_input(input: &RunOcrInput) -> Result<(), ToolError> {
+    let image_id_active = input
+        .image_id
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|image_id| !image_id.is_empty());
+    let region_id_active = input
+        .region_id
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|region_id| !region_id.is_empty());
+
+    if !(image_id_active || region_id_active || input.bbox.is_some()) {
+        return Err(invalid_planner_output(
+            "run_ocr requires at least one source from image_id, region_id, or bbox",
+            None,
+        ));
+    }
+
+    if let Some(bbox) = input.bbox.as_ref() {
+        if bbox.width <= 0.0 || bbox.height <= 0.0 {
+            return Err(invalid_planner_output(
+                "run_ocr bbox requires positive width and height",
                 Some(serde_json::json!({
                     "x": bbox.x,
                     "y": bbox.y,
@@ -2788,7 +2864,12 @@ fn likely_tools_for_intent(intent: &IntentName) -> Vec<ToolName> {
         IntentName::FillInput => vec![ToolName::FocusElement, ToolName::TypeIntoElement],
         IntentName::SubmitForm => vec![ToolName::ConfirmAction, ToolName::SubmitActiveForm],
         IntentName::Scroll => vec![ToolName::ScrollPage],
-        IntentName::OcrRecovery => vec![ToolName::GetPageSnapshot, ToolName::ReportResult],
+        IntentName::OcrRecovery => vec![
+            ToolName::CaptureScreenshot,
+            ToolName::RunOcr,
+            ToolName::GetPageSnapshot,
+            ToolName::ReportResult,
+        ],
         IntentName::Unknown => Vec::new(),
     }
 }
@@ -5187,6 +5268,7 @@ mod tests {
         last_reload_request: Option<ReloadPageInput>,
         last_scroll_request: Option<ScrollPageInput>,
         last_capture_screenshot_request: Option<CaptureScreenshotInput>,
+        last_run_ocr_request: Option<RunOcrInput>,
         last_read_region_request: Option<ReadRegionInput>,
         last_read_next_region_request: Option<ReadNextRegionInput>,
         last_read_previous_region_request: Option<ReadPreviousRegionInput>,
@@ -5329,6 +5411,22 @@ mod tests {
                     height: 480,
                 },
                 vec![String::from("captured a screenshot")],
+            )
+        }
+
+        fn execute_run_ocr(&mut self, input: RunOcrInput) -> ToolResult<RunOcrData> {
+            self.last_run_ocr_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::RunOcr,
+                input.request_id,
+                RunOcrData {
+                    image_id: input.image_id,
+                    extracted_text: String::from("recognized text"),
+                    text_length: 15,
+                    confidence: Some(0.82),
+                    source_bbox: input.bbox,
+                },
+                vec![String::from("ran OCR on the requested image")],
             )
         }
 
@@ -6280,6 +6378,49 @@ mod tests {
     }
 
     #[test]
+    fn dispatches_run_ocr_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-run-ocr"),
+            tool_name: ToolName::RunOcr,
+            arguments: serde_json::json!({
+                "request_id": "req-run-ocr",
+                "timeout_ms": 1000,
+                "image_id": "image-1",
+                "region_id": serde_json::Value::Null,
+                "bbox": {
+                    "x": 4.0,
+                    "y": 8.0,
+                    "width": 120.0,
+                    "height": 48.0
+                }
+            }),
+            purpose: String::from("run OCR on a cached screenshot"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_run_ocr_request
+                .as_ref()
+                .and_then(|input| input.image_id.as_deref()),
+            Some("image-1")
+        );
+        assert_eq!(
+            executor
+                .last_run_ocr_request
+                .as_ref()
+                .and_then(|input| input.bbox.as_ref())
+                .map(|bbox| (bbox.x, bbox.y, bbox.width, bbox.height)),
+            Some((4.0, 8.0, 120.0, 48.0))
+        );
+    }
+
+    #[test]
     fn dispatches_get_page_snapshot_from_planned_step() {
         let mut executor = MockExecutor::default();
         let step = PlannedStep {
@@ -7158,7 +7299,7 @@ mod tests {
 
         assert!(available_tools
             .iter()
-            .all(|tool| !matches!(tool.name, ToolName::RunOcr | ToolName::MergeOcrIntoPageModel)));
+            .all(|tool| !matches!(tool.name, ToolName::MergeOcrIntoPageModel)));
         assert!(available_tools
             .iter()
             .any(|tool| tool.name == ToolName::OpenUrl));
@@ -7177,6 +7318,9 @@ mod tests {
         assert!(available_tools
             .iter()
             .any(|tool| tool.name == ToolName::CaptureScreenshot));
+        assert!(available_tools
+            .iter()
+            .any(|tool| tool.name == ToolName::RunOcr));
     }
 
     #[test]
@@ -7798,6 +7942,48 @@ mod tests {
         assert!(error
             .message
             .contains("capture_screenshot supports at most one targeting mode"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_run_ocr_without_any_source() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::OcrRecovery,
+                goal: String::from("read text from an image"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("ocr_current_region")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-run-ocr"),
+                tool_name: ToolName::RunOcr,
+                arguments: serde_json::json!({
+                    "request_id": "req-run-ocr",
+                    "image_id": serde_json::Value::Null,
+                    "region_id": serde_json::Value::Null,
+                    "bbox": serde_json::Value::Null
+                }),
+                purpose: String::from("run OCR"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("ocr_current_region")],
+        )
+        .expect_err("validation should reject run_ocr without any source image or target");
+        assert_eq!(error.code, "invalid_planner_output");
+        assert!(error
+            .message
+            .contains("run_ocr requires at least one source"));
     }
 
     #[test]

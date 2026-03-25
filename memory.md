@@ -687,3 +687,13 @@
 ## 2026-03-25T19:07:31Z - GPT-5.4 - Capture screenshot slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in under Node `22.12.0`: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The screenshot slice remains green at `144` Rust tests and `12` UI tests going into commit and push.
+
+## 2026-03-25T19:25:03Z - GPT-5.4 - Run OCR slice landed
+- Wired `run_ocr` through the bounded tool layer in `src-tauri/src/commands.rs`, `src-tauri/src/ocr.rs`, and `src-tauri/src/app_core.rs`, including planner-visible schemas, dispatch, executor support, mock coverage, OCR runtime errors, and cached screenshot lookup by `image_id`.
+- `src-tauri/src/ocr.rs` now provides an `OcrController` backed by `leptess`, normalizes OCR text/confidence, supports explicit bbox OCR within a cached image, and exposes typed runtime errors instead of hidden fallbacks.
+- `run_ocr` currently requires an explicit `image_id` for actual OCR execution; `region_id` targeting still fails clearly with `region_geometry_unavailable`, and bbox-only OCR is intentionally rejected rather than inferring an implicit source image.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `150` Rust tests and `12` UI tests.
+
+## 2026-03-25T19:30:02Z - GPT-5.4 - Run OCR slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in under Node `22.12.0`: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The run_ocr slice remains green at `150` Rust tests and `12` UI tests going into commit and push.

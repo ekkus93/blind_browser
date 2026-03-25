@@ -30,7 +30,7 @@ use crate::commands::{
     PlannerInput, PlannerOutput, PlannerStatus, PlannerToolHistoryEntry,
     ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
     ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
-    ReportResultData, ReportResultInput, ReportStatus, ScrollPageData, ScrollPageInput,
+    ReportResultData, ReportResultInput, ReportStatus, RunOcrData, RunOcrInput, ScrollPageData, ScrollPageInput,
     SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
     SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
     SetTtsVoiceInput, StartListeningData, StartListeningInput, StepTransition,
@@ -46,6 +46,7 @@ use crate::narration::{
     cursor_for_index, find_region_index, next_region_index, previous_region_index,
     spoken_text_for_region,
 };
+use crate::ocr::{OcrController, OcrRuntimeError};
 use crate::page_model::PageRegion;
 use crate::page_model::{ElementRole, ExtractionSource, PageModel, RegionSource};
 use crate::state::AppState;
@@ -74,6 +75,7 @@ pub struct AppCore {
     pub config: AppConfig,
     pub state: AppState,
     pub browser: BrowserController,
+    ocr: OcrController,
     tts: TtsController,
     playback: AudioPlaybackController,
     asr: AsrController,
@@ -236,6 +238,7 @@ impl AppCore {
             config,
             state,
             browser,
+            ocr: OcrController::new(),
             tts: TtsController::new(),
             playback: AudioPlaybackController::new(),
             asr: AsrController::new(),
@@ -770,6 +773,178 @@ impl AppCore {
                 bbox: browser_screenshot.bbox,
                 width: browser_screenshot.width,
                 height: browser_screenshot.height,
+            },
+            observations,
+        )
+    }
+
+    pub fn execute_run_ocr(&mut self, input: RunOcrInput) -> ToolResult<RunOcrData> {
+        let image_id = input
+            .image_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|image_id| !image_id.is_empty())
+            .map(ToOwned::to_owned);
+        let region_id = input
+            .region_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|region_id| !region_id.is_empty())
+            .map(ToOwned::to_owned);
+
+        if image_id.is_none() && region_id.is_none() && input.bbox.is_none() {
+            return ToolResult::failure(
+                ToolName::RunOcr,
+                input.request_id,
+                ToolError {
+                    code: String::from("invalid_ocr_request"),
+                    message: String::from(
+                        "run_ocr requires at least one source from image_id, region_id, or bbox",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "OCR request was rejected because it did not identify any image or target area.",
+                )],
+            );
+        }
+
+        if let Some(region_id) = region_id.as_deref() {
+            return ToolResult::failure(
+                ToolName::RunOcr,
+                input.request_id,
+                ToolError {
+                    code: String::from("region_geometry_unavailable"),
+                    message: String::from(
+                        "run_ocr region_id targeting is not available until page regions carry bounding boxes",
+                    ),
+                    retryable: false,
+                    details: Some(serde_json::json!({ "region_id": region_id })),
+                },
+                vec![String::from(
+                    "Region-targeted OCR is blocked until region bounding boxes are available in the page model.",
+                )],
+            );
+        }
+
+        if let Some(bbox) = input.bbox.as_ref() {
+            if bbox.width <= 0.0 || bbox.height <= 0.0 {
+                return ToolResult::failure(
+                    ToolName::RunOcr,
+                    input.request_id,
+                    ToolError {
+                        code: String::from("invalid_ocr_bbox"),
+                        message: String::from("run_ocr bbox requires positive width and height"),
+                        retryable: false,
+                        details: Some(serde_json::json!({
+                            "x": bbox.x,
+                            "y": bbox.y,
+                            "width": bbox.width,
+                            "height": bbox.height,
+                        })),
+                    },
+                    vec![String::from(
+                        "OCR request was rejected because the requested bbox was not positive-sized.",
+                    )],
+                );
+            }
+        }
+
+        let Some(image_id) = image_id else {
+            return ToolResult::failure(
+                ToolName::RunOcr,
+                input.request_id,
+                ToolError {
+                    code: String::from("missing_ocr_image_id"),
+                    message: String::from(
+                        "run_ocr currently requires image_id so it can resolve a persisted screenshot",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "OCR needs a persisted screenshot image_id because implicit image selection is not supported.",
+                )],
+            );
+        };
+
+        let image_path = match self.cached_image_path(&image_id) {
+            Ok(path) => path,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::RunOcr,
+                    input.request_id,
+                    error,
+                    vec![String::from("OCR could not resolve the cached screenshot path.")],
+                )
+            }
+        };
+
+        if !image_path.is_file() {
+            return ToolResult::failure(
+                ToolName::RunOcr,
+                input.request_id,
+                ToolError {
+                    code: String::from("ocr_image_not_found"),
+                    message: String::from(
+                        "run_ocr could not find the cached screenshot for the requested image_id",
+                    ),
+                    retryable: false,
+                    details: Some(serde_json::json!({
+                        "image_id": image_id,
+                        "path": image_path.display().to_string(),
+                    })),
+                },
+                vec![String::from(
+                    "OCR could not start because the requested cached screenshot does not exist.",
+                )],
+            );
+        }
+
+        let ocr_result = match self.ocr.run_ocr(&image_path, input.bbox.as_ref()) {
+            Ok(result) => result,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::RunOcr,
+                    input.request_id,
+                    ocr_runtime_error_to_tool_error(&error),
+                    vec![String::from(
+                        "OCR could not extract text from the requested screenshot.",
+                    )],
+                )
+            }
+        };
+
+        let mut observations =
+            vec![String::from("Ran deterministic OCR on the requested cached screenshot.")];
+        if input.bbox.is_some() {
+            observations.push(String::from(
+                "OCR was limited to the explicitly requested bounding box within the cached image.",
+            ));
+        } else {
+            observations.push(String::from(
+                "OCR used the full cached screenshot because no bbox override was provided.",
+            ));
+        }
+        if ocr_result.extracted_text.is_empty() {
+            observations.push(String::from(
+                "OCR completed successfully but did not extract any readable text.",
+            ));
+        }
+
+        let extracted_text = ocr_result.extracted_text;
+        let text_length = extracted_text.len();
+
+        ToolResult::success(
+            ToolName::RunOcr,
+            input.request_id,
+            RunOcrData {
+                image_id: Some(image_id),
+                extracted_text,
+                text_length,
+                confidence: ocr_result.confidence,
+                source_bbox: input.bbox,
             },
             observations,
         )
@@ -3325,7 +3500,7 @@ impl AppCore {
         format!("image-{request_id}-{timestamp_ms}")
     }
 
-    fn screenshot_output_path(&self, image_id: &str) -> Result<PathBuf, ToolError> {
+    fn cached_image_dir(&self) -> Result<PathBuf, ToolError> {
         let cache_dir = self
             .app_handle
             .path()
@@ -3338,19 +3513,27 @@ impl AppCore {
                 retryable: true,
                 details: Some(serde_json::json!({ "reason": error.to_string() })),
             })?;
-        let screenshot_dir = cache_dir.join("screenshots");
-        fs::create_dir_all(&screenshot_dir).map_err(|error| ToolError {
+        let image_dir = cache_dir.join("screenshots");
+        fs::create_dir_all(&image_dir).map_err(|error| ToolError {
             code: String::from("create_screenshot_dir_failed"),
             message: String::from(
                 "capture_screenshot could not create the screenshot cache directory",
             ),
             retryable: true,
             details: Some(serde_json::json!({
-                "path": screenshot_dir.display().to_string(),
+                "path": image_dir.display().to_string(),
                 "reason": error.to_string(),
             })),
         })?;
-        Ok(screenshot_dir.join(format!("{image_id}.png")))
+        Ok(image_dir)
+    }
+
+    fn screenshot_output_path(&self, image_id: &str) -> Result<PathBuf, ToolError> {
+        Ok(self.cached_image_dir()?.join(format!("{image_id}.png")))
+    }
+
+    fn cached_image_path(&self, image_id: &str) -> Result<PathBuf, ToolError> {
+        Ok(self.cached_image_dir()?.join(format!("{image_id}.png")))
     }
 }
 
@@ -3446,6 +3629,10 @@ impl DeterministicToolExecutor for AppCore {
         input: CaptureScreenshotInput,
     ) -> ToolResult<CaptureScreenshotData> {
         AppCore::execute_capture_screenshot(self, input)
+    }
+
+    fn execute_run_ocr(&mut self, input: RunOcrInput) -> ToolResult<RunOcrData> {
+        AppCore::execute_run_ocr(self, input)
     }
 
     fn execute_list_interactive_elements(
@@ -3552,6 +3739,26 @@ fn normalize_optional_text(value: Option<String>) -> Option<String> {
             Some(trimmed.to_string())
         }
     })
+}
+
+fn ocr_runtime_error_to_tool_error(error: &OcrRuntimeError) -> ToolError {
+    let code = match error {
+        OcrRuntimeError::FeatureUnavailable => "ocr_backend_unavailable",
+        OcrRuntimeError::EngineInitFailed { .. } => "ocr_engine_init_failed",
+        OcrRuntimeError::ImageLoadFailed { .. } => "ocr_image_load_failed",
+        OcrRuntimeError::InvalidBbox => "invalid_ocr_bbox",
+        OcrRuntimeError::TextExtractionFailed { .. } => "ocr_text_extraction_failed",
+    };
+
+    ToolError {
+        code: String::from(code),
+        message: error.to_string(),
+        retryable: matches!(
+            error,
+            OcrRuntimeError::EngineInitFailed { .. } | OcrRuntimeError::TextExtractionFailed { .. }
+        ),
+        details: None,
+    }
 }
 
 fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolError {

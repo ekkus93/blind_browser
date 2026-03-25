@@ -270,7 +270,7 @@
 - [x] Implement `type_into_element`
 - [x] Implement `submit_active_form`
 - [x] Implement `capture_screenshot`
-- [ ] Implement `run_ocr`
+- [x] Implement `run_ocr`
 - [ ] Implement `merge_ocr_into_page_model`
 - [ ] Finalize input schema for all Wave 2 tools
 - [ ] Finalize output schema for all Wave 2 tools
