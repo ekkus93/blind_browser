@@ -697,3 +697,13 @@
 ## 2026-03-25T19:30:02Z - GPT-5.4 - Run OCR slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in under Node `22.12.0`: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The run_ocr slice remains green at `150` Rust tests and `12` UI tests going into commit and push.
+
+## 2026-03-25T19:39:33Z - GPT-5.4 - Merge OCR slice landed
+- Wired `merge_ocr_into_page_model` through the bounded tool layer in `src-tauri/src/commands.rs` and `src-tauri/src/app_core.rs`, including planner-visible schemas, dispatch, executor support, mock coverage, and runtime page-model merge helpers.
+- The merge runtime now validates the active `page_id`, trims OCR text, updates an existing region when `region_id` is supplied, or appends a new OCR region when no target region is given; merged DOM regions are marked `RegionSource::Mixed`.
+- `infer_extraction_source(...)` now treats `RegionSource::Mixed` as OCR-contributing so merged page models surface `ExtractionSource::Merged` consistently after OCR enrichment.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `156` Rust tests and `12` UI tests.
+
+## 2026-03-25T19:43:39Z - GPT-5.4 - Merge OCR slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in under Node `22.12.0`: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The merge_ocr_into_page_model slice remains green at `156` Rust tests and `12` UI tests going into commit and push.

@@ -1290,6 +1290,12 @@ struct MergeOcrIntoPageModelInput {
 }
 ```
 
+Validation notes:
+- `page_id` must match the active runtime page before the merge is applied.
+- `ocr_text` must be non-empty after trimming.
+- `region_id`, when provided, must refer to an existing page region.
+- `source_bbox`, when provided, must have positive `width` and `height`.
+
 #### `set_tts_voice`
 
 ```rust

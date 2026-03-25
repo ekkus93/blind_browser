@@ -125,6 +125,10 @@ pub trait DeterministicToolExecutor {
         input: CaptureScreenshotInput,
     ) -> ToolResult<CaptureScreenshotData>;
     fn execute_run_ocr(&mut self, input: RunOcrInput) -> ToolResult<RunOcrData>;
+    fn execute_merge_ocr_into_page_model(
+        &mut self,
+        input: MergeOcrIntoPageModelInput,
+    ) -> ToolResult<MergeOcrIntoPageModelData>;
     fn execute_get_page_snapshot(
         &mut self,
         input: GetPageSnapshotInput,
@@ -620,6 +624,23 @@ pub struct RunOcrData {
     pub source_bbox: Option<Rect>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct MergeOcrIntoPageModelInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub page_id: String,
+    pub region_id: Option<String>,
+    pub ocr_text: String,
+    pub source_bbox: Option<Rect>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct MergeOcrIntoPageModelData {
+    pub page_id: String,
+    pub updated_region_ids: Vec<String>,
+    pub merged_text_length: usize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct ReadRegionInput {
     pub request_id: String,
@@ -972,6 +993,12 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
                 executor.execute_run_ocr(input)
             })
         }
+        ToolName::MergeOcrIntoPageModel => execute_serialized_tool(
+            step,
+            ToolName::MergeOcrIntoPageModel,
+            executor,
+            |executor, input| executor.execute_merge_ocr_into_page_model(input),
+        ),
         ToolName::ReadRegion => {
             execute_serialized_tool(step, ToolName::ReadRegion, executor, |executor, input| {
                 executor.execute_read_region(input)
@@ -1103,22 +1130,6 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
                 executor.execute_report_result(input)
             })
         }
-        _ => ToolResult::failure(
-            step.tool_name.clone(),
-            inferred_request_id(step),
-            ToolError {
-                code: String::from("unsupported_tool"),
-                message: format!(
-                    "planner/executor dispatch for {:?} is not implemented yet",
-                    step.tool_name
-                ),
-                retryable: false,
-                details: Some(serde_json::json!({ "step_id": step.step_id })),
-            },
-            vec![String::from(
-                "Executor could not dispatch the requested tool because it is not wired yet.",
-            )],
-        ),
     }
 }
 
@@ -1487,6 +1498,7 @@ pub fn tool_input_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
         ToolName::ScrollPage => Some(schema_json::<ScrollPageInput>()),
         ToolName::CaptureScreenshot => Some(schema_json::<CaptureScreenshotInput>()),
         ToolName::RunOcr => Some(schema_json::<RunOcrInput>()),
+        ToolName::MergeOcrIntoPageModel => Some(schema_json::<MergeOcrIntoPageModelInput>()),
         ToolName::SetBrowserVisibility => Some(schema_json::<SetBrowserVisibilityInput>()),
         ToolName::GetPageSnapshot => Some(schema_json::<GetPageSnapshotInput>()),
         ToolName::ExtractPageModel => Some(schema_json::<ExtractPageModelInput>()),
@@ -1510,7 +1522,6 @@ pub fn tool_input_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
         ToolName::GetRuntimeStatus => Some(schema_json::<GetRuntimeStatusInput>()),
         ToolName::ConfirmAction => Some(schema_json::<ConfirmActionInput>()),
         ToolName::ReportResult => Some(schema_json::<ReportResultInput>()),
-        _ => None,
     }
 }
 
@@ -1943,6 +1954,7 @@ fn is_plannable_tool(tool_name: &ToolName) -> bool {
             | ToolName::ScrollPage
             | ToolName::CaptureScreenshot
             | ToolName::RunOcr
+            | ToolName::MergeOcrIntoPageModel
             | ToolName::SetBrowserVisibility
             | ToolName::GetPageSnapshot
             | ToolName::ExtractPageModel
@@ -2007,6 +2019,19 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
             )?;
             validate_run_ocr_input(&input)
         }
+        ToolName::MergeOcrIntoPageModel => {
+            let input = serde_json::from_value::<MergeOcrIntoPageModelInput>(step.arguments.clone())
+                .map_err(|error| {
+                    invalid_planner_output(
+                        format!("tool arguments did not match the expected schema: {error}"),
+                        Some(serde_json::json!({
+                            "step_id": step.step_id,
+                            "tool_name": step.tool_name,
+                        })),
+                    )
+                })?;
+            validate_merge_ocr_into_page_model_input(&input)
+        }
         ToolName::SetBrowserVisibility => {
             validate_tool_arguments::<SetBrowserVisibilityInput>(step)
         }
@@ -2034,10 +2059,6 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
         ToolName::GetRuntimeStatus => validate_tool_arguments::<GetRuntimeStatusInput>(step),
         ToolName::ConfirmAction => validate_tool_arguments::<ConfirmActionInput>(step),
         ToolName::ReportResult => validate_tool_arguments::<ReportResultInput>(step),
-        _ => Err(invalid_planner_output(
-            format!("planner referenced unsupported tool {:?}", step.tool_name),
-            Some(serde_json::json!({ "step_id": step.step_id })),
-        )),
     }
 }
 
@@ -2096,6 +2117,49 @@ fn validate_run_ocr_input(input: &RunOcrInput) -> Result<(), ToolError> {
         if bbox.width <= 0.0 || bbox.height <= 0.0 {
             return Err(invalid_planner_output(
                 "run_ocr bbox requires positive width and height",
+                Some(serde_json::json!({
+                    "x": bbox.x,
+                    "y": bbox.y,
+                    "width": bbox.width,
+                    "height": bbox.height,
+                })),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_merge_ocr_into_page_model_input(
+    input: &MergeOcrIntoPageModelInput,
+) -> Result<(), ToolError> {
+    if input.page_id.trim().is_empty() {
+        return Err(invalid_planner_output(
+            "merge_ocr_into_page_model requires a non-empty page_id",
+            None,
+        ));
+    }
+
+    if input.ocr_text.trim().is_empty() {
+        return Err(invalid_planner_output(
+            "merge_ocr_into_page_model requires non-empty ocr_text",
+            None,
+        ));
+    }
+
+    if let Some(region_id) = input.region_id.as_deref() {
+        if region_id.trim().is_empty() {
+            return Err(invalid_planner_output(
+                "merge_ocr_into_page_model region_id must be non-empty when provided",
+                None,
+            ));
+        }
+    }
+
+    if let Some(bbox) = input.source_bbox.as_ref() {
+        if bbox.width <= 0.0 || bbox.height <= 0.0 {
+            return Err(invalid_planner_output(
+                "merge_ocr_into_page_model source_bbox requires positive width and height",
                 Some(serde_json::json!({
                     "x": bbox.x,
                     "y": bbox.y,
@@ -2867,6 +2931,7 @@ fn likely_tools_for_intent(intent: &IntentName) -> Vec<ToolName> {
         IntentName::OcrRecovery => vec![
             ToolName::CaptureScreenshot,
             ToolName::RunOcr,
+            ToolName::MergeOcrIntoPageModel,
             ToolName::GetPageSnapshot,
             ToolName::ReportResult,
         ],
@@ -5269,6 +5334,7 @@ mod tests {
         last_scroll_request: Option<ScrollPageInput>,
         last_capture_screenshot_request: Option<CaptureScreenshotInput>,
         last_run_ocr_request: Option<RunOcrInput>,
+        last_merge_ocr_request: Option<MergeOcrIntoPageModelInput>,
         last_read_region_request: Option<ReadRegionInput>,
         last_read_next_region_request: Option<ReadNextRegionInput>,
         last_read_previous_region_request: Option<ReadPreviousRegionInput>,
@@ -5427,6 +5493,27 @@ mod tests {
                     source_bbox: input.bbox,
                 },
                 vec![String::from("ran OCR on the requested image")],
+            )
+        }
+
+        fn execute_merge_ocr_into_page_model(
+            &mut self,
+            input: MergeOcrIntoPageModelInput,
+        ) -> ToolResult<MergeOcrIntoPageModelData> {
+            self.last_merge_ocr_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::MergeOcrIntoPageModel,
+                input.request_id,
+                MergeOcrIntoPageModelData {
+                    page_id: input.page_id,
+                    updated_region_ids: vec![
+                        input
+                            .region_id
+                            .unwrap_or_else(|| String::from("ocr-region-1")),
+                    ],
+                    merged_text_length: input.ocr_text.trim().len(),
+                },
+                vec![String::from("merged OCR text into the page model")],
             )
         }
 
@@ -6421,6 +6508,49 @@ mod tests {
     }
 
     #[test]
+    fn dispatches_merge_ocr_into_page_model_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-merge-ocr"),
+            tool_name: ToolName::MergeOcrIntoPageModel,
+            arguments: serde_json::json!({
+                "request_id": "req-merge-ocr",
+                "timeout_ms": 1000,
+                "page_id": "page-1",
+                "region_id": "region-2",
+                "ocr_text": "Recovered readable text",
+                "source_bbox": {
+                    "x": 10.0,
+                    "y": 12.0,
+                    "width": 200.0,
+                    "height": 80.0
+                }
+            }),
+            purpose: String::from("merge OCR text into the runtime page model"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_merge_ocr_request
+                .as_ref()
+                .map(|input| input.page_id.as_str()),
+            Some("page-1")
+        );
+        assert_eq!(
+            executor
+                .last_merge_ocr_request
+                .as_ref()
+                .and_then(|input| input.region_id.as_deref()),
+            Some("region-2")
+        );
+    }
+
+    #[test]
     fn dispatches_get_page_snapshot_from_planned_step() {
         let mut executor = MockExecutor::default();
         let step = PlannedStep {
@@ -7294,12 +7424,9 @@ mod tests {
     }
 
     #[test]
-    fn planner_available_tools_exclude_unwired_tools() {
+    fn planner_available_tools_include_all_wave_two_tools() {
         let available_tools = planner_available_tools();
 
-        assert!(available_tools
-            .iter()
-            .all(|tool| !matches!(tool.name, ToolName::MergeOcrIntoPageModel)));
         assert!(available_tools
             .iter()
             .any(|tool| tool.name == ToolName::OpenUrl));
@@ -7321,6 +7448,9 @@ mod tests {
         assert!(available_tools
             .iter()
             .any(|tool| tool.name == ToolName::RunOcr));
+        assert!(available_tools
+            .iter()
+            .any(|tool| tool.name == ToolName::MergeOcrIntoPageModel));
     }
 
     #[test]
@@ -7984,6 +8114,49 @@ mod tests {
         assert!(error
             .message
             .contains("run_ocr requires at least one source"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_merge_ocr_with_empty_text() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::OcrRecovery,
+                goal: String::from("merge OCR text"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("read_visible_text")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-merge-ocr"),
+                tool_name: ToolName::MergeOcrIntoPageModel,
+                arguments: serde_json::json!({
+                    "request_id": "req-merge-ocr",
+                    "page_id": "page-1",
+                    "region_id": serde_json::Value::Null,
+                    "ocr_text": "   ",
+                    "source_bbox": serde_json::Value::Null
+                }),
+                purpose: String::from("merge OCR text"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("read_visible_text")],
+        )
+        .expect_err("validation should reject merge_ocr_into_page_model without OCR text");
+        assert_eq!(error.code, "invalid_planner_output");
+        assert!(error
+            .message
+            .contains("merge_ocr_into_page_model requires non-empty ocr_text"));
     }
 
     #[test]

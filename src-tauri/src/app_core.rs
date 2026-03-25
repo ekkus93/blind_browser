@@ -30,7 +30,8 @@ use crate::commands::{
     PlannerInput, PlannerOutput, PlannerStatus, PlannerToolHistoryEntry,
     ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
     ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
-    ReportResultData, ReportResultInput, ReportStatus, RunOcrData, RunOcrInput, ScrollPageData, ScrollPageInput,
+    MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput, ReportResultData, ReportResultInput,
+    ReportStatus, RunOcrData, RunOcrInput, ScrollPageData, ScrollPageInput,
     SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
     SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
     SetTtsVoiceInput, StartListeningData, StartListeningInput, StepTransition,
@@ -945,6 +946,186 @@ impl AppCore {
                 text_length,
                 confidence: ocr_result.confidence,
                 source_bbox: input.bbox,
+            },
+            observations,
+        )
+    }
+
+    pub fn execute_merge_ocr_into_page_model(
+        &mut self,
+        input: MergeOcrIntoPageModelInput,
+    ) -> ToolResult<MergeOcrIntoPageModelData> {
+        let requested_page_id = input.page_id.trim().to_string();
+        if requested_page_id.is_empty() {
+            return ToolResult::failure(
+                ToolName::MergeOcrIntoPageModel,
+                input.request_id,
+                ToolError {
+                    code: String::from("invalid_page_id"),
+                    message: String::from(
+                        "merge_ocr_into_page_model requires a non-empty page_id",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "OCR merge was rejected because it did not identify a target page.",
+                )],
+            );
+        }
+
+        let Some(active_page_id) = self.state.current_page_id.as_deref() else {
+            return ToolResult::failure(
+                ToolName::MergeOcrIntoPageModel,
+                input.request_id,
+                ToolError {
+                    code: String::from("no_active_page"),
+                    message: String::from(
+                        "merge_ocr_into_page_model requires an active page in runtime state",
+                    ),
+                    retryable: false,
+                    details: Some(serde_json::json!({ "page_id": requested_page_id })),
+                },
+                vec![String::from(
+                    "OCR merge could not run because no active page is loaded in runtime state.",
+                )],
+            );
+        };
+
+        if active_page_id != requested_page_id {
+            return ToolResult::failure(
+                ToolName::MergeOcrIntoPageModel,
+                input.request_id,
+                ToolError {
+                    code: String::from("page_id_mismatch"),
+                    message: String::from(
+                        "merge_ocr_into_page_model page_id must match the active runtime page",
+                    ),
+                    retryable: false,
+                    details: Some(serde_json::json!({
+                        "active_page_id": active_page_id,
+                        "page_id": requested_page_id,
+                    })),
+                },
+                vec![String::from(
+                    "OCR merge was rejected because it targeted a page that is not currently active.",
+                )],
+            );
+        }
+
+        let normalized_ocr_text = input.ocr_text.trim().to_string();
+        if normalized_ocr_text.is_empty() {
+            return ToolResult::failure(
+                ToolName::MergeOcrIntoPageModel,
+                input.request_id,
+                ToolError {
+                    code: String::from("invalid_ocr_text"),
+                    message: String::from(
+                        "merge_ocr_into_page_model requires non-empty ocr_text",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "OCR merge was rejected because there was no recognized text to merge.",
+                )],
+            );
+        }
+
+        if let Some(bbox) = input.source_bbox.as_ref() {
+            if bbox.width <= 0.0 || bbox.height <= 0.0 {
+                return ToolResult::failure(
+                    ToolName::MergeOcrIntoPageModel,
+                    input.request_id,
+                    ToolError {
+                        code: String::from("invalid_source_bbox"),
+                        message: String::from(
+                            "merge_ocr_into_page_model source_bbox requires positive width and height",
+                        ),
+                        retryable: false,
+                        details: Some(serde_json::json!({
+                            "x": bbox.x,
+                            "y": bbox.y,
+                            "width": bbox.width,
+                            "height": bbox.height,
+                        })),
+                    },
+                    vec![String::from(
+                        "OCR merge was rejected because the supplied source bounding box was invalid.",
+                    )],
+                );
+            }
+        }
+
+        let next_region_id = self.next_ocr_region_id(&input.request_id);
+        let requested_region_id = input
+            .region_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|region_id| !region_id.is_empty())
+            .map(ToOwned::to_owned);
+
+        let merge_outcome = {
+            let Some(current_page) = self.state.current_page.as_mut() else {
+                return ToolResult::failure(
+                    ToolName::MergeOcrIntoPageModel,
+                    input.request_id,
+                    ToolError {
+                        code: String::from("missing_page_model"),
+                        message: String::from(
+                            "merge_ocr_into_page_model requires runtime page data for the active page",
+                        ),
+                        retryable: false,
+                        details: Some(serde_json::json!({ "page_id": requested_page_id })),
+                    },
+                    vec![String::from(
+                        "OCR merge could not update the page because the runtime page model is missing.",
+                    )],
+                );
+            };
+
+            merge_ocr_text_into_page_model(
+                current_page,
+                requested_region_id.as_deref(),
+                &normalized_ocr_text,
+                next_region_id,
+            )
+        };
+
+        let updated_region_ids = match merge_outcome {
+            Ok(updated_region_ids) => updated_region_ids,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::MergeOcrIntoPageModel,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "OCR merge could not apply the recognized text to the runtime page model.",
+                    )],
+                )
+            }
+        };
+
+        let mut observations = vec![String::from(
+            "Merged OCR text into the active runtime page model.",
+        )];
+        if requested_region_id.is_some() {
+            observations.push(String::from(
+                "OCR text updated an existing page region and marked it as mixed DOM/OCR content.",
+            ));
+        } else {
+            observations.push(String::from(
+                "OCR text was added as a new OCR region because no existing target region was supplied.",
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::MergeOcrIntoPageModel,
+            input.request_id,
+            MergeOcrIntoPageModelData {
+                page_id: requested_page_id,
+                updated_region_ids,
+                merged_text_length: normalized_ocr_text.len(),
             },
             observations,
         )
@@ -3500,6 +3681,14 @@ impl AppCore {
         format!("image-{request_id}-{timestamp_ms}")
     }
 
+    fn next_ocr_region_id(&self, request_id: &str) -> String {
+        let timestamp_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(duration) => duration.as_millis(),
+            Err(_) => 0,
+        };
+        format!("ocr-region-{request_id}-{timestamp_ms}")
+    }
+
     fn cached_image_dir(&self) -> Result<PathBuf, ToolError> {
         let cache_dir = self
             .app_handle
@@ -3635,6 +3824,13 @@ impl DeterministicToolExecutor for AppCore {
         AppCore::execute_run_ocr(self, input)
     }
 
+    fn execute_merge_ocr_into_page_model(
+        &mut self,
+        input: MergeOcrIntoPageModelInput,
+    ) -> ToolResult<MergeOcrIntoPageModelData> {
+        AppCore::execute_merge_ocr_into_page_model(self, input)
+    }
+
     fn execute_list_interactive_elements(
         &mut self,
         input: ListInteractiveElementsInput,
@@ -3739,6 +3935,76 @@ fn normalize_optional_text(value: Option<String>) -> Option<String> {
             Some(trimmed.to_string())
         }
     })
+}
+
+fn merge_ocr_text_into_page_model(
+    page: &mut PageModel,
+    region_id: Option<&str>,
+    ocr_text: &str,
+    next_region_id: String,
+) -> Result<Vec<String>, ToolError> {
+    let normalized_text = ocr_text.trim();
+    if normalized_text.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_ocr_text"),
+            message: String::from("merge_ocr_into_page_model requires non-empty ocr_text"),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    if let Some(region_id) = region_id {
+        let Some(region) = page.regions.iter_mut().find(|region| region.region_id == region_id) else {
+            return Err(ToolError {
+                code: String::from("unknown_region_id"),
+                message: String::from(
+                    "merge_ocr_into_page_model requires a region_id that exists in the current page model",
+                ),
+                retryable: false,
+                details: Some(serde_json::json!({ "region_id": region_id })),
+            });
+        };
+
+        region.text = merged_region_text(&region.text, normalized_text);
+        region.source = match region.source {
+            RegionSource::Dom | RegionSource::Mixed => RegionSource::Mixed,
+            RegionSource::Ocr => RegionSource::Ocr,
+        };
+
+        Ok(vec![region.region_id.clone()])
+    } else {
+        let region_id = next_region_id;
+        page.regions.push(PageRegion {
+            region_id: region_id.clone(),
+            label: None,
+            text: normalized_text.to_string(),
+            source: RegionSource::Ocr,
+        });
+        Ok(vec![region_id])
+    }
+}
+
+fn merged_region_text(existing_text: &str, ocr_text: &str) -> String {
+    let existing_text = existing_text.trim();
+    let ocr_text = ocr_text.trim();
+
+    if existing_text.is_empty() {
+        return ocr_text.to_string();
+    }
+    if ocr_text.is_empty() {
+        return existing_text.to_string();
+    }
+    if existing_text == ocr_text {
+        return existing_text.to_string();
+    }
+    if existing_text.contains(ocr_text) {
+        return existing_text.to_string();
+    }
+    if ocr_text.contains(existing_text) {
+        return ocr_text.to_string();
+    }
+
+    format!("{existing_text}\n\n{ocr_text}")
 }
 
 fn ocr_runtime_error_to_tool_error(error: &OcrRuntimeError) -> ToolError {
@@ -5401,7 +5667,7 @@ fn infer_extraction_source(page: &PageModel, use_dom_extraction: bool) -> Extrac
     let has_ocr = page
         .regions
         .iter()
-        .any(|region| matches!(region.source, RegionSource::Ocr));
+        .any(|region| matches!(region.source, RegionSource::Ocr | RegionSource::Mixed));
     let has_dom_like = page
         .regions
         .iter()
@@ -5461,8 +5727,9 @@ mod tests {
         build_extracted_page_model, build_find_element_query, build_visible_text_excerpt,
         determine_find_element_resolution, execute_bounded_replanning_loop,
         filter_interactive_elements, infer_extraction_source, normalize_absolute_url,
-        normalize_optional_text, planner_system_prompt, rank_find_element_candidates,
-        resolve_clickable_element, resolve_direct_fill_and_submit_command,
+        merge_ocr_text_into_page_model, merged_region_text, normalize_optional_text,
+        planner_system_prompt, rank_find_element_candidates, resolve_clickable_element,
+        resolve_direct_fill_and_submit_command,
         resolve_direct_fill_field_command,
         resolve_direct_focus_field_command, resolve_direct_submit_form_command,
         resolve_form_element, resolve_typeable_element, ReplanningRuntime,
@@ -5615,6 +5882,85 @@ mod tests {
             infer_extraction_source(&page, true),
             ExtractionSource::Merged
         );
+    }
+
+    #[test]
+    fn infer_extraction_source_treats_mixed_regions_as_merged() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![PageRegion {
+                region_id: String::from("mixed-region"),
+                label: None,
+                text: String::from("DOM text\n\nOCR text"),
+                source: RegionSource::Mixed,
+            }],
+            interactive_elements: Vec::new(),
+        };
+
+        assert_eq!(
+            infer_extraction_source(&page, true),
+            ExtractionSource::Merged
+        );
+    }
+
+    #[test]
+    fn merged_region_text_prefers_more_complete_or_combined_text() {
+        assert_eq!(
+            merged_region_text("Short label", "Short label with extra detail"),
+            String::from("Short label with extra detail")
+        );
+        assert_eq!(
+            merged_region_text("DOM text", "OCR text"),
+            String::from("DOM text\n\nOCR text")
+        );
+    }
+
+    #[test]
+    fn merge_ocr_text_into_page_model_updates_existing_region_as_mixed() {
+        let mut page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![PageRegion {
+                region_id: String::from("region-1"),
+                label: Some(String::from("Main")),
+                text: String::from("DOM summary"),
+                source: RegionSource::Dom,
+            }],
+            interactive_elements: Vec::new(),
+        };
+
+        let updated_region_ids =
+            merge_ocr_text_into_page_model(&mut page, Some("region-1"), "OCR detail", String::from("unused"))
+                .expect("merge should update the requested region");
+
+        assert_eq!(updated_region_ids, vec![String::from("region-1")]);
+        assert_eq!(page.regions[0].source, RegionSource::Mixed);
+        assert_eq!(page.regions[0].text, String::from("DOM summary\n\nOCR detail"));
+    }
+
+    #[test]
+    fn merge_ocr_text_into_page_model_appends_new_ocr_region_when_target_missing() {
+        let mut page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: Vec::new(),
+            interactive_elements: Vec::new(),
+        };
+
+        let updated_region_ids = merge_ocr_text_into_page_model(
+            &mut page,
+            None,
+            "Recovered OCR text",
+            String::from("ocr-region-generated"),
+        )
+        .expect("merge should create a new OCR region when no target region_id is supplied");
+
+        assert_eq!(updated_region_ids, vec![String::from("ocr-region-generated")]);
+        assert_eq!(page.regions.len(), 1);
+        assert_eq!(page.regions[0].region_id, "ocr-region-generated");
+        assert_eq!(page.regions[0].source, RegionSource::Ocr);
+        assert_eq!(page.regions[0].text, "Recovered OCR text");
     }
 
     #[test]

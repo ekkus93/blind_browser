@@ -271,7 +271,7 @@
 - [x] Implement `submit_active_form`
 - [x] Implement `capture_screenshot`
 - [x] Implement `run_ocr`
-- [ ] Implement `merge_ocr_into_page_model`
+- [x] Implement `merge_ocr_into_page_model`
 - [ ] Finalize input schema for all Wave 2 tools
 - [ ] Finalize output schema for all Wave 2 tools
 - [ ] Finalize shared enums for Wave 2 tools
