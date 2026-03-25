@@ -19,6 +19,7 @@ export interface AudioControlsPanelState {
 export interface StatusPanelState {
   pageTitle: string | null;
   currentRegionLabel: string | null;
+  lastTranscript: string | null;
   listening: boolean;
   speaking: boolean;
   browserVisibility: "Visible" | "Headless";
@@ -221,6 +222,7 @@ export function renderAudioControlsPanel(state: AudioControlsPanelState): string
 export function renderStatusPanel(state: StatusPanelState): string {
   const title = state.pageTitle ?? "No page open yet";
   const region = state.currentRegionLabel ?? "No current region";
+  const transcript = state.lastTranscript ?? "No spoken command captured yet";
   const errorCopy = state.error
     ? `<p class="status-panel-error" role="alert">${escapeHtml(state.error)}</p>`
     : "";
@@ -247,6 +249,10 @@ export function renderStatusPanel(state: StatusPanelState): string {
         <div class="status-card">
           <dt>Current region</dt>
           <dd>${escapeHtml(region)}</dd>
+        </div>
+        <div class="status-card status-card-wide status-card-transcript">
+          <dt>Last transcript</dt>
+          <dd>${escapeHtml(transcript)}</dd>
         </div>
         <div class="status-card">
           <dt>Listening</dt>

@@ -259,7 +259,7 @@
 
 ### App Integration
 - [x] Route ASR → command → action
-- [ ] Display transcript in UI
+- [x] Display transcript in UI
 
 ---
 

@@ -496,3 +496,9 @@
 - `src-tauri/src/lib.rs` and `src/tauri-api.ts` now expose a typed `transcribe_and_execute_command` Tauri command, and `src/main.ts` uses it during push-to-talk release instead of manually chaining separate transcribe, resolve, and execute calls in the frontend.
 - This keeps the voice-first flow bounded in the Rust runtime while still preserving the captured transcript in the UI when post-transcription routing fails, and `docs/TODO.md` now marks `Route ASR → command → action` complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (89 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
+
+## 2026-03-25T03:32:55Z - GPT-5.4 - Runtime status UI now shows the last spoken transcript
+- `src/main.ts` now hydrates `StatusPanelState.lastTranscript` from runtime `get_agent_state(...)` refreshes with `includeLastTranscript: true`, so the status panel reflects the same last spoken command tracked by the backend runtime.
+- `src/tauri-api.ts`, `src/confirmation-panel.ts`, and `src/styles.css` now support and render a dedicated `Last transcript` status card with readable wrapping, while the existing inline push-to-talk transcript remains in place for immediate feedback.
+- `src/confirmation-panel.test.mjs` now covers both transcript-present and transcript-empty status-panel rendering, and `docs/TODO.md` now marks `Display transcript in UI` complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (89 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.

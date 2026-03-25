@@ -97,6 +97,7 @@ function createInitialStatusPanelState(): StatusPanelState {
   return {
     pageTitle: null,
     currentRegionLabel: null,
+    lastTranscript: null,
     listening: false,
     speaking: false,
     browserVisibility: "Visible",
@@ -250,6 +251,7 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
   setStatusPanelState({
     pageTitle: agentState.title ?? agentState.url,
     currentRegionLabel: currentRegionLabelForAgentState(agentState),
+    lastTranscript: agentState.last_transcript,
     listening: agentState.listening_state.is_listening,
     speaking: agentState.speaking,
     browserVisibility: agentState.browser_visibility,
@@ -263,6 +265,7 @@ async function refreshRuntimePanelsFromRuntime() {
   try {
     const agentState = await getAgentState({
       requestId: createRequestId("runtime-panels-state"),
+      includeLastTranscript: true,
     });
     applyAgentStateToPanels(agentState);
   } catch (error: unknown) {

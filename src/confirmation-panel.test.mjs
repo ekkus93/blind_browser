@@ -206,6 +206,7 @@ test("renders runtime status details from agent state", () => {
   const html = renderStatusPanel({
     pageTitle: "Example Domain",
     currentRegionLabel: "Region 3",
+    lastTranscript: "open example dot com",
     listening: true,
     speaking: false,
     browserVisibility: "Headless",
@@ -218,6 +219,8 @@ test("renders runtime status details from agent state", () => {
   assert.match(html, /Current browser state/);
   assert.match(html, /Example Domain/);
   assert.match(html, /Region 3/);
+  assert.match(html, /Last transcript/);
+  assert.match(html, /open example dot com/);
   assert.match(html, /Listening/);
   assert.match(html, /Active/);
   assert.match(html, /Browser mode/);
@@ -232,6 +235,7 @@ test("renders status panel fallbacks and errors when runtime sync fails", () => 
   const html = renderStatusPanel({
     pageTitle: null,
     currentRegionLabel: null,
+    lastTranscript: null,
     listening: false,
     speaking: false,
     browserVisibility: "Visible",
@@ -243,6 +247,7 @@ test("renders status panel fallbacks and errors when runtime sync fails", () => 
 
   assert.match(html, /No page open yet/);
   assert.match(html, /No current region/);
+  assert.match(html, /No spoken command captured yet/);
   assert.match(html, /The runtime state could not be loaded\./);
   assert.match(html, /role="alert"/);
 });
@@ -251,6 +256,7 @@ test("disables browser visibility toggle buttons while visibility changes are in
   const html = renderStatusPanel({
     pageTitle: "Example Domain",
     currentRegionLabel: "Region 1",
+    lastTranscript: "show browser",
     listening: false,
     speaking: false,
     browserVisibility: "Visible",

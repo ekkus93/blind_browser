@@ -303,6 +303,7 @@ export interface ConfirmActionResponseInput {
 export interface DirectToolRequestInput {
   requestId: string;
   timeoutMs?: number;
+  includeLastTranscript?: boolean;
 }
 
 export interface DirectTranscribeCommandInput extends DirectToolRequestInput {
@@ -383,7 +384,7 @@ export async function getAgentState(input: DirectToolRequestInput): Promise<Agen
   const result = await invoke<ToolResult<AgentStateData>>("get_agent_state", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
-    includeLastTranscript: false,
+    includeLastTranscript: input.includeLastTranscript ?? false,
   });
   return unwrapToolResult(result);
 }
