@@ -114,6 +114,12 @@ export interface TranscribeCommandData {
   listening_state: ListeningState;
 }
 
+export interface TranscribeAndExecuteCommandData {
+  transcription: TranscribeCommandData;
+  command_error: ToolError | null;
+  execution_outcome: ExecutionOutcome | null;
+}
+
 export interface SetPlaybackVolumeData {
   playback_volume: number;
   muted: boolean;
@@ -360,6 +366,17 @@ export async function transcribeCommand(
     autoStop: input.autoStop,
   });
   return unwrapToolResult(result);
+}
+
+export async function transcribeAndExecuteCommand(
+  input: DirectTranscribeCommandInput,
+): Promise<TranscribeAndExecuteCommandData> {
+  return invoke<TranscribeAndExecuteCommandData>("transcribe_and_execute_command", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    maxDurationMs: input.maxDurationMs,
+    autoStop: input.autoStop,
+  });
 }
 
 export async function getAgentState(input: DirectToolRequestInput): Promise<AgentStateData> {

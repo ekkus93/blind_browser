@@ -24,7 +24,7 @@ use crate::commands::{
     SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
     SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, StartListeningData,
     StartListeningInput, StopListeningData, StopListeningInput, ToolError, ToolResult,
-    TranscribeCommandData, TranscribeCommandInput,
+    TranscribeAndExecuteCommandData, TranscribeCommandData, TranscribeCommandInput,
 };
 use crate::browser::BrowserVisibilityMode;
 
@@ -120,6 +120,19 @@ fn transcribe_command(
 }
 
 #[tauri::command]
+fn transcribe_and_execute_command(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    max_duration_ms: Option<u64>,
+    auto_stop: bool,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<TranscribeAndExecuteCommandData, ToolError> {
+    let mut app_core = lock_app_core(&app_core)?;
+
+    app_core.transcribe_and_execute_command(request_id, timeout_ms, max_duration_ms, auto_stop)
+}
+
+#[tauri::command]
 fn get_agent_state(
     request_id: String,
     timeout_ms: Option<u64>,
@@ -194,6 +207,7 @@ pub fn run() {
             start_listening,
             stop_listening,
             transcribe_command,
+            transcribe_and_execute_command,
             get_agent_state,
             set_playback_volume,
             set_playback_speed,

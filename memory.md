@@ -490,3 +490,9 @@
 - The fuzzy layer stays deterministic and narrow: it only corrects a small whitelist of already-supported command words when the correction is unambiguous, and it does not add open-ended semantic recovery.
 - Added regression coverage for fuzzy audio, browser visibility, status/current-URL, and form utterances, and `docs/TODO.md` plus `docs/SPECS.md` now mark and describe this bounded fuzzy-matching behavior.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (89 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
+
+## 2026-03-25T03:24:27Z - GPT-5.4 - Push-to-talk now routes ASR directly into bounded command execution
+- `src-tauri/src/app_core.rs` now provides `transcribe_and_execute_command(...)`, which runs deterministic transcription, then reuses the existing `resolve_command(...)` and `execute_planner_output(...)` flow when a transcript is present, returning either an `ExecutionOutcome` or a command-resolution `ToolError` alongside the transcription payload.
+- `src-tauri/src/lib.rs` and `src/tauri-api.ts` now expose a typed `transcribe_and_execute_command` Tauri command, and `src/main.ts` uses it during push-to-talk release instead of manually chaining separate transcribe, resolve, and execute calls in the frontend.
+- This keeps the voice-first flow bounded in the Rust runtime while still preserving the captured transcript in the UI when post-transcription routing fails, and `docs/TODO.md` now marks `Route ASR → command → action` complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (89 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.

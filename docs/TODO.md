@@ -258,7 +258,7 @@
 - [x] Handle fuzzy matching
 
 ### App Integration
-- [ ] Route ASR → command → action
+- [x] Route ASR → command → action
 - [ ] Display transcript in UI
 
 ---

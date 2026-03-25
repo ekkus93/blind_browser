@@ -25,8 +25,9 @@ use crate::commands::{
     ScrollPageData, ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput,
     SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
     SetTtsVoiceData, SetTtsVoiceInput, StartListeningData, StartListeningInput,
-    StopListeningData, StopListeningInput, StopSpeakingData, StopSpeakingInput, ToolError,
-    ToolName, ToolResult, TranscribeCommandData, TranscribeCommandInput,
+    StopListeningData, StopListeningInput, StopSpeakingData, StopSpeakingInput,
+    TranscribeAndExecuteCommandData, ToolError, ToolName, ToolResult, TranscribeCommandData,
+    TranscribeCommandInput,
 };
 use crate::config::{
     AppConfig, AudioSettings, ConfigError, RemotePlannerProfile, RemoteProviderKind, SecretRef,
@@ -1729,6 +1730,51 @@ impl AppCore {
                 )
             }
         }
+    }
+
+    pub fn transcribe_and_execute_command(
+        &mut self,
+        request_id: String,
+        timeout_ms: Option<u64>,
+        max_duration_ms: Option<u64>,
+        auto_stop: bool,
+    ) -> Result<TranscribeAndExecuteCommandData, ToolError> {
+        let transcription_result = self.execute_transcribe_command(TranscribeCommandInput {
+            request_id: request_id.clone(),
+            timeout_ms,
+            max_duration_ms,
+            auto_stop,
+        });
+
+        let Some(transcription) = transcription_result.data else {
+            return Err(transcription_result.error.unwrap_or(ToolError {
+                code: String::from("missing_transcription_result"),
+                message: String::from("transcribe_command did not return transcription data"),
+                retryable: false,
+                details: Some(serde_json::json!({
+                    "request_id": request_id,
+                    "tool_name": ToolName::TranscribeCommand,
+                })),
+            }));
+        };
+
+        let (command_error, execution_outcome) = if let Some(transcript) = transcription.transcript.clone() {
+            match self.resolve_command(format!("{request_id}-resolve"), transcript) {
+                Ok(planner_output) => (
+                    None,
+                    Some(self.execute_planner_output(format!("{request_id}-execute"), &planner_output)),
+                ),
+                Err(error) => (Some(error), None),
+            }
+        } else {
+            (None, None)
+        };
+
+        Ok(TranscribeAndExecuteCommandData {
+            transcription,
+            command_error,
+            execution_outcome,
+        })
     }
 
     pub fn execute_get_agent_state(

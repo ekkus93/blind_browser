@@ -12,7 +12,6 @@ import {
 import {
   createExecutionUiStore,
   describeConfirmationSubmissionFailure,
-  runPlannerExecution,
   resolveConfirmationResponse,
   type ExecutionUiState,
 } from "./planner-orchestration";
@@ -20,13 +19,12 @@ import {
   classifyInvokeFailure,
   type AgentStateData,
   getAgentState,
-  resolveCommand,
   setBrowserVisibility,
   setPlaybackSpeed,
   setPlaybackVolume,
   startListening,
   stopListening,
-  transcribeCommand,
+  transcribeAndExecuteCommand,
 } from "./tauri-api";
 
 export {
@@ -58,6 +56,7 @@ export {
   startListening as invokeStartListening,
   stopListening as invokeStopListening,
   submitConfirmationResponse as invokeSubmitConfirmationResponse,
+  transcribeAndExecuteCommand as invokeTranscribeAndExecuteCommand,
   transcribeCommand as invokeTranscribeCommand,
 } from "./tauri-api";
 
@@ -437,16 +436,22 @@ async function releasePushToTalk(source: "keyboard" | "pointer") {
   });
 
   try {
-    const transcription = await transcribeCommand({
+    const result = await transcribeAndExecuteCommand({
       requestId: createRequestId("push-to-talk-transcribe"),
       maxDurationMs: PUSH_TO_TALK_RELEASE_CAPTURE_MS,
       autoStop: true,
     });
+    const {
+      transcription,
+      command_error: commandError,
+      execution_outcome: executionOutcome,
+    } = result;
     setPushToTalkState({
       enabled: transcription.listening_state.push_to_talk_enabled,
       isListening: transcription.listening_state.is_listening,
       isBusy: false,
       lastTranscript: transcription.transcript,
+      lastError: commandError?.message ?? null,
     });
 
     if (!transcription.transcript) {
@@ -454,11 +459,14 @@ async function releasePushToTalk(source: "keyboard" | "pointer") {
       return;
     }
 
-    const plannerOutput = await resolveCommand(
-      createRequestId("push-to-talk-resolve"),
-      transcription.transcript,
-    );
-    await runPlannerExecution(createRequestId("push-to-talk-execute"), plannerOutput, uiStore);
+    if (commandError) {
+      await refreshRuntimePanelsFromRuntime();
+      return;
+    }
+
+    if (executionOutcome) {
+      uiStore.applyOutcome(executionOutcome);
+    }
     await refreshRuntimePanelsFromRuntime();
   } catch (error: unknown) {
     setPushToTalkState({

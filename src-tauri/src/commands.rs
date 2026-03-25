@@ -638,6 +638,13 @@ pub struct TranscribeCommandData {
     pub listening_state: ListeningState,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct TranscribeAndExecuteCommandData {
+    pub transcription: TranscribeCommandData,
+    pub command_error: Option<ToolError>,
+    pub execution_outcome: Option<ExecutionOutcome>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct GetPageSnapshotInput {
     pub request_id: String,
