@@ -79,6 +79,24 @@ pub struct BrowserClickState {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BrowserFocusState {
+    pub url: String,
+    pub title: Option<String>,
+    pub focused: bool,
+    pub history: crate::state::BrowserHistoryState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BrowserTypeState {
+    pub url: String,
+    pub title: Option<String>,
+    pub page_changed: bool,
+    pub accepted_input: bool,
+    pub value_after: Option<String>,
+    pub history: crate::state::BrowserHistoryState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BrowserNavigationState {
     pub navigated: bool,
     pub url: Option<String>,
@@ -115,6 +133,10 @@ pub enum BrowserError {
     ElementNotFound { element_id: String, locator: String },
     #[error("failed to click the resolved DOM element: {0}")]
     Click(String),
+    #[error("failed to focus the resolved DOM element: {0}")]
+    Focus(String),
+    #[error("failed to type into the resolved DOM element: {0}")]
+    Type(String),
     #[error("failed to read browser navigation history: {0}")]
     History(String),
     #[error("failed to reload the active page: {0}")]
@@ -230,6 +252,204 @@ impl BrowserController {
         {
             let _ = element;
             let _ = double_click;
+            let _ = timeout_ms;
+            Err(BrowserError::FeatureDisabled)
+        }
+    }
+
+    pub fn focus_element(
+        &mut self,
+        element: &InteractiveElement,
+        timeout_ms: Option<u64>,
+    ) -> Result<BrowserFocusState, BrowserError> {
+        #[cfg(feature = "browser")]
+        {
+            let session = self.ensure_session()?;
+            let page = session.page.clone().ok_or(BrowserError::NoActivePage)?;
+            let selector = stable_dom_selector(element)?;
+            ensure_live_element(&page, element, selector)?;
+            let selector_literal =
+                serde_json::to_string(selector).map_err(|error| BrowserError::Resolve(error.to_string()))?;
+
+            let focus_result = tauri::async_runtime::block_on(async {
+                page.evaluate(format!(
+                    r#"(() => {{
+                        const selector = {selector_literal};
+                        const element = document.querySelector(selector);
+                        if (!element) {{
+                            return {{ found: false, focused: false }};
+                        }}
+                        if (typeof element.focus === 'function') {{
+                            element.focus();
+                        }}
+                        return {{
+                            found: true,
+                            focused: document.activeElement === element
+                        }};
+                    }})()"#
+                ))
+                .await
+                .map_err(|error| BrowserError::Focus(error.to_string()))?
+                .into_value::<LiveFocusResult>()
+                .map_err(|error| BrowserError::Focus(error.to_string()))
+            })?;
+
+            if !focus_result.found {
+                return Err(BrowserError::ElementNotFound {
+                    element_id: element.element_id.clone(),
+                    locator: selector.to_string(),
+                });
+            }
+
+            wait_for_page_settle(timeout_ms);
+            let after = tauri::async_runtime::block_on(snapshot_page_state(&page))?;
+
+            Ok(BrowserFocusState {
+                url: after.url,
+                title: after.title,
+                focused: focus_result.focused,
+                history: after.history,
+            })
+        }
+
+        #[cfg(not(feature = "browser"))]
+        {
+            let _ = element;
+            let _ = timeout_ms;
+            Err(BrowserError::FeatureDisabled)
+        }
+    }
+
+    pub fn type_into_element(
+        &mut self,
+        element: &InteractiveElement,
+        text: &str,
+        clear_first: bool,
+        submit_after: bool,
+        timeout_ms: Option<u64>,
+    ) -> Result<BrowserTypeState, BrowserError> {
+        #[cfg(feature = "browser")]
+        {
+            let session = self.ensure_session()?;
+            let page = session.page.clone().ok_or(BrowserError::NoActivePage)?;
+            let before = tauri::async_runtime::block_on(snapshot_page_state(&page))?;
+            let selector = stable_dom_selector(element)?;
+            ensure_live_element(&page, element, selector)?;
+            let selector_literal =
+                serde_json::to_string(selector).map_err(|error| BrowserError::Resolve(error.to_string()))?;
+            let text_literal =
+                serde_json::to_string(text).map_err(|error| BrowserError::Type(error.to_string()))?;
+
+            let type_result = tauri::async_runtime::block_on(async {
+                page.evaluate(format!(
+                    r#"(() => {{
+                        const selector = {selector_literal};
+                        const text = {text_literal};
+                        const clearFirst = {clear_first};
+                        const submitAfter = {submit_after};
+                        const element = document.querySelector(selector);
+                        if (!element) {{
+                            return {{ found: false, accepted_input: false, value_after: null }};
+                        }}
+
+                        const dispatchInputEvents = (target) => {{
+                            target.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            target.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        }};
+
+                        const setNativeValue = (target, value) => {{
+                            const prototype = Object.getPrototypeOf(target);
+                            const descriptor = prototype
+                                ? Object.getOwnPropertyDescriptor(prototype, 'value')
+                                : null;
+                            if (descriptor && typeof descriptor.set === 'function') {{
+                                descriptor.set.call(target, value);
+                            }} else {{
+                                target.value = value;
+                            }}
+                        }};
+
+                        if (typeof element.focus === 'function') {{
+                            element.focus();
+                        }}
+
+                        if (element instanceof HTMLSelectElement) {{
+                            const desired = text.trim().toLowerCase();
+                            const matched = Array.from(element.options).find((option) => {{
+                                const optionValue = String(option.value ?? '').trim().toLowerCase();
+                                const optionLabel = String(option.textContent ?? '').trim().toLowerCase();
+                                return optionValue === desired || optionLabel === desired;
+                            }});
+                            if (!matched) {{
+                                return {{
+                                    found: true,
+                                    accepted_input: false,
+                                    value_after: String(element.value ?? '')
+                                }};
+                            }}
+                            element.value = matched.value;
+                            dispatchInputEvents(element);
+                        }} else if ('value' in element) {{
+                            const nextValue = clearFirst
+                                ? text
+                                : `${{String(element.value ?? '')}}${{text}}`;
+                            setNativeValue(element, nextValue);
+                            dispatchInputEvents(element);
+                        }} else {{
+                            return {{ found: true, accepted_input: false, value_after: null }};
+                        }}
+
+                        if (submitAfter && element.form) {{
+                            if (typeof element.form.requestSubmit === 'function') {{
+                                element.form.requestSubmit();
+                            }} else {{
+                                element.form.submit();
+                            }}
+                        }}
+
+                        return {{
+                            found: true,
+                            accepted_input: true,
+                            value_after: 'value' in element ? String(element.value ?? '') : null
+                        }};
+                    }})()"#
+                ))
+                .await
+                .map_err(|error| BrowserError::Type(error.to_string()))?
+                .into_value::<LiveTypeResult>()
+                .map_err(|error| BrowserError::Type(error.to_string()))
+            })?;
+
+            if !type_result.found {
+                return Err(BrowserError::ElementNotFound {
+                    element_id: element.element_id.clone(),
+                    locator: selector.to_string(),
+                });
+            }
+
+            wait_for_page_settle(timeout_ms);
+            let after = tauri::async_runtime::block_on(snapshot_page_state(&page))?;
+            let value_after = type_result
+                .value_after
+                .as_deref()
+                .and_then(normalize_optional_text);
+
+            Ok(BrowserTypeState {
+                page_changed: after.url != before.url,
+                url: after.url,
+                title: after.title,
+                accepted_input: type_result.accepted_input,
+                value_after,
+                history: after.history,
+            })
+        }
+
+        #[cfg(not(feature = "browser"))]
+        {
+            let _ = element;
+            let _ = text;
+            let _ = clear_first;
+            let _ = submit_after;
             let _ = timeout_ms;
             Err(BrowserError::FeatureDisabled)
         }
@@ -520,6 +740,46 @@ async fn snapshot_page_state(page: &Page) -> Result<BrowserPageState, BrowserErr
         title,
         history: read_browser_history(page).await?,
     })
+}
+
+#[cfg(feature = "browser")]
+fn stable_dom_selector(element: &InteractiveElement) -> Result<&str, BrowserError> {
+    element
+        .dom_locator
+        .as_deref()
+        .map(str::trim)
+        .filter(|locator| !locator.is_empty())
+        .ok_or_else(|| BrowserError::MissingDomLocator {
+            element_id: element.element_id.clone(),
+        })
+}
+
+#[cfg(feature = "browser")]
+fn ensure_live_element(page: &Page, element: &InteractiveElement, selector: &str) -> Result<(), BrowserError> {
+    tauri::async_runtime::block_on(async {
+        page.find_element(selector)
+            .await
+            .map(|_| ())
+            .map_err(|_| BrowserError::ElementNotFound {
+                element_id: element.element_id.clone(),
+                locator: selector.to_string(),
+            })
+    })
+}
+
+#[cfg(feature = "browser")]
+#[derive(Debug, Deserialize)]
+struct LiveFocusResult {
+    found: bool,
+    focused: bool,
+}
+
+#[cfg(feature = "browser")]
+#[derive(Debug, Deserialize)]
+struct LiveTypeResult {
+    found: bool,
+    accepted_input: bool,
+    value_after: Option<String>,
 }
 
 #[cfg(feature = "browser")]

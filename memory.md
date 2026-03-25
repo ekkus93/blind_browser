@@ -630,3 +630,17 @@
 ## 2026-03-25T17:33:09Z - GPT-5.4 - Focus-field phrase slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The focus-field phrase-routing slice remained green at `129` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing change is clean going into commit and push.
+
+## 2026-03-25T17:51:29Z - GPT-5.4 - Fill-field direct routing landed
+- `src-tauri/src/browser.rs` now implements live `focus_element` and `type_into_element` DOM actions, including deterministic selector resolution, value updates, and browser history/title snapshots after the action.
+- `src-tauri/src/app_core.rs` now executes those form-entry tools, updates current-page field values after successful typing, routes `fill field` / `type into field` directly when the target field is deterministic, and upgrades the existing `focus field` shortcut to use `focus_element`.
+- `src-tauri/src/commands.rs` now exposes the new tool schemas/dispatcher paths and parses fill phrases without destroying the dictated text payload.
+- Validation baseline for this slice is green: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` all pass; the Vite build still emits the existing Node `22.11.0` vs `22.12.0+` warning.
+
+## 2026-03-25T17:55:01Z - GPT-5.4 - Repo revalidated after fill-field slice
+- Re-ran the standard validation set on the current worktree: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The repo remains green at `135` Rust tests and `12` UI tests, with no new validation failures introduced since the fill-field changes landed.
+
+## 2026-03-25T17:56:13Z - GPT-5.4 - Fill-field slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The fill-field slice remains green at `135` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing and form-entry-tool change is clean going into commit and push.

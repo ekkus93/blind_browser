@@ -227,8 +227,8 @@
   - [x] stop listening
   - [x] transcribe command
   - [x] focus field
-  - [ ] fill field
-  - [ ] type into field
+  - [x] fill field
+  - [x] type into field
   - [ ] submit form
   - [ ] fill and submit form
   - [x] set volume
@@ -266,8 +266,8 @@
 ## Phase 4: DOM + OCR
 
 ### Deterministic Tool Core: Wave 2
-- [ ] Implement `focus_element`
-- [ ] Implement `type_into_element`
+- [x] Implement `focus_element`
+- [x] Implement `type_into_element`
 - [ ] Implement `submit_active_form`
 - [ ] Implement `capture_screenshot`
 - [ ] Implement `run_ocr`

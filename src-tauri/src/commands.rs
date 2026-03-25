@@ -27,6 +27,8 @@ pub enum ToolName {
     ListInteractiveElements,
     FindElement,
     ClickElement,
+    FocusElement,
+    TypeIntoElement,
     ReadRegion,
     ReadNextRegion,
     ReadPreviousRegion,
@@ -127,6 +129,11 @@ pub trait DeterministicToolExecutor {
     ) -> ToolResult<ListInteractiveElementsData>;
     fn execute_find_element(&mut self, input: FindElementInput) -> ToolResult<FindElementData>;
     fn execute_click_element(&mut self, input: ClickElementInput) -> ToolResult<ClickElementData>;
+    fn execute_focus_element(&mut self, input: FocusElementInput) -> ToolResult<FocusElementData>;
+    fn execute_type_into_element(
+        &mut self,
+        input: TypeIntoElementInput,
+    ) -> ToolResult<TypeIntoElementData>;
     fn execute_extract_page_model(
         &mut self,
         input: ExtractPageModelInput,
@@ -588,6 +595,12 @@ pub(crate) struct FocusFieldCommand {
     pub description: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FillFieldCommand {
+    pub description: Option<String>,
+    pub text: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct ReadNextRegionInput {
     pub request_id: String,
@@ -747,6 +760,38 @@ pub struct ClickElementData {
     pub page_changed: bool,
     pub navigation_url: Option<String>,
     pub resulting_title: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct FocusElementInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub element_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct FocusElementData {
+    pub element_id: String,
+    pub focused: bool,
+    pub element_role: Option<crate::page_model::ElementRole>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct TypeIntoElementInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub element_id: String,
+    pub text: String,
+    pub clear_first: bool,
+    pub submit_after: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct TypeIntoElementData {
+    pub element_id: String,
+    pub text_length: usize,
+    pub value_after: Option<String>,
+    pub accepted_input: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -917,6 +962,17 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
                 executor.execute_click_element(input)
             })
         }
+        ToolName::FocusElement => {
+            execute_serialized_tool(step, ToolName::FocusElement, executor, |executor, input| {
+                executor.execute_focus_element(input)
+            })
+        }
+        ToolName::TypeIntoElement => execute_serialized_tool(
+            step,
+            ToolName::TypeIntoElement,
+            executor,
+            |executor, input| executor.execute_type_into_element(input),
+        ),
         ToolName::ExtractPageModel => execute_serialized_tool(
             step,
             ToolName::ExtractPageModel,
@@ -1354,6 +1410,8 @@ pub fn tool_input_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
         ToolName::ListInteractiveElements => Some(schema_json::<ListInteractiveElementsInput>()),
         ToolName::FindElement => Some(schema_json::<FindElementInput>()),
         ToolName::ClickElement => Some(schema_json::<ClickElementInput>()),
+        ToolName::FocusElement => Some(schema_json::<FocusElementInput>()),
+        ToolName::TypeIntoElement => Some(schema_json::<TypeIntoElementInput>()),
         ToolName::ReadRegion => Some(schema_json::<ReadRegionInput>()),
         ToolName::ReadNextRegion => Some(schema_json::<ReadNextRegionInput>()),
         ToolName::ReadPreviousRegion => Some(schema_json::<ReadPreviousRegionInput>()),
@@ -1805,6 +1863,8 @@ fn is_plannable_tool(tool_name: &ToolName) -> bool {
             | ToolName::ListInteractiveElements
             | ToolName::FindElement
             | ToolName::ClickElement
+            | ToolName::FocusElement
+            | ToolName::TypeIntoElement
             | ToolName::ReadRegion
             | ToolName::ReadNextRegion
             | ToolName::ReadPreviousRegion
@@ -1843,6 +1903,8 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
         }
         ToolName::FindElement => validate_tool_arguments::<FindElementInput>(step),
         ToolName::ClickElement => validate_tool_arguments::<ClickElementInput>(step),
+        ToolName::FocusElement => validate_tool_arguments::<FocusElementInput>(step),
+        ToolName::TypeIntoElement => validate_tool_arguments::<TypeIntoElementInput>(step),
         ToolName::ReadRegion => validate_tool_arguments::<ReadRegionInput>(step),
         ToolName::ReadNextRegion => validate_tool_arguments::<ReadNextRegionInput>(step),
         ToolName::ReadPreviousRegion => validate_tool_arguments::<ReadPreviousRegionInput>(step),
@@ -2342,6 +2404,8 @@ fn parse_tool_name_value(value: &str) -> Result<ToolName, String> {
         "list_interactive_elements" => Ok(ToolName::ListInteractiveElements),
         "find_element" => Ok(ToolName::FindElement),
         "click_element" => Ok(ToolName::ClickElement),
+        "focus_element" => Ok(ToolName::FocusElement),
+        "type_into_element" => Ok(ToolName::TypeIntoElement),
         "read_region" => Ok(ToolName::ReadRegion),
         "read_next_region" => Ok(ToolName::ReadNextRegion),
         "read_previous_region" => Ok(ToolName::ReadPreviousRegion),
@@ -2613,9 +2677,10 @@ fn likely_tools_for_intent(intent: &IntentName) -> Vec<ToolName> {
         IntentName::GetStatus => vec![ToolName::GetRuntimeStatus, ToolName::ReportResult],
         IntentName::FindElement => vec![ToolName::FindElement],
         IntentName::ClickElement => vec![ToolName::FindElement, ToolName::ClickElement],
+        IntentName::FillInput => vec![ToolName::FocusElement, ToolName::TypeIntoElement],
         IntentName::Scroll => vec![ToolName::ScrollPage],
         IntentName::OcrRecovery => vec![ToolName::GetPageSnapshot, ToolName::ReportResult],
-        IntentName::FillInput | IntentName::SubmitForm | IntentName::Unknown => Vec::new(),
+        IntentName::SubmitForm | IntentName::Unknown => Vec::new(),
     }
 }
 
@@ -3663,6 +3728,41 @@ pub(crate) fn parse_direct_focus_field_command(transcript: &str) -> Option<Focus
     })
 }
 
+pub(crate) fn parse_direct_fill_field_command(transcript: &str) -> Option<FillFieldCommand> {
+    let normalized = normalize_transcript_for_routing(transcript);
+    if normalized.is_empty() || !is_fill_input_phrase(&normalized) || is_focus_field_phrase(&normalized)
+    {
+        return None;
+    }
+
+    let collapsed = collapse_transcript_whitespace(transcript);
+    if collapsed.is_empty() {
+        return Some(FillFieldCommand {
+            description: None,
+            text: None,
+        });
+    }
+
+    if let Some((description, text)) = parse_fill_with_pattern(&collapsed) {
+        return Some(FillFieldCommand {
+            description,
+            text: Some(text),
+        });
+    }
+
+    if let Some((text, description)) = parse_into_field_pattern(&collapsed) {
+        return Some(FillFieldCommand {
+            description,
+            text: Some(text),
+        });
+    }
+
+    Some(FillFieldCommand {
+        description: parse_fill_field_description_only(&collapsed),
+        text: None,
+    })
+}
+
 fn is_go_forward_phrase(normalized: &str) -> bool {
     normalized == "forward" || normalized.contains("go forward")
 }
@@ -3807,6 +3907,122 @@ fn is_fill_input_phrase(normalized: &str) -> bool {
         || (normalized.contains("select ") && normalized.contains(" field"))
         || normalized.contains("the other field")
         || normalized.contains("there instead")
+}
+
+fn collapse_transcript_whitespace(transcript: &str) -> String {
+    transcript.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn parse_fill_with_pattern(transcript: &str) -> Option<(Option<String>, String)> {
+    let lowered = transcript.to_ascii_lowercase();
+    let prefix = if lowered.starts_with("fill in ") {
+        "fill in "
+    } else if lowered.starts_with("fill ") {
+        "fill "
+    } else {
+        return None;
+    };
+
+    let remainder = transcript.get(prefix.len()..)?.trim();
+    let (field_target, text) = split_case_insensitive_once(remainder, " with ")?;
+    let text = normalize_fill_value(text)?;
+    Some((normalize_field_target(field_target), text))
+}
+
+fn parse_into_field_pattern(transcript: &str) -> Option<(String, Option<String>)> {
+    let lowered = transcript.to_ascii_lowercase();
+    let (prefix, separator) = if lowered.starts_with("type ") && lowered.contains(" into ") {
+        ("type ", " into ")
+    } else if lowered.starts_with("enter ") && lowered.contains(" into ") {
+        ("enter ", " into ")
+    } else if lowered.starts_with("enter ") && lowered.contains(" in ") {
+        ("enter ", " in ")
+    } else if lowered.starts_with("put ") && lowered.contains(" in ") {
+        ("put ", " in ")
+    } else {
+        return None;
+    };
+
+    let remainder = transcript.get(prefix.len()..)?.trim();
+    let (text, field_target) = split_case_insensitive_once(remainder, separator)?;
+    let text = normalize_fill_value(text)?;
+    Some((text, normalize_field_target(field_target)))
+}
+
+fn parse_fill_field_description_only(transcript: &str) -> Option<String> {
+    let lowered = transcript.to_ascii_lowercase();
+    let remainder = if lowered.starts_with("fill in ") {
+        transcript.get("fill in ".len()..)?
+    } else if lowered.starts_with("fill ") {
+        transcript.get("fill ".len()..)?
+    } else if lowered.starts_with("type into ") {
+        transcript.get("type into ".len()..)?
+    } else if lowered.starts_with("enter into ") {
+        transcript.get("enter into ".len()..)?
+    } else if lowered.starts_with("enter in ") {
+        transcript.get("enter in ".len()..)?
+    } else if lowered.starts_with("put in ") {
+        transcript.get("put in ".len()..)?
+    } else {
+        return None;
+    };
+
+    normalize_field_target(remainder)
+}
+
+fn split_case_insensitive_once<'a>(text: &'a str, separator: &str) -> Option<(&'a str, &'a str)> {
+    let lowered = text.to_ascii_lowercase();
+    let index = lowered.find(separator)?;
+    let before = text.get(..index)?.trim();
+    let after = text.get(index + separator.len()..)?.trim();
+    Some((before, after))
+}
+
+fn normalize_field_target(target: &str) -> Option<String> {
+    let mut normalized = collapse_transcript_whitespace(target);
+    if normalized.is_empty() {
+        return None;
+    }
+
+    let lowered = normalized.to_ascii_lowercase();
+    for prefix in ["the ", "my ", "a ", "an "] {
+        if lowered.starts_with(prefix) {
+            normalized = normalized.get(prefix.len()..)?.trim().to_string();
+            break;
+        }
+    }
+
+    for suffix in [" field", " textbox", " text box", " input", " input box"] {
+        if normalized.to_ascii_lowercase().ends_with(suffix) {
+            let end = normalized.len().saturating_sub(suffix.len());
+            normalized = normalized.get(..end)?.trim().to_string();
+            break;
+        }
+    }
+
+    let normalized = normalized.trim();
+    (!normalized.is_empty()).then(|| normalized.to_string())
+}
+
+fn normalize_fill_value(value: &str) -> Option<String> {
+    let collapsed = collapse_transcript_whitespace(value);
+    let trimmed = collapsed.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let unquoted = if (trimmed.starts_with('"') && trimmed.ends_with('"'))
+        || (trimmed.starts_with('\'') && trimmed.ends_with('\''))
+    {
+        trimmed
+            .get(1..trimmed.len().saturating_sub(1))
+            .unwrap_or(trimmed)
+    } else {
+        trimmed
+    };
+
+    let cleaned = unquoted.trim();
+    (!cleaned.is_empty()).then(|| cleaned.to_string())
 }
 
 fn is_browser_visibility_phrase(normalized: &str) -> bool {
@@ -4812,6 +5028,8 @@ mod tests {
         last_list_request: Option<ListInteractiveElementsInput>,
         last_find_request: Option<FindElementInput>,
         last_click_request: Option<ClickElementInput>,
+        last_focus_request: Option<FocusElementInput>,
+        last_type_request: Option<TypeIntoElementInput>,
         last_extract_request: Option<ExtractPageModelInput>,
         last_voice: Option<String>,
         last_volume: Option<f32>,
@@ -5170,6 +5388,41 @@ mod tests {
                     resulting_title: Some(String::from("Example article")),
                 },
                 vec![String::from("clicked the requested element")],
+            )
+        }
+
+        fn execute_focus_element(
+            &mut self,
+            input: FocusElementInput,
+        ) -> ToolResult<FocusElementData> {
+            self.last_focus_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::FocusElement,
+                input.request_id,
+                FocusElementData {
+                    element_id: input.element_id,
+                    focused: true,
+                    element_role: Some(crate::page_model::ElementRole::Input),
+                },
+                vec![String::from("focused the requested element")],
+            )
+        }
+
+        fn execute_type_into_element(
+            &mut self,
+            input: TypeIntoElementInput,
+        ) -> ToolResult<TypeIntoElementData> {
+            self.last_type_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::TypeIntoElement,
+                input.request_id,
+                TypeIntoElementData {
+                    element_id: input.element_id,
+                    text_length: input.text.chars().count(),
+                    value_after: Some(input.text),
+                    accepted_input: true,
+                },
+                vec![String::from("typed into the requested element")],
             )
         }
 
@@ -5940,6 +6193,75 @@ mod tests {
         assert_eq!(
             data.get("page_changed"),
             Some(&serde_json::Value::Bool(false))
+        );
+    }
+
+    #[test]
+    fn dispatches_focus_element_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-focus"),
+            tool_name: ToolName::FocusElement,
+            arguments: serde_json::json!({
+                "request_id": "req-focus",
+                "timeout_ms": 1000,
+                "element_id": "input-1"
+            }),
+            purpose: String::from("focus the resolved field"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_focus_request
+                .as_ref()
+                .map(|input| input.element_id.as_str()),
+            Some("input-1")
+        );
+        let data = result.data.expect("focus_element should serialize");
+        assert_eq!(
+            data.get("focused"),
+            Some(&serde_json::Value::Bool(true))
+        );
+    }
+
+    #[test]
+    fn dispatches_type_into_element_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-type"),
+            tool_name: ToolName::TypeIntoElement,
+            arguments: serde_json::json!({
+                "request_id": "req-type",
+                "timeout_ms": 1000,
+                "element_id": "input-1",
+                "text": "phil@example.com",
+                "clear_first": true,
+                "submit_after": false
+            }),
+            purpose: String::from("type into the resolved field"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_type_request
+                .as_ref()
+                .map(|input| input.text.as_str()),
+            Some("phil@example.com")
+        );
+        let data = result.data.expect("type_into_element should serialize");
+        assert_eq!(
+            data.get("accepted_input"),
+            Some(&serde_json::Value::Bool(true))
         );
     }
 
@@ -7329,6 +7651,39 @@ mod tests {
             Some(FocusFieldCommand { description: None })
         );
         assert_eq!(parse_direct_focus_field_command("read page"), None);
+    }
+
+    #[test]
+    fn parse_direct_fill_field_command_extracts_description_and_text() {
+        assert_eq!(
+            parse_direct_fill_field_command("fill the email field with phil@example.com"),
+            Some(FillFieldCommand {
+                description: Some(String::from("email")),
+                text: Some(String::from("phil@example.com"))
+            })
+        );
+        assert_eq!(
+            parse_direct_fill_field_command("type \"hello world\" into the search field"),
+            Some(FillFieldCommand {
+                description: Some(String::from("search")),
+                text: Some(String::from("hello world"))
+            })
+        );
+        assert_eq!(
+            parse_direct_fill_field_command("enter secret in the password field"),
+            Some(FillFieldCommand {
+                description: Some(String::from("password")),
+                text: Some(String::from("secret"))
+            })
+        );
+        assert_eq!(
+            parse_direct_fill_field_command("fill the email field"),
+            Some(FillFieldCommand {
+                description: Some(String::from("email")),
+                text: None
+            })
+        );
+        assert_eq!(parse_direct_fill_field_command("focus the email field"), None);
     }
 
     #[test]

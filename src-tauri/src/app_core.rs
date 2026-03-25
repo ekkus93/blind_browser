@@ -11,29 +11,30 @@ use crate::browser::{
 };
 use crate::commands::{
     build_planner_skill_selection, canonical_planner_output_examples, execute_planner_output,
-    parse_direct_focus_field_command, planner_available_tools, planner_output_schema,
-    resolve_direct_audio_command,
+    parse_direct_fill_field_command, parse_direct_focus_field_command, planner_available_tools,
+    planner_output_schema, resolve_direct_audio_command,
     resolve_direct_browser_visibility_command, resolve_direct_navigation_readback_command,
     resolve_direct_open_url_command, resolve_direct_read_page_command,
     resolve_direct_read_title_command,
     resolve_direct_repeat_command, resolve_direct_status_query_command,
-    resolve_direct_voice_input_command, resume_after_confirmation, tool_input_schema,
-    validate_planner_output, AgentStateData, ClickElementData, ClickElementInput,
-    ConfirmActionData, ConfirmActionInput, ConfirmActionResolution, DeterministicToolExecutor,
-    ExecutionOutcome, ExecutionTrace, ExtractPageModelData, ExtractPageModelInput, FindElementData,
-    FindElementInput, GetAgentStateInput, GetPageSnapshotInput, GetRuntimeStatusData,
-    GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData, GoForwardInput,
-    IntentName, IntentSummary, ListInteractiveElementsData, ListInteractiveElementsInput,
-    OpenUrlData, OpenUrlInput, PageSnapshotData, PlannedStep, PlannerInput, PlannerOutput,
-    PlannerStatus, PlannerToolHistoryEntry, ProviderSelectionStatus, ReadNextRegionData,
-    ReadNextRegionInput, ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData,
-    ReadRegionInput, ReloadPageData, ReloadPageInput, ReportResultData, ReportResultInput,
-    ReportStatus, ScrollPageData, ScrollPageInput, StepTransition,
+    resolve_direct_voice_input_command, resume_after_confirmation, tool_input_schema, validate_planner_output,
+    AgentStateData, ClickElementData, ClickElementInput, ConfirmActionData, ConfirmActionInput,
+    ConfirmActionResolution, DeterministicToolExecutor, ExecutionOutcome, ExecutionTrace,
+    ExtractPageModelData, ExtractPageModelInput, FindElementData, FindElementInput,
+    FocusElementData, FocusElementInput, GetAgentStateInput, GetPageSnapshotInput,
+    GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData,
+    GoForwardInput, IntentName, IntentSummary, ListInteractiveElementsData,
+    ListInteractiveElementsInput, OpenUrlData, OpenUrlInput, PageSnapshotData, PlannedStep,
+    PlannerInput, PlannerOutput, PlannerStatus, PlannerToolHistoryEntry,
+    ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
+    ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
+    ReportResultData, ReportResultInput, ReportStatus, ScrollPageData, ScrollPageInput,
     SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
     SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
-    SetTtsVoiceInput, StartListeningData, StartListeningInput, StopListeningData,
-    StopListeningInput, StopSpeakingData, StopSpeakingInput, TranscribeAndExecuteCommandData,
-    ToolError, ToolName, ToolResult, TranscribeCommandData, TranscribeCommandInput,
+    SetTtsVoiceInput, StartListeningData, StartListeningInput, StepTransition,
+    StopListeningData, StopListeningInput, StopSpeakingData, StopSpeakingInput,
+    ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData, TranscribeCommandData,
+    TranscribeCommandInput, TypeIntoElementData, TypeIntoElementInput,
 };
 use crate::config::{
     AppConfig, AudioSettings, ConfigError, RemotePlannerProfile, RemoteProviderKind, SecretRef,
@@ -1106,6 +1107,225 @@ impl AppCore {
         )
     }
 
+    pub fn execute_focus_element(
+        &mut self,
+        input: FocusElementInput,
+    ) -> ToolResult<FocusElementData> {
+        let Some(page_id) = self.state.current_page_id.clone() else {
+            return ToolResult::failure(
+                ToolName::FocusElement,
+                input.request_id,
+                ToolError {
+                    code: String::from("no_active_page"),
+                    message: String::from("focus_element requires an active page in runtime state"),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Field focus could not run because no page has been opened yet.",
+                )],
+            );
+        };
+
+        let element = {
+            let Some(current_page) = self.state.current_page.as_ref() else {
+                return ToolResult::failure(
+                    ToolName::FocusElement,
+                    input.request_id,
+                    ToolError {
+                        code: String::from("missing_page_model"),
+                        message: String::from(
+                            "focus_element requires runtime page data for the active page",
+                        ),
+                        retryable: false,
+                        details: Some(serde_json::json!({ "page_id": page_id })),
+                    },
+                    vec![String::from(
+                        "Field focus could not run because the runtime page model is missing.",
+                    )],
+                );
+            };
+
+            match resolve_clickable_element(current_page, &input.element_id) {
+                Ok(element) => element.clone(),
+                Err(error) => {
+                    return ToolResult::failure(
+                        ToolName::FocusElement,
+                        input.request_id,
+                        error,
+                        vec![String::from(
+                            "Field focus could not run because the requested deterministic element_id was not currently interactable.",
+                        )],
+                    )
+                }
+            }
+        };
+
+        let browser_focus = match self.browser.focus_element(&element, input.timeout_ms) {
+            Ok(browser_focus) => browser_focus,
+            Err(error) => {
+                return self.browser_tool_failure(
+                    ToolName::FocusElement,
+                    input.request_id,
+                    String::from("Live browser field focus did not complete successfully."),
+                    error,
+                )
+            }
+        };
+
+        if let Some(current_page) = self.state.current_page.as_mut() {
+            current_page.url = Some(browser_focus.url.clone());
+            current_page.title = browser_focus.title.clone();
+        }
+        self.state.browser_history = browser_focus.history.clone();
+
+        ToolResult::success(
+            ToolName::FocusElement,
+            input.request_id,
+            FocusElementData {
+                element_id: element.element_id.clone(),
+                focused: browser_focus.focused,
+                element_role: Some(element.role),
+            },
+            vec![
+                format!(
+                    "Moved live browser focus to element_id={}.",
+                    element.element_id
+                ),
+                String::from(
+                    "The runtime page state remained on the current page after the focus change.",
+                ),
+            ],
+        )
+    }
+
+    pub fn execute_type_into_element(
+        &mut self,
+        input: TypeIntoElementInput,
+    ) -> ToolResult<TypeIntoElementData> {
+        let Some(page_id) = self.state.current_page_id.clone() else {
+            return ToolResult::failure(
+                ToolName::TypeIntoElement,
+                input.request_id,
+                ToolError {
+                    code: String::from("no_active_page"),
+                    message: String::from(
+                        "type_into_element requires an active page in runtime state",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Field entry could not run because no page has been opened yet.",
+                )],
+            );
+        };
+
+        let element = {
+            let Some(current_page) = self.state.current_page.as_ref() else {
+                return ToolResult::failure(
+                    ToolName::TypeIntoElement,
+                    input.request_id,
+                    ToolError {
+                        code: String::from("missing_page_model"),
+                        message: String::from(
+                            "type_into_element requires runtime page data for the active page",
+                        ),
+                        retryable: false,
+                        details: Some(serde_json::json!({ "page_id": page_id })),
+                    },
+                    vec![String::from(
+                        "Field entry could not run because the runtime page model is missing.",
+                    )],
+                );
+            };
+
+            match resolve_typeable_element(current_page, &input.element_id) {
+                Ok(element) => element.clone(),
+                Err(error) => {
+                    return ToolResult::failure(
+                        ToolName::TypeIntoElement,
+                        input.request_id,
+                        error,
+                        vec![String::from(
+                            "Field entry could not run because the requested deterministic element_id was not currently editable.",
+                        )],
+                    )
+                }
+            }
+        };
+
+        let browser_type = match self.browser.type_into_element(
+            &element,
+            &input.text,
+            input.clear_first,
+            input.submit_after,
+            input.timeout_ms,
+        ) {
+            Ok(browser_type) => browser_type,
+            Err(error) => {
+                return self.browser_tool_failure(
+                    ToolName::TypeIntoElement,
+                    input.request_id,
+                    String::from("Live browser text entry did not complete successfully."),
+                    error,
+                )
+            }
+        };
+
+        if browser_type.page_changed {
+            let next_page_id = self.next_page_id(&input.request_id);
+            self.state
+                .record_navigation(next_page_id, browser_type.url.clone());
+            if let Some(current_page) = self.state.current_page.as_mut() {
+                current_page.title = browser_type.title.clone();
+            }
+        } else if let Some(current_page) = self.state.current_page.as_mut() {
+            current_page.url = Some(browser_type.url.clone());
+            current_page.title = browser_type.title.clone();
+            let requested_element_id = element.element_id.clone();
+            if let Some(live_element) = current_page
+                .interactive_elements
+                .iter_mut()
+                .find(|live_element| live_element.element_id == requested_element_id)
+            {
+                live_element.value = browser_type.value_after.clone();
+            }
+        }
+        self.state.browser_history = browser_type.history.clone();
+
+        let mut observations = vec![format!(
+            "Sent text entry to live element_id={}.",
+            element.element_id
+        )];
+        if input.clear_first {
+            observations.push(String::from(
+                "Existing field contents were cleared before the new text was applied.",
+            ));
+        }
+        if browser_type.page_changed {
+            observations.push(String::from(
+                "Submitting the field changed the live browser URL, so runtime page state advanced to a new page.",
+            ));
+        } else {
+            observations.push(String::from(
+                "The field entry completed without live browser navigation.",
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::TypeIntoElement,
+            input.request_id,
+            TypeIntoElementData {
+                element_id: element.element_id.clone(),
+                text_length: input.text.chars().count(),
+                value_after: browser_type.value_after,
+                accepted_input: browser_type.accepted_input,
+            },
+            observations,
+        )
+    }
+
     pub fn execute_planner_output(
         &mut self,
         request_id: String,
@@ -1224,6 +1444,21 @@ impl AppCore {
             self.state.current_page.as_ref(),
             &current_agent_state,
             &skill_selection.active_skill_names,
+        ) {
+            validate_planner_output(
+                &planner_output,
+                &available_tools,
+                &skill_selection.active_skill_names,
+            )?;
+            return Ok(planner_output);
+        }
+
+        if let Some(planner_output) = resolve_direct_fill_field_command(
+            transcript,
+            &request_id,
+            self.state.current_page.as_ref(),
+            &skill_selection.active_skill_names,
+            self.config.safety.confirmation_confidence_threshold,
         ) {
             validate_planner_output(
                 &planner_output,
@@ -2861,6 +3096,17 @@ impl DeterministicToolExecutor for AppCore {
         AppCore::execute_click_element(self, input)
     }
 
+    fn execute_focus_element(&mut self, input: FocusElementInput) -> ToolResult<FocusElementData> {
+        AppCore::execute_focus_element(self, input)
+    }
+
+    fn execute_type_into_element(
+        &mut self,
+        input: TypeIntoElementInput,
+    ) -> ToolResult<TypeIntoElementData> {
+        AppCore::execute_type_into_element(self, input)
+    }
+
     fn execute_extract_page_model(
         &mut self,
         input: ExtractPageModelInput,
@@ -3295,14 +3541,13 @@ fn resolve_direct_focus_field_command(
             selected_skills,
             steps: vec![PlannedStep {
                 step_id: String::from("focus-field"),
-                tool_name: ToolName::ClickElement,
+                tool_name: ToolName::FocusElement,
                 arguments: serde_json::json!({
                     "request_id": request_id,
                     "timeout_ms": serde_json::Value::Null,
-                    "element_id": element_id,
-                    "double_click": false
+                    "element_id": element_id
                 }),
-                purpose: String::from("Activate the requested field to move focus to it."),
+                purpose: String::from("Move focus to the requested field."),
                 on_success: StepTransition::Complete,
                 on_failure: StepTransition::Replan,
             }],
@@ -3341,6 +3586,202 @@ fn resolve_direct_focus_field_command(
             step_id: String::from("report-focus-field-follow-up"),
             purpose: String::from(
                 "Report that the requested field could not be focused deterministically.",
+            ),
+        },
+    ))
+}
+
+fn resolve_direct_fill_field_command(
+    transcript: &str,
+    request_id: &str,
+    current_page: Option<&PageModel>,
+    active_skill_names: &[String],
+    confirmation_confidence_threshold: f32,
+) -> Option<PlannerOutput> {
+    let command = parse_direct_fill_field_command(transcript)?;
+    let selected_skills = if active_skill_names
+        .iter()
+        .any(|active_name| active_name == "fill_field_by_label")
+    {
+        vec![String::from("fill_field_by_label")]
+    } else {
+        Vec::new()
+    };
+
+    let Some(description) = command.description else {
+        return Some(build_direct_follow_up_output(
+            request_id,
+            DirectFollowUpSpec {
+                intent_name: IntentName::FillInput,
+                goal: String::from("Fill the requested field."),
+                target_description: Some(String::from("field fill target")),
+                selected_skills,
+                summary: String::from("Please tell me which field to fill."),
+                next_recommended_action: Some(String::from(
+                    "Say the field name and value, like fill the email field with phil@example.com.",
+                )),
+                step_id: String::from("report-missing-fill-field-description"),
+                purpose: String::from("Report that the field name is required before filling."),
+            },
+        ));
+    };
+
+    let Some(text) = command.text else {
+        return Some(build_direct_follow_up_output(
+            request_id,
+            DirectFollowUpSpec {
+                intent_name: IntentName::FillInput,
+                goal: String::from("Fill the requested field."),
+                target_description: Some(description),
+                selected_skills,
+                summary: String::from("Please tell me what text to enter."),
+                next_recommended_action: Some(String::from(
+                    "Say the value after the field name, like fill the email field with phil@example.com.",
+                )),
+                step_id: String::from("report-missing-fill-text"),
+                purpose: String::from("Report that the requested field value is required before filling."),
+            },
+        ));
+    };
+
+    let Some(current_page) = current_page else {
+        return Some(build_direct_follow_up_output(
+            request_id,
+            DirectFollowUpSpec {
+                intent_name: IntentName::FillInput,
+                goal: String::from("Fill the requested field."),
+                target_description: None,
+                selected_skills,
+                summary: String::from("There is no current page to fill a field on yet."),
+                next_recommended_action: Some(String::from(
+                    "Open a page first, then ask me to fill a field.",
+                )),
+                step_id: String::from("report-missing-fill-page"),
+                purpose: String::from("Report that there is no active page available for field entry."),
+            },
+        ));
+    };
+
+    let field_elements = focusable_field_elements(current_page);
+    if field_elements.is_empty() {
+        return Some(build_direct_follow_up_output(
+            request_id,
+            DirectFollowUpSpec {
+                intent_name: IntentName::FillInput,
+                goal: String::from("Fill the requested field."),
+                target_description: Some(description.clone()),
+                selected_skills,
+                summary: String::from("I could not find any fillable fields on the current page."),
+                next_recommended_action: Some(String::from(
+                    "Try again after the page finishes loading or becomes interactive.",
+                )),
+                step_id: String::from("report-missing-fillable-fields"),
+                purpose: String::from(
+                    "Report that no editable fields are available on the current page.",
+                ),
+            },
+        ));
+    }
+
+    let query = FindElementInput {
+        request_id: request_id.to_string(),
+        timeout_ms: None,
+        description: description.clone(),
+        text: None,
+        role: None,
+        color_hint: None,
+        nearby_text: None,
+        selector_hint: None,
+        visible_only: true,
+        max_candidates: Some(DEFAULT_FIND_ELEMENT_MAX_CANDIDATES),
+    };
+    let search_query = build_find_element_query(&query).ok()?;
+    let candidates = rank_find_element_candidates(
+        &field_elements,
+        &search_query,
+        DEFAULT_FIND_ELEMENT_MAX_CANDIDATES,
+    );
+    let (chosen_element_id, _, requires_confirmation) = if candidates.len() == 1 {
+        (Some(candidates[0].element_id.clone()), None, false)
+    } else {
+        determine_find_element_resolution(&candidates, confirmation_confidence_threshold)
+    };
+
+    if let Some(element_id) = chosen_element_id {
+        return Some(PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::FillInput,
+                goal: String::from("Fill the requested field."),
+                target_description: Some(description),
+            },
+            selected_skills,
+            steps: vec![
+                PlannedStep {
+                    step_id: String::from("focus-fill-field"),
+                    tool_name: ToolName::FocusElement,
+                    arguments: serde_json::json!({
+                        "request_id": request_id,
+                        "timeout_ms": serde_json::Value::Null,
+                        "element_id": element_id
+                    }),
+                    purpose: String::from("Move focus to the requested field before typing."),
+                    on_success: StepTransition::NextStep {
+                        step_id: String::from("type-into-fill-field"),
+                    },
+                    on_failure: StepTransition::Replan,
+                },
+                PlannedStep {
+                    step_id: String::from("type-into-fill-field"),
+                    tool_name: ToolName::TypeIntoElement,
+                    arguments: serde_json::json!({
+                        "request_id": request_id,
+                        "timeout_ms": serde_json::Value::Null,
+                        "element_id": element_id,
+                        "text": text,
+                        "clear_first": true,
+                        "submit_after": false
+                    }),
+                    purpose: String::from("Replace the requested field contents with the spoken value."),
+                    on_success: StepTransition::Complete,
+                    on_failure: StepTransition::Replan,
+                },
+            ],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        });
+    }
+
+    let summary = if requires_confirmation {
+        let candidate_names = summarize_candidate_names(current_page, &candidates);
+        if candidate_names.is_empty() {
+            format!("I found multiple possible fields for {description}. Please be more specific.")
+        } else {
+            format!(
+                "I found multiple possible fields for {description}: {}. Please be more specific.",
+                candidate_names.join(", ")
+            )
+        }
+    } else {
+        format!("I could not find a visible field matching {description}.")
+    };
+
+    Some(build_direct_follow_up_output(
+        request_id,
+        DirectFollowUpSpec {
+            intent_name: IntentName::FillInput,
+            goal: String::from("Fill the requested field."),
+            target_description: Some(description),
+            selected_skills,
+            summary,
+            next_recommended_action: Some(String::from(
+                "Try naming the field label or placeholder more specifically.",
+            )),
+            step_id: String::from("report-fill-field-follow-up"),
+            purpose: String::from(
+                "Report that the requested field could not be filled deterministically.",
             ),
         },
     ))
@@ -3673,6 +4114,28 @@ fn resolve_clickable_element<'a>(
     Ok(element)
 }
 
+fn resolve_typeable_element<'a>(
+    page: &'a PageModel,
+    element_id: &str,
+) -> Result<&'a crate::page_model::InteractiveElement, ToolError> {
+    let element = resolve_clickable_element(page, element_id)?;
+    if !matches!(
+        element.role,
+        ElementRole::Input | ElementRole::TextArea | ElementRole::Select
+    ) {
+        return Err(ToolError {
+            code: String::from("element_not_editable"),
+            message: String::from(
+                "type_into_element requires an input, textarea, or select element",
+            ),
+            retryable: false,
+            details: Some(serde_json::json!({ "element_id": element.element_id })),
+        });
+    }
+
+    Ok(element)
+}
+
 #[derive(Debug, Default)]
 struct FindElementScore {
     score_bps: u16,
@@ -3935,6 +4398,8 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
         BrowserError::Resolve(_) => "browser_element_resolution_failed",
         BrowserError::ElementNotFound { .. } => "browser_element_not_found",
         BrowserError::Click(_) => "browser_click_failed",
+        BrowserError::Focus(_) => "browser_focus_failed",
+        BrowserError::Type(_) => "browser_type_failed",
         BrowserError::History(_) => "browser_history_failed",
         BrowserError::Reload(_) => "browser_reload_failed",
         BrowserError::Scroll(_) => "browser_scroll_failed",
@@ -3964,7 +4429,8 @@ mod tests {
         determine_find_element_resolution, execute_bounded_replanning_loop,
         filter_interactive_elements, infer_extraction_source, normalize_absolute_url,
         normalize_optional_text, planner_system_prompt, rank_find_element_candidates,
-        resolve_clickable_element, resolve_direct_focus_field_command, ReplanningRuntime,
+        resolve_clickable_element, resolve_direct_fill_field_command,
+        resolve_direct_focus_field_command, resolve_typeable_element, ReplanningRuntime,
     };
     use crate::commands::{
         ExecutionOutcome, ExecutionTrace, ExtractPageModelInput, FindElementInput, IntentName,
@@ -4158,7 +4624,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_direct_focus_field_command_clicks_single_matching_field() {
+    fn resolve_direct_focus_field_command_focuses_single_matching_field() {
         let page = PageModel {
             title: Some(String::from("Example form")),
             url: Some(String::from("https://example.com/form")),
@@ -4209,7 +4675,7 @@ mod tests {
         assert_eq!(planner_output.intent.name, IntentName::FillInput);
         assert_eq!(planner_output.selected_skills, vec![String::from("focus_field")]);
         assert_eq!(planner_output.steps.len(), 1);
-        assert_eq!(planner_output.steps[0].tool_name, ToolName::ClickElement);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::FocusElement);
         assert_eq!(
             planner_output.steps[0].arguments.get("element_id"),
             Some(&serde_json::json!("input-email"))
@@ -4295,6 +4761,122 @@ mod tests {
             planner_output.steps[0].arguments.get("status"),
             Some(&serde_json::json!(ReportStatus::NeedsFollowUp))
         );
+    }
+
+    #[test]
+    fn resolve_direct_fill_field_command_focuses_then_types_into_matching_field() {
+        let page = PageModel {
+            title: Some(String::from("Example form")),
+            url: Some(String::from("https://example.com/form")),
+            regions: Vec::new(),
+            interactive_elements: vec![
+                InteractiveElement {
+                    element_id: String::from("input-email"),
+                    dom_locator: Some(String::from("#email")),
+                    role: ElementRole::Input,
+                    tag_name: String::from("input"),
+                    text: None,
+                    accessible_name: Some(String::from("Email")),
+                    placeholder: Some(String::from("Email address")),
+                    href: None,
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                },
+                InteractiveElement {
+                    element_id: String::from("input-password"),
+                    dom_locator: Some(String::from("#password")),
+                    role: ElementRole::Input,
+                    tag_name: String::from("input"),
+                    text: None,
+                    accessible_name: Some(String::from("Password")),
+                    placeholder: Some(String::from("Password")),
+                    href: None,
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                },
+            ],
+        };
+
+        let planner_output = resolve_direct_fill_field_command(
+            "fill the email field with phil@example.com",
+            "req-fill-field",
+            Some(&page),
+            &[String::from("fill_field_by_label")],
+            0.9,
+        )
+        .expect("fill-field command should resolve");
+
+        assert_eq!(planner_output.intent.name, IntentName::FillInput);
+        assert_eq!(
+            planner_output.selected_skills,
+            vec![String::from("fill_field_by_label")]
+        );
+        assert_eq!(planner_output.steps.len(), 2);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::FocusElement);
+        assert_eq!(planner_output.steps[1].tool_name, ToolName::TypeIntoElement);
+        assert_eq!(
+            planner_output.steps[1].arguments.get("text"),
+            Some(&serde_json::json!("phil@example.com"))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_fill_field_command_reports_missing_value() {
+        let page = PageModel {
+            title: Some(String::from("Example form")),
+            url: Some(String::from("https://example.com/form")),
+            regions: Vec::new(),
+            interactive_elements: Vec::new(),
+        };
+
+        let planner_output = resolve_direct_fill_field_command(
+            "fill the email field",
+            "req-fill-field-missing-value",
+            Some(&page),
+            &[String::from("fill_field_by_label")],
+            0.9,
+        )
+        .expect("fill-field command should resolve");
+
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ReportResult);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("status"),
+            Some(&serde_json::json!(ReportStatus::NeedsFollowUp))
+        );
+    }
+
+    #[test]
+    fn resolve_typeable_element_rejects_non_field_roles() {
+        let page = PageModel {
+            title: Some(String::from("Example page")),
+            url: Some(String::from("https://example.com")),
+            regions: Vec::new(),
+            interactive_elements: vec![InteractiveElement {
+                element_id: String::from("button-1"),
+                dom_locator: Some(String::from("#button-1")),
+                role: ElementRole::Button,
+                tag_name: String::from("button"),
+                text: Some(String::from("Continue")),
+                accessible_name: Some(String::from("Continue")),
+                placeholder: None,
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::new(),
+            }],
+        };
+
+        let error = resolve_typeable_element(&page, "button-1")
+            .expect_err("non-field roles should be rejected");
+        assert_eq!(error.code, "element_not_editable");
     }
 
     #[test]
