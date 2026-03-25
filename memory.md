@@ -478,3 +478,9 @@
 - This slice intentionally normalizes only the intent families; the underlying form-execution tools remain future work, so the router now matches the documented command families without claiming the full form workflow is implemented.
 - Added commands-layer regression coverage for form-filling and form-submission phrase inference, and `docs/TODO.md` now marks the form normalization item complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (89 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
+
+## 2026-03-25T00:45:30Z - GPT-5.4 - Normalization examples now cover mixed and follow-up form utterances
+- `docs/SPECS.md` now explicitly documents that mixed commands like `fill the email field and then submit` normalize to `SubmitForm`, while bounded ambiguous and follow-up form utterances like `choose California from the state list`, `no, the other field`, and `put Seattle there instead` remain in the `FillInput` family.
+- `src-tauri/src/commands.rs` now classifies `the other field` and `there instead` as bounded `FillInput` follow-up phrases, and the command tests assert those documented examples directly so the spec and router stay aligned.
+- This slice still stops at intent-family normalization; later context resolution is still responsible for deciding which field or value a follow-up correction refers to.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (89 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.

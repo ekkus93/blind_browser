@@ -2534,6 +2534,8 @@ fn is_fill_input_phrase(normalized: &str) -> bool {
         || (normalized.contains("put ") && normalized.contains(" field"))
         || (normalized.contains("choose ") && normalized.contains(" list"))
         || (normalized.contains("select ") && normalized.contains(" field"))
+        || normalized.contains("the other field")
+        || normalized.contains("there instead")
 }
 
 fn is_browser_visibility_phrase(normalized: &str) -> bool {
@@ -5407,6 +5409,18 @@ mod tests {
         assert_eq!(
             infer_intent_hint("fill the email field and then submit"),
             IntentName::SubmitForm
+        );
+        assert_eq!(
+            infer_intent_hint("no, the other field"),
+            IntentName::FillInput
+        );
+        assert_eq!(
+            infer_intent_hint("put Seattle there instead"),
+            IntentName::FillInput
+        );
+        assert_eq!(
+            infer_intent_hint("choose California from the state list"),
+            IntentName::FillInput
         );
     }
 

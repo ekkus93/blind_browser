@@ -1969,6 +1969,9 @@ Intent alignment rules:
 - `IntentName` should cover every planner-visible built-in action family that has a dedicated deterministic tool or normalized deterministic tool path.
 - Relative audio commands such as `increase volume`, `decrease volume`, `mute`, `increase playback speed`, and `decrease playback speed` should normalize to `SetPlaybackVolume` or `SetPlaybackSpeed` before planner execution.
 - Status queries such as current URL and general runtime status should normalize to `GetCurrentUrl` or `GetStatus`.
+- Mixed commands such as `fill the email field and then submit` should normalize to the `SubmitForm` family so later planning can preserve both the fill and submit workflow.
+- Ambiguous-but-bounded form choices such as `choose California from the state list` should normalize to `FillInput` rather than a generic click family.
+- Follow-up correction phrases such as `no, the other field` and `put Seattle there instead` should remain in the `FillInput` family even when later context resolution is still required.
 - Skill `intent-tags` using the `intent:<Name>` form should match these enum variants exactly.
 struct PlannedStep {
   step_id: String,
