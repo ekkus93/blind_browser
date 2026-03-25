@@ -249,7 +249,7 @@
 - [x] Normalize absolute playback speed commands from `x`, `times`, or percent input
 - [x] Normalize relative playback speed commands using default, small, and large step sizes
 - [x] Normalize playback speed query commands to `get_playback_speed`
-- [ ] Normalize browser visibility commands into explicit target visibility updates
+- [x] Normalize browser visibility commands into explicit target visibility updates
 - [ ] Route current-URL and runtime-status queries through `get_agent_state` and `get_runtime_status`
 - [x] Normalize relative audio-setting phrases to `SetPlaybackVolume` and `SetPlaybackSpeed` planner intents
 - [ ] Normalize status/history/listening phrases to their dedicated planner intent variants before tool selection

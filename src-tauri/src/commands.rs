@@ -1231,7 +1231,7 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     {
         return IntentName::SetPlaybackSpeed;
     }
-    if normalized.contains("show browser") || normalized.contains("hide browser") {
+    if is_browser_visibility_phrase(&normalized) {
         return IntentName::SetBrowserVisibility;
     }
 
@@ -2130,6 +2130,31 @@ pub(crate) fn resolve_direct_audio_command(
     None
 }
 
+pub(crate) fn resolve_direct_browser_visibility_command(
+    transcript: &str,
+    request_id: &str,
+    current_visibility: BrowserVisibilityMode,
+    active_skill_names: &[String],
+) -> Option<PlannerOutput> {
+    let normalized = normalize_transcript_for_routing(transcript);
+    if normalized.is_empty() {
+        return None;
+    }
+
+    let target_mode = parse_browser_visibility_command(&normalized, current_visibility)?;
+    let summary = format!(
+        "Browser mode set to {}.",
+        format_browser_visibility_mode(target_mode)
+    );
+
+    Some(build_browser_visibility_planner_output(
+        request_id,
+        target_mode,
+        selected_skill(active_skill_names, "toggle_browser_visibility"),
+        summary,
+    ))
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct NormalizedAudioSetting {
     value: f32,
@@ -2333,12 +2358,37 @@ fn is_speed_query_phrase(normalized: &str) -> bool {
         || normalized.contains("tell me the speed")
 }
 
-fn selected_audio_skill(active_skill_names: &[String], skill_name: &'static str) -> Vec<String> {
+fn is_browser_visibility_phrase(normalized: &str) -> bool {
+    normalized.contains("show browser")
+        || normalized.contains("hide browser")
+        || normalized.contains("show the browser")
+        || normalized.contains("hide the browser")
+        || normalized.contains("make browser visible")
+        || normalized.contains("make the browser visible")
+        || normalized.contains("make it visible")
+        || normalized.contains("switch to visible")
+        || normalized.contains("switch browser to visible")
+        || normalized.contains("visible mode")
+        || normalized.contains("show the window")
+        || normalized.contains("go headless")
+        || normalized.contains("make browser headless")
+        || normalized.contains("make the browser headless")
+        || normalized.contains("make it headless")
+        || normalized.contains("switch to headless")
+        || normalized.contains("switch browser to headless")
+        || normalized.contains("headless mode")
+}
+
+fn selected_skill(active_skill_names: &[String], skill_name: &'static str) -> Vec<String> {
     if active_skill_names.iter().any(|active_name| active_name == skill_name) {
         vec![String::from(skill_name)]
     } else {
         Vec::new()
     }
+}
+
+fn selected_audio_skill(active_skill_names: &[String], skill_name: &'static str) -> Vec<String> {
+    selected_skill(active_skill_names, skill_name)
 }
 
 fn build_audio_set_planner_output(
@@ -2400,6 +2450,58 @@ fn build_audio_report_planner_output(
     }
 }
 
+fn build_browser_visibility_planner_output(
+    request_id: &str,
+    target_mode: BrowserVisibilityMode,
+    selected_skills: Vec<String>,
+    report_summary: String,
+) -> PlannerOutput {
+    PlannerOutput {
+        status: PlannerStatus::Ready,
+        intent: IntentSummary {
+            name: IntentName::SetBrowserVisibility,
+            goal: String::from("Set the browser visibility mode to the requested target."),
+            target_description: Some(format_browser_visibility_mode(target_mode)),
+        },
+        selected_skills,
+        steps: vec![
+            PlannedStep {
+                step_id: String::from("set-browser-visibility"),
+                tool_name: ToolName::SetBrowserVisibility,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "mode": target_mode
+                }),
+                purpose: String::from("Apply the requested browser visibility mode."),
+                on_success: StepTransition::NextStep {
+                    step_id: String::from("report-browser-visibility"),
+                },
+                on_failure: StepTransition::Replan,
+            },
+            PlannedStep {
+                step_id: String::from("report-browser-visibility"),
+                tool_name: ToolName::ReportResult,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "status": ReportStatus::Success,
+                    "summary": report_summary.clone(),
+                    "next_recommended_action": serde_json::Value::Null,
+                    "user_message": report_summary
+                }),
+                purpose: String::from("Report the resulting browser visibility mode."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ],
+        requires_confirmation: false,
+        confirmation_reason: None,
+        blocked_reason: None,
+        user_message: None,
+    }
+}
+
 fn build_report_result_step(request_id: &str, step_id: &str, summary: String) -> PlannedStep {
     PlannedStep {
         step_id: String::from(step_id),
@@ -2426,6 +2528,53 @@ fn format_playback_speed(speed: f32) -> String {
     let formatted = format!("{speed:.2}");
     let trimmed = formatted.trim_end_matches('0').trim_end_matches('.');
     format!("{trimmed}x")
+}
+
+fn format_browser_visibility_mode(mode: BrowserVisibilityMode) -> String {
+    match mode {
+        BrowserVisibilityMode::Visible => String::from("visible"),
+        BrowserVisibilityMode::Headless => String::from("headless"),
+    }
+}
+
+fn parse_browser_visibility_command(
+    normalized: &str,
+    current_visibility: BrowserVisibilityMode,
+) -> Option<BrowserVisibilityMode> {
+    if normalized.contains("hide browser")
+        || normalized.contains("hide the browser")
+        || normalized.contains("go headless")
+        || normalized.contains("make browser headless")
+        || normalized.contains("make the browser headless")
+        || normalized.contains("make it headless")
+        || normalized.contains("switch to headless")
+        || normalized.contains("switch browser to headless")
+        || normalized.contains("headless mode")
+    {
+        return Some(BrowserVisibilityMode::Headless);
+    }
+
+    if normalized.contains("show browser")
+        || normalized.contains("show the browser")
+        || normalized.contains("make browser visible")
+        || normalized.contains("make the browser visible")
+        || normalized.contains("make it visible")
+        || normalized.contains("switch to visible")
+        || normalized.contains("switch browser to visible")
+        || normalized.contains("visible mode")
+        || normalized.contains("show the window")
+    {
+        return Some(BrowserVisibilityMode::Visible);
+    }
+
+    if normalized.contains("toggle browser visibility") || normalized.contains("toggle visibility") {
+        return Some(match current_visibility {
+            BrowserVisibilityMode::Visible => BrowserVisibilityMode::Headless,
+            BrowserVisibilityMode::Headless => BrowserVisibilityMode::Visible,
+        });
+    }
+
+    None
 }
 
 fn round_audio_setting_value(value: f32) -> f32 {
@@ -4863,6 +5012,18 @@ mod tests {
     }
 
     #[test]
+    fn infer_intent_hint_recognizes_browser_visibility_phrases() {
+        assert_eq!(
+            infer_intent_hint("go headless"),
+            IntentName::SetBrowserVisibility
+        );
+        assert_eq!(
+            infer_intent_hint("make the browser visible"),
+            IntentName::SetBrowserVisibility
+        );
+    }
+
+    #[test]
     fn resolve_direct_audio_command_normalizes_absolute_volume_percent() {
         let planner_output = resolve_direct_audio_command(
             "set volume to 70 percent",
@@ -4937,6 +5098,52 @@ mod tests {
         assert_eq!(
             planner_output.steps[0].arguments.get("summary"),
             Some(&serde_json::json!("Playback speed is 1.25x."))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_browser_visibility_command_normalizes_headless_phrase() {
+        let planner_output = resolve_direct_browser_visibility_command(
+            "go headless",
+            "req-headless",
+            BrowserVisibilityMode::Visible,
+            &[String::from("toggle_browser_visibility")],
+        )
+        .expect("visibility command should normalize");
+
+        assert_eq!(planner_output.intent.name, IntentName::SetBrowserVisibility);
+        assert_eq!(
+            planner_output.selected_skills,
+            vec![String::from("toggle_browser_visibility")]
+        );
+        assert_eq!(planner_output.steps.len(), 2);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("mode"),
+            Some(&serde_json::json!(BrowserVisibilityMode::Headless))
+        );
+        assert_eq!(
+            planner_output.steps[1].arguments.get("summary"),
+            Some(&serde_json::json!("Browser mode set to headless."))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_browser_visibility_command_toggles_when_requested() {
+        let planner_output = resolve_direct_browser_visibility_command(
+            "toggle browser visibility",
+            "req-toggle",
+            BrowserVisibilityMode::Headless,
+            &[String::from("toggle_browser_visibility")],
+        )
+        .expect("toggle visibility command should normalize");
+
+        assert_eq!(
+            planner_output.steps[0].arguments.get("mode"),
+            Some(&serde_json::json!(BrowserVisibilityMode::Visible))
+        );
+        assert_eq!(
+            planner_output.steps[1].arguments.get("summary"),
+            Some(&serde_json::json!("Browser mode set to visible."))
         );
     }
 }

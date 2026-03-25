@@ -460,3 +460,9 @@
 - `src/confirmation-panel.ts`, `src/main.ts`, and `src/styles.css` now add a compact two-button `Visible`/`Headless` toggle inside the status panel, disable repeat clicks while a visibility change is in flight, refresh runtime panels after success, and surface inline errors while restoring the prior mode on failure.
 - `src/confirmation-panel.test.mjs` now covers the toggle markup and disabled in-flight state, and `docs/TODO.md` marks the visible/headless toggle item complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (81 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
+
+## 2026-03-25T00:22:46Z - GPT-5.4 - Browser visibility voice commands now normalize locally
+- `src-tauri/src/commands.rs` now recognizes browser-visibility phrases such as `go headless`, `show the browser`, `hide the browser`, `make the browser visible`, and `toggle browser visibility`, infers `SetBrowserVisibility`, and emits deterministic planner steps for `set_browser_visibility` followed by spoken `report_result` feedback.
+- `src-tauri/src/app_core.rs` now checks the direct browser-visibility resolver before the existing direct audio resolver so visibility mode changes stay bounded and do not depend on remote planner behavior.
+- Added commands-layer regression coverage for browser-visibility intent inference, explicit headless normalization, and toggle behavior, and `docs/TODO.md` now marks browser-visibility command normalization complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (84 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.

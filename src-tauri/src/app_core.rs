@@ -11,17 +11,18 @@ use crate::browser::{
 };
 use crate::commands::{
     build_planner_skill_selection, execute_planner_output, planner_available_tools,
-    planner_output_schema, resolve_direct_audio_command, resume_after_confirmation, tool_input_schema,
-    validate_planner_output, AgentStateData, ClickElementData, ClickElementInput, ConfirmActionData,
-    ConfirmActionInput, ConfirmActionResolution, DeterministicToolExecutor, ExecutionOutcome,
-    ExtractPageModelData, ExtractPageModelInput, FindElementData, FindElementInput,
-    GetAgentStateInput, GetPageSnapshotInput, GetRuntimeStatusData, GetRuntimeStatusInput,
-    GoBackData, GoBackInput, GoForwardData, GoForwardInput, ListInteractiveElementsData,
-    ListInteractiveElementsInput, OpenUrlData, OpenUrlInput, PageSnapshotData, PlannerInput,
-    PlannerOutput, ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput,
-    ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData, ReadRegionInput,
-    ReloadPageData, ReloadPageInput, ReportResultData, ReportResultInput, ScrollPageData,
-    ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
+    planner_output_schema, resolve_direct_audio_command, resolve_direct_browser_visibility_command,
+    resume_after_confirmation, tool_input_schema, validate_planner_output, AgentStateData,
+    ClickElementData, ClickElementInput, ConfirmActionData, ConfirmActionInput,
+    ConfirmActionResolution, DeterministicToolExecutor, ExecutionOutcome, ExtractPageModelData,
+    ExtractPageModelInput, FindElementData, FindElementInput, GetAgentStateInput,
+    GetPageSnapshotInput, GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput,
+    GoForwardData, GoForwardInput, ListInteractiveElementsData, ListInteractiveElementsInput,
+    OpenUrlData, OpenUrlInput, PageSnapshotData, PlannerInput, PlannerOutput,
+    ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
+    ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
+    ReportResultData, ReportResultInput, ScrollPageData, ScrollPageInput,
+    SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
     SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
     SetTtsVoiceInput, StartListeningData, StartListeningInput, StopListeningData,
     StopListeningInput, StopSpeakingData, StopSpeakingInput, ToolError, ToolName, ToolResult,
@@ -988,6 +989,20 @@ impl AppCore {
             transcript,
             &available_tools,
         );
+
+        if let Some(planner_output) = resolve_direct_browser_visibility_command(
+            transcript,
+            &request_id,
+            self.state.browser_visibility,
+            &skill_selection.active_skill_names,
+        ) {
+            validate_planner_output(
+                &planner_output,
+                &available_tools,
+                &skill_selection.active_skill_names,
+            )?;
+            return Ok(planner_output);
+        }
 
         if let Some(planner_output) = resolve_direct_audio_command(
             transcript,
