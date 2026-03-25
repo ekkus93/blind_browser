@@ -1867,12 +1867,19 @@ struct PlannerInput {
   request_id: String,
   transcript: String,
   agent_state: AgentStateData,
+  safety: PlannerSafetySettings,
   available_tools: Vec<AvailableTool>,
   active_skill_names: Vec<String>,
   relevant_skill_summaries: Vec<SkillSummary>,
   page_snapshot: Option<PageSnapshotData>,
   page_model: Option<PageModel>,
   recent_tool_results: Vec<PlannerToolHistoryEntry>,
+}
+
+struct PlannerSafetySettings {
+  confirmation_confidence_threshold: f32,
+  allow_click_without_confirmation: bool,
+  always_confirm_submit: bool,
 }
 
 struct AvailableTool {
@@ -2395,7 +2402,7 @@ This example shows a multi-step form workflow where field entry is allowed immed
 
 #### Example: `NeedsConfirmation` for `ClickElement`
 
-This example shows a protected click flow where the planner found multiple plausible candidates and must ask the user to confirm before any side-effecting action executes.
+This example shows a protected click flow where the planner found multiple plausible candidates and must ask the user to confirm before any side-effecting action executes. Ordinary clicks may use `Ready` when `planner_input.safety.allow_click_without_confirmation = true`, but ambiguous or risky clicks should still use confirmation.
 
 ```json
 {
@@ -2409,54 +2416,51 @@ This example shows a protected click flow where the planner found multiple plaus
   "steps": [
     {
       "step_id": "step-1",
-      "tool_name": "find_element",
+      "tool_name": "FindElement",
       "arguments": {
         "request_id": "req-126",
+        "timeout_ms": null,
         "description": "submit button",
         "role": "Button",
+        "color_hint": null,
+        "nearby_text": null,
+        "selector_hint": null,
         "visible_only": true,
         "max_candidates": 3
       },
       "purpose": "Resolve likely submit-button candidates before asking for confirmation.",
       "on_success": {
-        "kind": "NextStep",
-        "step_id": "step-2"
+        "NextStep": {
+          "step_id": "step-2"
+        }
       },
-      "on_failure": {
-        "kind": "Abort"
-      }
+      "on_failure": "Replan"
     },
     {
       "step_id": "step-2",
-      "tool_name": "confirm_action",
+      "tool_name": "ConfirmAction",
       "arguments": {
         "request_id": "req-126",
+        "timeout_ms": null,
         "prompt_text": "I found two likely submit buttons. Do you want the top Submit button?",
         "reason": "Multiple visible button candidates matched the request with similar confidence."
       },
       "purpose": "Ask the user to confirm the intended click target before executing it.",
-      "on_success": {
-        "kind": "RequestConfirmation"
-      },
-      "on_failure": {
-        "kind": "Abort"
-      }
+      "on_success": "RequestConfirmation",
+      "on_failure": "Replan"
     },
     {
       "step_id": "step-3",
-      "tool_name": "click_element",
+      "tool_name": "ClickElement",
       "arguments": {
         "request_id": "req-126",
+        "timeout_ms": null,
         "element_id": "button-submit-primary",
         "double_click": false
       },
       "purpose": "Execute the confirmed click after confirmation succeeds.",
-      "on_success": {
-        "kind": "Complete"
-      },
-      "on_failure": {
-        "kind": "Replan"
-      }
+      "on_success": "Complete",
+      "on_failure": "Replan"
     }
   ],
   "requires_confirmation": true,
@@ -2816,6 +2820,58 @@ These examples are canonical shape references for planner outputs. They use the 
         "user_message": "Playback volume set to 70%."
       },
       "purpose": "Confirm the updated playback volume.",
+      "on_success": "Complete",
+      "on_failure": "Replan"
+    }
+  ],
+  "requires_confirmation": false,
+  "confirmation_reason": null,
+  "blocked_reason": null,
+  "user_message": null
+}
+```
+
+##### `click_element_ready`
+
+```json
+{
+  "status": "Ready",
+  "intent": {
+    "name": "ClickElement",
+    "goal": "Open the help link.",
+    "target_description": "help link"
+  },
+  "selected_skills": ["open_link_by_text"],
+  "steps": [
+    {
+      "step_id": "click-help-link",
+      "tool_name": "ClickElement",
+      "arguments": {
+        "request_id": "example-click-link",
+        "timeout_ms": null,
+        "element_id": "link-help",
+        "double_click": false
+      },
+      "purpose": "Activate the requested link without an extra confirmation step.",
+      "on_success": {
+        "NextStep": {
+          "step_id": "report-click-link"
+        }
+      },
+      "on_failure": "Replan"
+    },
+    {
+      "step_id": "report-click-link",
+      "tool_name": "ReportResult",
+      "arguments": {
+        "request_id": "example-click-link",
+        "timeout_ms": null,
+        "status": "Success",
+        "summary": "Activated the help link.",
+        "next_recommended_action": null,
+        "user_message": "Opened the help link."
+      },
+      "purpose": "Confirm the ordinary click action to the user.",
       "on_success": "Complete",
       "on_failure": "Replan"
     }

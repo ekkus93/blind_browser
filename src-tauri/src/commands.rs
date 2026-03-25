@@ -263,10 +263,28 @@ pub struct GetRuntimeStatusData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct PlannerSafetySettings {
+    pub confirmation_confidence_threshold: f32,
+    pub allow_click_without_confirmation: bool,
+    pub always_confirm_submit: bool,
+}
+
+impl From<&crate::config::SafetySettings> for PlannerSafetySettings {
+    fn from(safety: &crate::config::SafetySettings) -> Self {
+        Self {
+            confirmation_confidence_threshold: safety.confirmation_confidence_threshold,
+            allow_click_without_confirmation: safety.allow_click_without_confirmation,
+            always_confirm_submit: safety.always_confirm_submit,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct PlannerInput {
     pub request_id: String,
     pub transcript: String,
     pub agent_state: AgentStateData,
+    pub safety: PlannerSafetySettings,
     pub available_tools: Vec<AvailableTool>,
     pub active_skill_names: Vec<String>,
     pub relevant_skill_summaries: Vec<SkillSummary>,
@@ -1198,6 +1216,54 @@ pub fn canonical_planner_output_examples() -> BTreeMap<String, PlannerOutput> {
                             "user_message": "Playback volume set to 70%."
                         }),
                         purpose: String::from("Confirm the updated playback volume."),
+                        on_success: StepTransition::Complete,
+                        on_failure: StepTransition::Replan,
+                    },
+                ],
+                requires_confirmation: false,
+                confirmation_reason: None,
+                blocked_reason: None,
+                user_message: None,
+            },
+        ),
+        (
+            String::from("click_element_ready"),
+            PlannerOutput {
+                status: PlannerStatus::Ready,
+                intent: IntentSummary {
+                    name: IntentName::ClickElement,
+                    goal: String::from("Open the help link."),
+                    target_description: Some(String::from("help link")),
+                },
+                selected_skills: vec![String::from("open_link_by_text")],
+                steps: vec![
+                    PlannedStep {
+                        step_id: String::from("click-help-link"),
+                        tool_name: ToolName::ClickElement,
+                        arguments: serde_json::json!({
+                            "request_id": "example-click-link",
+                            "timeout_ms": null,
+                            "element_id": "link-help",
+                            "double_click": false
+                        }),
+                        purpose: String::from("Activate the requested link without an extra confirmation step."),
+                        on_success: StepTransition::NextStep {
+                            step_id: String::from("report-click-link"),
+                        },
+                        on_failure: StepTransition::Replan,
+                    },
+                    PlannedStep {
+                        step_id: String::from("report-click-link"),
+                        tool_name: ToolName::ReportResult,
+                        arguments: serde_json::json!({
+                            "request_id": "example-click-link",
+                            "timeout_ms": null,
+                            "status": "Success",
+                            "summary": "Activated the help link.",
+                            "next_recommended_action": null,
+                            "user_message": "Opened the help link."
+                        }),
+                        purpose: String::from("Confirm the ordinary click action to the user."),
                         on_success: StepTransition::Complete,
                         on_failure: StepTransition::Replan,
                     },
@@ -5955,6 +6021,25 @@ mod tests {
             Some(&serde_json::json!("Complete"))
         );
 
+        let ready_click = serde_json::to_value(
+            examples
+                .get("click_element_ready")
+                .expect("click_element_ready example should exist"),
+        )
+        .expect("planner example should serialize");
+        assert_eq!(
+            ready_click.pointer("/status"),
+            Some(&serde_json::json!("Ready"))
+        );
+        assert_eq!(
+            ready_click.pointer("/steps/0/tool_name"),
+            Some(&serde_json::json!("ClickElement"))
+        );
+        assert_eq!(
+            ready_click.pointer("/steps/0/arguments/element_id"),
+            Some(&serde_json::json!("link-help"))
+        );
+
         let needs_confirmation = serde_json::to_value(
             examples
                 .get("click_element_with_confirmation")
@@ -6009,6 +6094,51 @@ mod tests {
                 });
             }
         }
+    }
+
+    #[test]
+    fn planner_input_serializes_safety_settings_for_click_policy() {
+        let planner_input = PlannerInput {
+            request_id: String::from("req-planner"),
+            transcript: String::from("click the help link"),
+            agent_state: AgentStateData {
+                page_id: Some(String::from("page-1")),
+                url: Some(String::from("https://example.com")),
+                title: Some(String::from("Example")),
+                browser_visibility: BrowserVisibilityMode::Visible,
+                browser_history: BrowserHistoryState::default(),
+                narration_cursor: None,
+                speaking: false,
+                listening_state: ListeningState::default(),
+                audio: RuntimeAudioState::default(),
+                last_transcript: None,
+                last_action: None,
+                pending_confirmation_id: None,
+                pending_plan_execution: None,
+            },
+            safety: PlannerSafetySettings {
+                confirmation_confidence_threshold: 0.9,
+                allow_click_without_confirmation: true,
+                always_confirm_submit: true,
+            },
+            available_tools: Vec::new(),
+            active_skill_names: vec![String::from("open_link_by_text")],
+            relevant_skill_summaries: Vec::new(),
+            page_snapshot: None,
+            page_model: None,
+            recent_tool_results: Vec::new(),
+        };
+
+        let serialized =
+            serde_json::to_value(&planner_input).expect("planner input should serialize");
+        assert_eq!(
+            serialized.pointer("/safety/allow_click_without_confirmation"),
+            Some(&serde_json::json!(true))
+        );
+        assert_eq!(
+            serialized.pointer("/safety/always_confirm_submit"),
+            Some(&serde_json::json!(true))
+        );
     }
 
     #[test]

@@ -1074,6 +1074,7 @@ impl AppCore {
             request_id: request_id.clone(),
             transcript: transcript.to_string(),
             agent_state: current_agent_state,
+            safety: (&self.config.safety).into(),
             available_tools: available_tools.clone(),
             active_skill_names: skill_selection.active_skill_names.clone(),
             relevant_skill_summaries: skill_selection.relevant_skill_summaries.clone(),
@@ -2873,6 +2874,7 @@ Use only tool names that appear in planner_input.available_tools and only select
 Every step arguments object must match the corresponding tool_input_schemas entry exactly, including snake_case field names.
 Use canonical_planner_output_examples only as shape references; adapt the returned tools, skills, and arguments to the current planner_input.
 Keep plans linear and short: at most five steps, with at most one NextStep edge from any step.
+When planner_input.safety.allow_click_without_confirmation is true, ordinary ClickElement plans may use Ready without confirm_action; reserve NeedsConfirmation for ambiguous or risky clicks.
 Use NeedsConfirmation plus a confirm_action step when the request is risky or ambiguous before side effects.
 SubmitForm plans must always use NeedsConfirmation with confirm_action before any submit side effect.
 Use Blocked only when the request cannot be grounded safely or is outside the supported tool set.
@@ -3431,8 +3433,8 @@ mod tests {
     use super::{
         build_extracted_page_model, build_find_element_query, build_visible_text_excerpt,
         determine_find_element_resolution, filter_interactive_elements, infer_extraction_source,
-        normalize_absolute_url, normalize_optional_text, rank_find_element_candidates,
-        resolve_clickable_element,
+        normalize_absolute_url, normalize_optional_text, planner_system_prompt,
+        rank_find_element_candidates, resolve_clickable_element,
     };
     use crate::commands::{ExtractPageModelInput, FindElementInput};
     use crate::page_model::{
@@ -3699,6 +3701,14 @@ mod tests {
         assert_eq!(chosen_element_id, None);
         assert_eq!(chosen_confidence, Some(0.89));
         assert!(requires_confirmation);
+    }
+
+    #[test]
+    fn planner_system_prompt_mentions_click_confirmation_config() {
+        let prompt = planner_system_prompt();
+
+        assert!(prompt.contains("planner_input.safety.allow_click_without_confirmation"));
+        assert!(prompt.contains("ordinary ClickElement plans may use Ready"));
     }
 
     #[test]
