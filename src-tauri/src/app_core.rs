@@ -828,24 +828,6 @@ impl AppCore {
             );
         }
 
-        if let Some(region_id) = region_id.as_deref() {
-            return ToolResult::failure(
-                ToolName::RunOcr,
-                input.request_id,
-                ToolError {
-                    code: String::from("region_geometry_unavailable"),
-                    message: String::from(
-                        "run_ocr region_id targeting is not available until page regions carry bounding boxes",
-                    ),
-                    retryable: false,
-                    details: Some(serde_json::json!({ "region_id": region_id })),
-                },
-                vec![String::from(
-                    "Region-targeted OCR is blocked until region bounding boxes are available in the page model.",
-                )],
-            );
-        }
-
         if let Some(bbox) = input.bbox.as_ref() {
             if bbox.width <= 0.0 || bbox.height <= 0.0 {
                 return ToolResult::failure(
@@ -868,6 +850,38 @@ impl AppCore {
                 );
             }
         }
+
+        let ocr_bbox = if let Some(region_id) = region_id.as_deref() {
+            let regions = match self.readable_regions() {
+                Ok(regions) => regions,
+                Err(error) => {
+                    return ToolResult::failure(
+                        ToolName::RunOcr,
+                        input.request_id,
+                        error,
+                        vec![String::from(
+                            "Region-targeted OCR requires readable regions in the current page model.",
+                        )],
+                    )
+                }
+            };
+
+            match region_bbox_by_id(regions, region_id) {
+                Ok(bbox) => Some(bbox),
+                Err(error) => {
+                    return ToolResult::failure(
+                        ToolName::RunOcr,
+                        input.request_id,
+                        error,
+                        vec![String::from(
+                            "Region-targeted OCR could not resolve a usable bounding box for the requested region.",
+                        )],
+                    )
+                }
+            }
+        } else {
+            input.bbox.clone()
+        };
 
         let Some(image_id) = image_id else {
             return ToolResult::failure(
@@ -920,7 +934,7 @@ impl AppCore {
             );
         }
 
-        let ocr_result = match self.ocr.run_ocr(&image_path, input.bbox.as_ref()) {
+        let ocr_result = match self.ocr.run_ocr(&image_path, ocr_bbox.as_ref()) {
             Ok(result) => result,
             Err(error) => {
                 return ToolResult::failure(
@@ -936,7 +950,11 @@ impl AppCore {
 
         let mut observations =
             vec![String::from("Ran deterministic OCR on the requested cached screenshot.")];
-        if input.bbox.is_some() {
+        if region_id.is_some() {
+            observations.push(String::from(
+                "OCR was limited to the requested page region using its stored bounding box.",
+            ));
+        } else if ocr_bbox.is_some() {
             observations.push(String::from(
                 "OCR was limited to the explicitly requested bounding box within the cached image.",
             ));
@@ -962,7 +980,7 @@ impl AppCore {
                 extracted_text,
                 text_length,
                 confidence: ocr_result.confidence,
-                source_bbox: input.bbox,
+                source_bbox: ocr_bbox,
             },
             observations,
         )

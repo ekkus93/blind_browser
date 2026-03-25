@@ -746,3 +746,9 @@
 ## 2026-03-25T20:30:59Z - GPT-5.4 - Region screenshot slice prepared for check-in
 - Verified the worktree contains only the expected region-screenshot slice files: `docs/SPECS.md`, `docs/TODO.md`, `src-tauri/src/app_core.rs`, and `memory.md`.
 - This slice is ready to commit and push on `master` after the green validation run that completed at `161` Rust tests and `12` UI tests.
+
+## 2026-03-25T20:39:13Z - GPT-5.4 - Region OCR targeting enabled
+- Updated `src-tauri/src/app_core.rs` so `run_ocr` can target `region_id` by resolving the current page model’s stored `PageRegion.bbox` and passing that crop rectangle into the OCR engine.
+- Kept OCR source selection explicit: `region_id` OCR now requires an `image_id` for the cached screenshot, avoiding any implicit image fallback while still returning the resolved `source_bbox`.
+- Updated `docs/SPECS.md` and `docs/TODO.md` to reflect that region-targeted OCR now requires a positive stored bounding box plus an explicit cached screenshot source.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `161` Rust tests and `12` UI tests.
