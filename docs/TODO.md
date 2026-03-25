@@ -253,7 +253,7 @@
 - [x] Route current-URL and runtime-status queries through `get_agent_state` and `get_runtime_status`
 - [x] Normalize relative audio-setting phrases to `SetPlaybackVolume` and `SetPlaybackSpeed` planner intents
 - [x] Normalize status/history/listening phrases to their dedicated planner intent variants before tool selection
-- [ ] Normalize form-filling phrases to `FillInput` and form-submission phrases to `SubmitForm`
+- [x] Normalize form-filling phrases to `FillInput` and form-submission phrases to `SubmitForm`
 - [ ] Add normalization examples for ambiguous utterances, mixed commands, and follow-up corrections
 - [ ] Handle fuzzy matching
 

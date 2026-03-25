@@ -1210,6 +1210,12 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     if normalized.contains("read page") || normalized.contains("read this page") {
         return IntentName::ReadPage;
     }
+    if is_fill_and_submit_phrase(&normalized) || is_submit_form_phrase(&normalized) {
+        return IntentName::SubmitForm;
+    }
+    if is_fill_input_phrase(&normalized) {
+        return IntentName::FillInput;
+    }
     if normalized.contains("open ")
         || normalized.contains("go to ")
         || normalized.contains("visit ")
@@ -2500,6 +2506,34 @@ fn is_browser_mode_query_phrase(normalized: &str) -> bool {
         || normalized.contains("is browser visible")
         || normalized.contains("is it headless")
         || normalized.contains("are we headless")
+}
+
+fn is_fill_and_submit_phrase(normalized: &str) -> bool {
+    (normalized.contains("fill ") || normalized.contains("enter ") || normalized.contains("type "))
+        && normalized.contains("submit")
+}
+
+fn is_submit_form_phrase(normalized: &str) -> bool {
+    normalized == "submit"
+        || normalized.contains("submit form")
+        || normalized.contains("submit this form")
+        || normalized.contains("send form")
+        || normalized.contains("send this form")
+        || normalized.contains("press submit")
+        || normalized.contains("hit submit")
+}
+
+fn is_fill_input_phrase(normalized: &str) -> bool {
+    normalized.contains("focus field")
+        || (normalized.contains("focus ") && normalized.contains(" field"))
+        || normalized.contains("fill in ")
+        || (normalized.contains("fill ") && normalized.contains(" field"))
+        || normalized.contains("type into ")
+        || (normalized.contains("type ") && normalized.contains(" into ") && normalized.contains(" field"))
+        || (normalized.contains("enter ") && normalized.contains(" field"))
+        || (normalized.contains("put ") && normalized.contains(" field"))
+        || (normalized.contains("choose ") && normalized.contains(" list"))
+        || (normalized.contains("select ") && normalized.contains(" field"))
 }
 
 fn is_browser_visibility_phrase(normalized: &str) -> bool {
@@ -5349,6 +5383,30 @@ mod tests {
         assert_eq!(
             infer_intent_hint("what page am i on"),
             IntentName::GetCurrentUrl
+        );
+    }
+
+    #[test]
+    fn infer_intent_hint_recognizes_form_filling_and_submission_phrases() {
+        assert_eq!(
+            infer_intent_hint("focus the email field"),
+            IntentName::FillInput
+        );
+        assert_eq!(
+            infer_intent_hint("fill the password field"),
+            IntentName::FillInput
+        );
+        assert_eq!(
+            infer_intent_hint("type hello into the search field"),
+            IntentName::FillInput
+        );
+        assert_eq!(
+            infer_intent_hint("submit this form"),
+            IntentName::SubmitForm
+        );
+        assert_eq!(
+            infer_intent_hint("fill the email field and then submit"),
+            IntentName::SubmitForm
         );
     }
 

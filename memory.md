@@ -472,3 +472,9 @@
 - `src-tauri/src/app_core.rs` now checks the direct status-query resolver before the direct audio resolver so runtime-question voice commands stay bounded and do not depend on remote planner behavior.
 - Added commands-layer regression coverage for status/history/listening intent inference plus current-URL, back-history, and listening summaries, and `docs/TODO.md` now marks the current-URL/runtime-status routing and status/history/listening normalization items complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (88 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
+
+## 2026-03-25T00:36:26Z - GPT-5.4 - Form-filling voice phrases now normalize to form intent families
+- `src-tauri/src/commands.rs` now recognizes focus/fill/type/submit/fill-and-submit phrases such as `focus the email field`, `fill the password field`, `type hello into the search field`, `submit this form`, and `fill the email field and then submit`, mapping them into `FillInput` or `SubmitForm` intent families before broader click/open routing.
+- This slice intentionally normalizes only the intent families; the underlying form-execution tools remain future work, so the router now matches the documented command families without claiming the full form workflow is implemented.
+- Added commands-layer regression coverage for form-filling and form-submission phrase inference, and `docs/TODO.md` now marks the form normalization item complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (89 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
