@@ -2014,6 +2014,7 @@ Intent alignment rules:
 - Scrolling phrases should normalize to `Scroll`.
 - Minor ASR drift or single-typo variants of existing command keywords should normalize to the same bounded intent families when the correction is unambiguous, for example `volum`, `play back spead`, `browsr`, or `listenin`.
 - Mixed commands such as `fill the email field and then submit` should normalize to the `SubmitForm` family so later planning can preserve both the fill and submit workflow.
+- Focus-field phrases such as `focus the email field` should normalize to `FillInput`; when a single visible field-like control can be grounded deterministically from the current page model, the runtime may shortcut directly to a bounded field-focus action instead of invoking the planner.
 - Ambiguous-but-bounded form choices such as `choose California from the state list` should normalize to `FillInput` rather than a generic click family.
 - Follow-up correction phrases such as `no, the other field` and `put Seattle there instead` should remain in the `FillInput` family even when later context resolution is still required.
 - Bundled skills for planner-visible command families should include at least one matching `intent:<Name>` tag so ranking and validation can detect drift early.

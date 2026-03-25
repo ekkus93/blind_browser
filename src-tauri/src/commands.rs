@@ -583,6 +583,11 @@ pub struct ReadRegionData {
     pub speech_started: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FocusFieldCommand {
+    pub description: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct ReadNextRegionInput {
     pub request_id: String,
@@ -3625,6 +3630,39 @@ fn first_readable_region_id(page_model: &PageModel) -> Option<String> {
         .map(|region| region.region_id.clone())
 }
 
+pub(crate) fn parse_direct_focus_field_command(transcript: &str) -> Option<FocusFieldCommand> {
+    let normalized = normalize_transcript_for_routing(transcript);
+    if normalized.is_empty() || !is_focus_field_phrase(&normalized) {
+        return None;
+    }
+
+    let mut remainder = normalized.as_str();
+    if let Some(stripped) = remainder.strip_prefix("focus ") {
+        remainder = stripped;
+    }
+    if let Some(stripped) = remainder.strip_prefix("on ") {
+        remainder = stripped;
+    }
+    if let Some(stripped) = remainder.strip_prefix("the ") {
+        remainder = stripped;
+    }
+    if let Some(stripped) = remainder.strip_prefix("my ") {
+        remainder = stripped;
+    }
+    if let Some(stripped) = remainder.strip_prefix("field ") {
+        remainder = stripped;
+    }
+    if let Some(stripped) = remainder.strip_suffix(" field") {
+        remainder = stripped;
+    }
+
+    let description = remainder.trim();
+    Some(FocusFieldCommand {
+        description: (!description.is_empty() && description != "field")
+            .then(|| description.to_string()),
+    })
+}
+
 fn is_go_forward_phrase(normalized: &str) -> bool {
     normalized == "forward" || normalized.contains("go forward")
 }
@@ -3742,6 +3780,11 @@ fn is_fill_and_submit_phrase(normalized: &str) -> bool {
         && normalized.contains("submit")
 }
 
+fn is_focus_field_phrase(normalized: &str) -> bool {
+    normalized.contains("focus field")
+        || (normalized.contains("focus ") && normalized.contains(" field"))
+}
+
 fn is_submit_form_phrase(normalized: &str) -> bool {
     normalized == "submit"
         || normalized.contains("submit form")
@@ -3753,8 +3796,7 @@ fn is_submit_form_phrase(normalized: &str) -> bool {
 }
 
 fn is_fill_input_phrase(normalized: &str) -> bool {
-    normalized.contains("focus field")
-        || (normalized.contains("focus ") && normalized.contains(" field"))
+    is_focus_field_phrase(normalized)
         || normalized.contains("fill in ")
         || (normalized.contains("fill ") && normalized.contains(" field"))
         || normalized.contains("type into ")
@@ -7266,6 +7308,27 @@ mod tests {
             infer_intent_hint("submitt this form"),
             IntentName::SubmitForm
         );
+    }
+
+    #[test]
+    fn parse_direct_focus_field_command_extracts_field_description() {
+        assert_eq!(
+            parse_direct_focus_field_command("focus the email field"),
+            Some(FocusFieldCommand {
+                description: Some(String::from("email"))
+            })
+        );
+        assert_eq!(
+            parse_direct_focus_field_command("foccus the password feild"),
+            Some(FocusFieldCommand {
+                description: Some(String::from("password"))
+            })
+        );
+        assert_eq!(
+            parse_direct_focus_field_command("focus field"),
+            Some(FocusFieldCommand { description: None })
+        );
+        assert_eq!(parse_direct_focus_field_command("read page"), None);
     }
 
     #[test]

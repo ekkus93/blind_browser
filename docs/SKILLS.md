@@ -130,9 +130,9 @@ The metadata here is the authoritative source for bundled default skills shipped
 
 #### focus_field
 - intent_tags: `focus-field`, `forms`, `intent:FillInput`
-- allowed_tools: `find_element`, `focus_element`
+- allowed_tools: `click_element`
 - requires_confirmation: `false`
-- description: Find an input field by label or description and move focus to it.
+- description: Deterministically resolve a visible input-like field from the current page model and click it to move focus there.
 
 #### fill_field_by_label
 - intent_tags: `fill-field-by-label`, `forms`, `intent:FillInput`

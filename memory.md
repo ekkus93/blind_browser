@@ -620,3 +620,13 @@
 ## 2026-03-25T07:06:18Z - GPT-5.4 - Read-page phrase slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The read-page phrase-routing slice remained green at `125` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing change is clean going into commit and push.
+
+## 2026-03-25T08:59:41Z - GPT-5.4 - Focus-field phrase routing now bypasses the planner when grounding is deterministic
+- `src-tauri/src/commands.rs` now adds `parse_direct_focus_field_command(...)`, keeping `focus ... field` parsing aligned with the existing intent-hint normalization and ASR-drift handling.
+- `src-tauri/src/app_core.rs` now resolves `focus field` phrases directly against the current page model by scoring only visible enabled `Input`, `TextArea`, and `Select` controls with stable `dom_locator` values, then emitting a bounded `click_element` plan when a single deterministic field match exists.
+- When the request is under-specified, ambiguous, or there is no active/focusable field available, the runtime now returns a bounded spoken follow-up via `report_result` instead of guessing, and `docs/SKILLS.md` now aligns `focus_field` with the actual runtime tool surface by using `click_element`.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (129 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build`; the current shell still warns on Node `22.11.0`, so the repo baseline remains `22.12.0+`.
+
+## 2026-03-25T17:33:09Z - GPT-5.4 - Focus-field phrase slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The focus-field phrase-routing slice remained green at `129` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing change is clean going into commit and push.

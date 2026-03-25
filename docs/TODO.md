@@ -226,7 +226,7 @@
   - [x] start listening
   - [x] stop listening
   - [x] transcribe command
-  - [ ] focus field
+  - [x] focus field
   - [ ] fill field
   - [ ] type into field
   - [ ] submit form
