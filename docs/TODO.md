@@ -278,7 +278,7 @@
 
 ### DOM Inspector
 - [x] Map regions to bounding boxes
-- [ ] Extract links
+- [x] Extract links
 - [x] Attach geometry to PageModel
 
 ### OCR Module

@@ -1061,6 +1061,10 @@ struct ExtractPageModelInput {
 }
 ```
 
+Validation notes:
+- When `include_links` is `true`, extracted link metadata remains available in `page_model.interactive_elements`, including `href`, text/accessibility fields, attributes, and any captured bounding boxes.
+- When `include_links` is `false`, link-role entries are omitted from `page_model.interactive_elements`.
+
 #### `list_interactive_elements`
 
 ```rust
@@ -1477,6 +1481,9 @@ struct ExtractPageModelData {
   extraction_source: ExtractionSource,
 }
 ```
+
+Notes:
+- Link extraction is represented through `page_model.interactive_elements`; readable regions remain text-oriented.
 
 #### `list_interactive_elements`
 

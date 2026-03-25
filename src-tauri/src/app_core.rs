@@ -5863,6 +5863,70 @@ mod tests {
     }
 
     #[test]
+    fn build_extracted_page_model_preserves_link_metadata_when_requested() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: Vec::new(),
+            interactive_elements: vec![InteractiveElement {
+                element_id: String::from("link-1"),
+                dom_locator: Some(String::from("#link-1")),
+                role: ElementRole::Link,
+                tag_name: String::from("a"),
+                text: Some(String::from("Read more")),
+                accessible_name: Some(String::from("Read more about examples")),
+                placeholder: None,
+                href: Some(String::from("https://example.com/more")),
+                value: None,
+                bbox: Some(Rect {
+                    x: 10.0,
+                    y: 20.0,
+                    width: 30.0,
+                    height: 12.0,
+                }),
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::from([(
+                    String::from("rel"),
+                    String::from("noopener"),
+                )]),
+            }],
+        };
+        let input = ExtractPageModelInput {
+            request_id: String::from("req-extract"),
+            timeout_ms: None,
+            use_dom_extraction: true,
+            include_headings: true,
+            include_links: true,
+        };
+
+        let extracted = build_extracted_page_model(&page, &input);
+
+        assert_eq!(extracted.interactive_elements.len(), 1);
+        let link = &extracted.interactive_elements[0];
+        assert_eq!(link.role, ElementRole::Link);
+        assert_eq!(link.href.as_deref(), Some("https://example.com/more"));
+        assert_eq!(link.text.as_deref(), Some("Read more"));
+        assert_eq!(
+            link.accessible_name.as_deref(),
+            Some("Read more about examples")
+        );
+        assert_eq!(
+            link.bbox,
+            Some(Rect {
+                x: 10.0,
+                y: 20.0,
+                width: 30.0,
+                height: 12.0,
+            })
+        );
+        assert_eq!(
+            link.attributes.get("rel").map(String::as_str),
+            Some("noopener")
+        );
+    }
+
+    #[test]
     fn infer_extraction_source_detects_merged_models() {
         let page = PageModel {
             title: Some(String::from("Example")),

@@ -726,3 +726,13 @@
 ## 2026-03-25T20:07:56Z - GPT-5.4 - Page model geometry prepared for check-in
 - Verified the worktree contains only the expected geometry slice files: `docs/SPECS.md`, `docs/TODO.md`, `src-tauri/src/app_core.rs`, `src-tauri/src/browser.rs`, `src-tauri/src/commands.rs`, `src-tauri/src/narration.rs`, `src-tauri/src/page_model.rs`, `src-tauri/src/state.rs`, and `memory.md`.
 - This slice is ready to commit and push on `master` after the green validation run that completed at `159` Rust tests and `12` UI tests.
+
+## 2026-03-25T20:13:28Z - GPT-5.4 - Link extraction contract finalized
+- Confirmed the current runtime already extracts links as `InteractiveElement` entries in `page_model.interactive_elements`; this slice made that behavior explicit rather than adding a separate link structure.
+- Added regression coverage in `src-tauri/src/app_core.rs` proving `extract_page_model` preserves link metadata (`href`, text/accessibility fields, attributes, and `bbox`) when `include_links` is enabled and still omits link-role entries when disabled.
+- Updated `docs/SPECS.md` and `docs/TODO.md` to reflect that extracted links live in `page_model.interactive_elements`.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `160` Rust tests and `12` UI tests.
+
+## 2026-03-25T20:16:08Z - GPT-5.4 - Link extraction prepared for check-in
+- Verified the worktree contains only the expected extract-links slice files: `docs/SPECS.md`, `docs/TODO.md`, `src-tauri/src/app_core.rs`, and `memory.md`.
+- This slice is ready to commit and push on `master` after the green validation run that completed at `160` Rust tests and `12` UI tests.
