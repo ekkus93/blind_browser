@@ -845,6 +845,20 @@ struct InteractiveElement {
   attributes: std::collections::BTreeMap<String, String>,
 }
 
+struct PageRegion {
+  region_id: String,
+  label: Option<String>,
+  text: String,
+  source: RegionSource,
+}
+
+struct PageModel {
+  title: Option<String>,
+  url: Option<String>,
+  regions: Vec<PageRegion>,
+  interactive_elements: Vec<InteractiveElement>,
+}
+
 struct ElementCandidate {
   element_id: String,
   confidence: f32,
@@ -890,17 +904,16 @@ enum BrowserVisibilityMode {
 }
 
 enum ElementRole {
-  Button,
   Link,
+  Button,
   Input,
   TextArea,
   Select,
   Checkbox,
   Radio,
   Form,
-  Heading,
-  Paragraph,
-  Generic,
+  Landmark,
+  Other,
 }
 
 enum ScrollDirection {
@@ -917,18 +930,22 @@ enum ScrollTarget {
   PreviousSection,
 }
 
-enum ListeningState {
-  Idle,
-  Listening,
-  Transcribing,
+struct ListeningState {
+  is_listening: bool,
+  push_to_talk_enabled: bool,
 }
 
 enum ReportStatus {
-  Completed,
-  Partial,
+  Success,
+  NeedsFollowUp,
   Blocked,
   Failed,
-  NeedsConfirmation,
+}
+
+enum RegionSource {
+  Dom,
+  Ocr,
+  Mixed,
 }
 
 enum ExtractionSource {

@@ -272,9 +272,9 @@
 - [x] Implement `capture_screenshot`
 - [x] Implement `run_ocr`
 - [x] Implement `merge_ocr_into_page_model`
-- [ ] Finalize input schema for all Wave 2 tools
-- [ ] Finalize output schema for all Wave 2 tools
-- [ ] Finalize shared enums for Wave 2 tools
+- [x] Finalize input schema for all Wave 2 tools
+- [x] Finalize output schema for all Wave 2 tools
+- [x] Finalize shared enums for Wave 2 tools
 
 ### DOM Inspector
 - [ ] Map regions to bounding boxes

@@ -707,3 +707,12 @@
 ## 2026-03-25T19:43:39Z - GPT-5.4 - Merge OCR slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in under Node `22.12.0`: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The merge_ocr_into_page_model slice remains green at `156` Rust tests and `12` UI tests going into commit and push.
+
+## 2026-03-25T19:48:12Z - GPT-5.4 - Wave 2 contract cleanup completed
+- Updated `docs/SPECS.md` so the shared contract section matches the Rust source of truth for `PageRegion`, `PageModel`, `ListeningState`, `RegionSource`, `ElementRole`, `ReportStatus`, and `ExtractionSource`, closing the remaining Wave 2 spec drift.
+- Added regression coverage in `src-tauri/src/commands.rs` to assert every registered tool exposes an input schema and that key shared enum variants serialize to the expected external contract values.
+- Checked off the remaining Wave 2 cleanup items in `docs/TODO.md` and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `158` Rust tests and `12` UI tests.
+
+## 2026-03-25T19:51:45Z - GPT-5.4 - Wave 2 contract cleanup prepared for check-in
+- Verified the worktree contains only the expected cleanup slice files: `docs/SPECS.md`, `docs/TODO.md`, `src-tauri/src/commands.rs`, and `memory.md`.
+- This slice is ready to commit and push on `master` after the green validation run that completed at `158` Rust tests and `12` UI tests.

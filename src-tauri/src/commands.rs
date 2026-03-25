@@ -7569,6 +7569,32 @@ mod tests {
     }
 
     #[test]
+    fn registered_tools_all_expose_input_schemas() {
+        let missing = registered_tools()
+            .into_iter()
+            .filter(|tool| tool_input_schema(&tool.name).is_none())
+            .map(|tool| tool.name)
+            .collect::<Vec<_>>();
+
+        assert!(
+            missing.is_empty(),
+            "registered tools missing input schemas: {missing:?}"
+        );
+    }
+
+    #[test]
+    fn shared_contract_enums_serialize_expected_variants() {
+        assert_eq!(serde_json::json!(crate::page_model::ElementRole::Landmark), "Landmark");
+        assert_eq!(serde_json::json!(crate::page_model::ElementRole::Other), "Other");
+        assert_eq!(serde_json::json!(crate::page_model::RegionSource::Mixed), "Mixed");
+        assert_eq!(
+            serde_json::json!(crate::page_model::ExtractionSource::Merged),
+            "Merged"
+        );
+        assert_eq!(serde_json::json!(ReportStatus::NeedsFollowUp), "NeedsFollowUp");
+    }
+
+    #[test]
     fn canonical_planner_output_examples_serialize_expected_strings_and_fields() {
         let examples = canonical_planner_output_examples();
 
