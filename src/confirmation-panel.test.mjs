@@ -6,6 +6,7 @@ import {
   renderConfirmationPanel,
   renderPushToTalkPanel,
   renderStatusPanel,
+  renderUrlInputPanel,
 } from "./confirmation-panel.ts";
 
 function renderFixtures() {
@@ -160,6 +161,32 @@ test("renders push-to-talk errors when voice input fails", () => {
 
   assert.match(html, /The microphone is unavailable\./);
   assert.match(html, /role="alert"/);
+});
+
+test("renders URL input with current URL and staged draft value", () => {
+  const html = renderUrlInputPanel({
+    draftValue: "https://staged.example.com",
+    currentUrl: "https://current.example.com",
+    hasUnsubmittedChanges: true,
+  });
+
+  assert.match(html, /URL input/);
+  assert.match(html, /Current URL:<\/strong> https:\/\/current\.example\.com/);
+  assert.match(html, /Draft URL updated\. Open controls can use this value next\./);
+  assert.match(html, /data-url-input="true"/);
+  assert.match(html, /value="https:\/\/staged\.example\.com"/);
+});
+
+test("renders URL input fallback copy when no page is loaded", () => {
+  const html = renderUrlInputPanel({
+    draftValue: "",
+    currentUrl: null,
+    hasUnsubmittedChanges: false,
+  });
+
+  assert.match(html, /No page URL is loaded yet\./);
+  assert.match(html, /The field mirrors the current page URL until you edit it\./);
+  assert.match(html, /placeholder="https:\/\/example\.com"/);
 });
 
 test("renders nearby playback controls with volume and speed values", () => {

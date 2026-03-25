@@ -5,9 +5,11 @@ import {
   renderConfirmationPanel,
   renderPushToTalkPanel,
   renderStatusPanel,
+  renderUrlInputPanel,
   type AudioControlsPanelState,
   type PushToTalkPanelState,
   type StatusPanelState,
+  type UrlInputPanelState,
 } from "./confirmation-panel";
 import {
   createExecutionUiStore,
@@ -67,6 +69,7 @@ let currentExecutionUiState = uiStore.getState();
 let pushToTalkState: PushToTalkPanelState = createInitialPushToTalkState();
 let audioControlsState: AudioControlsPanelState = createInitialAudioControlsState();
 let statusPanelState: StatusPanelState = createInitialStatusPanelState();
+let urlInputPanelState: UrlInputPanelState = createInitialUrlInputPanelState();
 let activePushToTalkSource: "keyboard" | "pointer" | null = null;
 
 if (!app) {
@@ -108,11 +111,20 @@ function createInitialStatusPanelState(): StatusPanelState {
   };
 }
 
+function createInitialUrlInputPanelState(): UrlInputPanelState {
+  return {
+    draftValue: "",
+    currentUrl: null,
+    hasUnsubmittedChanges: false,
+  };
+}
+
 const renderApp = (
   uiState: ExecutionUiState,
   pushToTalk: PushToTalkPanelState,
   audioControls: AudioControlsPanelState,
   statusPanel: StatusPanelState,
+  urlInputPanel: UrlInputPanelState,
 ) => {
   app.innerHTML = `
     <main class="shell">
@@ -149,6 +161,7 @@ const renderApp = (
       </section>
 
       ${renderPushToTalkPanel(pushToTalk)}
+      ${renderUrlInputPanel(urlInputPanel)}
       ${renderStatusPanel(statusPanel)}
       ${renderAudioControlsPanel(audioControls)}
       ${renderConfirmationPanel(uiState.confirmation)}
@@ -157,7 +170,13 @@ const renderApp = (
 };
 
 function rerender() {
-  renderApp(currentExecutionUiState, pushToTalkState, audioControlsState, statusPanelState);
+  renderApp(
+    currentExecutionUiState,
+    pushToTalkState,
+    audioControlsState,
+    statusPanelState,
+    urlInputPanelState,
+  );
 }
 
 function setPushToTalkState(nextState: Partial<PushToTalkPanelState>) {
@@ -179,6 +198,14 @@ function setAudioControlsState(nextState: Partial<AudioControlsPanelState>) {
 function setStatusPanelState(nextState: Partial<StatusPanelState>) {
   statusPanelState = {
     ...statusPanelState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setUrlInputPanelState(nextState: Partial<UrlInputPanelState>) {
+  urlInputPanelState = {
+    ...urlInputPanelState,
     ...nextState,
   };
   rerender();
@@ -258,6 +285,10 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     canGoBack: agentState.browser_history.can_go_back,
     canGoForward: agentState.browser_history.can_go_forward,
     error: null,
+  });
+  setUrlInputPanelState({
+    currentUrl: agentState.url,
+    draftValue: urlInputPanelState.hasUnsubmittedChanges ? urlInputPanelState.draftValue : (agentState.url ?? ""),
   });
 }
 
@@ -564,6 +595,14 @@ app.addEventListener("input", (event) => {
     setAudioControlsState({
       playbackSpeed: Number.parseFloat(target.value),
       error: null,
+    });
+    return;
+  }
+
+  if (target.dataset.urlInput === "true") {
+    setUrlInputPanelState({
+      draftValue: target.value,
+      hasUnsubmittedChanges: true,
     });
   }
 });

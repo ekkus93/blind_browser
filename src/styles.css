@@ -160,6 +160,82 @@ h1 {
   box-shadow: 0 18px 30px rgba(176, 71, 54, 0.28);
 }
 
+.url-input-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 22px 24px;
+  border-radius: 22px;
+  background: rgba(255, 252, 247, 0.9);
+  border: 1px solid rgba(110, 74, 24, 0.18);
+  box-shadow: 0 18px 36px rgba(49, 63, 74, 0.08);
+}
+
+.url-input-copy {
+  max-width: 60ch;
+}
+
+.url-input-eyebrow {
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.76rem;
+  color: #7a5727;
+}
+
+.url-input-panel h2 {
+  margin-bottom: 10px;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.3rem, 2.6vw, 1.9rem);
+  line-height: 1.05;
+}
+
+.url-input-description,
+.url-input-current,
+.url-input-status {
+  line-height: 1.55;
+}
+
+.url-input-current,
+.url-input-status {
+  margin-top: 8px;
+}
+
+.url-input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: min(360px, 100%);
+  flex: 1 1 320px;
+}
+
+.url-input-label {
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6f675c;
+  font-weight: 700;
+}
+
+.url-input-control {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(123, 98, 70, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  color: #1f2527;
+  font: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.url-input-control:focus-visible {
+  outline: 2px solid rgba(122, 87, 39, 0.28);
+  outline-offset: 2px;
+  border-color: rgba(122, 87, 39, 0.32);
+}
+
 .status-panel {
   margin-top: 18px;
   padding: 22px 24px;
@@ -671,6 +747,14 @@ h1 {
 
   .push-to-talk-button {
     width: 100%;
+  }
+
+  .url-input-panel {
+    flex-direction: column;
+  }
+
+  .url-input-field {
+    min-width: 100%;
   }
 
   .audio-controls-panel {

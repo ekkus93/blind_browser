@@ -790,3 +790,9 @@
 - Added `pnpm tauri:dev:ocr` and `pnpm tauri:dev:full` in `package.json` so developers can actually launch Tauri with the OCR or full native feature set instead of the no-feature default.
 - Updated `README.md`, `docs/SPECS.md`, and `docs/TODO.md` to document that `leptess` is the OCR backend behind the `ocr` feature and to mark `Integrate leptess` complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, with `174` Rust tests and `12` UI tests passing.
+
+## 2026-03-25T22:16:18Z - GPT-5.4 - Basic URL input panel landed
+- Added a dedicated `URL input` panel to the frontend shell in `src/confirmation-panel.ts`, including accessible copy, a typed `UrlInputPanelState`, and an editable `type="url"` field for staging the next navigation target.
+- Updated `src/main.ts` so the URL field mirrors `agentState.url` until edited, then preserves the local draft across runtime panel rerenders instead of wiping in-progress input.
+- Added focused render coverage in `src/confirmation-panel.test.mjs`, updated `src/styles.css` for the new panel layout, and marked `URL input` complete in `docs/TODO.md`.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, with `174` Rust tests and `14` UI tests passing.

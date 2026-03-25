@@ -16,6 +16,12 @@ export interface AudioControlsPanelState {
   error: string | null;
 }
 
+export interface UrlInputPanelState {
+  draftValue: string;
+  currentUrl: string | null;
+  hasUnsubmittedChanges: boolean;
+}
+
 export interface StatusPanelState {
   pageTitle: string | null;
   currentRegionLabel: string | null;
@@ -215,6 +221,44 @@ export function renderAudioControlsPanel(state: AudioControlsPanelState): string
           />
         </label>
       </div>
+    </section>
+  `;
+}
+
+export function renderUrlInputPanel(state: UrlInputPanelState): string {
+  const currentUrlCopy = state.currentUrl
+    ? `<p class="url-input-current"><strong>Current URL:</strong> ${escapeHtml(state.currentUrl)}</p>`
+    : '<p class="url-input-current">No page URL is loaded yet.</p>';
+  const draftStatusCopy = state.hasUnsubmittedChanges
+    ? '<p class="url-input-status" role="status">Draft URL updated. Open controls can use this value next.</p>'
+    : '<p class="url-input-status" role="status">The field mirrors the current page URL until you edit it.</p>';
+
+  return `
+    <section class="url-input-panel" aria-labelledby="url-input-title">
+      <div class="url-input-copy">
+        <p class="url-input-eyebrow">Navigation</p>
+        <h2 id="url-input-title">URL input</h2>
+        <p class="url-input-description">
+          Stage the next destination here. This keeps the nearby UI ready for direct navigation
+          controls while voice-first command entry remains the primary path.
+        </p>
+        ${currentUrlCopy}
+        ${draftStatusCopy}
+      </div>
+      <label class="url-input-field" for="url-input-control">
+        <span class="url-input-label">Page URL</span>
+        <input
+          id="url-input-control"
+          class="url-input-control"
+          data-url-input="true"
+          type="url"
+          inputmode="url"
+          autocomplete="url"
+          spellcheck="false"
+          placeholder="https://example.com"
+          value="${escapeHtml(state.draftValue)}"
+        />
+      </label>
     </section>
   `;
 }

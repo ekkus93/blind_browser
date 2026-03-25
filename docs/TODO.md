@@ -296,7 +296,7 @@
 ## Phase 5: UI (Tauri)
 
 ### Basic UI
-- [ ] URL input
+- [x] URL input
 - [ ] Open button
 - [ ] Read button
 - [ ] Stop button
