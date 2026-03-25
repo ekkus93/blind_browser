@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs;
+use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::asr::{
@@ -18,8 +19,9 @@ use crate::commands::{
     resolve_direct_read_page_command, resolve_direct_read_title_command,
     resolve_direct_repeat_command, resolve_direct_status_query_command, resolve_direct_voice_input_command,
     resume_after_confirmation, tool_input_schema, validate_planner_output,
-    AgentStateData, ClickElementData, ClickElementInput, ConfirmActionData, ConfirmActionInput,
-    ConfirmActionResolution, DeterministicToolExecutor, ExecutionOutcome, ExecutionTrace,
+    AgentStateData, CaptureScreenshotData, CaptureScreenshotInput, ClickElementData,
+    ClickElementInput, ConfirmActionData, ConfirmActionInput, ConfirmActionResolution,
+    DeterministicToolExecutor, ExecutionOutcome, ExecutionTrace,
     ExtractPageModelData, ExtractPageModelInput, FindElementData, FindElementInput,
     FocusElementData, FocusElementInput, GetAgentStateInput, GetPageSnapshotInput,
     GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData,
@@ -601,6 +603,173 @@ impl AppCore {
                 previous_scroll_y: scroll_state.previous_scroll_y,
                 current_scroll_y: scroll_state.current_scroll_y,
                 reached_boundary: scroll_state.reached_boundary,
+            },
+            observations,
+        )
+    }
+
+    pub fn execute_capture_screenshot(
+        &mut self,
+        input: CaptureScreenshotInput,
+    ) -> ToolResult<CaptureScreenshotData> {
+        if self.state.current_page_id.is_none() {
+            return Self::browser_runtime_missing_page(ToolName::CaptureScreenshot, input.request_id);
+        }
+
+        let region_id_active = input
+            .region_id
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|region_id| !region_id.is_empty());
+        let targeting_modes =
+            usize::from(input.full_page) + usize::from(region_id_active) + usize::from(input.bbox.is_some());
+        if targeting_modes > 1 {
+            return ToolResult::failure(
+                ToolName::CaptureScreenshot,
+                input.request_id,
+                ToolError {
+                    code: String::from("invalid_screenshot_target"),
+                    message: String::from(
+                        "capture_screenshot accepts at most one targeting mode from full_page, region_id, or bbox",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Screenshot request was rejected because it combined multiple targeting modes.",
+                )],
+            );
+        }
+
+        if let Some(region_id) = input
+            .region_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|region_id| !region_id.is_empty())
+        {
+            return ToolResult::failure(
+                ToolName::CaptureScreenshot,
+                input.request_id,
+                ToolError {
+                    code: String::from("region_geometry_unavailable"),
+                    message: String::from(
+                        "capture_screenshot region_id targeting is not available until page regions carry bounding boxes",
+                    ),
+                    retryable: false,
+                    details: Some(serde_json::json!({ "region_id": region_id })),
+                },
+                vec![String::from(
+                    "Region-targeted screenshots are blocked until region bounding boxes are available in the page model.",
+                )],
+            );
+        }
+
+        if let Some(bbox) = input.bbox.as_ref() {
+            if bbox.width <= 0.0 || bbox.height <= 0.0 {
+                return ToolResult::failure(
+                    ToolName::CaptureScreenshot,
+                    input.request_id,
+                    ToolError {
+                        code: String::from("invalid_screenshot_bbox"),
+                        message: String::from(
+                            "capture_screenshot bbox requires positive width and height",
+                        ),
+                        retryable: false,
+                        details: Some(serde_json::json!({
+                            "x": bbox.x,
+                            "y": bbox.y,
+                            "width": bbox.width,
+                            "height": bbox.height,
+                        })),
+                    },
+                    vec![String::from(
+                        "Screenshot request was rejected because the requested bbox was not positive-sized.",
+                    )],
+                );
+            }
+        }
+
+        let browser_screenshot =
+            match self
+                .browser
+                .capture_screenshot(input.full_page, input.bbox.clone(), input.timeout_ms)
+            {
+                Ok(browser_screenshot) => browser_screenshot,
+                Err(error) => {
+                    return self.browser_tool_failure(
+                        ToolName::CaptureScreenshot,
+                        input.request_id,
+                        String::from("Live browser screenshot capture did not complete successfully."),
+                        error,
+                    )
+                }
+            };
+
+        if let Some(current_page) = self.state.current_page.as_mut() {
+            current_page.url = Some(browser_screenshot.url.clone());
+            current_page.title = browser_screenshot.title.clone();
+        }
+        self.state.browser_history = browser_screenshot.history.clone();
+
+        let image_id = self.next_image_id(&input.request_id);
+        let screenshot_path = match self.screenshot_output_path(&image_id) {
+            Ok(path) => path,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::CaptureScreenshot,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Screenshot capture completed, but the image could not be persisted to app storage.",
+                    )],
+                )
+            }
+        };
+        if let Err(error) = fs::write(&screenshot_path, &browser_screenshot.image_bytes) {
+            return ToolResult::failure(
+                ToolName::CaptureScreenshot,
+                input.request_id,
+                ToolError {
+                    code: String::from("screenshot_write_failed"),
+                    message: String::from("capture_screenshot could not write the PNG file to app storage"),
+                    retryable: true,
+                    details: Some(serde_json::json!({
+                        "path": screenshot_path.display().to_string(),
+                        "reason": error.to_string(),
+                    })),
+                },
+                vec![String::from(
+                    "Screenshot capture completed, but writing the PNG file to disk failed.",
+                )],
+            );
+        }
+
+        let mut observations = vec![format!(
+            "Captured a deterministic browser screenshot and persisted it as {image_id}.png."
+        )];
+        if input.full_page {
+            observations.push(String::from(
+                "The screenshot targeted the full page rather than only the current viewport.",
+            ));
+        } else if browser_screenshot.bbox.is_some() {
+            observations.push(String::from(
+                "The screenshot was clipped to the explicitly requested bounding box.",
+            ));
+        } else {
+            observations.push(String::from(
+                "The screenshot used the current viewport because no full-page or bbox target was requested.",
+            ));
+        }
+
+        ToolResult::success(
+            ToolName::CaptureScreenshot,
+            input.request_id,
+            CaptureScreenshotData {
+                image_id,
+                path: screenshot_path.display().to_string(),
+                bbox: browser_screenshot.bbox,
+                width: browser_screenshot.width,
+                height: browser_screenshot.height,
             },
             observations,
         )
@@ -3147,6 +3316,42 @@ impl AppCore {
         };
         format!("page-{request_id}-{timestamp_ms}")
     }
+
+    fn next_image_id(&self, request_id: &str) -> String {
+        let timestamp_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(duration) => duration.as_millis(),
+            Err(_) => 0,
+        };
+        format!("image-{request_id}-{timestamp_ms}")
+    }
+
+    fn screenshot_output_path(&self, image_id: &str) -> Result<PathBuf, ToolError> {
+        let cache_dir = self
+            .app_handle
+            .path()
+            .app_cache_dir()
+            .map_err(|error| ToolError {
+                code: String::from("resolve_app_cache_dir_failed"),
+                message: String::from(
+                    "capture_screenshot could not resolve the app cache directory",
+                ),
+                retryable: true,
+                details: Some(serde_json::json!({ "reason": error.to_string() })),
+            })?;
+        let screenshot_dir = cache_dir.join("screenshots");
+        fs::create_dir_all(&screenshot_dir).map_err(|error| ToolError {
+            code: String::from("create_screenshot_dir_failed"),
+            message: String::from(
+                "capture_screenshot could not create the screenshot cache directory",
+            ),
+            retryable: true,
+            details: Some(serde_json::json!({
+                "path": screenshot_dir.display().to_string(),
+                "reason": error.to_string(),
+            })),
+        })?;
+        Ok(screenshot_dir.join(format!("{image_id}.png")))
+    }
 }
 
 impl ReplanningRuntime for AppCore {
@@ -3234,6 +3439,13 @@ impl DeterministicToolExecutor for AppCore {
 
     fn execute_scroll_page(&mut self, input: ScrollPageInput) -> ToolResult<ScrollPageData> {
         AppCore::execute_scroll_page(self, input)
+    }
+
+    fn execute_capture_screenshot(
+        &mut self,
+        input: CaptureScreenshotInput,
+    ) -> ToolResult<CaptureScreenshotData> {
+        AppCore::execute_capture_screenshot(self, input)
     }
 
     fn execute_list_interactive_elements(
@@ -5015,6 +5227,7 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
         BrowserError::History(_) => "browser_history_failed",
         BrowserError::Reload(_) => "browser_reload_failed",
         BrowserError::Scroll(_) => "browser_scroll_failed",
+        BrowserError::Screenshot(_) => "browser_screenshot_failed",
     };
 
     ToolError {
@@ -5029,6 +5242,7 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
                 | BrowserError::History(_)
                 | BrowserError::Reload(_)
                 | BrowserError::Scroll(_)
+                | BrowserError::Screenshot(_)
         ),
         details: Some(serde_json::json!({ "reason": error.to_string() })),
     }

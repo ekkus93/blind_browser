@@ -10,7 +10,7 @@ use crate::audio_io::RuntimeAudioState;
 use crate::browser::{BrowserVisibilityMode, LoadState, ScrollDirection, ScrollTarget};
 use crate::config::{ProviderMode, MAX_PLAYBACK_SPEED, MAX_PLAYBACK_VOLUME, MIN_PLAYBACK_SPEED};
 use crate::narration::NarrationCursor;
-use crate::page_model::{ExtractionSource, InteractiveElement, PageModel};
+use crate::page_model::{ExtractionSource, InteractiveElement, PageModel, Rect};
 use crate::state::{BrowserHistoryState, ListeningState};
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -120,6 +120,10 @@ pub trait DeterministicToolExecutor {
     fn execute_go_forward(&mut self, input: GoForwardInput) -> ToolResult<GoForwardData>;
     fn execute_reload_page(&mut self, input: ReloadPageInput) -> ToolResult<ReloadPageData>;
     fn execute_scroll_page(&mut self, input: ScrollPageInput) -> ToolResult<ScrollPageData>;
+    fn execute_capture_screenshot(
+        &mut self,
+        input: CaptureScreenshotInput,
+    ) -> ToolResult<CaptureScreenshotData>;
     fn execute_get_page_snapshot(
         &mut self,
         input: GetPageSnapshotInput,
@@ -579,6 +583,24 @@ pub struct ScrollPageData {
     pub reached_boundary: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct CaptureScreenshotInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub full_page: bool,
+    pub region_id: Option<String>,
+    pub bbox: Option<Rect>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct CaptureScreenshotData {
+    pub image_id: String,
+    pub path: String,
+    pub bbox: Option<Rect>,
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct ReadRegionInput {
     pub request_id: String,
@@ -920,6 +942,12 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
                 executor.execute_scroll_page(input)
             })
         }
+        ToolName::CaptureScreenshot => execute_serialized_tool(
+            step,
+            ToolName::CaptureScreenshot,
+            executor,
+            |executor, input| executor.execute_capture_screenshot(input),
+        ),
         ToolName::ReadRegion => {
             execute_serialized_tool(step, ToolName::ReadRegion, executor, |executor, input| {
                 executor.execute_read_region(input)
@@ -1433,6 +1461,7 @@ pub fn tool_input_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
         ToolName::GoForward => Some(schema_json::<GoForwardInput>()),
         ToolName::ReloadPage => Some(schema_json::<ReloadPageInput>()),
         ToolName::ScrollPage => Some(schema_json::<ScrollPageInput>()),
+        ToolName::CaptureScreenshot => Some(schema_json::<CaptureScreenshotInput>()),
         ToolName::SetBrowserVisibility => Some(schema_json::<SetBrowserVisibilityInput>()),
         ToolName::GetPageSnapshot => Some(schema_json::<GetPageSnapshotInput>()),
         ToolName::ExtractPageModel => Some(schema_json::<ExtractPageModelInput>()),
@@ -1887,6 +1916,7 @@ fn is_plannable_tool(tool_name: &ToolName) -> bool {
             | ToolName::GoForward
             | ToolName::ReloadPage
             | ToolName::ScrollPage
+            | ToolName::CaptureScreenshot
             | ToolName::SetBrowserVisibility
             | ToolName::GetPageSnapshot
             | ToolName::ExtractPageModel
@@ -1924,6 +1954,19 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
         ToolName::GoForward => validate_tool_arguments::<GoForwardInput>(step),
         ToolName::ReloadPage => validate_tool_arguments::<ReloadPageInput>(step),
         ToolName::ScrollPage => validate_tool_arguments::<ScrollPageInput>(step),
+        ToolName::CaptureScreenshot => {
+            let input = serde_json::from_value::<CaptureScreenshotInput>(step.arguments.clone())
+                .map_err(|error| {
+                    invalid_planner_output(
+                        format!("tool arguments did not match the expected schema: {error}"),
+                        Some(serde_json::json!({
+                            "step_id": step.step_id,
+                            "tool_name": step.tool_name,
+                        })),
+                    )
+                })?;
+            validate_capture_screenshot_input(&input)
+        }
         ToolName::SetBrowserVisibility => {
             validate_tool_arguments::<SetBrowserVisibilityInput>(step)
         }
@@ -1956,6 +1999,38 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
             Some(serde_json::json!({ "step_id": step.step_id })),
         )),
     }
+}
+
+fn validate_capture_screenshot_input(input: &CaptureScreenshotInput) -> Result<(), ToolError> {
+    let region_id_active = input
+        .region_id
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|region_id| !region_id.is_empty());
+    let targeting_modes =
+        usize::from(input.full_page) + usize::from(region_id_active) + usize::from(input.bbox.is_some());
+    if targeting_modes > 1 {
+        return Err(invalid_planner_output(
+            "capture_screenshot supports at most one targeting mode from full_page, region_id, or bbox",
+            None,
+        ));
+    }
+
+    if let Some(bbox) = input.bbox.as_ref() {
+        if bbox.width <= 0.0 || bbox.height <= 0.0 {
+            return Err(invalid_planner_output(
+                "capture_screenshot bbox requires positive width and height",
+                Some(serde_json::json!({
+                    "x": bbox.x,
+                    "y": bbox.y,
+                    "width": bbox.width,
+                    "height": bbox.height,
+                })),
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 fn validate_step_transition(
@@ -5111,6 +5186,7 @@ mod tests {
         last_go_forward_request: Option<GoForwardInput>,
         last_reload_request: Option<ReloadPageInput>,
         last_scroll_request: Option<ScrollPageInput>,
+        last_capture_screenshot_request: Option<CaptureScreenshotInput>,
         last_read_region_request: Option<ReadRegionInput>,
         last_read_next_region_request: Option<ReadNextRegionInput>,
         last_read_previous_region_request: Option<ReadPreviousRegionInput>,
@@ -5234,6 +5310,25 @@ mod tests {
                     reached_boundary: false,
                 },
                 vec![String::from("scrolled the page")],
+            )
+        }
+
+        fn execute_capture_screenshot(
+            &mut self,
+            input: CaptureScreenshotInput,
+        ) -> ToolResult<CaptureScreenshotData> {
+            self.last_capture_screenshot_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::CaptureScreenshot,
+                input.request_id,
+                CaptureScreenshotData {
+                    image_id: String::from("image-1"),
+                    path: String::from("/tmp/image-1.png"),
+                    bbox: input.bbox,
+                    width: 640,
+                    height: 480,
+                },
+                vec![String::from("captured a screenshot")],
             )
         }
 
@@ -6142,6 +6237,49 @@ mod tests {
     }
 
     #[test]
+    fn dispatches_capture_screenshot_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-capture-screenshot"),
+            tool_name: ToolName::CaptureScreenshot,
+            arguments: serde_json::json!({
+                "request_id": "req-capture-screenshot",
+                "timeout_ms": 1000,
+                "full_page": false,
+                "region_id": serde_json::Value::Null,
+                "bbox": {
+                    "x": 10.0,
+                    "y": 20.0,
+                    "width": 300.0,
+                    "height": 120.0
+                }
+            }),
+            purpose: String::from("capture a deterministic screenshot"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_capture_screenshot_request
+                .as_ref()
+                .map(|input| input.request_id.as_str()),
+            Some("req-capture-screenshot")
+        );
+        assert_eq!(
+            executor
+                .last_capture_screenshot_request
+                .as_ref()
+                .and_then(|input| input.bbox.as_ref())
+                .map(|bbox| (bbox.x, bbox.y, bbox.width, bbox.height)),
+            Some((10.0, 20.0, 300.0, 120.0))
+        );
+    }
+
+    #[test]
     fn dispatches_get_page_snapshot_from_planned_step() {
         let mut executor = MockExecutor::default();
         let step = PlannedStep {
@@ -7020,7 +7158,7 @@ mod tests {
 
         assert!(available_tools
             .iter()
-            .all(|tool| !matches!(tool.name, ToolName::CaptureScreenshot | ToolName::RunOcr)));
+            .all(|tool| !matches!(tool.name, ToolName::RunOcr | ToolName::MergeOcrIntoPageModel)));
         assert!(available_tools
             .iter()
             .any(|tool| tool.name == ToolName::OpenUrl));
@@ -7036,6 +7174,9 @@ mod tests {
         assert!(available_tools
             .iter()
             .any(|tool| tool.name == ToolName::SubmitActiveForm));
+        assert!(available_tools
+            .iter()
+            .any(|tool| tool.name == ToolName::CaptureScreenshot));
     }
 
     #[test]
@@ -7615,6 +7756,48 @@ mod tests {
         .expect_err("validation should reject malformed step arguments");
         assert_eq!(error.code, "invalid_planner_output");
         assert!(error.message.contains("expected schema"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_capture_screenshot_with_multiple_targets() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::OcrRecovery,
+                goal: String::from("capture a screenshot for OCR"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("ocr_current_region")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-capture"),
+                tool_name: ToolName::CaptureScreenshot,
+                arguments: serde_json::json!({
+                    "request_id": "req-capture",
+                    "full_page": true,
+                    "region_id": "region-1",
+                    "bbox": serde_json::Value::Null
+                }),
+                purpose: String::from("capture an image for OCR"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("ocr_current_region")],
+        )
+        .expect_err("validation should reject conflicting screenshot target modes");
+        assert_eq!(error.code, "invalid_planner_output");
+        assert!(error
+            .message
+            .contains("capture_screenshot supports at most one targeting mode"));
     }
 
     #[test]

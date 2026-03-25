@@ -677,3 +677,13 @@
 ## 2026-03-25T18:36:34Z - GPT-5.4 - CI slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in under Node `22.12.0`: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The CI and README badge changes remain green at `142` Rust tests and `12` UI tests, and the earlier local Vite Node warning is no longer present after switching this shell to Node `22.12.0`.
+
+## 2026-03-25T18:59:32Z - GPT-5.4 - Capture screenshot slice landed
+- Wired `capture_screenshot` through the bounded tool layer in `src-tauri/src/commands.rs`, `src-tauri/src/browser.rs`, and `src-tauri/src/app_core.rs`, including planner-visible schemas, dispatch, executor support, mock coverage, browser PNG capture, cache persistence, and returned screenshot metadata.
+- The browser implementation now supports viewport, full-page, and explicit bounding-box screenshots; planner validation rejects conflicting targeting modes and invalid bbox dimensions before dispatch.
+- `region_id` requests currently fail clearly with `region_geometry_unavailable` because `PageRegion` still has no geometry, which keeps the tool deterministic without inventing partial region targeting behavior.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `144` Rust tests and `12` UI tests.
+
+## 2026-03-25T19:07:31Z - GPT-5.4 - Capture screenshot slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in under Node `22.12.0`: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The screenshot slice remains green at `144` Rust tests and `12` UI tests going into commit and push.

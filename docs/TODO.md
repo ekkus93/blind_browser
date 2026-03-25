@@ -269,7 +269,7 @@
 - [x] Implement `focus_element`
 - [x] Implement `type_into_element`
 - [x] Implement `submit_active_form`
-- [ ] Implement `capture_screenshot`
+- [x] Implement `capture_screenshot`
 - [ ] Implement `run_ocr`
 - [ ] Implement `merge_ocr_into_page_model`
 - [ ] Finalize input schema for all Wave 2 tools

@@ -1256,6 +1256,8 @@ struct CaptureScreenshotInput {
 
 Validation notes:
 - At most one of `full_page`, `region_id`, or `bbox` targeting modes should be active.
+- When `bbox` is provided, `width` and `height` must be positive.
+- `region_id` targeting should fail clearly until region geometry is available in the page model.
 
 #### `run_ocr`
 
