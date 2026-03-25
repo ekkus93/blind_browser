@@ -8,7 +8,9 @@
     "build": "tsc && vite build",
     "test:ui": "node --disable-warning=ExperimentalWarning --experimental-strip-types --experimental-specifier-resolution=node --test src/**/*.test.mjs",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:dev:ocr": "tauri dev --features ocr",
+    "tauri:dev:full": "tauri dev --features full"
   },
   "dependencies": {
     "@tauri-apps/api": "2.10.1"

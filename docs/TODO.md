@@ -282,7 +282,7 @@
 - [x] Attach geometry to PageModel
 
 ### OCR Module
-- [ ] Integrate leptess
+- [x] Integrate leptess
 - [x] Crop screenshot regions
 - [x] Run OCR on region
 - [x] Merge OCR into PageModel

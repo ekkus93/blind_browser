@@ -561,6 +561,7 @@ Representative-page validation guidance:
 
 ### OCR
 - Region-only OCR via Tesseract (leptess)
+- The Rust OCR backend is provided by the Cargo `ocr` feature; the `full` feature bundle includes it for normal desktop development and validation.
 
 ### Narration
 - Controls reading flow

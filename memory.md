@@ -784,3 +784,9 @@
 - Added regression coverage in `src-tauri/src/app_core.rs` for the exact default boundaries: fallback now stays explicitly covered at `200` readable characters, at `1` readable region, and above both boundaries.
 - Added direct default/config coverage in `src-tauri/src/ocr.rs` and `src-tauri/src/config.rs`, then updated `docs/SPECS.md` and `docs/TODO.md` to state and mark complete the shipped policy of `200` readable characters or fewer than `2` readable regions.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `174` Rust tests and `12` UI tests.
+
+## 2026-03-25T22:09:47Z - GPT-5.4 - Leptess integration surfaced in dev workflow
+- Confirmed the OCR runtime was already backed by `leptess` through the Cargo `ocr` feature in `src-tauri/src/ocr.rs`, with the `full` feature bundle already including OCR for validation builds.
+- Added `pnpm tauri:dev:ocr` and `pnpm tauri:dev:full` in `package.json` so developers can actually launch Tauri with the OCR or full native feature set instead of the no-feature default.
+- Updated `README.md`, `docs/SPECS.md`, and `docs/TODO.md` to document that `leptess` is the OCR backend behind the `ocr` feature and to mark `Integrate leptess` complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, with `174` Rust tests and `12` UI tests passing.
