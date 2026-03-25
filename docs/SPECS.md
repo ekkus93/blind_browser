@@ -2022,9 +2022,11 @@ enum ExecutionOutcome {
 
 - `status = Ready` means `steps` must be non-empty.
 - `status = NeedsConfirmation` means no side-effecting action may execute until confirmation succeeds.
+- `status = NeedsConfirmation` must set `requires_confirmation = true`, include non-empty `confirmation_reason` and `user_message`, include a `confirm_action` step, and have a `confirm_action` success transition of `RequestConfirmation`.
 - `status = Blocked` means `steps` should be empty, `blocked_reason` should be present, and `user_message` should explain what is missing or unsupported.
 - `status = Complete` is allowed only when no further execution is needed.
 - `intent.name = SubmitForm` must always use `status = NeedsConfirmation`, set `requires_confirmation = true`, include a non-empty `confirmation_reason` and `user_message`, and include a `confirm_action` step whose success transition is `RequestConfirmation`.
+- `Ready`, `Blocked`, and `Complete` planner outputs must not include `confirm_action`, set `requires_confirmation = true`, or include `confirmation_reason`.
 - Each `tool_name` must match a registered deterministic tool exactly.
 - `arguments` must validate against the selected tool's input schema before execution.
 - The planner may reference at most one future step via `NextStep` to keep execution linear in v1.

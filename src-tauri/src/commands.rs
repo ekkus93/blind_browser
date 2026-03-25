@@ -1583,26 +1583,8 @@ pub fn validate_planner_output(
         }
     }
 
-    if planner_output.status == PlannerStatus::NeedsConfirmation {
-        if !planner_output.requires_confirmation {
-            return Err(invalid_planner_output(
-                "needs-confirmation planner output must set requires_confirmation",
-                None,
-            ));
-        }
-        if planner_output
-            .confirmation_reason
-            .as_ref()
-            .is_none_or(|reason| reason.trim().is_empty())
-        {
-            return Err(invalid_planner_output(
-                "needs-confirmation planner output must include confirmation_reason",
-                None,
-            ));
-        }
-    }
-
     validate_submit_confirmation_policy(planner_output)?;
+    validate_confirmation_policy(planner_output)?;
 
     let mut seen_step_ids = HashSet::new();
     for step in &planner_output.steps {
@@ -1712,6 +1694,86 @@ fn validate_submit_confirmation_policy(planner_output: &PlannerOutput) -> Result
     if !requests_confirmation {
         return Err(invalid_planner_output(
             "submit-form planner output must request confirmation from a confirm_action step",
+            None,
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_confirmation_policy(planner_output: &PlannerOutput) -> Result<(), ToolError> {
+    let has_confirm_action_step = planner_output
+        .steps
+        .iter()
+        .any(|step| step.tool_name == ToolName::ConfirmAction);
+    let requests_confirmation = planner_output.steps.iter().any(|step| {
+        step.tool_name == ToolName::ConfirmAction
+            && matches!(step.on_success, StepTransition::RequestConfirmation)
+    });
+    let has_confirmation_reason = planner_output
+        .confirmation_reason
+        .as_ref()
+        .is_some_and(|reason| !reason.trim().is_empty());
+
+    if planner_output.status == PlannerStatus::NeedsConfirmation {
+        if !planner_output.requires_confirmation {
+            return Err(invalid_planner_output(
+                "needs-confirmation planner output must set requires_confirmation",
+                None,
+            ));
+        }
+        if !has_confirmation_reason {
+            return Err(invalid_planner_output(
+                "needs-confirmation planner output must include confirmation_reason",
+                None,
+            ));
+        }
+        if planner_output
+            .user_message
+            .as_ref()
+            .is_none_or(|message| message.trim().is_empty())
+        {
+            return Err(invalid_planner_output(
+                "needs-confirmation planner output must include user_message",
+                None,
+            ));
+        }
+        if !has_confirm_action_step {
+            return Err(invalid_planner_output(
+                "needs-confirmation planner output must include a confirm_action step",
+                None,
+            ));
+        }
+        if !requests_confirmation {
+            return Err(invalid_planner_output(
+                "needs-confirmation planner output must request confirmation from a confirm_action step",
+                None,
+            ));
+        }
+        return Ok(());
+    }
+
+    if planner_output.requires_confirmation {
+        return Err(invalid_planner_output(
+            "non-needs-confirmation planner output must not set requires_confirmation",
+            None,
+        ));
+    }
+    if has_confirmation_reason {
+        return Err(invalid_planner_output(
+            "non-needs-confirmation planner output must not include confirmation_reason",
+            None,
+        ));
+    }
+    if has_confirm_action_step {
+        return Err(invalid_planner_output(
+            "non-needs-confirmation planner output must not include a confirm_action step",
+            None,
+        ));
+    }
+    if requests_confirmation {
+        return Err(invalid_planner_output(
+            "non-needs-confirmation planner output must not request confirmation",
             None,
         ));
     }
@@ -5568,7 +5630,7 @@ mod tests {
     #[test]
     fn returns_awaiting_confirmation_when_transition_requests_it() {
         let planner_output = PlannerOutput {
-            status: PlannerStatus::Ready,
+            status: PlannerStatus::NeedsConfirmation,
             intent: IntentSummary {
                 name: IntentName::ClickElement,
                 goal: String::from("confirm button choice"),
@@ -6262,6 +6324,86 @@ mod tests {
     }
 
     #[test]
+    fn validate_planner_output_rejects_needs_confirmation_without_confirm_action_step() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::NeedsConfirmation,
+            intent: IntentSummary {
+                name: IntentName::ClickElement,
+                goal: String::from("activate the selected button"),
+                target_description: Some(String::from("submit button")),
+            },
+            selected_skills: vec![String::from("open_link_by_text")],
+            steps: vec![PlannedStep {
+                step_id: String::from("click-button"),
+                tool_name: ToolName::ClickElement,
+                arguments: serde_json::json!({
+                    "request_id": "req-click",
+                    "timeout_ms": 1000,
+                    "element_id": "button-submit",
+                    "double_click": false
+                }),
+                purpose: String::from("activate the chosen button"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: true,
+            confirmation_reason: Some(String::from("clicking may trigger a protected action")),
+            blocked_reason: None,
+            user_message: Some(String::from("Please confirm before I activate the button.")),
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("open_link_by_text")],
+        )
+        .expect_err("needs-confirmation plans should require a confirm_action step");
+        assert_eq!(error.code, "invalid_planner_output");
+        assert!(error.message.contains("must include a confirm_action step"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_ready_output_with_confirmation_metadata() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::ClickElement,
+                goal: String::from("activate the selected button"),
+                target_description: Some(String::from("submit button")),
+            },
+            selected_skills: vec![String::from("confirm_action")],
+            steps: vec![PlannedStep {
+                step_id: String::from("confirm-click"),
+                tool_name: ToolName::ConfirmAction,
+                arguments: serde_json::json!({
+                    "request_id": "req-click",
+                    "timeout_ms": 1000,
+                    "prompt_text": "Do you want me to activate the submit button?",
+                    "reason": "Activating it may send data."
+                }),
+                purpose: String::from("ask for confirmation"),
+                on_success: StepTransition::RequestConfirmation,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: true,
+            confirmation_reason: Some(String::from("activating the button may send data")),
+            blocked_reason: None,
+            user_message: Some(String::from("Please confirm before I activate the button.")),
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("confirm_action")],
+        )
+        .expect_err("ready plans should not carry confirmation-only metadata");
+        assert_eq!(error.code, "invalid_planner_output");
+        assert!(error.message.contains("must not set requires_confirmation"));
+    }
+
+    #[test]
     fn validate_planner_output_accepts_submit_form_with_confirmation_gate() {
         let available_tools = planner_available_tools();
         let planner_output = PlannerOutput {
@@ -6314,6 +6456,22 @@ mod tests {
             &[String::from("confirm_action")],
         )
         .expect("submit-form plans should validate when confirmation is required");
+    }
+
+    #[test]
+    fn validate_planner_output_accepts_click_element_with_confirmation_gate() {
+        let available_tools = planner_available_tools();
+        let mut examples = canonical_planner_output_examples();
+        let planner_output = examples
+            .remove("click_element_with_confirmation")
+            .expect("click confirmation example should exist");
+
+        validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("open_link_by_text"), String::from("confirm_action")],
+        )
+        .expect("click plans should validate when they use the bounded confirmation flow");
     }
 
     #[test]
