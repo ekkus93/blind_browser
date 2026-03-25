@@ -348,4 +348,58 @@ mod tests {
         assert_eq!(state.audio.tts_voice.as_deref(), Some("Rosie"));
         assert!(!state.audio.muted);
     }
+
+    #[test]
+    fn deserializing_legacy_page_regions_defaults_missing_bbox_to_none() {
+        let state: AppState = serde_json::from_value(serde_json::json!({
+            "current_page_id": "page-1",
+            "current_page": {
+                "title": "Example",
+                "url": "https://example.com",
+                "regions": [
+                    {
+                        "region_id": "region-1",
+                        "label": "Main",
+                        "text": "Example text",
+                        "source": "Dom"
+                    }
+                ],
+                "interactive_elements": []
+            },
+            "browser_visibility": "Visible",
+            "browser_history": {
+                "can_go_back": false,
+                "can_go_forward": false,
+                "current_entry_index": null,
+                "entry_count": 0
+            },
+            "narration_cursor": {
+                "current_region_id": null,
+                "current_index": null,
+                "total_regions": 0
+            },
+            "speaking": false,
+            "speaking_region_id": null,
+            "audio": {
+                "playback_volume": 1.0,
+                "playback_speed": 1.0,
+                "muted": false,
+                "tts_voice": null
+            },
+            "listening": {
+                "is_listening": false,
+                "push_to_talk_enabled": true
+            },
+            "last_transcript": null,
+            "last_tool_call": null,
+            "pending_confirmation_id": null,
+            "pending_plan_execution": null
+        }))
+        .expect("legacy app state should deserialize");
+
+        assert_eq!(
+            state.current_page.as_ref().and_then(|page| page.regions.first()).and_then(|region| region.bbox.clone()),
+            None
+        );
+    }
 }

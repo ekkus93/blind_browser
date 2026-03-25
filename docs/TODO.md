@@ -277,9 +277,9 @@
 - [x] Finalize shared enums for Wave 2 tools
 
 ### DOM Inspector
-- [ ] Map regions to bounding boxes
+- [x] Map regions to bounding boxes
 - [ ] Extract links
-- [ ] Attach geometry to PageModel
+- [x] Attach geometry to PageModel
 
 ### OCR Module
 - [ ] Integrate leptess

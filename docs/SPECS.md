@@ -849,6 +849,7 @@ struct PageRegion {
   region_id: String,
   label: Option<String>,
   text: String,
+  bbox: Option<Rect>,
   source: RegionSource,
 }
 

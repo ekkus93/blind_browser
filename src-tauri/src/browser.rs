@@ -1148,6 +1148,7 @@ struct LiveExtractedRegion {
     region_id: String,
     label: Option<String>,
     text: String,
+    bbox: Option<Rect>,
     source: String,
 }
 
@@ -1369,6 +1370,15 @@ async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError>
                 region_id: `dom-region-${regions.length + 1}`,
                 label: normalizeText(node.getAttribute('aria-label')),
                 text,
+                bbox: (() => {
+                    const rect = node.getBoundingClientRect();
+                    return {
+                        x: rect.x,
+                        y: rect.y,
+                        width: rect.width,
+                        height: rect.height,
+                    };
+                })(),
                 source: 'Dom'
             });
         }
@@ -1398,6 +1408,7 @@ async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError>
                 region_id: region.region_id,
                 label: region.label,
                 text: region.text,
+                bbox: region.bbox,
                 source: match region.source.as_str() {
                     "Mixed" => RegionSource::Mixed,
                     "Ocr" => RegionSource::Ocr,

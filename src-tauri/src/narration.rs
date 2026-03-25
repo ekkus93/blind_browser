@@ -78,18 +78,21 @@ mod tests {
                 region_id: String::from("region-1"),
                 label: Some(String::from("Title")),
                 text: String::from("Page title"),
+                bbox: None,
                 source: RegionSource::Dom,
             },
             PageRegion {
                 region_id: String::from("region-2"),
                 label: Some(String::from("Body")),
                 text: String::from("Body text"),
+                bbox: None,
                 source: RegionSource::Dom,
             },
             PageRegion {
                 region_id: String::from("region-3"),
                 label: Some(String::from("Footer")),
                 text: String::from("Footer text"),
+                bbox: None,
                 source: RegionSource::Dom,
             },
         ]
@@ -139,6 +142,7 @@ mod tests {
             region_id: String::from("region-1"),
             label: Some(String::from("Heading")),
             text: String::from("Welcome to the page"),
+            bbox: None,
             source: RegionSource::Dom,
         };
 
@@ -154,6 +158,7 @@ mod tests {
             region_id: String::from("region-1"),
             label: Some(String::from("Heading")),
             text: String::from("Heading one overview"),
+            bbox: None,
             source: RegionSource::Dom,
         };
 

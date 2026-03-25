@@ -62,6 +62,8 @@ pub struct PageRegion {
     pub region_id: String,
     pub label: Option<String>,
     pub text: String,
+    #[serde(default)]
+    pub bbox: Option<Rect>,
     pub source: RegionSource,
 }
 

@@ -49,7 +49,7 @@ use crate::narration::{
 };
 use crate::ocr::{OcrController, OcrRuntimeError};
 use crate::page_model::PageRegion;
-use crate::page_model::{ElementRole, ExtractionSource, PageModel, RegionSource};
+use crate::page_model::{ElementRole, ExtractionSource, PageModel, Rect, RegionSource};
 use crate::state::AppState;
 use crate::tts::{TtsController, TtsRuntimeError};
 use serde::Serialize;
@@ -1088,6 +1088,7 @@ impl AppCore {
                 current_page,
                 requested_region_id.as_deref(),
                 &normalized_ocr_text,
+                input.source_bbox.clone(),
                 next_region_id,
             )
         };
@@ -3941,6 +3942,7 @@ fn merge_ocr_text_into_page_model(
     page: &mut PageModel,
     region_id: Option<&str>,
     ocr_text: &str,
+    source_bbox: Option<Rect>,
     next_region_id: String,
 ) -> Result<Vec<String>, ToolError> {
     let normalized_text = ocr_text.trim();
@@ -3978,6 +3980,7 @@ fn merge_ocr_text_into_page_model(
             region_id: region_id.clone(),
             label: None,
             text: normalized_text.to_string(),
+            bbox: source_bbox,
             source: RegionSource::Ocr,
         });
         Ok(vec![region_id])
@@ -5740,7 +5743,8 @@ mod tests {
         ReportStatus, StepTransition, ToolName, ToolResult,
     };
     use crate::page_model::{
-        ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, RegionSource,
+        ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, Rect,
+        RegionSource,
     };
 
     #[test]
@@ -5781,12 +5785,14 @@ mod tests {
                     region_id: String::from("region-1"),
                     label: None,
                     text: String::from("First paragraph"),
+                    bbox: None,
                     source: RegionSource::Dom,
                 },
                 PageRegion {
                     region_id: String::from("region-2"),
                     label: None,
                     text: String::from("Second paragraph"),
+                    bbox: None,
                     source: RegionSource::Dom,
                 },
             ],
@@ -5866,12 +5872,14 @@ mod tests {
                     region_id: String::from("dom-region"),
                     label: None,
                     text: String::from("DOM text"),
+                    bbox: None,
                     source: RegionSource::Dom,
                 },
                 PageRegion {
                     region_id: String::from("ocr-region"),
                     label: None,
                     text: String::from("OCR text"),
+                    bbox: None,
                     source: RegionSource::Ocr,
                 },
             ],
@@ -5893,6 +5901,7 @@ mod tests {
                 region_id: String::from("mixed-region"),
                 label: None,
                 text: String::from("DOM text\n\nOCR text"),
+                bbox: None,
                 source: RegionSource::Mixed,
             }],
             interactive_elements: Vec::new(),
@@ -5925,14 +5934,25 @@ mod tests {
                 region_id: String::from("region-1"),
                 label: Some(String::from("Main")),
                 text: String::from("DOM summary"),
+                bbox: None,
                 source: RegionSource::Dom,
             }],
             interactive_elements: Vec::new(),
         };
 
-        let updated_region_ids =
-            merge_ocr_text_into_page_model(&mut page, Some("region-1"), "OCR detail", String::from("unused"))
-                .expect("merge should update the requested region");
+        let updated_region_ids = merge_ocr_text_into_page_model(
+            &mut page,
+            Some("region-1"),
+            "OCR detail",
+            Some(Rect {
+                x: 10.0,
+                y: 20.0,
+                width: 30.0,
+                height: 40.0,
+            }),
+            String::from("unused"),
+        )
+        .expect("merge should update the requested region");
 
         assert_eq!(updated_region_ids, vec![String::from("region-1")]);
         assert_eq!(page.regions[0].source, RegionSource::Mixed);
@@ -5952,6 +5972,12 @@ mod tests {
             &mut page,
             None,
             "Recovered OCR text",
+            Some(Rect {
+                x: 5.0,
+                y: 6.0,
+                width: 70.0,
+                height: 80.0,
+            }),
             String::from("ocr-region-generated"),
         )
         .expect("merge should create a new OCR region when no target region_id is supplied");
@@ -5961,6 +5987,15 @@ mod tests {
         assert_eq!(page.regions[0].region_id, "ocr-region-generated");
         assert_eq!(page.regions[0].source, RegionSource::Ocr);
         assert_eq!(page.regions[0].text, "Recovered OCR text");
+        assert_eq!(
+            page.regions[0].bbox,
+            Some(Rect {
+                x: 5.0,
+                y: 6.0,
+                width: 70.0,
+                height: 80.0,
+            })
+        );
     }
 
     #[test]

@@ -716,3 +716,13 @@
 ## 2026-03-25T19:51:45Z - GPT-5.4 - Wave 2 contract cleanup prepared for check-in
 - Verified the worktree contains only the expected cleanup slice files: `docs/SPECS.md`, `docs/TODO.md`, `src-tauri/src/commands.rs`, and `memory.md`.
 - This slice is ready to commit and push on `master` after the green validation run that completed at `158` Rust tests and `12` UI tests.
+
+## 2026-03-25T20:05:49Z - GPT-5.4 - Page model geometry attached
+- Added `bbox: Option<Rect>` to `PageRegion` in `src-tauri/src/page_model.rs` with `#[serde(default)]` so serialized runtime state without region geometry remains readable.
+- Wired live region bounding boxes through `src-tauri/src/browser.rs` and preserved OCR `source_bbox` when `merge_ocr_into_page_model` appends a new OCR region in `src-tauri/src/app_core.rs`.
+- Updated `docs/SPECS.md` and `docs/TODO.md` to reflect geometry-bearing page regions, and added a state regression test covering legacy region deserialization without `bbox`.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `159` Rust tests and `12` UI tests.
+
+## 2026-03-25T20:07:56Z - GPT-5.4 - Page model geometry prepared for check-in
+- Verified the worktree contains only the expected geometry slice files: `docs/SPECS.md`, `docs/TODO.md`, `src-tauri/src/app_core.rs`, `src-tauri/src/browser.rs`, `src-tauri/src/commands.rs`, `src-tauri/src/narration.rs`, `src-tauri/src/page_model.rs`, `src-tauri/src/state.rs`, and `memory.md`.
+- This slice is ready to commit and push on `master` after the green validation run that completed at `159` Rust tests and `12` UI tests.
