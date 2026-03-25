@@ -1536,6 +1536,8 @@ pub fn validate_planner_output(
         }
     }
 
+    validate_submit_confirmation_policy(planner_output)?;
+
     let mut seen_step_ids = HashSet::new();
     for step in &planner_output.steps {
         if step.step_id.trim().is_empty() {
@@ -1580,6 +1582,72 @@ pub fn validate_planner_output(
                 None,
             ));
         }
+    }
+
+    Ok(())
+}
+
+fn validate_submit_confirmation_policy(planner_output: &PlannerOutput) -> Result<(), ToolError> {
+    if planner_output.intent.name != IntentName::SubmitForm {
+        return Ok(());
+    }
+
+    if planner_output.status != PlannerStatus::NeedsConfirmation {
+        return Err(invalid_planner_output(
+            "submit-form planner output must use NeedsConfirmation status",
+            None,
+        ));
+    }
+
+    if !planner_output.requires_confirmation {
+        return Err(invalid_planner_output(
+            "submit-form planner output must set requires_confirmation",
+            None,
+        ));
+    }
+
+    if planner_output
+        .confirmation_reason
+        .as_ref()
+        .is_none_or(|reason| reason.trim().is_empty())
+    {
+        return Err(invalid_planner_output(
+            "submit-form planner output must include confirmation_reason",
+            None,
+        ));
+    }
+
+    if planner_output
+        .user_message
+        .as_ref()
+        .is_none_or(|message| message.trim().is_empty())
+    {
+        return Err(invalid_planner_output(
+            "submit-form planner output must include user_message",
+            None,
+        ));
+    }
+
+    let has_confirm_action_step = planner_output
+        .steps
+        .iter()
+        .any(|step| step.tool_name == ToolName::ConfirmAction);
+    if !has_confirm_action_step {
+        return Err(invalid_planner_output(
+            "submit-form planner output must include a confirm_action step",
+            None,
+        ));
+    }
+
+    let requests_confirmation = planner_output.steps.iter().any(|step| {
+        step.tool_name == ToolName::ConfirmAction
+            && matches!(step.on_success, StepTransition::RequestConfirmation)
+    });
+    if !requests_confirmation {
+        return Err(invalid_planner_output(
+            "submit-form planner output must request confirmation from a confirm_action step",
+            None,
+        ));
     }
 
     Ok(())
@@ -5979,6 +6047,143 @@ mod tests {
         .expect_err("validation should reject unknown selected skills");
         assert_eq!(error.code, "invalid_planner_output");
         assert!(error.message.contains("unknown or ineligible skill"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_submit_form_without_needs_confirmation() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::SubmitForm,
+                goal: String::from("submit the active form"),
+                target_description: Some(String::from("login form")),
+            },
+            selected_skills: vec![String::from("confirm_action")],
+            steps: vec![PlannedStep {
+                step_id: String::from("confirm-submit"),
+                tool_name: ToolName::ConfirmAction,
+                arguments: serde_json::json!({
+                    "request_id": "req-submit",
+                    "timeout_ms": 1000,
+                    "prompt_text": "Submit the form now?",
+                    "reason": "Submitting the form may send data."
+                }),
+                purpose: String::from("ask for confirmation"),
+                on_success: StepTransition::RequestConfirmation,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: true,
+            confirmation_reason: Some(String::from("submitting the form may send data")),
+            blocked_reason: None,
+            user_message: Some(String::from("Please confirm before I submit the form.")),
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("confirm_action")],
+        )
+        .expect_err("submit-form plans should require NeedsConfirmation status");
+        assert_eq!(error.code, "invalid_planner_output");
+        assert!(error.message.contains("submit-form planner output must use NeedsConfirmation"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_submit_form_without_confirm_action_step() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::NeedsConfirmation,
+            intent: IntentSummary {
+                name: IntentName::SubmitForm,
+                goal: String::from("submit the active form"),
+                target_description: Some(String::from("login form")),
+            },
+            selected_skills: vec![String::from("confirm_action")],
+            steps: vec![PlannedStep {
+                step_id: String::from("report-submit"),
+                tool_name: ToolName::ReportResult,
+                arguments: serde_json::json!({
+                    "request_id": "req-submit",
+                    "timeout_ms": 1000,
+                    "status": "NeedsFollowUp",
+                    "summary": "The form is ready to submit.",
+                    "next_recommended_action": "Confirm the submission.",
+                    "user_message": "The form is ready to submit."
+                }),
+                purpose: String::from("report submit readiness"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: true,
+            confirmation_reason: Some(String::from("submitting the form may send data")),
+            blocked_reason: None,
+            user_message: Some(String::from("Please confirm before I submit the form.")),
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("confirm_action")],
+        )
+        .expect_err("submit-form plans should require a confirm_action step");
+        assert_eq!(error.code, "invalid_planner_output");
+        assert!(error.message.contains("must include a confirm_action step"));
+    }
+
+    #[test]
+    fn validate_planner_output_accepts_submit_form_with_confirmation_gate() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::NeedsConfirmation,
+            intent: IntentSummary {
+                name: IntentName::SubmitForm,
+                goal: String::from("submit the active form"),
+                target_description: Some(String::from("login form")),
+            },
+            selected_skills: vec![String::from("confirm_action")],
+            steps: vec![
+                PlannedStep {
+                    step_id: String::from("confirm-submit"),
+                    tool_name: ToolName::ConfirmAction,
+                    arguments: serde_json::json!({
+                        "request_id": "req-submit",
+                        "timeout_ms": 1000,
+                        "prompt_text": "The form is filled. Do you want me to submit it now?",
+                        "reason": "Submitting the form may send data."
+                    }),
+                    purpose: String::from("require explicit confirmation before submission"),
+                    on_success: StepTransition::RequestConfirmation,
+                    on_failure: StepTransition::Replan,
+                },
+                PlannedStep {
+                    step_id: String::from("report-submit-ready"),
+                    tool_name: ToolName::ReportResult,
+                    arguments: serde_json::json!({
+                        "request_id": "req-submit",
+                        "timeout_ms": 1000,
+                        "status": "NeedsFollowUp",
+                        "summary": "The form is ready to submit after you confirm.",
+                        "next_recommended_action": "Confirm the submission.",
+                        "user_message": "Please confirm before I submit the form."
+                    }),
+                    purpose: String::from("keep the user informed while awaiting confirmation"),
+                    on_success: StepTransition::Complete,
+                    on_failure: StepTransition::Replan,
+                },
+            ],
+            requires_confirmation: true,
+            confirmation_reason: Some(String::from("submitting the form may send data")),
+            blocked_reason: None,
+            user_message: Some(String::from("Please confirm before I submit the form.")),
+        };
+
+        validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("confirm_action")],
+        )
+        .expect("submit-form plans should validate when confirmation is required");
     }
 
     #[test]

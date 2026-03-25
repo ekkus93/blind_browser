@@ -2874,6 +2874,7 @@ Every step arguments object must match the corresponding tool_input_schemas entr
 Use canonical_planner_output_examples only as shape references; adapt the returned tools, skills, and arguments to the current planner_input.
 Keep plans linear and short: at most five steps, with at most one NextStep edge from any step.
 Use NeedsConfirmation plus a confirm_action step when the request is risky or ambiguous before side effects.
+SubmitForm plans must always use NeedsConfirmation with confirm_action before any submit side effect.
 Use Blocked only when the request cannot be grounded safely or is outside the supported tool set.
 Do not invent tools, skills, statuses, transition kinds, or argument fields."
 }

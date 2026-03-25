@@ -536,3 +536,9 @@
 - Commands-layer regression tests now verify that every canonical `PlannerOutput` example matches the generated `planner_output_schema()` and that each step `arguments` object matches the generated `tool_input_schema(...)` for that step's `tool_name`.
 - This closes the contract loop between canonical examples, generated schema, and runtime planner validation without adding a new schema-validation dependency.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (102 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build`; the frontend build still warns because the current shell is on Node `22.11.0` rather than the repo baseline `22.12.0+`.
+
+## 2026-03-25T05:01:47Z - GPT-5.4 - Submit-form planner outputs now require the confirmation path
+- `src-tauri/src/commands.rs` now enforces a submit-specific planner validation rule: any `SubmitForm` plan must use `NeedsConfirmation`, set `requires_confirmation`, include non-empty `confirmation_reason` and `user_message`, and include a `confirm_action` step whose success transition is `RequestConfirmation`.
+- `src-tauri/src/app_core.rs` now tells the planner explicitly that `SubmitForm` plans must always use `NeedsConfirmation` with `confirm_action` before any submit side effect, so the model guidance matches the executor contract.
+- Commands-layer regression tests now cover both rejecting unsafe submit-form planner outputs and accepting a correctly confirmation-gated one.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (105 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build`; the current shell still warns on Node `22.11.0`, so the repo baseline remains `22.12.0+`.

@@ -211,7 +211,7 @@
 - [ ] Enforce confirmation policy for ambiguous or risky actions
 - [ ] Make confirmation confidence threshold configurable with default `0.90`
 - [ ] Allow click actions without confirmation by default, via config
-- [ ] Always require confirmation for submit actions
+- [x] Always require confirmation for submit actions
 - [ ] Map phrases to intents:
   - next
   - previous
