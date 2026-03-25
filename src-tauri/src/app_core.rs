@@ -47,7 +47,7 @@ use crate::narration::{
     cursor_for_index, find_region_index, next_region_index, previous_region_index,
     spoken_text_for_region,
 };
-use crate::ocr::{OcrController, OcrRuntimeError};
+use crate::ocr::{OcrController, OcrRuntimeError, OcrSettings};
 use crate::page_model::PageRegion;
 use crate::page_model::{ElementRole, ExtractionSource, PageModel, Rect, RegionSource};
 use crate::state::AppState;
@@ -1318,15 +1318,6 @@ impl AppCore {
             current_page.clone()
         };
 
-        let extracted_page_model = build_extracted_page_model(&base_page_model, &input);
-        let region_count = extracted_page_model.regions.len();
-        let readable_region_count = extracted_page_model
-            .regions
-            .iter()
-            .filter(|region| !region.text.trim().is_empty())
-            .count();
-        let extraction_source = infer_extraction_source(&base_page_model, input.use_dom_extraction);
-
         let mut observations = if input.use_dom_extraction {
             vec![String::from(
                 "Built a deterministic page model from the live Chromium DOM and persisted it into runtime state.",
@@ -1351,6 +1342,112 @@ impl AppCore {
                 "A non-DOM extraction request currently reuses runtime page state until OCR-specific extraction is wired.",
             ));
         }
+
+        if should_trigger_no_extractable_text_ocr_fallback(
+            input.use_dom_extraction,
+            &base_page_model,
+            &self.config.ocr,
+        ) {
+            observations.push(String::from(
+                "Live DOM extraction did not produce readable text, so OCR fallback was triggered.",
+            ));
+
+            let screenshot_result = self.execute_capture_screenshot(CaptureScreenshotInput {
+                request_id: format!("{}-ocr-fallback-screenshot", input.request_id),
+                timeout_ms: input.timeout_ms,
+                full_page: true,
+                region_id: None,
+                bbox: None,
+            });
+            if !screenshot_result.ok {
+                return nested_tool_failure_as_extract_page_model(
+                    input.request_id,
+                    observations,
+                    screenshot_result,
+                    String::from(
+                        "OCR fallback could not capture a screenshot for page-model recovery.",
+                    ),
+                );
+            }
+            observations.extend(screenshot_result.observations.clone());
+            let Some(screenshot_data) = screenshot_result.data else {
+                return extract_page_model_internal_failure(
+                    input.request_id,
+                    String::from("OCR fallback screenshot result did not include screenshot data"),
+                    observations,
+                );
+            };
+
+            let ocr_result = self.execute_run_ocr(RunOcrInput {
+                request_id: format!("{}-ocr-fallback-run", input.request_id),
+                timeout_ms: input.timeout_ms,
+                image_id: Some(screenshot_data.image_id.clone()),
+                region_id: None,
+                bbox: None,
+            });
+            if !ocr_result.ok {
+                return nested_tool_failure_as_extract_page_model(
+                    input.request_id,
+                    observations,
+                    ocr_result,
+                    String::from(
+                        "OCR fallback could not extract readable text from the recovery screenshot.",
+                    ),
+                );
+            }
+            observations.extend(ocr_result.observations.clone());
+            let Some(ocr_data) = ocr_result.data else {
+                return extract_page_model_internal_failure(
+                    input.request_id,
+                    String::from("OCR fallback result did not include OCR data"),
+                    observations,
+                );
+            };
+
+            if ocr_data.extracted_text.is_empty() {
+                observations.push(String::from(
+                    "OCR fallback completed, but it still did not recover readable text.",
+                ));
+            } else {
+                let merge_result =
+                    self.execute_merge_ocr_into_page_model(MergeOcrIntoPageModelInput {
+                        request_id: format!("{}-ocr-fallback-merge", input.request_id),
+                        timeout_ms: input.timeout_ms,
+                        page_id: page_id.clone(),
+                        region_id: None,
+                        ocr_text: ocr_data.extracted_text,
+                        source_bbox: ocr_data.source_bbox,
+                    });
+                if !merge_result.ok {
+                    return nested_tool_failure_as_extract_page_model(
+                        input.request_id,
+                        observations,
+                        merge_result,
+                        String::from(
+                            "OCR fallback recovered text, but merging it into the page model failed.",
+                        ),
+                    );
+                }
+                observations.extend(merge_result.observations);
+                observations.push(String::from(
+                    "OCR fallback recovered readable text and merged it into the runtime page model.",
+                ));
+            }
+        }
+
+        let runtime_page_model = self
+            .state
+            .current_page
+            .clone()
+            .unwrap_or_else(|| base_page_model.clone());
+        let extracted_page_model = build_extracted_page_model(&runtime_page_model, &input);
+        let region_count = extracted_page_model.regions.len();
+        let readable_region_count = extracted_page_model
+            .regions
+            .iter()
+            .filter(|region| !region.text.trim().is_empty())
+            .count();
+        let extraction_source = infer_extraction_source(&runtime_page_model, input.use_dom_extraction);
 
         ToolResult::success(
             ToolName::ExtractPageModel,
@@ -4069,6 +4166,19 @@ fn merge_ocr_text_into_page_model(
     }
 }
 
+fn should_trigger_no_extractable_text_ocr_fallback(
+    use_dom_extraction: bool,
+    page: &PageModel,
+    ocr_settings: &OcrSettings,
+) -> bool {
+    use_dom_extraction
+        && ocr_settings.trigger_on_no_extractable_text
+        && !page
+            .regions
+            .iter()
+            .any(|region| !region.text.trim().is_empty())
+}
+
 fn merged_region_text(existing_text: &str, ocr_text: &str) -> String {
     let existing_text = existing_text.trim();
     let ocr_text = ocr_text.trim();
@@ -4110,6 +4220,43 @@ fn ocr_runtime_error_to_tool_error(error: &OcrRuntimeError) -> ToolError {
         ),
         details: None,
     }
+}
+
+fn extract_page_model_internal_failure(
+    request_id: String,
+    message: String,
+    observations: Vec<String>,
+) -> ToolResult<ExtractPageModelData> {
+    ToolResult::failure(
+        ToolName::ExtractPageModel,
+        request_id,
+        ToolError {
+            code: String::from("extract_page_model_internal_error"),
+            message,
+            retryable: false,
+            details: None,
+        },
+        observations,
+    )
+}
+
+fn nested_tool_failure_as_extract_page_model<T>(
+    request_id: String,
+    mut observations: Vec<String>,
+    nested_result: ToolResult<T>,
+    failure_observation: String,
+) -> ToolResult<ExtractPageModelData> {
+    observations.extend(nested_result.observations);
+    observations.push(failure_observation);
+
+    let error = nested_result.error.unwrap_or(ToolError {
+        code: String::from("extract_page_model_internal_error"),
+        message: String::from("nested OCR fallback tool failed without returning a ToolError"),
+        retryable: false,
+        details: None,
+    });
+
+    ToolResult::failure(ToolName::ExtractPageModel, request_id, error, observations)
 }
 
 fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolError {
@@ -5814,7 +5961,7 @@ mod tests {
         filter_interactive_elements, infer_extraction_source, normalize_absolute_url,
         merge_ocr_text_into_page_model, merged_region_text, normalize_optional_text,
         planner_system_prompt, rank_find_element_candidates, region_bbox_by_id,
-        resolve_clickable_element,
+        resolve_clickable_element, should_trigger_no_extractable_text_ocr_fallback,
         resolve_direct_fill_and_submit_command,
         resolve_direct_fill_field_command,
         resolve_direct_focus_field_command, resolve_direct_submit_form_command,
@@ -5829,6 +5976,7 @@ mod tests {
         ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, Rect,
         RegionSource,
     };
+    use crate::ocr::OcrSettings;
     #[test]
     fn normalize_optional_text_trims_and_drops_empty_values() {
         assert_eq!(normalize_optional_text(None), None);
@@ -6083,6 +6231,81 @@ mod tests {
             infer_extraction_source(&page, true),
             ExtractionSource::Merged
         );
+    }
+
+    #[test]
+    fn should_trigger_no_extractable_text_ocr_fallback_when_dom_regions_are_empty() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![PageRegion {
+                region_id: String::from("region-1"),
+                label: None,
+                text: String::from("   "),
+                bbox: None,
+                source: RegionSource::Dom,
+            }],
+            interactive_elements: Vec::new(),
+        };
+
+        assert!(should_trigger_no_extractable_text_ocr_fallback(
+            true,
+            &page,
+            &OcrSettings::default()
+        ));
+    }
+
+    #[test]
+    fn should_not_trigger_no_extractable_text_ocr_fallback_when_readable_text_exists() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![PageRegion {
+                region_id: String::from("region-1"),
+                label: None,
+                text: String::from("Visible DOM text"),
+                bbox: None,
+                source: RegionSource::Dom,
+            }],
+            interactive_elements: Vec::new(),
+        };
+
+        assert!(!should_trigger_no_extractable_text_ocr_fallback(
+            true,
+            &page,
+            &OcrSettings::default()
+        ));
+    }
+
+    #[test]
+    fn should_not_trigger_no_extractable_text_ocr_fallback_when_disabled_or_non_dom() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![PageRegion {
+                region_id: String::from("region-1"),
+                label: None,
+                text: String::new(),
+                bbox: None,
+                source: RegionSource::Dom,
+            }],
+            interactive_elements: Vec::new(),
+        };
+        let disabled_settings = OcrSettings {
+            trigger_on_no_extractable_text: false,
+            ..OcrSettings::default()
+        };
+
+        assert!(!should_trigger_no_extractable_text_ocr_fallback(
+            true,
+            &page,
+            &disabled_settings
+        ));
+        assert!(!should_trigger_no_extractable_text_ocr_fallback(
+            false,
+            &page,
+            &OcrSettings::default()
+        ));
     }
 
     #[test]

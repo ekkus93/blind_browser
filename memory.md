@@ -758,3 +758,10 @@
 - Added regression coverage for both merge cases: existing regions now adopt missing geometry when OCR supplies it, and already-known region bounds are not overwritten by a later OCR merge.
 - Updated `docs/SPECS.md` and `docs/TODO.md` to document the merge behavior and mark `Merge OCR into PageModel` complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `162` Rust tests and `12` UI tests.
+
+## 2026-03-25T21:09:25Z - GPT-5.4 - No-text OCR fallback triggered from extraction
+- Updated `src-tauri/src/app_core.rs` so `extract_page_model` now triggers deterministic OCR fallback when live DOM extraction returns no readable region text and `ocr.trigger_on_no_extractable_text` is enabled.
+- The fallback reuses the bounded tool path internally—`capture_screenshot` with `full_page = true`, then `run_ocr`, then `merge_ocr_into_page_model`—instead of adding a second screenshot or OCR execution path.
+- Added regression coverage for the no-text fallback trigger helper, keeping this slice scoped to the “no extractable text” case while leaving sparse-text heuristics for the next follow-up.
+- Updated `docs/SPECS.md` and `docs/TODO.md` to document the extraction-time OCR fallback and mark `Trigger OCR when no extractable text is found` complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, now at `165` Rust tests and `12` UI tests.

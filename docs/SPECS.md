@@ -1065,6 +1065,10 @@ Validation notes:
 - When `include_links` is `true`, extracted link metadata remains available in `page_model.interactive_elements`, including `href`, text/accessibility fields, attributes, and any captured bounding boxes.
 - When `include_links` is `false`, link-role entries are omitted from `page_model.interactive_elements`.
 
+Behavior notes:
+- When `use_dom_extraction` is `true` and live DOM extraction produces no readable region text, `extract_page_model` triggers deterministic OCR fallback when `ocr.trigger_on_no_extractable_text` is enabled.
+- The current fallback path captures a full-page screenshot, runs OCR on that cached image, and merges recovered text back into the runtime page model before returning the extracted result.
+
 #### `list_interactive_elements`
 
 ```rust

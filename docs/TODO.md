@@ -286,7 +286,7 @@
 - [x] Crop screenshot regions
 - [x] Run OCR on region
 - [x] Merge OCR into PageModel
-- [ ] Trigger OCR when no extractable text is found
+- [x] Trigger OCR when no extractable text is found
 - [ ] Make sparse-text OCR thresholds configurable
 - [ ] Default sparse-text OCR thresholds to `200` characters or fewer than `2` readable regions
 - [ ] Prefer region OCR before broader OCR when possible
