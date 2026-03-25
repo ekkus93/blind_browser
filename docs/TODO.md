@@ -206,7 +206,7 @@
 - [ ] Return structured tool calls instead of free-form action text
 - [x] Validate planner tool names and argument schemas before execution
 - [x] Add canonical planner JSON examples that match the documented `IntentName` strings and tool argument field names
-- [ ] Add schema/fixture validation so planner example payloads stay aligned with generated JSON schema
+- [x] Add schema/fixture validation so planner example payloads stay aligned with generated JSON schema
 - [ ] Implement bounded step execution and replanning loop
 - [ ] Enforce confirmation policy for ambiguous or risky actions
 - [ ] Make confirmation confidence threshold configurable with default `0.90`
