@@ -213,36 +213,36 @@
 - [x] Allow click actions without confirmation by default, via config
 - [x] Always require confirmation for submit actions
 - [ ] Map phrases to intents:
-  - next
-  - previous
-  - repeat
-  - stop
-  - open url
-  - go back
-  - go forward
-  - reload page
-  - get current url
-  - read page
-  - start listening
-  - stop listening
-  - transcribe command
-  - focus field
-  - fill field
-  - type into field
-  - submit form
-  - fill and submit form
-  - set volume
-  - increase volume
-  - decrease volume
-  - mute
-  - get volume
-  - set playback speed
-  - increase playback speed
-  - decrease playback speed
-  - get playback speed
-  - set TTS voice
-  - toggle browser visibility
-  - get status
+  - [x] next
+  - [x] previous
+  - [x] repeat
+  - [x] stop
+  - [ ] open url
+  - [x] go back
+  - [x] go forward
+  - [x] reload page
+  - [x] get current url
+  - [ ] read page
+  - [ ] start listening
+  - [ ] stop listening
+  - [ ] transcribe command
+  - [ ] focus field
+  - [ ] fill field
+  - [ ] type into field
+  - [ ] submit form
+  - [ ] fill and submit form
+  - [x] set volume
+  - [x] increase volume
+  - [x] decrease volume
+  - [x] mute
+  - [x] get volume
+  - [x] set playback speed
+  - [x] increase playback speed
+  - [x] decrease playback speed
+  - [x] get playback speed
+  - [x] set TTS voice
+  - [x] toggle browser visibility
+  - [x] get status
 - [x] Normalize absolute volume commands from percent or normalized decimal input
 - [x] Normalize relative volume commands using default, small, and large step sizes
 - [x] Normalize volume query commands to `get_volume`

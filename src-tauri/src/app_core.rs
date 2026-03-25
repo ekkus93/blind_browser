@@ -13,8 +13,8 @@ use crate::commands::{
     build_planner_skill_selection, canonical_planner_output_examples, execute_planner_output,
     planner_available_tools, planner_output_schema, resolve_direct_audio_command,
     resolve_direct_browser_visibility_command, resolve_direct_read_title_command,
-    resolve_direct_repeat_command, resolve_direct_status_query_command, resume_after_confirmation,
-    tool_input_schema,
+    resolve_direct_navigation_readback_command, resolve_direct_repeat_command,
+    resolve_direct_status_query_command, resume_after_confirmation, tool_input_schema,
     validate_planner_output, AgentStateData, ClickElementData, ClickElementInput,
     ConfirmActionData, ConfirmActionInput, ConfirmActionResolution, DeterministicToolExecutor,
     ExecutionOutcome, ExecutionTrace, ExtractPageModelData, ExtractPageModelInput, FindElementData,
@@ -1173,6 +1173,19 @@ impl AppCore {
         }
 
         let current_agent_state = self.current_agent_state_snapshot(true);
+
+        if let Some(planner_output) = resolve_direct_navigation_readback_command(
+            transcript,
+            &request_id,
+            &skill_selection.active_skill_names,
+        ) {
+            validate_planner_output(
+                &planner_output,
+                &available_tools,
+                &skill_selection.active_skill_names,
+            )?;
+            return Ok(planner_output);
+        }
 
         if let Some(planner_output) = resolve_direct_repeat_command(
             transcript,

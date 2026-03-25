@@ -1013,6 +1013,9 @@ struct ReloadPageInput {
 }
 ```
 
+Routing notes:
+- Spoken navigation commands such as `back`, `go back`, `forward`, `go forward`, `reload`, and `refresh page` should resolve directly to the corresponding bounded navigation tools instead of relying on free-form planner action text.
+
 #### `get_page_snapshot`
 
 ```rust
@@ -1174,10 +1177,13 @@ struct ReadPreviousRegionInput {
 ```
 
 Narration behavior notes:
+- Spoken next-reading commands such as `next`, `read next`, `continue reading`, and `keep reading` should resolve to `read_next_region` with `interrupt_current = true`.
+- Spoken previous-reading commands such as `previous`, `read previous`, and `previous region` should resolve to `read_previous_region` with `interrupt_current = true`.
 - Spoken title commands such as `read title`, `read the page title`, and `what is the title` should resolve to a bounded spoken title response based on the current page state.
 - If the current page does not have a readable title yet, the runtime should speak a clear bounded follow-up message instead of inventing one.
 - Spoken repeat commands such as `repeat`, `repeat that`, `read that again`, and `say that again` should resolve against the current narration cursor and restart the current region with `interrupt_current = true`.
 - If no current narration region is available yet, the runtime should return a bounded follow-up message instead of guessing which content to repeat.
+- Spoken stop-reading commands such as `stop`, `stop reading`, `stop speaking`, and `pause reading` should resolve to `stop_speaking`.
 
 #### `stop_speaking`
 

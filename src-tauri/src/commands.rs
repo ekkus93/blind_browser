@@ -1435,13 +1435,13 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     {
         return IntentName::GetStatus;
     }
-    if normalized.contains("go back") || normalized == "back" {
+    if is_go_back_phrase(&normalized) {
         return IntentName::GoBack;
     }
-    if normalized.contains("go forward") || normalized == "forward" {
+    if is_go_forward_phrase(&normalized) {
         return IntentName::GoForward;
     }
-    if normalized.contains("reload") || normalized.contains("refresh") {
+    if is_reload_page_phrase(&normalized) {
         return IntentName::ReloadPage;
     }
     if is_current_url_query_phrase(&normalized) || normalized.contains("what page") {
@@ -1455,10 +1455,10 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     {
         return IntentName::GetStatus;
     }
-    if normalized.contains("read next") || normalized.contains("next region") {
+    if is_read_next_phrase(&normalized) {
         return IntentName::ReadNext;
     }
-    if normalized.contains("read previous") || normalized.contains("previous region") {
+    if is_read_previous_phrase(&normalized) {
         return IntentName::ReadPrevious;
     }
     if is_read_title_phrase(&normalized) {
@@ -1467,10 +1467,7 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     if is_repeat_phrase(&normalized) {
         return IntentName::Repeat;
     }
-    if normalized.contains("stop reading")
-        || normalized.contains("stop speaking")
-        || normalized.contains("pause reading")
-    {
+    if is_stop_phrase(&normalized) {
         return IntentName::Stop;
     }
     if normalized.contains("read page") || normalized.contains("read this page") {
@@ -2460,6 +2457,7 @@ fn merge_compound_command_tokens(tokens: Vec<String>) -> Vec<String> {
 
 fn canonicalize_command_token(token: &str) -> String {
     const FUZZY_COMMAND_KEYWORDS: &[&str] = &[
+        "back",
         "browser",
         "current",
         "field",
@@ -2467,12 +2465,18 @@ fn canonicalize_command_token(token: &str) -> String {
         "forward",
         "headless",
         "listening",
+        "next",
         "playback",
+        "previous",
         "reload",
         "refresh",
+        "repeat",
         "speed",
         "status",
+        "stop",
         "submit",
+        "title",
+        "transcribe",
         "url",
         "visible",
         "voice",
@@ -2714,6 +2718,159 @@ pub(crate) fn resolve_direct_browser_visibility_command(
         selected_skill(active_skill_names, "toggle_browser_visibility"),
         summary,
     ))
+}
+
+pub(crate) fn resolve_direct_navigation_readback_command(
+    transcript: &str,
+    request_id: &str,
+    active_skill_names: &[String],
+) -> Option<PlannerOutput> {
+    let normalized = normalize_transcript_for_routing(transcript);
+    if normalized.is_empty() {
+        return None;
+    }
+
+    if is_go_back_phrase(&normalized) {
+        return Some(build_single_step_planner_output(
+            IntentSummary {
+                name: IntentName::GoBack,
+                goal: String::from("Navigate back one entry in browser history."),
+                target_description: None,
+            },
+            selected_skill(active_skill_names, "go_back"),
+            PlannedStep {
+                step_id: String::from("go-back"),
+                tool_name: ToolName::GoBack,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "steps": 1,
+                    "wait_for_load_state": LoadState::Load
+                }),
+                purpose: String::from("Move back to the previous history entry."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ));
+    }
+
+    if is_go_forward_phrase(&normalized) {
+        return Some(build_single_step_planner_output(
+            IntentSummary {
+                name: IntentName::GoForward,
+                goal: String::from("Navigate forward one entry in browser history."),
+                target_description: None,
+            },
+            selected_skill(active_skill_names, "go_forward"),
+            PlannedStep {
+                step_id: String::from("go-forward"),
+                tool_name: ToolName::GoForward,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "steps": 1,
+                    "wait_for_load_state": LoadState::Load
+                }),
+                purpose: String::from("Move forward to the next history entry."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ));
+    }
+
+    if is_reload_page_phrase(&normalized) {
+        return Some(build_single_step_planner_output(
+            IntentSummary {
+                name: IntentName::ReloadPage,
+                goal: String::from("Reload the current page."),
+                target_description: Some(String::from("current page")),
+            },
+            selected_skill(active_skill_names, "reload_page"),
+            PlannedStep {
+                step_id: String::from("reload-page"),
+                tool_name: ToolName::ReloadPage,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "hard_reload": false,
+                    "wait_for_load_state": LoadState::Load
+                }),
+                purpose: String::from("Reload the current page and wait for it to finish loading."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ));
+    }
+
+    if is_read_next_phrase(&normalized) {
+        return Some(build_single_step_planner_output(
+            IntentSummary {
+                name: IntentName::ReadNext,
+                goal: String::from("Read the next narration region."),
+                target_description: Some(String::from("next narration region")),
+            },
+            selected_skill(active_skill_names, "read_next"),
+            PlannedStep {
+                step_id: String::from("read-next-region"),
+                tool_name: ToolName::ReadNextRegion,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "interrupt_current": true
+                }),
+                purpose: String::from("Move narration to the next region and start reading it."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ));
+    }
+
+    if is_read_previous_phrase(&normalized) {
+        return Some(build_single_step_planner_output(
+            IntentSummary {
+                name: IntentName::ReadPrevious,
+                goal: String::from("Read the previous narration region."),
+                target_description: Some(String::from("previous narration region")),
+            },
+            selected_skill(active_skill_names, "read_previous"),
+            PlannedStep {
+                step_id: String::from("read-previous-region"),
+                tool_name: ToolName::ReadPreviousRegion,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "interrupt_current": true
+                }),
+                purpose: String::from("Move narration to the previous region and start reading it."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ));
+    }
+
+    if is_stop_phrase(&normalized) {
+        return Some(build_single_step_planner_output(
+            IntentSummary {
+                name: IntentName::Stop,
+                goal: String::from("Stop current speech output."),
+                target_description: Some(String::from("speech output")),
+            },
+            selected_stop_skill(active_skill_names),
+            PlannedStep {
+                step_id: String::from("stop-speaking"),
+                tool_name: ToolName::StopSpeaking,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null
+                }),
+                purpose: String::from("Stop any current spoken narration or playback."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ));
+    }
+
+    None
 }
 
 pub(crate) fn resolve_direct_status_query_command(
@@ -3122,6 +3279,21 @@ fn is_current_url_query_phrase(normalized: &str) -> bool {
         || normalized.contains("where is this page")
 }
 
+fn is_go_back_phrase(normalized: &str) -> bool {
+    normalized == "back" || normalized.contains("go back")
+}
+
+fn is_go_forward_phrase(normalized: &str) -> bool {
+    normalized == "forward" || normalized.contains("go forward")
+}
+
+fn is_reload_page_phrase(normalized: &str) -> bool {
+    normalized == "reload"
+        || normalized == "refresh"
+        || normalized.contains("reload page")
+        || normalized.contains("refresh page")
+}
+
 fn is_status_query_phrase(normalized: &str) -> bool {
     normalized.contains("what is the status")
         || normalized.contains("what s the status")
@@ -3180,6 +3352,29 @@ fn is_repeat_phrase(normalized: &str) -> bool {
         || normalized.contains("read that again")
         || normalized.contains("say that again")
         || normalized.contains("say this again")
+}
+
+fn is_read_next_phrase(normalized: &str) -> bool {
+    normalized == "next"
+        || normalized.contains("read next")
+        || normalized.contains("next region")
+        || normalized.contains("next section")
+        || normalized.contains("continue reading")
+        || normalized.contains("keep reading")
+}
+
+fn is_read_previous_phrase(normalized: &str) -> bool {
+    normalized == "previous"
+        || normalized.contains("read previous")
+        || normalized.contains("previous region")
+        || normalized.contains("previous section")
+}
+
+fn is_stop_phrase(normalized: &str) -> bool {
+    normalized == "stop"
+        || normalized.contains("stop reading")
+        || normalized.contains("stop speaking")
+        || normalized.contains("pause reading")
 }
 
 fn is_read_title_phrase(normalized: &str) -> bool {
@@ -3261,6 +3456,39 @@ fn selected_skill(active_skill_names: &[String], skill_name: &'static str) -> Ve
 
 fn selected_audio_skill(active_skill_names: &[String], skill_name: &'static str) -> Vec<String> {
     selected_skill(active_skill_names, skill_name)
+}
+
+fn selected_stop_skill(active_skill_names: &[String]) -> Vec<String> {
+    if active_skill_names
+        .iter()
+        .any(|active_name| active_name == "stop_reading")
+    {
+        vec![String::from("stop_reading")]
+    } else if active_skill_names
+        .iter()
+        .any(|active_name| active_name == "pause_reading")
+    {
+        vec![String::from("pause_reading")]
+    } else {
+        Vec::new()
+    }
+}
+
+fn build_single_step_planner_output(
+    intent: IntentSummary,
+    selected_skills: Vec<String>,
+    step: PlannedStep,
+) -> PlannerOutput {
+    PlannerOutput {
+        status: PlannerStatus::Ready,
+        intent,
+        selected_skills,
+        steps: vec![step],
+        requires_confirmation: false,
+        confirmation_reason: None,
+        blocked_reason: None,
+        user_message: None,
+    }
 }
 
 fn build_audio_set_planner_output(
@@ -6599,6 +6827,16 @@ mod tests {
     }
 
     #[test]
+    fn infer_intent_hint_recognizes_navigation_readback_action_phrases() {
+        assert_eq!(infer_intent_hint("back"), IntentName::GoBack);
+        assert_eq!(infer_intent_hint("go forward"), IntentName::GoForward);
+        assert_eq!(infer_intent_hint("refesh page"), IntentName::ReloadPage);
+        assert_eq!(infer_intent_hint("next"), IntentName::ReadNext);
+        assert_eq!(infer_intent_hint("prevous region"), IntentName::ReadPrevious);
+        assert_eq!(infer_intent_hint("stpo reading"), IntentName::Stop);
+    }
+
+    #[test]
     fn infer_intent_hint_recognizes_form_filling_and_submission_phrases() {
         assert_eq!(
             infer_intent_hint("focus the email field"),
@@ -6828,6 +7066,90 @@ mod tests {
             planner_output.steps[1].arguments.get("summary"),
             Some(&serde_json::json!("Browser mode set to visible."))
         );
+    }
+
+    #[test]
+    fn resolve_direct_navigation_readback_command_builds_history_and_reload_plans() {
+        let go_back_plan = resolve_direct_navigation_readback_command(
+            "back",
+            "req-back",
+            &[String::from("go_back")],
+        )
+        .expect("back command should normalize");
+
+        assert_eq!(go_back_plan.intent.name, IntentName::GoBack);
+        assert_eq!(go_back_plan.selected_skills, vec![String::from("go_back")]);
+        assert_eq!(go_back_plan.steps.len(), 1);
+        assert_eq!(go_back_plan.steps[0].tool_name, ToolName::GoBack);
+        assert_eq!(go_back_plan.steps[0].arguments.get("steps"), Some(&serde_json::json!(1)));
+        assert_eq!(
+            go_back_plan.steps[0].arguments.get("wait_for_load_state"),
+            Some(&serde_json::json!(LoadState::Load))
+        );
+
+        let reload_plan = resolve_direct_navigation_readback_command(
+            "refesh page",
+            "req-reload",
+            &[String::from("reload_page")],
+        )
+        .expect("reload command should normalize");
+
+        assert_eq!(reload_plan.intent.name, IntentName::ReloadPage);
+        assert_eq!(
+            reload_plan.selected_skills,
+            vec![String::from("reload_page")]
+        );
+        assert_eq!(reload_plan.steps[0].tool_name, ToolName::ReloadPage);
+        assert_eq!(
+            reload_plan.steps[0].arguments.get("hard_reload"),
+            Some(&serde_json::json!(false))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_navigation_readback_command_builds_reading_and_stop_plans() {
+        let next_plan = resolve_direct_navigation_readback_command(
+            "continue reading",
+            "req-next",
+            &[String::from("read_next")],
+        )
+        .expect("next command should normalize");
+
+        assert_eq!(next_plan.intent.name, IntentName::ReadNext);
+        assert_eq!(next_plan.selected_skills, vec![String::from("read_next")]);
+        assert_eq!(next_plan.steps[0].tool_name, ToolName::ReadNextRegion);
+        assert_eq!(
+            next_plan.steps[0].arguments.get("interrupt_current"),
+            Some(&serde_json::json!(true))
+        );
+
+        let previous_plan = resolve_direct_navigation_readback_command(
+            "prevous section",
+            "req-previous",
+            &[String::from("read_previous")],
+        )
+        .expect("previous command should normalize");
+
+        assert_eq!(previous_plan.intent.name, IntentName::ReadPrevious);
+        assert_eq!(
+            previous_plan.selected_skills,
+            vec![String::from("read_previous")]
+        );
+        assert_eq!(previous_plan.steps[0].tool_name, ToolName::ReadPreviousRegion);
+
+        let stop_plan = resolve_direct_navigation_readback_command(
+            "stpo reading",
+            "req-stop",
+            &[String::from("stop_reading")],
+        )
+        .expect("stop command should normalize");
+
+        assert_eq!(stop_plan.intent.name, IntentName::Stop);
+        assert_eq!(
+            stop_plan.selected_skills,
+            vec![String::from("stop_reading")]
+        );
+        assert_eq!(stop_plan.steps[0].tool_name, ToolName::StopSpeaking);
     }
 
     #[test]

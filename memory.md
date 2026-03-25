@@ -580,3 +580,13 @@
 ## 2026-03-25T05:48:59Z - GPT-5.4 - Structured tool-call slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The structured tool-call slice remained green at `113` Rust tests and `12` UI tests, so the current repo baseline for this agent-state contract change is clean going into commit and push.
+
+## 2026-03-25T05:59:44Z - GPT-5.4 - Navigation/readback phrase routing now bypasses the planner
+- `src-tauri/src/commands.rs` now adds a dedicated `resolve_direct_navigation_readback_command(...)` path for `back`, `go forward`, `reload`, `next`, `previous`, and `stop reading` style phrases, generating bounded direct `PlannerOutput` values instead of leaving those simple commands to the LLM.
+- The command normalizer now fuzzy-matches additional navigation/readback keywords such as `back`, `next`, `previous`, `repeat`, `stop`, `title`, and `transcribe`, so mild ASR drift like `refesh`, `prevous`, and `stpo` still maps cleanly.
+- `src-tauri/src/app_core.rs` now runs that direct resolver before the planner path, and `docs/TODO.md` now checks off the covered phrase-to-intent items within the still-open broader backlog.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (116 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build`; the current shell still warns on Node `22.11.0`, so the repo baseline remains `22.12.0+`.
+
+## 2026-03-25T06:11:52Z - GPT-5.4 - Navigation/readback phrase slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The navigation/readback phrase-routing slice remained green at `116` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing change is clean going into commit and push.
