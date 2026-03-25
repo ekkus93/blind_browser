@@ -466,3 +466,9 @@
 - `src-tauri/src/app_core.rs` now checks the direct browser-visibility resolver before the existing direct audio resolver so visibility mode changes stay bounded and do not depend on remote planner behavior.
 - Added commands-layer regression coverage for browser-visibility intent inference, explicit headless normalization, and toggle behavior, and `docs/TODO.md` now marks browser-visibility command normalization complete.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (84 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.
+
+## 2026-03-25T00:29:36Z - GPT-5.4 - Status and history voice queries now normalize locally
+- `src-tauri/src/commands.rs` now recognizes current-URL, status, history-availability, and listening-state phrases such as `what page am I on`, `can I go back`, `can I go forward`, and `are you listening`, infers `GetCurrentUrl` or `GetStatus`, and emits deterministic planner steps that explicitly route through `get_agent_state` or `get_runtime_status` before spoken `report_result` feedback.
+- `src-tauri/src/app_core.rs` now checks the direct status-query resolver before the direct audio resolver so runtime-question voice commands stay bounded and do not depend on remote planner behavior.
+- Added commands-layer regression coverage for status/history/listening intent inference plus current-URL, back-history, and listening summaries, and `docs/TODO.md` now marks the current-URL/runtime-status routing and status/history/listening normalization items complete.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (88 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build` under Node `22.12.0`.

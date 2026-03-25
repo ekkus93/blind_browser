@@ -1164,6 +1164,14 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     if normalized.contains("transcribe") || normalized.contains("what did i say") {
         return IntentName::TranscribeCommand;
     }
+    if is_back_history_query_phrase(&normalized)
+        || is_forward_history_query_phrase(&normalized)
+        || is_listening_query_phrase(&normalized)
+        || is_speaking_query_phrase(&normalized)
+        || is_browser_mode_query_phrase(&normalized)
+    {
+        return IntentName::GetStatus;
+    }
     if normalized.contains("go back") || normalized == "back" {
         return IntentName::GoBack;
     }
@@ -1173,10 +1181,15 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     if normalized.contains("reload") || normalized.contains("refresh") {
         return IntentName::ReloadPage;
     }
-    if normalized.contains("current url") || normalized.contains("what page") {
+    if is_current_url_query_phrase(&normalized) || normalized.contains("what page") {
         return IntentName::GetCurrentUrl;
     }
-    if normalized.contains("status") || normalized.contains("where am i") {
+    if is_status_query_phrase(&normalized)
+        || is_history_query_phrase(&normalized)
+        || is_listening_query_phrase(&normalized)
+        || is_speaking_query_phrase(&normalized)
+        || is_browser_mode_query_phrase(&normalized)
+    {
         return IntentName::GetStatus;
     }
     if normalized.contains("read next") || normalized.contains("next region") {
@@ -2155,6 +2168,79 @@ pub(crate) fn resolve_direct_browser_visibility_command(
     ))
 }
 
+pub(crate) fn resolve_direct_status_query_command(
+    transcript: &str,
+    request_id: &str,
+    agent_state: &AgentStateData,
+    runtime_status: &GetRuntimeStatusData,
+    active_skill_names: &[String],
+) -> Option<PlannerOutput> {
+    let normalized = normalize_transcript_for_routing(transcript);
+    if normalized.is_empty() {
+        return None;
+    }
+
+    if is_current_url_query_phrase(&normalized) {
+        let summary = format_current_url_summary(agent_state);
+        return Some(build_status_query_planner_output(StatusQueryPlanSpec {
+            request_id,
+            intent_name: IntentName::GetCurrentUrl,
+            goal: String::from("Report the current page URL and title."),
+            selected_skills: selected_skill(active_skill_names, "get_current_url"),
+            target_description: Some(current_page_label(agent_state)),
+            read_step_id: "get-current-url",
+            read_tool_name: ToolName::GetAgentState,
+            read_tool_arguments: serde_json::json!({
+                "request_id": request_id,
+                "include_last_transcript": false
+            }),
+            read_tool_purpose: String::from("Read the current agent page state."),
+            report_step_id: "report-current-url",
+            report_summary: summary,
+        }));
+    }
+
+    if is_status_query_phrase(&normalized)
+        || is_history_query_phrase(&normalized)
+        || is_listening_query_phrase(&normalized)
+        || is_speaking_query_phrase(&normalized)
+        || is_browser_mode_query_phrase(&normalized)
+    {
+        let summary = if is_back_history_query_phrase(&normalized) {
+            format_back_history_summary(runtime_status)
+        } else if is_forward_history_query_phrase(&normalized) {
+            format_forward_history_summary(runtime_status)
+        } else if is_listening_query_phrase(&normalized) {
+            format_listening_summary(runtime_status)
+        } else if is_speaking_query_phrase(&normalized) {
+            format_speaking_summary(runtime_status)
+        } else if is_browser_mode_query_phrase(&normalized) {
+            format_browser_mode_summary(runtime_status)
+        } else {
+            format_runtime_status_summary(runtime_status)
+        };
+
+        return Some(build_status_query_planner_output(StatusQueryPlanSpec {
+            request_id,
+            intent_name: IntentName::GetStatus,
+            goal: String::from("Report the current runtime status relevant to the user's query."),
+            selected_skills: selected_status_skill(active_skill_names),
+            target_description: Some(String::from("runtime status")),
+            read_step_id: "get-runtime-status",
+            read_tool_name: ToolName::GetRuntimeStatus,
+            read_tool_arguments: serde_json::json!({
+                "request_id": request_id,
+                "include_provider_modes": false
+            }),
+            read_tool_purpose: String::from("Read the current runtime status."),
+            report_step_id: "report-runtime-status",
+            report_summary: summary,
+        }));
+    }
+
+    None
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct NormalizedAudioSetting {
     value: f32,
@@ -2358,6 +2444,64 @@ fn is_speed_query_phrase(normalized: &str) -> bool {
         || normalized.contains("tell me the speed")
 }
 
+fn is_current_url_query_phrase(normalized: &str) -> bool {
+    normalized.contains("current url")
+        || normalized.contains("what page am i on")
+        || normalized.contains("what page is this")
+        || normalized.contains("what site am i on")
+        || normalized.contains("where is this page")
+}
+
+fn is_status_query_phrase(normalized: &str) -> bool {
+    normalized.contains("what is the status")
+        || normalized.contains("what s the status")
+        || normalized.contains("current status")
+        || normalized.contains("status please")
+        || normalized.contains("where am i")
+}
+
+fn is_history_query_phrase(normalized: &str) -> bool {
+    is_back_history_query_phrase(normalized) || is_forward_history_query_phrase(normalized)
+}
+
+fn is_back_history_query_phrase(normalized: &str) -> bool {
+    normalized.contains("can i go back")
+        || normalized.contains("can we go back")
+        || normalized.contains("is back available")
+        || normalized.contains("can go back")
+        || normalized.contains("back available")
+}
+
+fn is_forward_history_query_phrase(normalized: &str) -> bool {
+    normalized.contains("can i go forward")
+        || normalized.contains("can we go forward")
+        || normalized.contains("is forward available")
+        || normalized.contains("can go forward")
+        || normalized.contains("forward available")
+}
+
+fn is_listening_query_phrase(normalized: &str) -> bool {
+    normalized.contains("are you listening")
+        || normalized.contains("listening status")
+        || normalized.contains("is listening on")
+        || normalized.contains("am i listening")
+}
+
+fn is_speaking_query_phrase(normalized: &str) -> bool {
+    normalized.contains("are you speaking")
+        || normalized.contains("are you reading")
+        || normalized.contains("is speech active")
+        || normalized.contains("are you talking")
+}
+
+fn is_browser_mode_query_phrase(normalized: &str) -> bool {
+    normalized.contains("browser mode")
+        || normalized.contains("is the browser visible")
+        || normalized.contains("is browser visible")
+        || normalized.contains("is it headless")
+        || normalized.contains("are we headless")
+}
+
 fn is_browser_visibility_phrase(normalized: &str) -> bool {
     normalized.contains("show browser")
         || normalized.contains("hide browser")
@@ -2502,6 +2646,49 @@ fn build_browser_visibility_planner_output(
     }
 }
 
+fn build_status_query_planner_output(spec: StatusQueryPlanSpec<'_>) -> PlannerOutput {
+    PlannerOutput {
+        status: PlannerStatus::Ready,
+        intent: IntentSummary {
+            name: spec.intent_name,
+            goal: spec.goal,
+            target_description: spec.target_description,
+        },
+        selected_skills: spec.selected_skills,
+        steps: vec![
+            PlannedStep {
+                step_id: String::from(spec.read_step_id),
+                tool_name: spec.read_tool_name,
+                arguments: spec.read_tool_arguments,
+                purpose: spec.read_tool_purpose,
+                on_success: StepTransition::NextStep {
+                    step_id: String::from(spec.report_step_id),
+                },
+                on_failure: StepTransition::Replan,
+            },
+            PlannedStep {
+                step_id: String::from(spec.report_step_id),
+                tool_name: ToolName::ReportResult,
+                arguments: serde_json::json!({
+                    "request_id": spec.request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "status": ReportStatus::Success,
+                    "summary": spec.report_summary.clone(),
+                    "next_recommended_action": serde_json::Value::Null,
+                    "user_message": spec.report_summary
+                }),
+                purpose: String::from("Report the resulting status query answer."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ],
+        requires_confirmation: false,
+        confirmation_reason: None,
+        blocked_reason: None,
+        user_message: None,
+    }
+}
+
 fn build_report_result_step(request_id: &str, step_id: &str, summary: String) -> PlannedStep {
     PlannedStep {
         step_id: String::from(step_id),
@@ -2535,6 +2722,95 @@ fn format_browser_visibility_mode(mode: BrowserVisibilityMode) -> String {
         BrowserVisibilityMode::Visible => String::from("visible"),
         BrowserVisibilityMode::Headless => String::from("headless"),
     }
+}
+
+fn format_current_url_summary(agent_state: &AgentStateData) -> String {
+    match (normalized_optional_text(agent_state.title.as_deref()), agent_state.url.as_deref()) {
+        (Some(title), Some(url)) => format!("Current page is {title} at {url}."),
+        (None, Some(url)) => format!("Current page URL is {url}."),
+        (Some(title), None) => format!("Current page is {title}."),
+        (None, None) => String::from("No page is open yet."),
+    }
+}
+
+fn current_page_label(agent_state: &AgentStateData) -> String {
+    normalized_optional_text(agent_state.title.as_deref())
+        .or_else(|| normalized_optional_text(agent_state.url.as_deref()))
+        .unwrap_or_else(|| String::from("no page open"))
+}
+
+fn format_runtime_status_summary(runtime_status: &GetRuntimeStatusData) -> String {
+    let page_summary = current_page_label_from_runtime_status(runtime_status);
+    let browser_mode = format_browser_visibility_mode(runtime_status.browser_visibility);
+    let listening = if runtime_status.listening_state.is_listening {
+        "on"
+    } else {
+        "off"
+    };
+    let speaking = if runtime_status.speaking {
+        "active"
+    } else {
+        "idle"
+    };
+    let back = if runtime_status.browser_history.can_go_back {
+        "available"
+    } else {
+        "unavailable"
+    };
+    let forward = if runtime_status.browser_history.can_go_forward {
+        "available"
+    } else {
+        "unavailable"
+    };
+
+    format!(
+        "Current page is {page_summary}. Browser mode is {browser_mode}. Listening is {listening}. Speech output is {speaking}. Back is {back}. Forward is {forward}."
+    )
+}
+
+fn current_page_label_from_runtime_status(runtime_status: &GetRuntimeStatusData) -> String {
+    normalized_optional_text(runtime_status.title.as_deref())
+        .or_else(|| normalized_optional_text(runtime_status.url.as_deref()))
+        .unwrap_or_else(|| String::from("no page open"))
+}
+
+fn format_back_history_summary(runtime_status: &GetRuntimeStatusData) -> String {
+    if runtime_status.browser_history.can_go_back {
+        String::from("Back navigation is available.")
+    } else {
+        String::from("Back navigation is not available.")
+    }
+}
+
+fn format_forward_history_summary(runtime_status: &GetRuntimeStatusData) -> String {
+    if runtime_status.browser_history.can_go_forward {
+        String::from("Forward navigation is available.")
+    } else {
+        String::from("Forward navigation is not available.")
+    }
+}
+
+fn format_listening_summary(runtime_status: &GetRuntimeStatusData) -> String {
+    if runtime_status.listening_state.is_listening {
+        String::from("Listening is on.")
+    } else {
+        String::from("Listening is off.")
+    }
+}
+
+fn format_speaking_summary(runtime_status: &GetRuntimeStatusData) -> String {
+    if runtime_status.speaking {
+        String::from("Speech output is active.")
+    } else {
+        String::from("Speech output is idle.")
+    }
+}
+
+fn format_browser_mode_summary(runtime_status: &GetRuntimeStatusData) -> String {
+    format!(
+        "Browser mode is {}.",
+        format_browser_visibility_mode(runtime_status.browser_visibility)
+    )
 }
 
 fn parse_browser_visibility_command(
@@ -2575,6 +2851,43 @@ fn parse_browser_visibility_command(
     }
 
     None
+}
+
+fn normalized_optional_text(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(String::from)
+}
+
+fn selected_status_skill(active_skill_names: &[String]) -> Vec<String> {
+    if active_skill_names
+        .iter()
+        .any(|active_name| active_name == "get_status")
+    {
+        vec![String::from("get_status")]
+    } else if active_skill_names
+        .iter()
+        .any(|active_name| active_name == "announce_state")
+    {
+        vec![String::from("announce_state")]
+    } else {
+        Vec::new()
+    }
+}
+
+struct StatusQueryPlanSpec<'a> {
+    request_id: &'a str,
+    intent_name: IntentName,
+    goal: String,
+    selected_skills: Vec<String>,
+    target_description: Option<String>,
+    read_step_id: &'a str,
+    read_tool_name: ToolName,
+    read_tool_arguments: serde_json::Value,
+    read_tool_purpose: String,
+    report_step_id: &'a str,
+    report_summary: String,
 }
 
 fn round_audio_setting_value(value: f32) -> f32 {
@@ -5024,6 +5337,22 @@ mod tests {
     }
 
     #[test]
+    fn infer_intent_hint_recognizes_status_and_history_queries() {
+        assert_eq!(
+            infer_intent_hint("can i go back"),
+            IntentName::GetStatus
+        );
+        assert_eq!(
+            infer_intent_hint("are you listening"),
+            IntentName::GetStatus
+        );
+        assert_eq!(
+            infer_intent_hint("what page am i on"),
+            IntentName::GetCurrentUrl
+        );
+    }
+
+    #[test]
     fn resolve_direct_audio_command_normalizes_absolute_volume_percent() {
         let planner_output = resolve_direct_audio_command(
             "set volume to 70 percent",
@@ -5144,6 +5473,163 @@ mod tests {
         assert_eq!(
             planner_output.steps[1].arguments.get("summary"),
             Some(&serde_json::json!("Browser mode set to visible."))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_status_query_command_reports_current_url() {
+        let agent_state = AgentStateData {
+            page_id: Some(String::from("page-1")),
+            url: Some(String::from("https://example.com/article")),
+            title: Some(String::from("Example article")),
+            browser_visibility: BrowserVisibilityMode::Visible,
+            browser_history: BrowserHistoryState::default(),
+            narration_cursor: Some(NarrationCursor::default()),
+            speaking: false,
+            listening_state: ListeningState::default(),
+            audio: RuntimeAudioState::default(),
+            last_transcript: None,
+            last_action: None,
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+        };
+        let runtime_status = GetRuntimeStatusData {
+            page_id: agent_state.page_id.clone(),
+            url: agent_state.url.clone(),
+            title: agent_state.title.clone(),
+            browser_visibility: agent_state.browser_visibility,
+            browser_history: agent_state.browser_history.clone(),
+            listening_state: agent_state.listening_state.clone(),
+            speaking: agent_state.speaking,
+            audio: agent_state.audio.clone(),
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+            provider_modes: None,
+        };
+
+        let planner_output = resolve_direct_status_query_command(
+            "what page am i on",
+            "req-current-url",
+            &agent_state,
+            &runtime_status,
+            &[String::from("get_current_url")],
+        )
+        .expect("current url query should normalize");
+
+        assert_eq!(planner_output.intent.name, IntentName::GetCurrentUrl);
+        assert_eq!(
+            planner_output.selected_skills,
+            vec![String::from("get_current_url")]
+        );
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::GetAgentState);
+        assert_eq!(
+            planner_output.steps[1].arguments.get("summary"),
+            Some(&serde_json::json!(
+                "Current page is Example article at https://example.com/article."
+            ))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_status_query_command_reports_back_history_availability() {
+        let agent_state = AgentStateData {
+            page_id: Some(String::from("page-1")),
+            url: Some(String::from("https://example.com/article")),
+            title: Some(String::from("Example article")),
+            browser_visibility: BrowserVisibilityMode::Visible,
+            browser_history: BrowserHistoryState {
+                can_go_back: true,
+                can_go_forward: false,
+                current_entry_index: Some(1),
+                entry_count: 2,
+            },
+            narration_cursor: Some(NarrationCursor::default()),
+            speaking: false,
+            listening_state: ListeningState::default(),
+            audio: RuntimeAudioState::default(),
+            last_transcript: None,
+            last_action: None,
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+        };
+        let runtime_status = GetRuntimeStatusData {
+            page_id: agent_state.page_id.clone(),
+            url: agent_state.url.clone(),
+            title: agent_state.title.clone(),
+            browser_visibility: agent_state.browser_visibility,
+            browser_history: agent_state.browser_history.clone(),
+            listening_state: agent_state.listening_state.clone(),
+            speaking: agent_state.speaking,
+            audio: agent_state.audio.clone(),
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+            provider_modes: None,
+        };
+
+        let planner_output = resolve_direct_status_query_command(
+            "can i go back",
+            "req-back-status",
+            &agent_state,
+            &runtime_status,
+            &[String::from("get_status")],
+        )
+        .expect("back history query should normalize");
+
+        assert_eq!(planner_output.intent.name, IntentName::GetStatus);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::GetRuntimeStatus);
+        assert_eq!(
+            planner_output.steps[1].arguments.get("summary"),
+            Some(&serde_json::json!("Back navigation is available."))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_status_query_command_reports_listening_state() {
+        let agent_state = AgentStateData {
+            page_id: None,
+            url: None,
+            title: None,
+            browser_visibility: BrowserVisibilityMode::Headless,
+            browser_history: BrowserHistoryState::default(),
+            narration_cursor: Some(NarrationCursor::default()),
+            speaking: false,
+            listening_state: ListeningState {
+                is_listening: true,
+                push_to_talk_enabled: true,
+            },
+            audio: RuntimeAudioState::default(),
+            last_transcript: None,
+            last_action: None,
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+        };
+        let runtime_status = GetRuntimeStatusData {
+            page_id: None,
+            url: None,
+            title: None,
+            browser_visibility: BrowserVisibilityMode::Headless,
+            browser_history: BrowserHistoryState::default(),
+            listening_state: agent_state.listening_state.clone(),
+            speaking: false,
+            audio: agent_state.audio.clone(),
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+            provider_modes: None,
+        };
+
+        let planner_output = resolve_direct_status_query_command(
+            "are you listening",
+            "req-listening-status",
+            &agent_state,
+            &runtime_status,
+            &[String::from("get_status")],
+        )
+        .expect("listening query should normalize");
+
+        assert_eq!(planner_output.intent.name, IntentName::GetStatus);
+        assert_eq!(
+            planner_output.steps[1].arguments.get("summary"),
+            Some(&serde_json::json!("Listening is on."))
         );
     }
 }

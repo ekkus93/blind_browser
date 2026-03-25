@@ -12,21 +12,21 @@ use crate::browser::{
 use crate::commands::{
     build_planner_skill_selection, execute_planner_output, planner_available_tools,
     planner_output_schema, resolve_direct_audio_command, resolve_direct_browser_visibility_command,
-    resume_after_confirmation, tool_input_schema, validate_planner_output, AgentStateData,
-    ClickElementData, ClickElementInput, ConfirmActionData, ConfirmActionInput,
-    ConfirmActionResolution, DeterministicToolExecutor, ExecutionOutcome, ExtractPageModelData,
-    ExtractPageModelInput, FindElementData, FindElementInput, GetAgentStateInput,
-    GetPageSnapshotInput, GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput,
-    GoForwardData, GoForwardInput, ListInteractiveElementsData, ListInteractiveElementsInput,
-    OpenUrlData, OpenUrlInput, PageSnapshotData, PlannerInput, PlannerOutput,
-    ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
-    ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
-    ReportResultData, ReportResultInput, ScrollPageData, ScrollPageInput,
-    SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
-    SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
-    SetTtsVoiceInput, StartListeningData, StartListeningInput, StopListeningData,
-    StopListeningInput, StopSpeakingData, StopSpeakingInput, ToolError, ToolName, ToolResult,
-    TranscribeCommandData, TranscribeCommandInput,
+    resolve_direct_status_query_command, resume_after_confirmation, tool_input_schema,
+    validate_planner_output, AgentStateData, ClickElementData, ClickElementInput,
+    ConfirmActionData, ConfirmActionInput, ConfirmActionResolution, DeterministicToolExecutor,
+    ExecutionOutcome, ExtractPageModelData, ExtractPageModelInput, FindElementData,
+    FindElementInput, GetAgentStateInput, GetPageSnapshotInput, GetRuntimeStatusData,
+    GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData, GoForwardInput,
+    ListInteractiveElementsData, ListInteractiveElementsInput, OpenUrlData, OpenUrlInput,
+    PageSnapshotData, PlannerInput, PlannerOutput, ProviderSelectionStatus, ReadNextRegionData,
+    ReadNextRegionInput, ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData,
+    ReadRegionInput, ReloadPageData, ReloadPageInput, ReportResultData, ReportResultInput,
+    ScrollPageData, ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput,
+    SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
+    SetTtsVoiceData, SetTtsVoiceInput, StartListeningData, StartListeningInput,
+    StopListeningData, StopListeningInput, StopSpeakingData, StopSpeakingInput, ToolError,
+    ToolName, ToolResult, TranscribeCommandData, TranscribeCommandInput,
 };
 use crate::config::{
     AppConfig, AudioSettings, ConfigError, RemotePlannerProfile, RemoteProviderKind, SecretRef,
@@ -1004,6 +1004,24 @@ impl AppCore {
             return Ok(planner_output);
         }
 
+        let current_agent_state = self.current_agent_state_snapshot(true);
+        let current_runtime_status = self.current_runtime_status_snapshot(false);
+
+        if let Some(planner_output) = resolve_direct_status_query_command(
+            transcript,
+            &request_id,
+            &current_agent_state,
+            &current_runtime_status,
+            &skill_selection.active_skill_names,
+        ) {
+            validate_planner_output(
+                &planner_output,
+                &available_tools,
+                &skill_selection.active_skill_names,
+            )?;
+            return Ok(planner_output);
+        }
+
         if let Some(planner_output) = resolve_direct_audio_command(
             transcript,
             &request_id,
@@ -1022,7 +1040,7 @@ impl AppCore {
         let planner_input = PlannerInput {
             request_id: request_id.clone(),
             transcript: transcript.to_string(),
-            agent_state: self.current_agent_state_snapshot(true),
+            agent_state: current_agent_state,
             available_tools: available_tools.clone(),
             active_skill_names: skill_selection.active_skill_names.clone(),
             relevant_skill_summaries: skill_selection.relevant_skill_summaries.clone(),

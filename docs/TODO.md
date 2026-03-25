@@ -250,9 +250,9 @@
 - [x] Normalize relative playback speed commands using default, small, and large step sizes
 - [x] Normalize playback speed query commands to `get_playback_speed`
 - [x] Normalize browser visibility commands into explicit target visibility updates
-- [ ] Route current-URL and runtime-status queries through `get_agent_state` and `get_runtime_status`
+- [x] Route current-URL and runtime-status queries through `get_agent_state` and `get_runtime_status`
 - [x] Normalize relative audio-setting phrases to `SetPlaybackVolume` and `SetPlaybackSpeed` planner intents
-- [ ] Normalize status/history/listening phrases to their dedicated planner intent variants before tool selection
+- [x] Normalize status/history/listening phrases to their dedicated planner intent variants before tool selection
 - [ ] Normalize form-filling phrases to `FillInput` and form-submission phrases to `SubmitForm`
 - [ ] Add normalization examples for ambiguous utterances, mixed commands, and follow-up corrections
 - [ ] Handle fuzzy matching
