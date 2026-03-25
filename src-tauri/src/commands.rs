@@ -1470,7 +1470,7 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     if is_stop_phrase(&normalized) {
         return IntentName::Stop;
     }
-    if normalized.contains("read page") || normalized.contains("read this page") {
+    if is_read_page_phrase(&normalized) {
         return IntentName::ReadPage;
     }
     if is_fill_and_submit_phrase(&normalized) || is_submit_form_phrase(&normalized) {
@@ -2984,6 +2984,126 @@ pub(crate) fn resolve_direct_open_url_command(
     ))
 }
 
+pub(crate) fn resolve_direct_read_page_command(
+    transcript: &str,
+    request_id: &str,
+    current_page: Option<&PageModel>,
+    agent_state: &AgentStateData,
+    active_skill_names: &[String],
+) -> Option<PlannerOutput> {
+    let normalized = normalize_transcript_for_routing(transcript);
+    if normalized.is_empty() || !is_read_page_phrase(&normalized) {
+        return None;
+    }
+
+    let selected_skills = selected_skill(active_skill_names, "read_page");
+
+    if agent_state.page_id.is_none() {
+        let summary = String::from("There is no current page to read yet.");
+        return Some(PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::ReadPage,
+                goal: String::from("Read the current page from the beginning."),
+                target_description: Some(String::from("current page")),
+            },
+            selected_skills,
+            steps: vec![PlannedStep {
+                step_id: String::from("report-missing-page"),
+                tool_name: ToolName::ReportResult,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "status": ReportStatus::NeedsFollowUp,
+                    "summary": summary.clone(),
+                    "next_recommended_action": "Open a page first, then ask me to read it.",
+                    "user_message": summary
+                }),
+                purpose: String::from("Report that there is no active page available to read."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        });
+    }
+
+    if let Some(region_id) = current_page.and_then(first_readable_region_id) {
+        return Some(PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::ReadPage,
+                goal: String::from("Read the current page from the beginning."),
+                target_description: Some(String::from("current page")),
+            },
+            selected_skills,
+            steps: vec![PlannedStep {
+                step_id: String::from("read-page-from-start"),
+                tool_name: ToolName::ReadRegion,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "region_id": region_id,
+                    "interrupt_current": true
+                }),
+                purpose: String::from("Restart narration from the first readable region of the current page."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        });
+    }
+
+    Some(PlannerOutput {
+        status: PlannerStatus::Ready,
+        intent: IntentSummary {
+            name: IntentName::ReadPage,
+            goal: String::from("Read the current page from the beginning."),
+            target_description: Some(String::from("current page")),
+        },
+        selected_skills,
+        steps: vec![
+            PlannedStep {
+                step_id: String::from("extract-page-for-reading"),
+                tool_name: ToolName::ExtractPageModel,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "use_dom_extraction": true,
+                    "include_headings": true,
+                    "include_links": true
+                }),
+                purpose: String::from("Refresh the readable page model before starting narration."),
+                on_success: StepTransition::NextStep {
+                    step_id: String::from("read-first-region"),
+                },
+                on_failure: StepTransition::Replan,
+            },
+            PlannedStep {
+                step_id: String::from("read-first-region"),
+                tool_name: ToolName::ReadNextRegion,
+                arguments: serde_json::json!({
+                    "request_id": request_id,
+                    "timeout_ms": serde_json::Value::Null,
+                    "interrupt_current": true
+                }),
+                purpose: String::from("Start narration from the first readable region of the refreshed page."),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        ],
+        requires_confirmation: false,
+        confirmation_reason: None,
+        blocked_reason: None,
+        user_message: None,
+    })
+}
+
 pub(crate) fn resolve_direct_status_query_command(
     transcript: &str,
     request_id: &str,
@@ -3412,6 +3532,14 @@ fn is_transcribe_command_phrase(normalized: &str) -> bool {
         || normalized.contains("what did i just say")
 }
 
+fn is_read_page_phrase(normalized: &str) -> bool {
+    normalized == "read page"
+        || normalized == "read this page"
+        || normalized == "read current page"
+        || normalized == "start reading page"
+        || normalized == "start reading this page"
+}
+
 fn parse_direct_open_url_target(transcript: &str) -> Option<String> {
     let trimmed = transcript.trim();
     let lowercase = trimmed.to_ascii_lowercase();
@@ -3487,6 +3615,14 @@ fn prepend_default_scheme(value: &str) -> String {
     } else {
         format!("https://{trimmed}")
     }
+}
+
+fn first_readable_region_id(page_model: &PageModel) -> Option<String> {
+    page_model
+        .regions
+        .iter()
+        .find(|region| !region.text.trim().is_empty())
+        .map(|region| region.region_id.clone())
 }
 
 fn is_go_forward_phrase(normalized: &str) -> bool {
@@ -7079,6 +7215,16 @@ mod tests {
     }
 
     #[test]
+    fn infer_intent_hint_recognizes_read_page_phrases() {
+        assert_eq!(infer_intent_hint("read page"), IntentName::ReadPage);
+        assert_eq!(infer_intent_hint("read this page"), IntentName::ReadPage);
+        assert_eq!(
+            infer_intent_hint("read current page"),
+            IntentName::ReadPage
+        );
+    }
+
+    #[test]
     fn infer_intent_hint_recognizes_form_filling_and_submission_phrases() {
         assert_eq!(
             infer_intent_hint("focus the email field"),
@@ -7516,6 +7662,147 @@ mod tests {
         assert_eq!(
             absolute_plan.steps[0].arguments.get("url"),
             Some(&serde_json::json!("https://example.com/docs"))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_read_page_command_reads_from_first_region_when_available() {
+        let page_model = PageModel {
+            title: Some(String::from("Example page")),
+            url: Some(String::from("https://example.com/article")),
+            regions: vec![
+                crate::page_model::PageRegion {
+                    region_id: String::from("region-1"),
+                    label: Some(String::from("Main")),
+                    text: String::from("Welcome to the article."),
+                    source: crate::page_model::RegionSource::Dom,
+                },
+                crate::page_model::PageRegion {
+                    region_id: String::from("region-2"),
+                    label: Some(String::from("Details")),
+                    text: String::from("More details."),
+                    source: crate::page_model::RegionSource::Dom,
+                },
+            ],
+            interactive_elements: Vec::new(),
+        };
+        let agent_state = AgentStateData {
+            page_id: Some(String::from("page-1")),
+            url: page_model.url.clone(),
+            title: page_model.title.clone(),
+            browser_visibility: BrowserVisibilityMode::Visible,
+            browser_history: BrowserHistoryState::default(),
+            narration_cursor: None,
+            speaking: false,
+            listening_state: ListeningState::default(),
+            audio: RuntimeAudioState::default(),
+            last_transcript: None,
+            last_tool_call: None,
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+        };
+
+        let planner_output = resolve_direct_read_page_command(
+            "read this page",
+            "req-read-page",
+            Some(&page_model),
+            &agent_state,
+            &[String::from("read_page")],
+        )
+        .expect("read-page command should resolve");
+
+        assert_eq!(planner_output.intent.name, IntentName::ReadPage);
+        assert_eq!(planner_output.selected_skills, vec![String::from("read_page")]);
+        assert_eq!(planner_output.steps.len(), 1);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ReadRegion);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("region_id"),
+            Some(&serde_json::json!("region-1"))
+        );
+        assert_eq!(
+            planner_output.steps[0].arguments.get("interrupt_current"),
+            Some(&serde_json::json!(true))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_read_page_command_extracts_then_reads_when_regions_missing() {
+        let page_model = PageModel {
+            title: Some(String::from("Example page")),
+            url: Some(String::from("https://example.com/article")),
+            regions: Vec::new(),
+            interactive_elements: Vec::new(),
+        };
+        let agent_state = AgentStateData {
+            page_id: Some(String::from("page-1")),
+            url: page_model.url.clone(),
+            title: page_model.title.clone(),
+            browser_visibility: BrowserVisibilityMode::Visible,
+            browser_history: BrowserHistoryState::default(),
+            narration_cursor: None,
+            speaking: false,
+            listening_state: ListeningState::default(),
+            audio: RuntimeAudioState::default(),
+            last_transcript: None,
+            last_tool_call: None,
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+        };
+
+        let planner_output = resolve_direct_read_page_command(
+            "read page",
+            "req-read-page-extract",
+            Some(&page_model),
+            &agent_state,
+            &[String::from("read_page")],
+        )
+        .expect("read-page command should resolve");
+
+        assert_eq!(planner_output.steps.len(), 2);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ExtractPageModel);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("use_dom_extraction"),
+            Some(&serde_json::json!(true))
+        );
+        assert_eq!(planner_output.steps[1].tool_name, ToolName::ReadNextRegion);
+        assert_eq!(
+            planner_output.steps[1].arguments.get("interrupt_current"),
+            Some(&serde_json::json!(true))
+        );
+    }
+
+    #[test]
+    fn resolve_direct_read_page_command_reports_missing_active_page() {
+        let agent_state = AgentStateData {
+            page_id: None,
+            url: None,
+            title: None,
+            browser_visibility: BrowserVisibilityMode::Visible,
+            browser_history: BrowserHistoryState::default(),
+            narration_cursor: None,
+            speaking: false,
+            listening_state: ListeningState::default(),
+            audio: RuntimeAudioState::default(),
+            last_transcript: None,
+            last_tool_call: None,
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+        };
+
+        let planner_output = resolve_direct_read_page_command(
+            "read current page",
+            "req-read-page-missing",
+            None,
+            &agent_state,
+            &[String::from("read_page")],
+        )
+        .expect("read-page command should resolve");
+
+        assert_eq!(planner_output.steps.len(), 1);
+        assert_eq!(planner_output.steps[0].tool_name, ToolName::ReportResult);
+        assert_eq!(
+            planner_output.steps[0].arguments.get("status"),
+            Some(&serde_json::json!(ReportStatus::NeedsFollowUp))
         );
     }
 

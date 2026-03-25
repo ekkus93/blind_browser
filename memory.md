@@ -610,3 +610,13 @@
 ## 2026-03-25T06:40:44Z - GPT-5.4 - Open-url phrase slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The open-url phrase-routing slice remained green at `121` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing change is clean going into commit and push.
+
+## 2026-03-25T06:46:56Z - GPT-5.4 - Read-page phrase routing now bypasses the planner
+- `src-tauri/src/commands.rs` now adds `resolve_direct_read_page_command(...)`, generating a bounded direct `PlannerOutput` for page-reading phrases such as `read page`, `read this page`, and `read current page` instead of sending those simple requests through the planner.
+- When runtime page regions are already available, the direct resolver restarts narration from the first readable region with `read_region`; when regions are missing but an active page exists, it refreshes the page model with `extract_page_model` and then begins from the top with `read_next_region`.
+- If there is no active page yet, the runtime now returns a bounded spoken follow-up via `report_result` instead of failing later with a missing-page tool error, and `docs/TODO.md` now checks off `read page` within the broader phrase-mapping backlog.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (125 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build`; the current shell still warns on Node `22.11.0`, so the repo baseline remains `22.12.0+`.
+
+## 2026-03-25T07:06:18Z - GPT-5.4 - Read-page phrase slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The read-page phrase-routing slice remained green at `125` Rust tests and `12` UI tests, so the current repo baseline for this direct-routing change is clean going into commit and push.

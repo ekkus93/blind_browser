@@ -13,7 +13,8 @@ use crate::commands::{
     build_planner_skill_selection, canonical_planner_output_examples, execute_planner_output,
     planner_available_tools, planner_output_schema, resolve_direct_audio_command,
     resolve_direct_browser_visibility_command, resolve_direct_navigation_readback_command,
-    resolve_direct_open_url_command, resolve_direct_read_title_command,
+    resolve_direct_open_url_command, resolve_direct_read_page_command,
+    resolve_direct_read_title_command,
     resolve_direct_repeat_command, resolve_direct_status_query_command,
     resolve_direct_voice_input_command, resume_after_confirmation, tool_input_schema,
     validate_planner_output, AgentStateData, ClickElementData, ClickElementInput,
@@ -1204,6 +1205,21 @@ impl AppCore {
         if let Some(planner_output) = resolve_direct_open_url_command(
             transcript,
             &request_id,
+            &skill_selection.active_skill_names,
+        ) {
+            validate_planner_output(
+                &planner_output,
+                &available_tools,
+                &skill_selection.active_skill_names,
+            )?;
+            return Ok(planner_output);
+        }
+
+        if let Some(planner_output) = resolve_direct_read_page_command(
+            transcript,
+            &request_id,
+            self.state.current_page.as_ref(),
+            &current_agent_state,
             &skill_selection.active_skill_names,
         ) {
             validate_planner_output(

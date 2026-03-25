@@ -1185,6 +1185,9 @@ Narration behavior notes:
 - Spoken previous-reading commands such as `previous`, `read previous`, and `previous region` should resolve to `read_previous_region` with `interrupt_current = true`.
 - Spoken title commands such as `read title`, `read the page title`, and `what is the title` should resolve to a bounded spoken title response based on the current page state.
 - If the current page does not have a readable title yet, the runtime should speak a clear bounded follow-up message instead of inventing one.
+- Spoken page-reading commands such as `read page`, `read this page`, and `read current page` should resolve directly to a bounded narration plan that restarts from the first readable region of the current page.
+- When the runtime already has readable regions for the current page, `read page` should restart from the first readable region with `read_region`; otherwise it should refresh the page model and then begin from the first region with `read_next_region`.
+- If there is no active page yet, `read page` should return a clear bounded follow-up message instead of guessing what to read.
 - Spoken repeat commands such as `repeat`, `repeat that`, `read that again`, and `say that again` should resolve against the current narration cursor and restart the current region with `interrupt_current = true`.
 - If no current narration region is available yet, the runtime should return a bounded follow-up message instead of guessing which content to repeat.
 - Spoken stop-reading commands such as `stop`, `stop reading`, `stop speaking`, and `pause reading` should resolve to `stop_speaking`.

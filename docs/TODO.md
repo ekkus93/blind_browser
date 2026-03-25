@@ -222,7 +222,7 @@
   - [x] go forward
   - [x] reload page
   - [x] get current url
-  - [ ] read page
+  - [x] read page
   - [x] start listening
   - [x] stop listening
   - [x] transcribe command
