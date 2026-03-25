@@ -290,7 +290,7 @@ pub enum BlockedReason {
     UnsupportedCapability,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
 pub enum IntentName {
     OpenUrl,
     GoBack,
@@ -1227,6 +1227,9 @@ pub fn infer_intent_hint(transcript: &str) -> IntentName {
     if is_fill_input_phrase(&normalized) {
         return IntentName::FillInput;
     }
+    if is_set_tts_voice_phrase(&normalized) {
+        return IntentName::SetTtsVoice;
+    }
     if normalized.contains("open ")
         || normalized.contains("go to ")
         || normalized.contains("visit ")
@@ -2087,6 +2090,7 @@ fn canonicalize_command_token(token: &str) -> String {
         "submit",
         "url",
         "visible",
+        "voice",
         "volume",
     ];
 
@@ -2205,7 +2209,7 @@ fn likely_tools_for_intent(intent: &IntentName) -> Vec<ToolName> {
         IntentName::StartListening => vec![ToolName::StartListening],
         IntentName::StopListening => vec![ToolName::StopListening],
         IntentName::TranscribeCommand => vec![ToolName::TranscribeCommand],
-        IntentName::SetTtsVoice => vec![ToolName::SetTtsVoice],
+        IntentName::SetTtsVoice => vec![ToolName::SetTtsVoice, ToolName::ReportResult],
         IntentName::SetPlaybackVolume => vec![ToolName::SetPlaybackVolume],
         IntentName::SetPlaybackSpeed => vec![ToolName::SetPlaybackSpeed],
         IntentName::GetPlaybackVolume | IntentName::GetPlaybackSpeed => {
@@ -2801,6 +2805,14 @@ fn is_read_title_phrase(normalized: &str) -> bool {
         || normalized.contains("what is the title")
         || normalized.contains("what s the title")
         || normalized.contains("tell me the title")
+}
+
+fn is_set_tts_voice_phrase(normalized: &str) -> bool {
+    normalized.contains("voice")
+        && (normalized.contains("set ")
+            || normalized.contains("change ")
+            || normalized.contains("switch ")
+            || normalized.contains("use "))
 }
 
 fn is_fill_and_submit_phrase(normalized: &str) -> bool {
@@ -5568,6 +5580,82 @@ mod tests {
     }
 
     #[test]
+    fn build_planner_skill_selection_prefers_set_tts_voice_skill_for_voice_commands() {
+        let available_tools = planner_available_tools();
+        let selection = build_planner_skill_selection(
+            None,
+            None,
+            "change the voice to Bruno",
+            &available_tools,
+        );
+
+        assert!(selection
+            .active_skill_names
+            .iter()
+            .any(|name| name == "set_tts_voice"));
+        assert_eq!(
+            selection
+                .relevant_skill_summaries
+                .first()
+                .map(|skill| skill.name.as_str()),
+            Some("set_tts_voice")
+        );
+    }
+
+    #[test]
+    fn bundled_skills_cover_planner_visible_command_family_intents() {
+        let available_tool_names = registered_tools()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect::<Vec<_>>();
+        let bundled_skills = parse_bundled_skills(BUNDLED_SKILLS_MARKDOWN, &available_tool_names);
+        let bundled_intents = bundled_skills
+            .iter()
+            .flat_map(|skill| skill.summary.intent_tags.iter())
+            .filter_map(|tag| tag.strip_prefix("intent:"))
+            .map(parse_intent_name_value)
+            .collect::<Result<HashSet<_>, _>>()
+            .expect("bundled intent tags should parse");
+
+        let required_intents = [
+            IntentName::OpenUrl,
+            IntentName::GoBack,
+            IntentName::GoForward,
+            IntentName::ReloadPage,
+            IntentName::GetCurrentUrl,
+            IntentName::ReadPage,
+            IntentName::ReadTitle,
+            IntentName::ReadNext,
+            IntentName::ReadPrevious,
+            IntentName::Repeat,
+            IntentName::Stop,
+            IntentName::StartListening,
+            IntentName::StopListening,
+            IntentName::TranscribeCommand,
+            IntentName::SetTtsVoice,
+            IntentName::SetPlaybackVolume,
+            IntentName::GetPlaybackVolume,
+            IntentName::SetPlaybackSpeed,
+            IntentName::GetPlaybackSpeed,
+            IntentName::SetBrowserVisibility,
+            IntentName::GetStatus,
+            IntentName::FindElement,
+            IntentName::ClickElement,
+            IntentName::Scroll,
+            IntentName::OcrRecovery,
+        ];
+
+        let missing = required_intents
+            .into_iter()
+            .filter(|intent| !bundled_intents.contains(intent))
+            .collect::<Vec<_>>();
+        assert!(
+            missing.is_empty(),
+            "bundled skills are missing explicit intent coverage for {missing:?}"
+        );
+    }
+
+    #[test]
     fn validate_planner_output_rejects_unknown_selected_skill() {
         let available_tools = planner_available_tools();
         let planner_output = PlannerOutput {
@@ -5768,6 +5856,26 @@ mod tests {
         assert_eq!(infer_intent_hint("read title"), IntentName::ReadTitle);
         assert_eq!(infer_intent_hint("read the page title"), IntentName::ReadTitle);
         assert_eq!(infer_intent_hint("what is the title"), IntentName::ReadTitle);
+    }
+
+    #[test]
+    fn infer_intent_hint_recognizes_tts_voice_phrases() {
+        assert_eq!(
+            infer_intent_hint("change the voice to Bruno"),
+            IntentName::SetTtsVoice
+        );
+        assert_eq!(
+            infer_intent_hint("switch to the Bella voice"),
+            IntentName::SetTtsVoice
+        );
+        assert_eq!(
+            infer_intent_hint("use the Hugo voice"),
+            IntentName::SetTtsVoice
+        );
+        assert_eq!(
+            infer_intent_hint("set the voise to Luna"),
+            IntentName::SetTtsVoice
+        );
     }
 
     #[test]

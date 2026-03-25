@@ -38,6 +38,12 @@ The metadata here is the authoritative source for bundled default skills shipped
 - requires_confirmation: `false`
 - description: Reload the current page.
 
+#### scroll_page
+- intent_tags: `scroll-page`, `navigation`, `intent:Scroll`
+- allowed_tools: `scroll_page`
+- requires_confirmation: `false`
+- description: Scroll the current page by a bounded amount in the requested direction.
+
 #### get_current_url
 - intent_tags: `get-current-url`, `status-query`, `navigation`, `intent:GetCurrentUrl`
 - allowed_tools: `get_agent_state`, `report_result`

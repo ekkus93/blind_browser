@@ -518,3 +518,9 @@
 ## 2026-03-25T04:18:09Z - GPT-5.4 - Read-title slice prepared for commit and push
 - The user requested that the validated `Read title` slice be checked in and pushed to `master`, so the current worktree should contain only the bounded title-reading command work plus its docs and memory updates.
 - This keeps the project history aligned with the thin-slice workflow used so far: implement a bounded voice-first feature, validate it with the standard Rust and UI commands, then commit and push as a focused change.
+
+## 2026-03-25T04:35:37Z - GPT-5.4 - Intent alignment now covers scroll and TTS voice command families
+- `docs/SKILLS.md` now includes a bundled `scroll_page` skill tagged with `intent:Scroll`, closing a real gap where `Scroll` was a planner-visible intent without explicit bundled skill coverage.
+- `src-tauri/src/commands.rs` now normalizes bounded TTS voice-setting phrases such as `change the voice to Bruno` and `switch to the Bella voice` to `IntentName::SetTtsVoice`, and the fuzzy command keyword set now includes `voice` so minor ASR drift like `voise` still routes cleanly.
+- Commands-layer regression tests now verify explicit bundled intent coverage for the currently planner-visible command families and assert that matching voice-setting transcripts rank the bundled `set_tts_voice` skill first.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (98 Rust tests green), `pnpm test:ui` (12 UI tests green), and `pnpm build`; the current shell still warns on Node `22.11.0`, so the repo baseline remains Node `22.12.0+` for warning-free frontend builds.

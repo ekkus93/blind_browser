@@ -199,7 +199,7 @@
 - [x] Load bundled built-in skill metadata from `docs/SKILLS.md` or generated equivalents
 - [x] Validate SKILL.md frontmatter and reject invalid skills
 - [x] Validate bundled skill intent tags and allowed-tool hints
-- [ ] Keep `IntentName` enum aligned with bundled `intent:<Name>` tags and normalized command families
+- [x] Keep `IntentName` enum aligned with bundled `intent:<Name>` tags and normalized command families
 - [x] Rank eligible skills by precedence, intent match, lexical overlap, and tool alignment
 - [x] Load only top-ranked skills into planner context
 - [x] Select deterministic tools from planner output
