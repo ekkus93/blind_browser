@@ -664,3 +664,16 @@
 ## 2026-03-25T18:26:19Z - GPT-5.4 - Fill-and-submit slice revalidated for check-in
 - Re-ran the standard validation set immediately before check-in: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The fill-and-submit slice remains green at `142` Rust tests and `12` UI tests, so the current repo baseline for this combined direct-routing flow is clean going into commit and push.
+
+## 2026-03-25T18:29:37Z - GPT-5.4 - GitHub Actions CI landed
+- Added `.github/workflows/ci.yml` to run on pushes to `master` and on pull requests, using stable Rust with `clippy`, pnpm v9, Node `22.12.0`, the repo's Ubuntu/Tauri native packages, and the existing validation commands.
+- Added a CI badge to `README.md` that points to the new workflow.
+- Local validation remains green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`; the local shell still shows the existing Node `22.11.0` vs `22.12.0+` Vite warning, but the workflow pins Node `22.12.0`.
+
+## 2026-03-25T18:32:57Z - GPT-5.4 - Local shell Node updated to 22.12.0
+- Switched the active shell to Node `22.12.0` with `nvm use 22.12.0` and set `nvm alias default 22.12.0` so future shells default to the Vite-compatible version.
+- Re-ran `pnpm build` afterward and the previous Vite Node version warning no longer appeared.
+
+## 2026-03-25T18:36:34Z - GPT-5.4 - CI slice revalidated for check-in
+- Re-ran the standard validation set immediately before check-in under Node `22.12.0`: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The CI and README badge changes remain green at `142` Rust tests and `12` UI tests, and the earlier local Vite Node warning is no longer present after switching this shell to Node `22.12.0`.

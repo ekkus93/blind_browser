@@ -1,5 +1,7 @@
 # blind_browser
 
+[![CI](https://github.com/ekkus93/blind_browser/actions/workflows/ci.yml/badge.svg)](https://github.com/ekkus93/blind_browser/actions/workflows/ci.yml)
+
 Voice-first desktop browser for vision-impaired users, built with Rust and Tauri.
 
 ## Workspace Layout
