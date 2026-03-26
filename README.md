@@ -121,4 +121,11 @@ If `pkg-config` reports that it cannot find `lept.pc`, the missing package is us
 
 See `config.example.toml` for the initial shipped defaults and provider profile names.
 
+Migration note (keyring-backed API keys)
+
+- The project now stores UI-entered remote API keys in the operating system keyring. When saving a remote profile API key from the Settings UI, the app writes the secret to the OS keyring and updates `config.toml` to store only a keyring reference (`from_keyring`).
+- Existing inline (plain) secrets, environment-variable, and file-backed references continue to work; no bulk migration was performed.
+- To migrate an inline API key for a remote profile: open Settings → Remote profile, enter the API key into the masked API key field, and click Save. This will store the secret in the OS keyring and replace the `api_key` entry in `config.toml` with a `from_keyring` reference.
+- CI and unit tests use an in-memory test keyring; production uses the OS keyring on supported platforms.
+
 For a fast restart on another machine, the project handoff notes are tracked in `memory.md`. The latest entry should include the current commit, validation status, and where development stopped.
