@@ -943,3 +943,22 @@
 ## 2026-03-26T21:53:08Z - GPT-5.4 - Validation rerun stayed green after Wave 1 output-schema work
 - Re-ran the standard validation pass after exporting per-tool output schemas and adding output-schema regression tests, without further code changes.
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed, Rust tests remained `205` passed, and `pnpm test:ui` remained `48` passed.
+
+## 2026-03-26T22:11:07Z - GPT-5.4 - Wave 1 shared enums now cover repeated narration and visibility contract fields
+- `src-tauri/src/commands.rs` now uses shared `NarrationInterruptionMode` for `read_region`, `read_next_region`, and `read_previous_region` inputs, shared `ElementVisibilityFilter` for `list_interactive_elements` and `find_element`, and shared `NarrationBoundary` for the next/previous narration outputs.
+- `src-tauri/src/app_core.rs` now consumes those enums at the tool boundary while preserving the existing runtime behavior, and `docs/SPECS.md` plus the canonical planner/test fixtures now use the new enum-backed field names (`interruption_mode`, `visibility_filter`, `boundary`).
+- Revalidated with `cargo fmt --manifest-path src-tauri/Cargo.toml --all`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`; Rust tests remain `205` passed and UI tests remain `48` passed.
+
+## 2026-03-26T22:25:09Z - GPT-5.4 - Wave 1 shared enums now cover the remaining bounded mode fields
+- `src-tauri/src/commands.rs` now replaces the remaining planner-visible semantic booleans with explicit enums: `ReloadMode`, `ClickMode`, `TextEntryMode`, `TextEntrySubmitMode`, and `TranscriptionStopMode`.
+- `src-tauri/src/app_core.rs` and `src-tauri/src/lib.rs` now convert those enum values back to the existing runtime booleans only at the browser/ASR boundary, so runtime behavior stays unchanged while the contract surface becomes fully enum-backed for those tools.
+- Updated `docs/SPECS.md`, direct-command helpers, canonical planner fixtures, and shared-enum serialization coverage to use `mode`, `click_mode`, `text_entry_mode`, `submit_mode`, and `stop_mode`; full validation is green with `cargo fmt --manifest-path src-tauri/Cargo.toml --all`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`205` Rust tests, `48` UI tests).
+
+## 2026-03-26T22:35:37Z - GPT-5.4 - Capture screenshot scope now uses a bounded enum
+- `src-tauri/src/commands.rs` now replaces `CaptureScreenshotInput.full_page` with `scope: ScreenshotScope`, using closed `Viewport` and `FullPage` variants instead of a semantic boolean in the planner-visible contract.
+- `src-tauri/src/app_core.rs` keeps screenshot behavior unchanged by converting `scope` back to the existing browser boolean only at the runtime boundary, and the internal OCR fallback screenshot path now requests `ScreenshotScope::FullPage`.
+- Updated screenshot planner validation, canonical step fixtures, shared enum serialization coverage, and `docs/SPECS.md` to use `scope`; revalidated with `cargo fmt --manifest-path src-tauri/Cargo.toml --all`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`205` Rust tests, `48` UI tests).
+
+## 2026-03-26T22:41:19Z - GPT-5.4 - Validation rerun stayed green after screenshot cleanup
+- Re-ran the standard lint and unit-test pass after the recent contract cleanup work without making further code changes.
+- `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed, Rust tests remained `205` passed, and `pnpm test:ui` remained `48` passed.

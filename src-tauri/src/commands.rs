@@ -696,6 +696,109 @@ impl std::fmt::Display for TtsVoiceName {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+pub enum NarrationInterruptionMode {
+    Queue,
+    Interrupt,
+}
+
+impl NarrationInterruptionMode {
+    pub fn interrupts_current_playback(self) -> bool {
+        matches!(self, Self::Interrupt)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+pub enum NarrationBoundary {
+    None,
+    Start,
+    End,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+pub enum ElementVisibilityFilter {
+    All,
+    VisibleOnly,
+}
+
+impl ElementVisibilityFilter {
+    pub fn visible_only(self) -> bool {
+        matches!(self, Self::VisibleOnly)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+pub enum ReloadMode {
+    Standard,
+    Hard,
+}
+
+impl ReloadMode {
+    pub fn uses_cache_bypass(self) -> bool {
+        matches!(self, Self::Hard)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+pub enum ClickMode {
+    Single,
+    Double,
+}
+
+impl ClickMode {
+    pub fn is_double_click(self) -> bool {
+        matches!(self, Self::Double)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+pub enum TextEntryMode {
+    Append,
+    Replace,
+}
+
+impl TextEntryMode {
+    pub fn clears_existing_value(self) -> bool {
+        matches!(self, Self::Replace)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+pub enum TextEntrySubmitMode {
+    KeepEditing,
+    Submit,
+}
+
+impl TextEntrySubmitMode {
+    pub fn submits_after_entry(self) -> bool {
+        matches!(self, Self::Submit)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+pub enum TranscriptionStopMode {
+    KeepListening,
+    AutoStop,
+}
+
+impl TranscriptionStopMode {
+    pub fn auto_stops(self) -> bool {
+        matches!(self, Self::AutoStop)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+pub enum ScreenshotScope {
+    Viewport,
+    FullPage,
+}
+
+impl ScreenshotScope {
+    pub fn captures_full_page(self) -> bool {
+        matches!(self, Self::FullPage)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ReportStatus {
     Success,
@@ -780,7 +883,7 @@ pub struct GoForwardData {
 pub struct ReloadPageInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
-    pub hard_reload: bool,
+    pub mode: ReloadMode,
     pub wait_for_load_state: Option<LoadState>,
 }
 
@@ -814,7 +917,7 @@ pub struct ScrollPageData {
 pub struct CaptureScreenshotInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
-    pub full_page: bool,
+    pub scope: ScreenshotScope,
     pub region_id: Option<String>,
     pub bbox: Option<Rect>,
 }
@@ -868,7 +971,7 @@ pub struct ReadRegionInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
     pub region_id: String,
-    pub interrupt_current: bool,
+    pub interruption_mode: NarrationInterruptionMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -894,7 +997,7 @@ pub(crate) struct FillFieldCommand {
 pub struct ReadNextRegionInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
-    pub interrupt_current: bool,
+    pub interruption_mode: NarrationInterruptionMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -902,14 +1005,14 @@ pub struct ReadNextRegionData {
     pub cursor: NarrationCursor,
     pub region_id: Option<String>,
     pub speech_started: bool,
-    pub reached_end: bool,
+    pub boundary: NarrationBoundary,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct ReadPreviousRegionInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
-    pub interrupt_current: bool,
+    pub interruption_mode: NarrationInterruptionMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -917,7 +1020,7 @@ pub struct ReadPreviousRegionData {
     pub cursor: NarrationCursor,
     pub region_id: Option<String>,
     pub speech_started: bool,
-    pub reached_start: bool,
+    pub boundary: NarrationBoundary,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -961,7 +1064,7 @@ pub struct TranscribeCommandInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
     pub max_duration_ms: Option<u64>,
-    pub auto_stop: bool,
+    pub stop_mode: TranscriptionStopMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -1000,7 +1103,7 @@ pub struct ExtractPageModelInput {
 pub struct ListInteractiveElementsInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
-    pub visible_only: bool,
+    pub visibility_filter: ElementVisibilityFilter,
     pub roles: Option<Vec<crate::page_model::ElementRole>>,
 }
 
@@ -1021,7 +1124,7 @@ pub struct FindElementInput {
     pub color_hint: Option<String>,
     pub nearby_text: Option<String>,
     pub selector_hint: Option<String>,
-    pub visible_only: bool,
+    pub visibility_filter: ElementVisibilityFilter,
     pub max_candidates: Option<usize>,
 }
 
@@ -1039,7 +1142,7 @@ pub struct ClickElementInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
     pub element_id: String,
-    pub double_click: bool,
+    pub click_mode: ClickMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -1071,8 +1174,8 @@ pub struct TypeIntoElementInput {
     pub timeout_ms: Option<u64>,
     pub element_id: String,
     pub text: String,
-    pub clear_first: bool,
-    pub submit_after: bool,
+    pub text_entry_mode: TextEntryMode,
+    pub submit_mode: TextEntrySubmitMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -1628,7 +1731,7 @@ pub fn canonical_planner_output_examples() -> BTreeMap<String, PlannerOutput> {
                             "request_id": "example-click-link",
                             "timeout_ms": null,
                             "element_id": "link-help",
-                            "double_click": false
+                            "click_mode": "Single"
                         }),
                         purpose: String::from(
                             "Activate the requested link without an extra confirmation step.",
@@ -1694,7 +1797,7 @@ pub fn canonical_planner_output_examples() -> BTreeMap<String, PlannerOutput> {
                             "request_id": "example-confirm-click",
                             "timeout_ms": null,
                             "element_id": "button-submit",
-                            "double_click": false
+                            "click_mode": "Single"
                         }),
                         purpose: String::from("Activate the confirmed target element."),
                         on_success: StepTransition::Complete,
@@ -2344,12 +2447,12 @@ fn validate_capture_screenshot_input(input: &CaptureScreenshotInput) -> Result<(
         .as_deref()
         .map(str::trim)
         .is_some_and(|region_id| !region_id.is_empty());
-    let targeting_modes = usize::from(input.full_page)
+    let targeting_modes = usize::from(input.scope.captures_full_page())
         + usize::from(region_id_active)
         + usize::from(input.bbox.is_some());
     if targeting_modes > 1 {
         return Err(invalid_planner_output(
-            "capture_screenshot supports at most one targeting mode from full_page, region_id, or bbox",
+            "capture_screenshot supports at most one targeting mode from scope = FullPage, region_id, or bbox",
             None,
         ));
     }
@@ -3596,7 +3699,7 @@ pub(crate) fn resolve_direct_navigation_readback_command(
                 arguments: serde_json::json!({
                     "request_id": request_id,
                     "timeout_ms": serde_json::Value::Null,
-                    "hard_reload": false,
+                    "mode": "Standard",
                     "wait_for_load_state": LoadState::Load
                 }),
                 purpose: String::from("Reload the current page and wait for it to finish loading."),
@@ -3620,7 +3723,7 @@ pub(crate) fn resolve_direct_navigation_readback_command(
                 arguments: serde_json::json!({
                     "request_id": request_id,
                     "timeout_ms": serde_json::Value::Null,
-                    "interrupt_current": true
+                    "interruption_mode": "Interrupt"
                 }),
                 purpose: String::from("Move narration to the next region and start reading it."),
                 on_success: StepTransition::Complete,
@@ -3643,7 +3746,7 @@ pub(crate) fn resolve_direct_navigation_readback_command(
                 arguments: serde_json::json!({
                     "request_id": request_id,
                     "timeout_ms": serde_json::Value::Null,
-                    "interrupt_current": true
+                    "interruption_mode": "Interrupt"
                 }),
                 purpose: String::from(
                     "Move narration to the previous region and start reading it.",
@@ -3748,7 +3851,7 @@ pub(crate) fn resolve_direct_voice_input_command(
                     "request_id": request_id,
                     "timeout_ms": serde_json::Value::Null,
                     "max_duration_ms": serde_json::Value::Null,
-                    "auto_stop": true
+                    "stop_mode": "AutoStop"
                 }),
                 purpose: String::from("Capture and transcribe a bounded spoken command."),
                 on_success: StepTransition::Complete,
@@ -3852,7 +3955,7 @@ pub(crate) fn resolve_direct_read_page_command(
                     "request_id": request_id,
                     "timeout_ms": serde_json::Value::Null,
                     "region_id": region_id,
-                    "interrupt_current": true
+                    "interruption_mode": "Interrupt"
                 }),
                 purpose: String::from(
                     "Restart narration from the first readable region of the current page.",
@@ -3898,7 +4001,7 @@ pub(crate) fn resolve_direct_read_page_command(
                 arguments: serde_json::json!({
                     "request_id": request_id,
                     "timeout_ms": serde_json::Value::Null,
-                    "interrupt_current": true
+                    "interruption_mode": "Interrupt"
                 }),
                 purpose: String::from(
                     "Start narration from the first readable region of the refreshed page.",
@@ -4098,7 +4201,7 @@ pub(crate) fn resolve_direct_repeat_command(
                 "request_id": request_id,
                 "timeout_ms": serde_json::Value::Null,
                 "region_id": region_id,
-                "interrupt_current": true
+                "interruption_mode": "Interrupt"
             }),
             purpose: String::from(
                 "Repeat the current narration region from the stored narration cursor.",
@@ -6042,7 +6145,7 @@ mod tests {
                     },
                     region_id: Some(String::from("region-2")),
                     speech_started: true,
-                    reached_end: false,
+                    boundary: NarrationBoundary::None,
                 },
                 vec![String::from("advanced narration to the next region")],
             )
@@ -6064,7 +6167,7 @@ mod tests {
                     },
                     region_id: Some(String::from("region-1")),
                     speech_started: true,
-                    reached_start: false,
+                    boundary: NarrationBoundary::None,
                 },
                 vec![String::from("moved narration to the previous region")],
             )
@@ -6137,7 +6240,7 @@ mod tests {
                     confidence: None,
                     audio_duration_ms: input.max_duration_ms.or(Some(3_000)),
                     listening_state: ListeningState {
-                        is_listening: !input.auto_stop,
+                        is_listening: !input.stop_mode.auto_stops(),
                         push_to_talk_enabled: true,
                     },
                 },
@@ -6675,7 +6778,7 @@ mod tests {
                 arguments: serde_json::json!({
                     "request_id": "req-reload",
                     "timeout_ms": 1000,
-                    "hard_reload": true,
+                    "mode": "Hard",
                     "wait_for_load_state": "Load"
                 }),
                 purpose: String::from("reload the current page"),
@@ -6702,7 +6805,7 @@ mod tests {
                 arguments: serde_json::json!({
                     "request_id": "req-capture-screenshot",
                     "timeout_ms": 1000,
-                    "full_page": false,
+                    "scope": "Viewport",
                     "region_id": serde_json::Value::Null,
                     "bbox": {
                         "x": 10.0,
@@ -6760,7 +6863,7 @@ mod tests {
                 arguments: serde_json::json!({
                     "request_id": "req-list",
                     "timeout_ms": 1000,
-                    "visible_only": true,
+                    "visibility_filter": "VisibleOnly",
                     "roles": ["Button"]
                 }),
                 purpose: String::from("list visible buttons"),
@@ -6779,7 +6882,7 @@ mod tests {
                     "color_hint": null,
                     "nearby_text": null,
                     "selector_hint": null,
-                    "visible_only": true,
+                    "visibility_filter": "VisibleOnly",
                     "max_candidates": 3
                 }),
                 purpose: String::from("find the continue button"),
@@ -6793,7 +6896,7 @@ mod tests {
                     "request_id": "req-click",
                     "timeout_ms": 1000,
                     "element_id": "button-1",
-                    "double_click": false
+                    "click_mode": "Single"
                 }),
                 purpose: String::from("click the resolved button"),
                 on_success: StepTransition::Complete,
@@ -6819,8 +6922,8 @@ mod tests {
                     "timeout_ms": 1000,
                     "element_id": "input-1",
                     "text": "phil@example.com",
-                    "clear_first": true,
-                    "submit_after": false
+                    "text_entry_mode": "Replace",
+                    "submit_mode": "KeepEditing"
                 }),
                 purpose: String::from("type into the resolved field"),
                 on_success: StepTransition::Complete,
@@ -6845,7 +6948,7 @@ mod tests {
                     "request_id": "req-read-region",
                     "timeout_ms": 1000,
                     "region_id": "region-2",
-                    "interrupt_current": true
+                    "interruption_mode": "Interrupt"
                 }),
                 purpose: String::from("read a specific region"),
                 on_success: StepTransition::Complete,
@@ -6857,7 +6960,7 @@ mod tests {
                 arguments: serde_json::json!({
                     "request_id": "req-read-next",
                     "timeout_ms": 1000,
-                    "interrupt_current": false
+                    "interruption_mode": "Queue"
                 }),
                 purpose: String::from("read the next region"),
                 on_success: StepTransition::Complete,
@@ -6869,7 +6972,7 @@ mod tests {
                 arguments: serde_json::json!({
                     "request_id": "req-read-previous",
                     "timeout_ms": 1000,
-                    "interrupt_current": true
+                    "interruption_mode": "Interrupt"
                 }),
                 purpose: String::from("read the previous region"),
                 on_success: StepTransition::Complete,
@@ -6914,7 +7017,7 @@ mod tests {
                     "request_id": "req-transcribe-command",
                     "timeout_ms": 2000,
                     "max_duration_ms": 3000,
-                    "auto_stop": true
+                    "stop_mode": "AutoStop"
                 }),
                 purpose: String::from("transcribe a command"),
                 on_success: StepTransition::Complete,
@@ -7195,7 +7298,7 @@ mod tests {
             arguments: serde_json::json!({
                 "request_id": "req-reload",
                 "timeout_ms": 1000,
-                "hard_reload": true,
+                "mode": "Hard",
                 "wait_for_load_state": "Load"
             }),
             purpose: String::from("reload the current page"),
@@ -7210,8 +7313,8 @@ mod tests {
             executor
                 .last_reload_request
                 .as_ref()
-                .map(|input| input.hard_reload),
-            Some(true)
+                .map(|input| input.mode),
+            Some(ReloadMode::Hard)
         );
     }
 
@@ -7255,7 +7358,7 @@ mod tests {
                 "request_id": "req-read-region",
                 "timeout_ms": 1000,
                 "region_id": "region-2",
-                "interrupt_current": true
+                "interruption_mode": "Interrupt"
             }),
             purpose: String::from("read a specific region"),
             on_success: StepTransition::Complete,
@@ -7283,7 +7386,7 @@ mod tests {
             arguments: serde_json::json!({
                 "request_id": "req-read-next",
                 "timeout_ms": 1000,
-                "interrupt_current": false
+                "interruption_mode": "Queue"
             }),
             purpose: String::from("read the next region"),
             on_success: StepTransition::Complete,
@@ -7297,8 +7400,8 @@ mod tests {
             executor
                 .last_read_next_region_request
                 .as_ref()
-                .map(|input| input.interrupt_current),
-            Some(false)
+                .map(|input| input.interruption_mode),
+            Some(NarrationInterruptionMode::Queue)
         );
     }
 
@@ -7311,7 +7414,7 @@ mod tests {
             arguments: serde_json::json!({
                 "request_id": "req-read-previous",
                 "timeout_ms": 1000,
-                "interrupt_current": true
+                "interruption_mode": "Interrupt"
             }),
             purpose: String::from("read the previous region"),
             on_success: StepTransition::Complete,
@@ -7325,8 +7428,8 @@ mod tests {
             executor
                 .last_read_previous_region_request
                 .as_ref()
-                .map(|input| input.interrupt_current),
-            Some(true)
+                .map(|input| input.interruption_mode),
+            Some(NarrationInterruptionMode::Interrupt)
         );
     }
 
@@ -7420,7 +7523,7 @@ mod tests {
                 "request_id": "req-transcribe-command",
                 "timeout_ms": 2000,
                 "max_duration_ms": 3000,
-                "auto_stop": true
+                "stop_mode": "AutoStop"
             }),
             purpose: String::from("transcribe a command"),
             on_success: StepTransition::Complete,
@@ -7455,7 +7558,7 @@ mod tests {
             arguments: serde_json::json!({
                 "request_id": "req-capture-screenshot",
                 "timeout_ms": 1000,
-                "full_page": false,
+                "scope": "Viewport",
                 "region_id": serde_json::Value::Null,
                 "bbox": {
                     "x": 10.0,
@@ -7472,6 +7575,13 @@ mod tests {
         let result = execute_planned_step(&mut executor, &step);
 
         assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_capture_screenshot_request
+                .as_ref()
+                .map(|input| input.scope),
+            Some(ScreenshotScope::Viewport)
+        );
         assert_eq!(
             executor
                 .last_capture_screenshot_request
@@ -7622,7 +7732,7 @@ mod tests {
             arguments: serde_json::json!({
                 "request_id": "req-list",
                 "timeout_ms": 1000,
-                "visible_only": true,
+                "visibility_filter": "VisibleOnly",
                 "roles": ["Button"]
             }),
             purpose: String::from("list visible buttons"),
@@ -7637,8 +7747,8 @@ mod tests {
             executor
                 .last_list_request
                 .as_ref()
-                .map(|input| input.visible_only),
-            Some(true)
+                .map(|input| input.visibility_filter),
+            Some(ElementVisibilityFilter::VisibleOnly)
         );
         let data = result
             .data
@@ -7672,7 +7782,7 @@ mod tests {
                 "color_hint": null,
                 "nearby_text": null,
                 "selector_hint": null,
-                "visible_only": true,
+                "visibility_filter": "VisibleOnly",
                 "max_candidates": 3
             }),
             purpose: String::from("find the continue button"),
@@ -7711,7 +7821,7 @@ mod tests {
                 "request_id": "req-click",
                 "timeout_ms": 1000,
                 "element_id": "button-1",
-                "double_click": false
+                "click_mode": "Single"
             }),
             purpose: String::from("click the resolved button"),
             on_success: StepTransition::Complete,
@@ -7784,8 +7894,8 @@ mod tests {
                 "timeout_ms": 1000,
                 "element_id": "input-1",
                 "text": "phil@example.com",
-                "clear_first": true,
-                "submit_after": false
+                "text_entry_mode": "Replace",
+                "submit_mode": "KeepEditing"
             }),
             purpose: String::from("type into the resolved field"),
             on_success: StepTransition::Complete,
@@ -8654,6 +8764,40 @@ mod tests {
 
     #[test]
     fn shared_contract_enums_serialize_expected_variants() {
+        assert_eq!(serde_json::json!(NarrationInterruptionMode::Queue), "Queue");
+        assert_eq!(
+            serde_json::json!(NarrationInterruptionMode::Interrupt),
+            "Interrupt"
+        );
+        assert_eq!(serde_json::json!(NarrationBoundary::None), "None");
+        assert_eq!(serde_json::json!(NarrationBoundary::Start), "Start");
+        assert_eq!(serde_json::json!(NarrationBoundary::End), "End");
+        assert_eq!(serde_json::json!(ElementVisibilityFilter::All), "All");
+        assert_eq!(
+            serde_json::json!(ElementVisibilityFilter::VisibleOnly),
+            "VisibleOnly"
+        );
+        assert_eq!(serde_json::json!(ReloadMode::Standard), "Standard");
+        assert_eq!(serde_json::json!(ReloadMode::Hard), "Hard");
+        assert_eq!(serde_json::json!(ClickMode::Single), "Single");
+        assert_eq!(serde_json::json!(ClickMode::Double), "Double");
+        assert_eq!(serde_json::json!(TextEntryMode::Append), "Append");
+        assert_eq!(serde_json::json!(TextEntryMode::Replace), "Replace");
+        assert_eq!(
+            serde_json::json!(TextEntrySubmitMode::KeepEditing),
+            "KeepEditing"
+        );
+        assert_eq!(serde_json::json!(TextEntrySubmitMode::Submit), "Submit");
+        assert_eq!(
+            serde_json::json!(TranscriptionStopMode::KeepListening),
+            "KeepListening"
+        );
+        assert_eq!(
+            serde_json::json!(TranscriptionStopMode::AutoStop),
+            "AutoStop"
+        );
+        assert_eq!(serde_json::json!(ScreenshotScope::Viewport), "Viewport");
+        assert_eq!(serde_json::json!(ScreenshotScope::FullPage), "FullPage");
         assert_eq!(
             serde_json::json!(crate::page_model::ElementRole::Landmark),
             "Landmark"
@@ -9073,7 +9217,7 @@ mod tests {
                     "request_id": "req-click",
                     "timeout_ms": 1000,
                     "element_id": "button-submit",
-                    "double_click": false
+                    "click_mode": "Single"
                 }),
                 purpose: String::from("activate the chosen button"),
                 on_success: StepTransition::Complete,
@@ -9263,7 +9407,7 @@ mod tests {
                 tool_name: ToolName::CaptureScreenshot,
                 arguments: serde_json::json!({
                     "request_id": "req-capture",
-                    "full_page": true,
+                    "scope": "FullPage",
                     "region_id": "region-1",
                     "bbox": serde_json::Value::Null
                 }),
@@ -9457,7 +9601,7 @@ mod tests {
                     "color_hint": null,
                     "nearby_text": null,
                     "selector_hint": null,
-                    "visible_only": true,
+                    "visibility_filter": "VisibleOnly",
                     "max_candidates": 3
                 }),
                 purpose: String::from("find an element"),
@@ -9503,7 +9647,7 @@ mod tests {
                     "color_hint": null,
                     "nearby_text": null,
                     "selector_hint": null,
-                    "visible_only": true,
+                    "visibility_filter": "VisibleOnly",
                     "max_candidates": 0
                 }),
                 purpose: String::from("find an element"),
@@ -10104,8 +10248,8 @@ mod tests {
         );
         assert_eq!(reload_plan.steps[0].tool_name, ToolName::ReloadPage);
         assert_eq!(
-            reload_plan.steps[0].arguments.get("hard_reload"),
-            Some(&serde_json::json!(false))
+            reload_plan.steps[0].arguments.get("mode"),
+            Some(&serde_json::json!(ReloadMode::Standard))
         );
     }
 
@@ -10122,8 +10266,8 @@ mod tests {
         assert_eq!(next_plan.selected_skills, vec![String::from("read_next")]);
         assert_eq!(next_plan.steps[0].tool_name, ToolName::ReadNextRegion);
         assert_eq!(
-            next_plan.steps[0].arguments.get("interrupt_current"),
-            Some(&serde_json::json!(true))
+            next_plan.steps[0].arguments.get("interruption_mode"),
+            Some(&serde_json::json!(NarrationInterruptionMode::Interrupt))
         );
 
         let previous_plan = resolve_direct_navigation_readback_command(
@@ -10209,8 +10353,8 @@ mod tests {
             ToolName::TranscribeCommand
         );
         assert_eq!(
-            planner_output.steps[0].arguments.get("auto_stop"),
-            Some(&serde_json::json!(true))
+            planner_output.steps[0].arguments.get("stop_mode"),
+            Some(&serde_json::json!(TranscriptionStopMode::AutoStop))
         );
         assert_eq!(
             planner_output.steps[0].arguments.get("max_duration_ms"),
@@ -10429,8 +10573,8 @@ mod tests {
             Some(&serde_json::json!("region-1"))
         );
         assert_eq!(
-            planner_output.steps[0].arguments.get("interrupt_current"),
-            Some(&serde_json::json!(true))
+            planner_output.steps[0].arguments.get("interruption_mode"),
+            Some(&serde_json::json!(NarrationInterruptionMode::Interrupt))
         );
     }
 
@@ -10582,8 +10726,8 @@ mod tests {
         );
         assert_eq!(planner_output.steps[1].tool_name, ToolName::ReadNextRegion);
         assert_eq!(
-            planner_output.steps[1].arguments.get("interrupt_current"),
-            Some(&serde_json::json!(true))
+            planner_output.steps[1].arguments.get("interruption_mode"),
+            Some(&serde_json::json!(NarrationInterruptionMode::Interrupt))
         );
     }
 
@@ -11355,8 +11499,8 @@ mod tests {
             Some(&serde_json::json!("region-2"))
         );
         assert_eq!(
-            planner_output.steps[0].arguments.get("interrupt_current"),
-            Some(&serde_json::json!(true))
+            planner_output.steps[0].arguments.get("interruption_mode"),
+            Some(&serde_json::json!(NarrationInterruptionMode::Interrupt))
         );
     }
 

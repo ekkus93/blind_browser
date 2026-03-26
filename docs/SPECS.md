@@ -911,6 +911,52 @@ enum BrowserVisibilityMode {
   Headless,
 }
 
+enum NarrationInterruptionMode {
+  Queue,
+  Interrupt,
+}
+
+enum NarrationBoundary {
+  None,
+  Start,
+  End,
+}
+
+enum ElementVisibilityFilter {
+  All,
+  VisibleOnly,
+}
+
+enum ReloadMode {
+  Standard,
+  Hard,
+}
+
+enum ClickMode {
+  Single,
+  Double,
+}
+
+enum TextEntryMode {
+  Append,
+  Replace,
+}
+
+enum TextEntrySubmitMode {
+  KeepEditing,
+  Submit,
+}
+
+enum TranscriptionStopMode {
+  KeepListening,
+  AutoStop,
+}
+
+enum ScreenshotScope {
+  Viewport,
+  FullPage,
+}
+
 enum ElementRole {
   Link,
   Button,
@@ -1037,7 +1083,7 @@ Validation notes:
 struct ReloadPageInput {
   request_id: String,
   timeout_ms: Option<u64>,
-  hard_reload: bool,
+  mode: ReloadMode,
   wait_for_load_state: Option<LoadState>,
 }
 ```
@@ -1085,7 +1131,7 @@ Behavior notes:
 struct ListInteractiveElementsInput {
   request_id: String,
   timeout_ms: Option<u64>,
-  visible_only: bool,
+  visibility_filter: ElementVisibilityFilter,
   roles: Option<Vec<ElementRole>>,
 }
 ```
@@ -1102,7 +1148,7 @@ struct FindElementInput {
   color_hint: Option<String>,
   nearby_text: Option<String>,
   selector_hint: Option<String>,
-  visible_only: bool,
+  visibility_filter: ElementVisibilityFilter,
   max_candidates: Option<usize>,
 }
 ```
@@ -1118,7 +1164,7 @@ struct ClickElementInput {
   request_id: String,
   timeout_ms: Option<u64>,
   element_id: String,
-  double_click: bool,
+  click_mode: ClickMode,
 }
 ```
 
@@ -1140,8 +1186,8 @@ struct TypeIntoElementInput {
   timeout_ms: Option<u64>,
   element_id: String,
   text: String,
-  clear_first: bool,
-  submit_after: bool,
+  text_entry_mode: TextEntryMode,
+  submit_mode: TextEntrySubmitMode,
 }
 ```
 
@@ -1192,7 +1238,7 @@ struct ReadRegionInput {
   request_id: String,
   timeout_ms: Option<u64>,
   region_id: String,
-  interrupt_current: bool,
+  interruption_mode: NarrationInterruptionMode,
 }
 ```
 
@@ -1202,7 +1248,7 @@ struct ReadRegionInput {
 struct ReadNextRegionInput {
   request_id: String,
   timeout_ms: Option<u64>,
-  interrupt_current: bool,
+  interruption_mode: NarrationInterruptionMode,
 }
 ```
 
@@ -1212,19 +1258,19 @@ struct ReadNextRegionInput {
 struct ReadPreviousRegionInput {
   request_id: String,
   timeout_ms: Option<u64>,
-  interrupt_current: bool,
+  interruption_mode: NarrationInterruptionMode,
 }
 ```
 
 Narration behavior notes:
-- Spoken next-reading commands such as `next`, `read next`, `continue reading`, and `keep reading` should resolve to `read_next_region` with `interrupt_current = true`.
-- Spoken previous-reading commands such as `previous`, `read previous`, and `previous region` should resolve to `read_previous_region` with `interrupt_current = true`.
+- Spoken next-reading commands such as `next`, `read next`, `continue reading`, and `keep reading` should resolve to `read_next_region` with `interruption_mode = Interrupt`.
+- Spoken previous-reading commands such as `previous`, `read previous`, and `previous region` should resolve to `read_previous_region` with `interruption_mode = Interrupt`.
 - Spoken title commands such as `read title`, `read the page title`, and `what is the title` should resolve to a bounded spoken title response based on the current page state.
 - If the current page does not have a readable title yet, the runtime should speak a clear bounded follow-up message instead of inventing one.
 - Spoken page-reading commands such as `read page`, `read this page`, and `read current page` should resolve directly to a bounded narration plan that restarts from the first readable region of the current page.
 - When the runtime already has readable regions for the current page, `read page` should restart from the first readable region with `read_region`; otherwise it should refresh the page model and then begin from the first region with `read_next_region`.
 - If there is no active page yet, `read page` should return a clear bounded follow-up message instead of guessing what to read.
-- Spoken repeat commands such as `repeat`, `repeat that`, `read that again`, and `say that again` should resolve against the current narration cursor and restart the current region with `interrupt_current = true`.
+- Spoken repeat commands such as `repeat`, `repeat that`, `read that again`, and `say that again` should resolve against the current narration cursor and restart the current region with `interruption_mode = Interrupt`.
 - If no current narration region is available yet, the runtime should return a bounded follow-up message instead of guessing which content to repeat.
 - Spoken stop-reading commands such as `stop`, `stop reading`, `stop speaking`, and `pause reading` should resolve to `stop_speaking`.
 
@@ -1268,12 +1314,12 @@ struct TranscribeCommandInput {
   request_id: String,
   timeout_ms: Option<u64>,
   max_duration_ms: Option<u64>,
-  auto_stop: bool,
+  stop_mode: TranscriptionStopMode,
 }
 ```
 
 Routing notes:
-- Spoken voice-input commands such as `transcribe`, `transcribe this`, `what did i say`, and `what did i just say` should resolve directly to `transcribe_command` with bounded defaults such as `auto_stop = true`.
+- Spoken voice-input commands such as `transcribe`, `transcribe this`, `what did i say`, and `what did i just say` should resolve directly to `transcribe_command` with bounded defaults such as `stop_mode = AutoStop`.
 
 Validation notes:
 - `max_duration_ms`, when provided, must be positive and clamped to a short-command upper bound.
@@ -1284,14 +1330,14 @@ Validation notes:
 struct CaptureScreenshotInput {
   request_id: String,
   timeout_ms: Option<u64>,
-  full_page: bool,
+  scope: ScreenshotScope,
   region_id: Option<String>,
   bbox: Option<Rect>,
 }
 ```
 
 Validation notes:
-- At most one of `full_page`, `region_id`, or `bbox` targeting modes should be active.
+- At most one of `scope = FullPage`, `region_id`, or `bbox` targeting modes should be active.
 - When `bbox` is provided, `width` and `height` must be positive.
 - `region_id`, when provided, must resolve to a page region with a positive stored bounding box.
 
@@ -1608,7 +1654,7 @@ struct ReadNextRegionData {
   cursor: NarrationCursor,
   region_id: Option<String>,
   speech_started: bool,
-  reached_end: bool,
+  boundary: NarrationBoundary,
 }
 ```
 
@@ -1619,7 +1665,7 @@ struct ReadPreviousRegionData {
   cursor: NarrationCursor,
   region_id: Option<String>,
   speech_started: bool,
-  reached_start: bool,
+  boundary: NarrationBoundary,
 }
 ```
 
@@ -2287,7 +2333,7 @@ These examples are normative for naming and JSON field shape. Future schema exam
         "text": "email",
         "role": "Input",
         "nearby_text": "Email address",
-        "visible_only": true,
+        "visibility_filter": "VisibleOnly",
         "max_candidates": 3
       },
       "purpose": "Resolve the intended input field from its label and nearby text.",
@@ -2322,8 +2368,8 @@ These examples are normative for naming and JSON field shape. Future schema exam
         "request_id": "req-127",
         "element_id": "input-email",
         "text": "phil@example.com",
-        "clear_first": true,
-        "submit_after": false
+        "text_entry_mode": "Replace",
+        "submit_mode": "KeepEditing"
       },
       "purpose": "Fill the requested field value without submitting the form.",
       "on_success": {
@@ -2361,8 +2407,8 @@ This example covers a conversational follow-up where the correct field is alread
         "request_id": "req-127b",
         "element_id": "input-city",
         "text": "Seattle",
-        "clear_first": true,
-        "submit_after": false
+        "text_entry_mode": "Replace",
+        "submit_mode": "KeepEditing"
       },
       "purpose": "Replace the current value in the focused field without submitting the form.",
       "on_success": {
@@ -2402,7 +2448,7 @@ This example shows a multi-step form workflow where field entry is allowed immed
         "text": "password",
         "role": "Input",
         "nearby_text": "Password",
-        "visible_only": true,
+        "visibility_filter": "VisibleOnly",
         "max_candidates": 3
       },
       "purpose": "Resolve the password field in the active login form.",
@@ -2437,8 +2483,8 @@ This example shows a multi-step form workflow where field entry is allowed immed
         "request_id": "req-128",
         "element_id": "input-password",
         "text": "correct horse battery staple",
-        "clear_first": true,
-        "submit_after": false
+        "text_entry_mode": "Replace",
+        "submit_mode": "KeepEditing"
       },
       "purpose": "Enter the requested password without auto-submitting.",
       "on_success": {
@@ -2512,7 +2558,7 @@ This example shows a protected click flow where the planner found multiple plaus
         "color_hint": null,
         "nearby_text": null,
         "selector_hint": null,
-        "visible_only": true,
+        "visibility_filter": "VisibleOnly",
         "max_candidates": 3
       },
       "purpose": "Resolve likely submit-button candidates before asking for confirmation.",
@@ -2543,7 +2589,7 @@ This example shows a protected click flow where the planner found multiple plaus
         "request_id": "req-126",
         "timeout_ms": null,
         "element_id": "button-submit-primary",
-        "double_click": false
+        "click_mode": "Single"
       },
       "purpose": "Execute the confirmed click after confirmation succeeds.",
       "on_success": "Complete",
@@ -2937,7 +2983,7 @@ These examples are canonical shape references for planner outputs. They use the 
         "request_id": "example-click-link",
         "timeout_ms": null,
         "element_id": "link-help",
-        "double_click": false
+        "click_mode": "Single"
       },
       "purpose": "Activate the requested link without an extra confirmation step.",
       "on_success": {
@@ -3002,7 +3048,7 @@ These examples are canonical shape references for planner outputs. They use the 
         "request_id": "example-confirm-click",
         "timeout_ms": null,
         "element_id": "button-submit",
-        "double_click": false
+        "click_mode": "Single"
       },
       "purpose": "Activate the confirmed target element.",
       "on_success": "Complete",

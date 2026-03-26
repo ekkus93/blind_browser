@@ -117,7 +117,11 @@ fn transcribe_command(
         request_id,
         timeout_ms,
         max_duration_ms,
-        auto_stop,
+        stop_mode: if auto_stop {
+            crate::commands::TranscriptionStopMode::AutoStop
+        } else {
+            crate::commands::TranscriptionStopMode::KeepListening
+        },
     }))
 }
 

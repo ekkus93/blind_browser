@@ -699,21 +699,21 @@ impl AppCore {
         }
 
         let load_state = input.wait_for_load_state.unwrap_or(LoadState::Load);
-        let browser_page =
-            match self
-                .browser
-                .reload_page(input.hard_reload, load_state, input.timeout_ms)
-            {
-                Ok(browser_page) => browser_page,
-                Err(error) => {
-                    return self.browser_tool_failure(
-                        ToolName::ReloadPage,
-                        input.request_id,
-                        String::from("Live browser reload did not complete successfully."),
-                        error,
-                    )
-                }
-            };
+        let browser_page = match self.browser.reload_page(
+            input.mode.uses_cache_bypass(),
+            load_state,
+            input.timeout_ms,
+        ) {
+            Ok(browser_page) => browser_page,
+            Err(error) => {
+                return self.browser_tool_failure(
+                    ToolName::ReloadPage,
+                    input.request_id,
+                    String::from("Live browser reload did not complete successfully."),
+                    error,
+                )
+            }
+        };
 
         self.state.browser_history = browser_page.history.clone();
         self.stop_narration_playback();
@@ -728,7 +728,7 @@ impl AppCore {
         let mut observations = vec![String::from(
             "Reloaded the live browser page and refreshed runtime page metadata.",
         )];
-        if input.hard_reload {
+        if input.mode.uses_cache_bypass() {
             observations.push(String::from(
                 "The reload ignored browser cache as requested.",
             ));
@@ -839,7 +839,7 @@ impl AppCore {
             .filter(|region_id| !region_id.is_empty())
             .map(ToOwned::to_owned);
         let region_id_active = input.region_id.as_deref().is_some();
-        let targeting_modes = usize::from(input.full_page)
+        let targeting_modes = usize::from(input.scope.captures_full_page())
             + usize::from(region_id_active)
             + usize::from(input.bbox.is_some());
         if targeting_modes > 1 {
@@ -849,7 +849,7 @@ impl AppCore {
                 ToolError {
                     code: String::from("invalid_screenshot_target"),
                     message: String::from(
-                        "capture_screenshot accepts at most one targeting mode from full_page, region_id, or bbox",
+                        "capture_screenshot accepts at most one targeting mode from scope = FullPage, region_id, or bbox",
                     ),
                     retryable: false,
                     details: None,
@@ -920,7 +920,7 @@ impl AppCore {
         };
 
         let browser_screenshot = match self.browser.capture_screenshot(
-            input.full_page,
+            input.scope.captures_full_page(),
             screenshot_bbox.clone(),
             input.timeout_ms,
         ) {
@@ -979,7 +979,7 @@ impl AppCore {
         let mut observations = vec![format!(
             "Captured a deterministic browser screenshot and persisted it as {image_id}.png."
         )];
-        if input.full_page {
+        if input.scope.captures_full_page() {
             observations.push(String::from(
                 "The screenshot targeted the full page rather than only the current viewport.",
             ));
@@ -1569,7 +1569,7 @@ impl AppCore {
             let screenshot_result = self.execute_capture_screenshot(CaptureScreenshotInput {
                 request_id: format!("{}-ocr-fallback-screenshot", input.request_id),
                 timeout_ms: input.timeout_ms,
-                full_page: true,
+                scope: crate::commands::ScreenshotScope::FullPage,
                 region_id: None,
                 bbox: None,
             });
@@ -1811,7 +1811,7 @@ impl AppCore {
 
         let elements = filter_interactive_elements(
             &current_page.interactive_elements,
-            input.visible_only,
+            input.visibility_filter.visible_only(),
             input.roles.as_deref(),
         );
         let visible_count = elements.iter().filter(|element| element.visible).count();
@@ -1819,7 +1819,7 @@ impl AppCore {
         let mut observations = vec![String::from(
             "Listed deterministic interactive elements from the current runtime page state.",
         )];
-        if input.visible_only {
+        if input.visibility_filter.visible_only() {
             observations.push(String::from(
                 "Results were filtered to elements currently marked visible in runtime state.",
             ));
@@ -1898,7 +1898,7 @@ impl AppCore {
             .clamp(1, MAX_FIND_ELEMENT_CANDIDATES);
         let elements = filter_interactive_elements(
             &current_page.interactive_elements,
-            input.visible_only,
+            input.visibility_filter.visible_only(),
             input.role.as_ref().map(std::slice::from_ref),
         );
         let ranked_candidates =
@@ -1913,7 +1913,7 @@ impl AppCore {
             "Searched {} interactive element(s) from the current runtime page state.",
             elements.len()
         )];
-        if input.visible_only {
+        if input.visibility_filter.visible_only() {
             observations.push(String::from(
                 "Search was limited to elements currently marked visible in runtime state.",
             ));
@@ -2009,21 +2009,21 @@ impl AppCore {
             }
         };
 
-        let browser_click =
-            match self
-                .browser
-                .click_element(&element, input.double_click, input.timeout_ms)
-            {
-                Ok(browser_click) => browser_click,
-                Err(error) => {
-                    return self.browser_tool_failure(
-                        ToolName::ClickElement,
-                        input.request_id,
-                        String::from("Live browser click did not complete successfully."),
-                        error,
-                    )
-                }
-            };
+        let browser_click = match self.browser.click_element(
+            &element,
+            input.click_mode.is_double_click(),
+            input.timeout_ms,
+        ) {
+            Ok(browser_click) => browser_click,
+            Err(error) => {
+                return self.browser_tool_failure(
+                    ToolName::ClickElement,
+                    input.request_id,
+                    String::from("Live browser click did not complete successfully."),
+                    error,
+                )
+            }
+        };
 
         if browser_click.page_changed {
             let next_page_id = self.next_page_id(&input.request_id);
@@ -2042,7 +2042,7 @@ impl AppCore {
             "Triggered a live Chromium DOM click for element_id={}",
             element.element_id
         )];
-        if input.double_click {
+        if input.click_mode.is_double_click() {
             observations.push(String::from(
                 "The browser backend executed the click with a double-click count.",
             ));
@@ -2224,8 +2224,8 @@ impl AppCore {
         let browser_type = match self.browser.type_into_element(
             &element,
             &input.text,
-            input.clear_first,
-            input.submit_after,
+            input.text_entry_mode.clears_existing_value(),
+            input.submit_mode.submits_after_entry(),
             input.timeout_ms,
         ) {
             Ok(browser_type) => browser_type,
@@ -2264,7 +2264,7 @@ impl AppCore {
             "Sent text entry to live element_id={}.",
             element.element_id
         )];
-        if input.clear_first {
+        if input.text_entry_mode.clears_existing_value() {
             observations.push(String::from(
                 "Existing field contents were cleared before the new text was applied.",
             ));
@@ -3064,20 +3064,23 @@ impl AppCore {
             }
         };
 
-        let interrupted_region_id =
-            match self.begin_region_narration(region_index, &region, input.interrupt_current) {
-                Ok(interrupted_region_id) => interrupted_region_id,
-                Err(error) => {
-                    return ToolResult::failure(
-                        ToolName::ReadRegion,
-                        input.request_id,
-                        error,
-                        vec![String::from(
-                            "Narration request could not start playback for the requested region.",
-                        )],
-                    )
-                }
-            };
+        let interrupted_region_id = match self.begin_region_narration(
+            region_index,
+            &region,
+            input.interruption_mode.interrupts_current_playback(),
+        ) {
+            Ok(interrupted_region_id) => interrupted_region_id,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::ReadRegion,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Narration request could not start playback for the requested region.",
+                    )],
+                )
+            }
+        };
 
         let mut observations = vec![format!(
             "Moved the narration cursor to region_id={} at index {}.",
@@ -3134,7 +3137,7 @@ impl AppCore {
                     cursor: self.state.narration_cursor.clone(),
                     region_id: None,
                     speech_started: false,
-                    reached_end: true,
+                    boundary: crate::commands::NarrationBoundary::End,
                 },
                 vec![String::from(
                     "Narration is already at the end of the readable region list.",
@@ -3142,20 +3145,23 @@ impl AppCore {
             );
         };
         let region = regions[region_index].clone();
-        let interrupted_region_id =
-            match self.begin_region_narration(region_index, &region, input.interrupt_current) {
-                Ok(interrupted_region_id) => interrupted_region_id,
-                Err(error) => {
-                    return ToolResult::failure(
-                        ToolName::ReadNextRegion,
-                        input.request_id,
-                        error,
-                        vec![String::from(
-                            "Narration could not advance to the next region for playback.",
-                        )],
-                    )
-                }
-            };
+        let interrupted_region_id = match self.begin_region_narration(
+            region_index,
+            &region,
+            input.interruption_mode.interrupts_current_playback(),
+        ) {
+            Ok(interrupted_region_id) => interrupted_region_id,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::ReadNextRegion,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Narration could not advance to the next region for playback.",
+                    )],
+                )
+            }
+        };
 
         let mut observations = vec![format!(
             "Advanced narration to region_id={} at index {}.",
@@ -3178,7 +3184,7 @@ impl AppCore {
                 cursor: self.state.narration_cursor.clone(),
                 region_id: Some(region.region_id),
                 speech_started: true,
-                reached_end: false,
+                boundary: crate::commands::NarrationBoundary::None,
             },
             observations,
         )
@@ -3212,7 +3218,7 @@ impl AppCore {
                     cursor: self.state.narration_cursor.clone(),
                     region_id: None,
                     speech_started: false,
-                    reached_start: true,
+                    boundary: crate::commands::NarrationBoundary::Start,
                 },
                 vec![String::from(
                     "Narration is already at the start of the readable region list.",
@@ -3220,20 +3226,23 @@ impl AppCore {
             );
         };
         let region = regions[region_index].clone();
-        let interrupted_region_id =
-            match self.begin_region_narration(region_index, &region, input.interrupt_current) {
-                Ok(interrupted_region_id) => interrupted_region_id,
-                Err(error) => {
-                    return ToolResult::failure(
-                        ToolName::ReadPreviousRegion,
-                        input.request_id,
-                        error,
-                        vec![String::from(
+        let interrupted_region_id = match self.begin_region_narration(
+            region_index,
+            &region,
+            input.interruption_mode.interrupts_current_playback(),
+        ) {
+            Ok(interrupted_region_id) => interrupted_region_id,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::ReadPreviousRegion,
+                    input.request_id,
+                    error,
+                    vec![String::from(
                         "Narration could not move backward to the previous region for playback.",
                     )],
-                    )
-                }
-            };
+                )
+            }
+        };
 
         let mut observations = vec![format!(
             "Moved narration backward to region_id={} at index {}.",
@@ -3256,7 +3265,7 @@ impl AppCore {
                 cursor: self.state.narration_cursor.clone(),
                 region_id: Some(region.region_id),
                 speech_started: true,
-                reached_start: false,
+                boundary: crate::commands::NarrationBoundary::None,
             },
             observations,
         )
@@ -3371,10 +3380,11 @@ impl AppCore {
             effective_duration_ms = effective_duration_ms.min(timeout_ms.max(1));
         }
 
-        match self
-            .asr
-            .transcribe_command(&self.config, effective_duration_ms, input.auto_stop)
-        {
+        match self.asr.transcribe_command(
+            &self.config,
+            effective_duration_ms,
+            input.stop_mode.auto_stops(),
+        ) {
             Ok(result) => {
                 self.state.set_listening(result.listening_active);
                 self.state.record_transcript(result.transcript.clone());
@@ -3439,7 +3449,11 @@ impl AppCore {
             request_id: request_id.clone(),
             timeout_ms,
             max_duration_ms,
-            auto_stop,
+            stop_mode: if auto_stop {
+                crate::commands::TranscriptionStopMode::AutoStop
+            } else {
+                crate::commands::TranscriptionStopMode::KeepListening
+            },
         });
 
         let Some(transcription) = transcription_result.data else {
@@ -3611,7 +3625,7 @@ impl AppCore {
             return Err(ToolError {
                 code: String::from("speech_in_progress"),
                 message: String::from(
-                    "a narration region is already active; set interrupt_current to true to replace it",
+                    "a narration region is already active; set interruption_mode to Interrupt to replace it",
                 ),
                 retryable: false,
                 details: Some(serde_json::json!({
@@ -5589,7 +5603,7 @@ fn resolve_direct_focus_field_command(
         color_hint: None,
         nearby_text: None,
         selector_hint: None,
-        visible_only: true,
+        visibility_filter: crate::commands::ElementVisibilityFilter::VisibleOnly,
         max_candidates: Some(DEFAULT_FIND_ELEMENT_MAX_CANDIDATES),
     };
     let search_query = build_find_element_query(&query).ok()?;
@@ -5768,7 +5782,7 @@ fn resolve_direct_fill_field_command(
         color_hint: None,
         nearby_text: None,
         selector_hint: None,
-        visible_only: true,
+        visibility_filter: crate::commands::ElementVisibilityFilter::VisibleOnly,
         max_candidates: Some(DEFAULT_FIND_ELEMENT_MAX_CANDIDATES),
     };
     let search_query = build_find_element_query(&query).ok()?;
@@ -5815,8 +5829,8 @@ fn resolve_direct_fill_field_command(
                         "timeout_ms": serde_json::Value::Null,
                         "element_id": element_id,
                         "text": text,
-                        "clear_first": true,
-                        "submit_after": false
+                        "text_entry_mode": "Replace",
+                        "submit_mode": "KeepEditing"
                     }),
                     purpose: String::from(
                         "Replace the requested field contents with the spoken value.",
@@ -5972,7 +5986,7 @@ fn resolve_direct_fill_and_submit_command(
         color_hint: None,
         nearby_text: None,
         selector_hint: None,
-        visible_only: true,
+        visibility_filter: crate::commands::ElementVisibilityFilter::VisibleOnly,
         max_candidates: Some(DEFAULT_FIND_ELEMENT_MAX_CANDIDATES),
     };
     let search_query = build_find_element_query(&query).ok()?;
@@ -6039,8 +6053,8 @@ fn resolve_direct_fill_and_submit_command(
                         "timeout_ms": serde_json::Value::Null,
                         "element_id": element_id,
                         "text": text,
-                        "clear_first": true,
-                        "submit_after": false
+                        "text_entry_mode": "Replace",
+                        "submit_mode": "KeepEditing"
                     }),
                     purpose: String::from(
                         "Replace the requested field contents with the spoken value before submission.",
@@ -8530,7 +8544,7 @@ mod tests {
             color_hint: None,
             nearby_text: None,
             selector_hint: None,
-            visible_only: true,
+            visibility_filter: crate::commands::ElementVisibilityFilter::VisibleOnly,
             max_candidates: Some(3),
         })
         .expect("query should be valid");
