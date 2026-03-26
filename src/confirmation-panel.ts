@@ -70,6 +70,22 @@ export interface LocalAsrModelPanelState {
   threads: number | null;
 }
 
+export interface ModelManagementPanelState {
+  modelsDir: string;
+  checkOnStartup: boolean;
+  autoDownloadMissing: boolean;
+  localTtsAvailable: boolean;
+  localTtsDownloadSupported: boolean;
+  localTtsDownloadLabel: string | null;
+  localAsrAvailable: boolean;
+  localAsrDownloadSupported: boolean;
+  localAsrDownloadLabel: string | null;
+  isSaving: boolean;
+  isDownloadingTts: boolean;
+  isDownloadingAsr: boolean;
+  error: string | null;
+}
+
 export interface PlannerProviderPanelState {
   activeMode: "Remote";
   availableModes: ["Remote"] | "Remote"[];
@@ -212,6 +228,10 @@ function renderReadOnlySettingValue(value: string | number | null): string {
   }
 
   return escapeHtml(`${value}`);
+}
+
+function renderModelAvailabilityLabel(available: boolean): string {
+  return available ? "Downloaded" : "Missing";
 }
 
 function renderSecretEntryCard(
@@ -880,6 +900,97 @@ export function renderSettingsLocalTtsModelPanel(state: LocalTtsModelPanelState)
         <div class="settings-control-card">
           <span class="settings-control-label">Sample rate</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.sampleRate)}</span>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+export function renderSettingsModelManagementPanel(state: ModelManagementPanelState): string {
+  const disabledAttribute = state.isSaving ? " disabled aria-disabled=\"true\"" : "";
+  const ttsDownloadDisabled =
+    state.isDownloadingTts || !state.localTtsDownloadSupported
+      ? " disabled aria-disabled=\"true\""
+      : "";
+  const asrDownloadDisabled =
+    state.isDownloadingAsr || !state.localAsrDownloadSupported
+      ? " disabled aria-disabled=\"true\""
+      : "";
+  const errorCopy = state.error
+    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+
+  return `
+    <section class="settings-panel" aria-labelledby="settings-model-management-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-model-management-title">Local model management</h2>
+        <p class="settings-panel-description">
+          Choose where local speech models live, whether startup checks should verify them, and
+          trigger explicit downloads for the configured local TTS and ASR profiles.
+        </p>
+        ${errorCopy}
+      </div>
+      <div class="settings-grid">
+        <label class="settings-control-card" for="settings-models-dir-input">
+          <span class="settings-control-label">Models directory</span>
+          <span class="settings-control-value">${escapeHtml(state.modelsDir || "Not configured")}</span>
+          <input
+            id="settings-models-dir-input"
+            class="settings-control-select"
+            data-model-management-input="models-dir"
+            type="text"
+            value="${escapeHtml(state.modelsDir)}"
+            placeholder="~/.local/share/blind_browser/models"
+            spellcheck="false"
+            ${disabledAttribute}
+          />
+        </label>
+        <label class="settings-control-card" for="settings-model-check-on-startup-toggle">
+          <span class="settings-control-label">Check models on startup</span>
+          <span class="settings-control-value">${state.checkOnStartup ? "Enabled" : "Disabled"}</span>
+          <input
+            id="settings-model-check-on-startup-toggle"
+            data-model-management-toggle="check-on-startup"
+            type="checkbox"
+            ${state.checkOnStartup ? "checked" : ""}
+            ${disabledAttribute}
+          />
+        </label>
+        <label class="settings-control-card" for="settings-model-auto-download-toggle">
+          <span class="settings-control-label">Auto-download missing models</span>
+          <span class="settings-control-value">${state.autoDownloadMissing ? "Enabled" : "Disabled"}</span>
+          <input
+            id="settings-model-auto-download-toggle"
+            data-model-management-toggle="auto-download-missing"
+            type="checkbox"
+            ${state.autoDownloadMissing ? "checked" : ""}
+            ${disabledAttribute}
+          />
+        </label>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Local TTS model status</span>
+          <span class="settings-control-value">${renderModelAvailabilityLabel(state.localTtsAvailable)}</span>
+          <button
+            type="button"
+            class="settings-control-button"
+            data-model-download="tts"
+            ${ttsDownloadDisabled}
+          >
+            ${escapeHtml(state.isDownloadingTts ? "Downloading..." : (state.localTtsDownloadLabel ?? "Download unavailable"))}
+          </button>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Local ASR model status</span>
+          <span class="settings-control-value">${renderModelAvailabilityLabel(state.localAsrAvailable)}</span>
+          <button
+            type="button"
+            class="settings-control-button"
+            data-model-download="asr"
+            ${asrDownloadDisabled}
+          >
+            ${escapeHtml(state.isDownloadingAsr ? "Downloading..." : (state.localAsrDownloadLabel ?? "Download unavailable"))}
+          </button>
         </div>
       </div>
     </section>

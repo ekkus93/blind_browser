@@ -9,6 +9,7 @@ import {
   renderSettingsGuidancePanel,
   renderSettingsLocalAsrModelPanel,
   renderSettingsLocalTtsModelPanel,
+  renderSettingsModelManagementPanel,
   renderSettingsOcrThresholdPanel,
   renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
@@ -27,6 +28,7 @@ import {
   type ConfirmationSettingsPanelState,
   type LocalAsrModelPanelState,
   type LocalTtsModelPanelState,
+  type ModelManagementPanelState,
   type OcrThresholdSettingsPanelState,
   type PlannerProviderPanelState,
   type ProviderFailoverPanelState,
@@ -52,9 +54,13 @@ import {
   classifyInvokeFailure,
   type AgentStateData,
   getAgentState,
+  getModelManagementSettings,
   openUrl,
   resolveCommand,
+  downloadActiveLocalAsrModel,
+  downloadActiveLocalTtsModel,
   setAllowClickWithoutConfirmation,
+  setModelManagementSettings,
   setRemoteAsrApiKey,
   setRemotePlannerApiKey,
   setRemoteTtsApiKey,
@@ -120,6 +126,7 @@ let confirmationSettingsPanelState: ConfirmationSettingsPanelState = createIniti
 let ocrThresholdSettingsPanelState: OcrThresholdSettingsPanelState = createInitialOcrThresholdSettingsPanelState();
 let asrProviderPanelState: AsrProviderPanelState = createInitialAsrProviderPanelState();
 let localAsrModelPanelState: LocalAsrModelPanelState = createInitialLocalAsrModelPanelState();
+let modelManagementPanelState: ModelManagementPanelState = createInitialModelManagementPanelState();
 let remoteAsrPanelState: RemoteAsrPanelState = createInitialRemoteAsrPanelState();
 let ttsProviderPanelState: TtsProviderPanelState = createInitialTtsProviderPanelState();
 let ttsModelPanelState: TtsModelPanelState = createInitialTtsModelPanelState();
@@ -215,6 +222,24 @@ function createInitialRemoteAsrPanelState(): RemoteAsrPanelState {
     timeoutMs: null,
     apiKeyDraft: "",
     isSavingApiKey: false,
+    error: null,
+  };
+}
+
+function createInitialModelManagementPanelState(): ModelManagementPanelState {
+  return {
+    modelsDir: "",
+    checkOnStartup: true,
+    autoDownloadMissing: false,
+    localTtsAvailable: false,
+    localTtsDownloadSupported: false,
+    localTtsDownloadLabel: null,
+    localAsrAvailable: false,
+    localAsrDownloadSupported: false,
+    localAsrDownloadLabel: null,
+    isSaving: false,
+    isDownloadingTts: false,
+    isDownloadingAsr: false,
     error: null,
   };
 }
@@ -345,6 +370,7 @@ const renderApp = (
   ocrThresholdSettingsPanel: OcrThresholdSettingsPanelState,
   asrProviderPanel: AsrProviderPanelState,
   localAsrModelPanel: LocalAsrModelPanelState,
+  modelManagementPanel: ModelManagementPanelState,
   remoteAsrPanel: RemoteAsrPanelState,
   ttsProviderPanel: TtsProviderPanelState,
   ttsModelPanel: TtsModelPanelState,
@@ -400,6 +426,7 @@ const renderApp = (
       ${renderSettingsOcrThresholdPanel(ocrThresholdSettingsPanel)}
       ${renderSettingsAsrProviderPanel(asrProviderPanel)}
       ${renderSettingsLocalAsrModelPanel(localAsrModelPanel)}
+      ${renderSettingsModelManagementPanel(modelManagementPanel)}
       ${renderSettingsRemoteAsrPanel(remoteAsrPanel)}
       ${renderSettingsTtsProviderPanel(ttsProviderPanel)}
       ${renderSettingsTtsModelPanel(ttsModelPanel)}
@@ -425,6 +452,7 @@ function rerender() {
     ocrThresholdSettingsPanelState,
     asrProviderPanelState,
     localAsrModelPanelState,
+    modelManagementPanelState,
     remoteAsrPanelState,
     ttsProviderPanelState,
     ttsModelPanelState,
@@ -511,6 +539,14 @@ function setLocalAsrModelPanelState(nextState: Partial<LocalAsrModelPanelState>)
 function setRemoteAsrPanelState(nextState: Partial<RemoteAsrPanelState>) {
   remoteAsrPanelState = {
     ...remoteAsrPanelState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setModelManagementPanelState(nextState: Partial<ModelManagementPanelState>) {
+  modelManagementPanelState = {
+    ...modelManagementPanelState,
     ...nextState,
   };
   rerender();
@@ -653,6 +689,7 @@ function guidanceStateForErrorMessage(message: string | null): SettingsGuidanceP
       actions: [
         { label: "Review TTS provider", targetId: "settings-tts-provider-control" },
         { label: "Review TTS model", targetId: "settings-tts-model-control" },
+        { label: "Open model management", targetId: "settings-model-management-title" },
         { label: "Review local TTS reference", targetId: "settings-local-tts-model-title" },
       ],
     };
@@ -668,6 +705,7 @@ function guidanceStateForErrorMessage(message: string | null): SettingsGuidanceP
       message: "The current local ASR setup is unavailable. Review the ASR provider and local model settings below.",
       actions: [
         { label: "Review ASR provider", targetId: "settings-asr-provider-control" },
+        { label: "Open model management", targetId: "settings-model-management-title" },
         { label: "Review local ASR reference", targetId: "settings-local-asr-model-title" },
       ],
     };
@@ -734,6 +772,7 @@ function currentSettingsGuidanceState(): SettingsGuidancePanelState | null {
     ?? guidanceStateForErrorMessage(remotePlannerPanelState.error)
     ?? guidanceStateForErrorMessage(remoteTtsPanelState.error)
     ?? guidanceStateForErrorMessage(remoteAsrPanelState.error)
+    ?? guidanceStateForErrorMessage(modelManagementPanelState.error)
   );
 }
 
@@ -957,11 +996,31 @@ async function executeUrlPanelPlannerCommand(input: {
 
 async function refreshRuntimePanelsFromRuntime() {
   try {
-    const agentState = await getAgentState({
-      requestId: createRequestId("runtime-panels-state"),
-      includeLastTranscript: true,
-    });
+    const [agentState, modelManagementSettings] = await Promise.all([
+      getAgentState({
+        requestId: createRequestId("runtime-panels-state"),
+        includeLastTranscript: true,
+      }),
+      getModelManagementSettings({
+        requestId: createRequestId("model-management-state"),
+      }),
+    ]);
     applyAgentStateToPanels(agentState);
+    setModelManagementPanelState({
+      modelsDir: modelManagementSettings.models_dir,
+      checkOnStartup: modelManagementSettings.check_on_startup,
+      autoDownloadMissing: modelManagementSettings.auto_download_missing,
+      localTtsAvailable: modelManagementSettings.local_tts.available,
+      localTtsDownloadSupported: modelManagementSettings.local_tts.download_supported,
+      localTtsDownloadLabel: modelManagementSettings.local_tts.download_label,
+      localAsrAvailable: modelManagementSettings.local_asr.available,
+      localAsrDownloadSupported: modelManagementSettings.local_asr.download_supported,
+      localAsrDownloadLabel: modelManagementSettings.local_asr.download_label,
+      isSaving: false,
+      isDownloadingTts: false,
+      isDownloadingAsr: false,
+      error: null,
+    });
   } catch (error: unknown) {
     const message = describeAudioControlFailure(error);
     setAudioControlsState({
@@ -984,6 +1043,12 @@ async function refreshRuntimePanelsFromRuntime() {
       isBusy: false,
     });
     setStatusPanelState({
+      error: message,
+    });
+    setModelManagementPanelState({
+      isSaving: false,
+      isDownloadingTts: false,
+      isDownloadingAsr: false,
       error: message,
     });
   }
@@ -1359,6 +1424,99 @@ async function persistOcrThresholds(nextCharThreshold: number, nextRegionThresho
       sparseTextCharThreshold: previousState.sparseTextCharThreshold,
       sparseTextRegionThreshold: previousState.sparseTextRegionThreshold,
       isBusy: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function persistModelManagementSettings() {
+  const modelsDir = modelManagementPanelState.modelsDir.trim();
+  if (modelsDir.length === 0) {
+    setModelManagementPanelState({
+      error: "Enter a models directory before saving model management settings.",
+    });
+    return;
+  }
+
+  const previousState = modelManagementPanelState;
+  setModelManagementPanelState({
+    isSaving: true,
+    error: null,
+  });
+
+  try {
+    const result = await setModelManagementSettings({
+      requestId: createRequestId("model-management-settings"),
+      modelsDir,
+      checkOnStartup: modelManagementPanelState.checkOnStartup,
+      autoDownloadMissing: modelManagementPanelState.autoDownloadMissing,
+    });
+    setModelManagementPanelState({
+      modelsDir: result.models_dir,
+      checkOnStartup: result.check_on_startup,
+      autoDownloadMissing: result.auto_download_missing,
+      isSaving: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setModelManagementPanelState({
+      ...previousState,
+      isSaving: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function downloadManagedLocalTtsModel() {
+  if (modelManagementPanelState.isDownloadingTts) {
+    return;
+  }
+
+  setModelManagementPanelState({
+    isDownloadingTts: true,
+    error: null,
+  });
+
+  try {
+    await downloadActiveLocalTtsModel({
+      requestId: createRequestId("download-local-tts-model"),
+    });
+    setModelManagementPanelState({
+      isDownloadingTts: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setModelManagementPanelState({
+      isDownloadingTts: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function downloadManagedLocalAsrModel() {
+  if (modelManagementPanelState.isDownloadingAsr) {
+    return;
+  }
+
+  setModelManagementPanelState({
+    isDownloadingAsr: true,
+    error: null,
+  });
+
+  try {
+    await downloadActiveLocalAsrModel({
+      requestId: createRequestId("download-local-asr-model"),
+    });
+    setModelManagementPanelState({
+      isDownloadingAsr: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setModelManagementPanelState({
+      isDownloadingAsr: false,
       error: describeAudioControlFailure(error),
     });
   }
@@ -1781,6 +1939,23 @@ app.addEventListener("click", (event) => {
     }
   }
 
+  const modelDownloadButton = target.closest<HTMLButtonElement>("[data-model-download]");
+  if (modelDownloadButton) {
+    if (modelDownloadButton.disabled) {
+      return;
+    }
+
+    const kind = modelDownloadButton.dataset.modelDownload;
+    if (kind === "tts") {
+      void downloadManagedLocalTtsModel();
+      return;
+    }
+    if (kind === "asr") {
+      void downloadManagedLocalAsrModel();
+      return;
+    }
+  }
+
   const visibilityButton = target.closest<HTMLButtonElement>("[data-browser-visibility-mode]");
   if (visibilityButton) {
     if (statusPanelState.isUpdatingVisibility || visibilityButton.disabled) {
@@ -1963,6 +2138,14 @@ app.addEventListener("input", (event) => {
     return;
   }
 
+   if (target.dataset.modelManagementInput === "models-dir") {
+    setModelManagementPanelState({
+      modelsDir: target.value,
+      error: null,
+    });
+    return;
+  }
+
   if (target.dataset.urlInput === "true") {
     setUrlInputPanelState({
       draftValue: target.value,
@@ -1983,6 +2166,7 @@ app.addEventListener("change", (event) => {
     confirmationSettingsPanelState.isBusy ||
     ocrThresholdSettingsPanelState.isBusy ||
     asrProviderPanelState.isBusy ||
+    modelManagementPanelState.isSaving ||
     ttsProviderPanelState.isBusy ||
     ttsModelPanelState.isBusy ||
     ttsVoicePanelState.isBusy
@@ -2023,6 +2207,29 @@ app.addEventListener("change", (event) => {
       ocrThresholdSettingsPanelState.sparseTextCharThreshold,
       Number.parseInt(target.value, 10),
     );
+    return;
+  }
+
+  if (target instanceof HTMLInputElement && target.dataset.modelManagementToggle === "check-on-startup") {
+    setModelManagementPanelState({
+      checkOnStartup: target.checked,
+      error: null,
+    });
+    void persistModelManagementSettings();
+    return;
+  }
+
+  if (target instanceof HTMLInputElement && target.dataset.modelManagementToggle === "auto-download-missing") {
+    setModelManagementPanelState({
+      autoDownloadMissing: target.checked,
+      error: null,
+    });
+    void persistModelManagementSettings();
+    return;
+  }
+
+  if (target instanceof HTMLInputElement && target.dataset.modelManagementInput === "models-dir") {
+    void persistModelManagementSettings();
     return;
   }
 

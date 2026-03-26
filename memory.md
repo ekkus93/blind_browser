@@ -915,3 +915,8 @@
 - Removed `SecretRef::Inline` from the Rust config model and secret-resolution/reference paths, so inline API-key values in config no longer deserialize.
 - Updated shipped examples, specs, changelog text, and tests to use only `from_env`, `from_file`, and `from_keyring` secret references; Ollama defaults now point at `OLLAMA_API_KEY`.
 - Added a regression test that rejects inline secret refs and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`195` Rust tests, `46` UI tests).
+
+## 2026-03-26T20:32:16Z - GPT-5.4 - Model management settings and manual local-model downloads landed
+- Added dedicated Tauri model-management commands that expose persisted `models_dir`, `check_on_startup`, and `auto_download_missing` settings, plus explicit manual download actions for the configured local TTS and ASR profiles.
+- Local downloads now map supported KittenTTS and Whisper model ids to known Hugging Face artifacts, write them into the configured models directory, and persist the resulting local profile `model_path` back to `config.toml`.
+- Fixed the shipped local ASR backend mismatch by using `whisper` consistently, added frontend Settings controls and download buttons for model management, and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`195` Rust tests, `48` UI tests).

@@ -10,6 +10,7 @@ import {
   renderSettingsGuidancePanel,
   renderSettingsLocalAsrModelPanel,
   renderSettingsLocalTtsModelPanel,
+  renderSettingsModelManagementPanel,
   renderSettingsOcrThresholdPanel,
   renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
@@ -327,6 +328,58 @@ test("renders URL input busy state while moving to the next reading region", () 
 
   assert.match(html, /Next\.\.\./);
   assert.match(html, /disabled aria-disabled="true"/);
+});
+
+test("renders model management controls and download actions", () => {
+  const html = renderSettingsModelManagementPanel({
+    modelsDir: "~/.local/share/blind_browser/models",
+    checkOnStartup: true,
+    autoDownloadMissing: false,
+    localTtsAvailable: false,
+    localTtsDownloadSupported: true,
+    localTtsDownloadLabel: "Download KittenTTS mini model",
+    localAsrAvailable: true,
+    localAsrDownloadSupported: true,
+    localAsrDownloadLabel: "Download Whisper tiny model",
+    isSaving: false,
+    isDownloadingTts: false,
+    isDownloadingAsr: false,
+    error: null,
+  });
+
+  assert.match(html, /Local model management/);
+  assert.match(html, /data-model-management-input="models-dir"/);
+  assert.match(html, /data-model-management-toggle="check-on-startup"/);
+  assert.match(html, /data-model-management-toggle="auto-download-missing"/);
+  assert.match(html, /data-model-download="tts"/);
+  assert.match(html, /data-model-download="asr"/);
+  assert.match(html, /Missing/);
+  assert.match(html, /Downloaded/);
+  assert.match(html, /Download KittenTTS mini model/);
+  assert.match(html, /Download Whisper tiny model/);
+});
+
+test("renders model management busy and error states", () => {
+  const html = renderSettingsModelManagementPanel({
+    modelsDir: "/tmp/models",
+    checkOnStartup: false,
+    autoDownloadMissing: true,
+    localTtsAvailable: false,
+    localTtsDownloadSupported: false,
+    localTtsDownloadLabel: null,
+    localAsrAvailable: false,
+    localAsrDownloadSupported: true,
+    localAsrDownloadLabel: "Download Whisper tiny model",
+    isSaving: true,
+    isDownloadingTts: true,
+    isDownloadingAsr: false,
+    error: "Download failed.",
+  });
+
+  assert.match(html, /Download failed\./);
+  assert.match(html, /Downloading\.\.\./);
+  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /Download Whisper tiny model/);
 });
 
 test("renders URL input busy state while moving to the previous reading region", () => {

@@ -278,6 +278,14 @@ impl AppConfig {
         Self::persist_ocr_settings_at_path(&config_path, ocr)
     }
 
+    pub fn persist_model_management_settings_for_app(
+        app_handle: &AppHandle,
+        models: &ModelManagementSettings,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::persist_model_management_settings_at_path(&config_path, models)
+    }
+
     pub fn persist_remote_planner_api_key_for_app(
         app_handle: &AppHandle,
         profile_name: &str,
@@ -303,6 +311,24 @@ impl AppConfig {
     ) -> Result<Self, ConfigError> {
         let config_path = Self::config_path_for_app(app_handle)?;
         Self::persist_remote_api_key_at_path(&config_path, profile_name, api_key, "asr")
+    }
+
+    pub fn persist_local_tts_model_path_for_app(
+        app_handle: &AppHandle,
+        profile_name: &str,
+        model_path: &str,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::persist_local_model_path_at_path(&config_path, profile_name, model_path)
+    }
+
+    pub fn persist_local_asr_model_path_for_app(
+        app_handle: &AppHandle,
+        profile_name: &str,
+        model_path: &str,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::persist_local_model_path_at_path(&config_path, profile_name, model_path)
     }
 
     pub fn persist_audio_settings_at_path(
@@ -403,6 +429,44 @@ impl AppConfig {
         Self::load_from_path(path)
     }
 
+    pub fn persist_model_management_settings_at_path(
+        path: impl AsRef<Path>,
+        models: &ModelManagementSettings,
+    ) -> Result<Self, ConfigError> {
+        let path = path.as_ref();
+        let mut issues = Vec::new();
+        validate_model_settings(models, &mut issues);
+        if !issues.is_empty() {
+            return Err(ConfigError::Validation(issues.join("\n")));
+        }
+
+        let mut document = if path.exists() {
+            load_document_table_from_path(path)?
+        } else {
+            load_document_table_from_str(Self::default_template())?
+        };
+
+        document.insert(
+            String::from("models"),
+            toml::Value::try_from(models.clone())?,
+        );
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
+                path: parent.to_path_buf(),
+                source,
+            })?;
+        }
+
+        let serialized = toml::to_string_pretty(&document)?;
+        fs::write(path, serialized).map_err(|source| ConfigError::Write {
+            path: path.to_path_buf(),
+            source,
+        })?;
+
+        Self::load_from_path(path)
+    }
+
     pub fn persist_remote_api_key_at_path(
         path: impl AsRef<Path>,
         profile_name: &str,
@@ -462,6 +526,72 @@ impl AppConfig {
             toml::Value::try_from(SecretRef::FromKeyring {
                 from_keyring: keyring_ref,
             })?,
+        );
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
+                path: parent.to_path_buf(),
+                source,
+            })?;
+        }
+
+        let serialized = toml::to_string_pretty(&document)?;
+        fs::write(path, serialized).map_err(|source| ConfigError::Write {
+            path: path.to_path_buf(),
+            source,
+        })?;
+
+        Self::load_from_path(path)
+    }
+
+    pub fn persist_local_model_path_at_path(
+        path: impl AsRef<Path>,
+        profile_name: &str,
+        model_path: &str,
+    ) -> Result<Self, ConfigError> {
+        let path = path.as_ref();
+        let normalized_profile_name = profile_name.trim();
+        if normalized_profile_name.is_empty() {
+            return Err(ConfigError::Validation(String::from(
+                "local model path persistence requires a non-empty configured profile name",
+            )));
+        }
+
+        let normalized_model_path = model_path.trim();
+        if normalized_model_path.is_empty() {
+            return Err(ConfigError::Validation(String::from(
+                "local model path persistence requires a non-empty model path",
+            )));
+        }
+
+        let mut document = if path.exists() {
+            load_document_table_from_path(path)?
+        } else {
+            load_document_table_from_str(Self::default_template())?
+        };
+
+        let local_profiles_value = document
+            .entry(String::from("local_profiles"))
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        let Some(local_profiles_table) = local_profiles_value.as_table_mut() else {
+            return Err(ConfigError::Validation(String::from(
+                "local_profiles must remain a TOML table",
+            )));
+        };
+
+        let Some(profile_value) = local_profiles_table.get_mut(normalized_profile_name) else {
+            return Err(ConfigError::Validation(format!(
+                "local_profiles.{normalized_profile_name} is not configured"
+            )));
+        };
+        let Some(profile_table) = profile_value.as_table_mut() else {
+            return Err(ConfigError::Validation(format!(
+                "local_profiles.{normalized_profile_name} must remain a TOML table"
+            )));
+        };
+        profile_table.insert(
+            String::from("model_path"),
+            toml::Value::String(normalized_model_path.to_string()),
         );
 
         if let Some(parent) = path.parent() {

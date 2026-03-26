@@ -26,7 +26,7 @@ use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextPar
 pub const DEFAULT_TRANSCRIBE_DURATION_MS: u64 = 3_000;
 pub const MAX_TRANSCRIBE_DURATION_MS: u64 = 10_000;
 pub const WHISPER_TARGET_SAMPLE_RATE: u32 = 16_000;
-pub const WHISPER_BACKEND: &str = "whisper_rs";
+pub const WHISPER_BACKEND: &str = "whisper";
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum AsrProviderKind {

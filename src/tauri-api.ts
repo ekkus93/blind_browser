@@ -229,6 +229,31 @@ export interface LocalAsrModelSettings {
   threads: number | null;
 }
 
+export interface ManagedLocalModelStatusData {
+  profile_name: string | null;
+  backend: string | null;
+  model_id: string | null;
+  model_path: string | null;
+  available: boolean;
+  download_supported: boolean;
+  download_label: string | null;
+}
+
+export interface ModelManagementSettingsData {
+  models_dir: string;
+  check_on_startup: boolean;
+  auto_download_missing: boolean;
+  local_tts: ManagedLocalModelStatusData;
+  local_asr: ManagedLocalModelStatusData;
+}
+
+export interface DownloadedLocalModelData {
+  profile_name: string;
+  model_id: string;
+  model_path: string;
+  source_url: string;
+}
+
 export interface PlannerProviderSettings {
   active_mode: "Remote";
   available_modes: ["Remote"] | "Remote"[];
@@ -731,6 +756,56 @@ export async function setRemoteAsrApiKey(input: {
     timeoutMs: input.timeoutMs,
     profileName: input.profileName,
     apiKey: input.apiKey,
+  });
+}
+
+export async function getModelManagementSettings(input: {
+  requestId: string;
+  timeoutMs?: number;
+}): Promise<ModelManagementSettingsData> {
+  return invoke<ModelManagementSettingsData>("get_model_management_settings", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+  });
+}
+
+export async function setModelManagementSettings(input: {
+  requestId: string;
+  timeoutMs?: number;
+  modelsDir: string;
+  checkOnStartup: boolean;
+  autoDownloadMissing: boolean;
+}): Promise<{
+  models_dir: string;
+  check_on_startup: boolean;
+  auto_download_missing: boolean;
+}> {
+  return invoke("set_model_management_settings", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    modelsDir: input.modelsDir,
+    checkOnStartup: input.checkOnStartup,
+    autoDownloadMissing: input.autoDownloadMissing,
+  });
+}
+
+export async function downloadActiveLocalTtsModel(input: {
+  requestId: string;
+  timeoutMs?: number;
+}): Promise<DownloadedLocalModelData> {
+  return invoke<DownloadedLocalModelData>("download_active_local_tts_model", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+  });
+}
+
+export async function downloadActiveLocalAsrModel(input: {
+  requestId: string;
+  timeoutMs?: number;
+}): Promise<DownloadedLocalModelData> {
+  return invoke<DownloadedLocalModelData>("download_active_local_asr_model", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
   });
 }
 
