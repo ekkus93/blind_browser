@@ -235,6 +235,44 @@ export function renderAudioControlsPanel(state: AudioControlsPanelState): string
   `;
 }
 
+export function renderSettingsVolumePanel(state: AudioControlsPanelState): string {
+  const busyAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
+  const errorCopy = state.error
+    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+
+  return `
+    <section class="settings-panel" aria-labelledby="settings-volume-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-volume-title">Playback volume</h2>
+        <p class="settings-panel-description">
+          This dedicated settings control saves the default spoken playback volume for future
+          narration. Updates apply to the next utterance and persist across app restarts.
+        </p>
+        ${errorCopy}
+      </div>
+      <div class="settings-grid">
+        <label class="settings-control-card" for="settings-playback-volume-control">
+          <span class="settings-control-label">Default volume</span>
+          <span class="settings-control-value">${Math.round(state.playbackVolume * 100)}%</span>
+          <input
+            id="settings-playback-volume-control"
+            class="settings-control-input"
+            data-audio-control="volume"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value="${state.playbackVolume.toFixed(2)}"
+            ${busyAttribute}
+          />
+        </label>
+      </div>
+    </section>
+  `;
+}
+
 export function renderUrlInputPanel(state: UrlInputPanelState): string {
   const currentUrlCopy = state.currentUrl
     ? `<p class="url-input-current"><strong>Current URL:</strong> ${escapeHtml(state.currentUrl)}</p>`

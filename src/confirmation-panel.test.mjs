@@ -5,6 +5,7 @@ import {
   renderAudioControlsPanel,
   renderConfirmationPanel,
   renderPushToTalkPanel,
+  renderSettingsVolumePanel,
   renderStatusPanel,
   renderUrlInputPanel,
 } from "./confirmation-panel.ts";
@@ -345,6 +346,35 @@ test("renders nearby playback controls with volume and speed values", () => {
   assert.match(html, /1\.25x/);
   assert.match(html, /data-audio-control="volume"/);
   assert.match(html, /data-audio-control="speed"/);
+});
+
+test("renders settings volume control with the persisted default value", () => {
+  const html = renderSettingsVolumePanel({
+    playbackVolume: 0.65,
+    playbackSpeed: 1.25,
+    isBusy: false,
+    error: null,
+  });
+
+  assert.match(html, /Playback volume/);
+  assert.match(html, /Default volume/);
+  assert.match(html, /65%/);
+  assert.match(html, /persist across app restarts/);
+  assert.match(html, /id="settings-playback-volume-control"/);
+  assert.match(html, /data-audio-control="volume"/);
+});
+
+test("renders settings volume errors and disabled state while saving", () => {
+  const html = renderSettingsVolumePanel({
+    playbackVolume: 1,
+    playbackSpeed: 1,
+    isBusy: true,
+    error: "The playback volume could not be saved.",
+  });
+
+  assert.match(html, /The playback volume could not be saved\./);
+  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /role="alert"/);
 });
 
 test("disables nearby playback controls while audio settings are saving", () => {

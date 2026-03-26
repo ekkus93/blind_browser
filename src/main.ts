@@ -4,6 +4,7 @@ import {
   renderAudioControlsPanel,
   renderConfirmationPanel,
   renderPushToTalkPanel,
+  renderSettingsVolumePanel,
   renderStatusPanel,
   renderUrlInputPanel,
   type AudioControlsPanelState,
@@ -176,6 +177,7 @@ const renderApp = (
       ${renderUrlInputPanel(urlInputPanel)}
       ${renderStatusPanel(statusPanel)}
       ${renderAudioControlsPanel(audioControls)}
+      ${renderSettingsVolumePanel(audioControls)}
       ${renderConfirmationPanel(uiState.confirmation)}
     </main>
   `;

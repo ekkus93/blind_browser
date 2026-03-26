@@ -310,7 +310,7 @@
 - [ ] TTS model selection
 - [ ] Voice selection
 - [ ] Speed control
-- [ ] Volume control
+- [x] Volume control
 - [x] Visible/headless toggle
 - [ ] Planner provider selection
 - [ ] TTS provider selection

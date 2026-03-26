@@ -826,3 +826,8 @@
 - `src/main.ts` now reuses the existing bounded `transcribe_and_execute_command` surface in a frontend loop so spoken `start listening` enters continuous hands-free command capture until `stop listening` or an explicit runtime failure ends the listening session.
 - Continuous-listening failures now surface explicit user-facing errors and attempt to stop listening cleanly; `docs/TODO.md` marks `Ensure normal operation is fully voice-controlled` complete and `docs/SPECS.md` now states the hands-free loop expectation.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, with `174` Rust tests and `21` UI tests passing; Vite also warns in this shell that Node `22.11.0` is below its preferred `22.12+` floor even though the build still completes.
+
+## 2026-03-26T06:15:27Z - GPT-5.4 - Settings volume panel landed
+- Added a dedicated Settings UI playback-volume panel in the thin Tauri frontend while reusing the existing persisted `set_playback_volume` flow and shared `AudioControlsPanelState`.
+- The nearby playback controls and the new Settings slider stay synchronized because both surfaces bind to the same frontend state and command path.
+- Added render coverage for the settings volume panel and validated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`23` UI tests passing; build still shows the known Node `22.11.0` vs Vite `22.12+` warning).
