@@ -21,6 +21,7 @@ import {
   classifyInvokeFailure,
   type AgentStateData,
   getAgentState,
+  openUrl,
   setBrowserVisibility,
   setPlaybackSpeed,
   setPlaybackVolume,
@@ -51,6 +52,7 @@ export {
 export {
   executePlannerOutput as invokeExecutePlannerOutput,
   getAgentState as invokeGetAgentState,
+  openUrl as invokeOpenUrl,
   resolveCommand as invokeResolveCommand,
   setPlaybackSpeed as invokeSetPlaybackSpeed,
   setPlaybackVolume as invokeSetPlaybackVolume,
@@ -116,6 +118,8 @@ function createInitialUrlInputPanelState(): UrlInputPanelState {
     draftValue: "",
     currentUrl: null,
     hasUnsubmittedChanges: false,
+    isBusy: false,
+    error: null,
   };
 }
 
@@ -261,6 +265,15 @@ function describeAudioControlFailure(error: unknown): string {
   return failure.message;
 }
 
+function describeUrlInputFailure(error: unknown): string {
+  const failure = classifyInvokeFailure(error);
+  if (failure.kind === "tool-error") {
+    return failure.toolError.message;
+  }
+
+  return failure.message;
+}
+
 function currentRegionLabelForAgentState(agentState: AgentStateData): string | null {
   if (!agentState.narration_cursor) {
     return null;
@@ -289,6 +302,8 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
   setUrlInputPanelState({
     currentUrl: agentState.url,
     draftValue: urlInputPanelState.hasUnsubmittedChanges ? urlInputPanelState.draftValue : (agentState.url ?? ""),
+    isBusy: false,
+    error: null,
   });
 }
 
@@ -386,6 +401,47 @@ async function persistPlaybackSpeed(nextSpeed: number) {
       playbackSpeed: previousState.playbackSpeed,
       isBusy: false,
       error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function openDraftUrl() {
+  if (urlInputPanelState.isBusy) {
+    return;
+  }
+
+  const nextUrl = urlInputPanelState.draftValue.trim();
+  if (nextUrl.length === 0) {
+    setUrlInputPanelState({
+      error: "Enter a URL before opening a page.",
+    });
+    return;
+  }
+
+  const previousState = urlInputPanelState;
+  setUrlInputPanelState({
+    isBusy: true,
+    error: null,
+  });
+
+  try {
+    const result = await openUrl({
+      requestId: createRequestId("open-url"),
+      url: nextUrl,
+    });
+    setUrlInputPanelState({
+      draftValue: result.final_url,
+      currentUrl: result.final_url,
+      hasUnsubmittedChanges: false,
+      isBusy: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setUrlInputPanelState({
+      ...previousState,
+      isBusy: false,
+      error: describeUrlInputFailure(error),
     });
   }
 }
@@ -537,6 +593,16 @@ app.addEventListener("click", (event) => {
     return;
   }
 
+  const urlOpenButton = target.closest<HTMLButtonElement>("[data-url-open-button]");
+  if (urlOpenButton) {
+    if (urlInputPanelState.isBusy || urlOpenButton.disabled) {
+      return;
+    }
+
+    void openDraftUrl();
+    return;
+  }
+
   const actionButton = target.closest<HTMLButtonElement>("[data-confirmation-action]");
   if (!actionButton) {
     return;
@@ -603,6 +669,7 @@ app.addEventListener("input", (event) => {
     setUrlInputPanelState({
       draftValue: target.value,
       hasUnsubmittedChanges: true,
+      error: null,
     });
   }
 });

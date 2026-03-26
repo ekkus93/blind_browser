@@ -137,6 +137,12 @@ export interface SetBrowserVisibilityData {
   supported: boolean;
 }
 
+export interface OpenUrlData {
+  final_url: string;
+  title: string | null;
+  page_id: string;
+}
+
 export interface BrowserHistoryState {
   can_go_back: boolean;
   can_go_forward: boolean;
@@ -392,6 +398,19 @@ export async function getAgentState(input: DirectToolRequestInput): Promise<Agen
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     includeLastTranscript: input.includeLastTranscript ?? false,
+  });
+  return unwrapToolResult(result);
+}
+
+export async function openUrl(input: {
+  requestId: string;
+  timeoutMs?: number;
+  url: string;
+}): Promise<OpenUrlData> {
+  const result = await invoke<ToolResult<OpenUrlData>>("open_url", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    url: input.url,
   });
   return unwrapToolResult(result);
 }

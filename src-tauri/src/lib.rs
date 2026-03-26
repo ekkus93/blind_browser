@@ -20,11 +20,11 @@ use tauri::Manager;
 
 use crate::app_core::AppCore;
 use crate::commands::{
-    AgentStateData, ConfirmActionResolution, ExecutionOutcome, GetAgentStateInput, PlannerOutput,
-    SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
-    SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, StartListeningData,
-    StartListeningInput, StopListeningData, StopListeningInput, ToolError, ToolResult,
-    TranscribeAndExecuteCommandData, TranscribeCommandData, TranscribeCommandInput,
+    AgentStateData, ConfirmActionResolution, ExecutionOutcome, GetAgentStateInput, OpenUrlData,
+    OpenUrlInput, PlannerOutput, SetBrowserVisibilityData, SetBrowserVisibilityInput,
+    SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
+    StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
+    ToolResult, TranscribeAndExecuteCommandData, TranscribeCommandData, TranscribeCommandInput,
 };
 use crate::browser::BrowserVisibilityMode;
 
@@ -133,6 +133,23 @@ fn transcribe_and_execute_command(
 }
 
 #[tauri::command]
+fn open_url(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    url: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<ToolResult<OpenUrlData>, ToolError> {
+    let mut app_core = lock_app_core(&app_core)?;
+
+    Ok(app_core.execute_open_url(OpenUrlInput {
+        request_id,
+        timeout_ms,
+        url,
+        wait_for_load_state: None,
+    }))
+}
+
+#[tauri::command]
 fn get_agent_state(
     request_id: String,
     timeout_ms: Option<u64>,
@@ -208,6 +225,7 @@ pub fn run() {
             stop_listening,
             transcribe_command,
             transcribe_and_execute_command,
+            open_url,
             get_agent_state,
             set_playback_volume,
             set_playback_speed,

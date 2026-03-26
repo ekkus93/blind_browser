@@ -796,3 +796,9 @@
 - Updated `src/main.ts` so the URL field mirrors `agentState.url` until edited, then preserves the local draft across runtime panel rerenders instead of wiping in-progress input.
 - Added focused render coverage in `src/confirmation-panel.test.mjs`, updated `src/styles.css` for the new panel layout, and marked `URL input` complete in `docs/TODO.md`.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, with `174` Rust tests and `14` UI tests passing.
+
+## 2026-03-26T01:31:19Z - GPT-5.4 - Open button wired to deterministic navigation
+- Added a typed frontend `openUrl(...)` wrapper in `src/tauri-api.ts` and exposed a matching Tauri `open_url` command in `src-tauri/src/lib.rs`, reusing the existing deterministic Rust `execute_open_url()` path instead of adding parallel navigation logic.
+- Extended the URL panel in `src/confirmation-panel.ts`, `src/main.ts`, and `src/styles.css` with an `Open` button plus busy/error handling; successful opens refresh runtime state, while failures preserve the draft URL and surface the backend or transport error.
+- Added focused UI render coverage for the new button and its busy/error states in `src/confirmation-panel.test.mjs`, and marked `Open button` complete in `docs/TODO.md`.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, with `174` Rust tests and `15` UI tests passing.

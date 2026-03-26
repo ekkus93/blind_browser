@@ -297,7 +297,7 @@
 
 ### Basic UI
 - [x] URL input
-- [ ] Open button
+- [x] Open button
 - [ ] Read button
 - [ ] Stop button
 - [ ] Next / Previous buttons

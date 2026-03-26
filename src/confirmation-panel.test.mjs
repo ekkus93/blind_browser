@@ -168,12 +168,16 @@ test("renders URL input with current URL and staged draft value", () => {
     draftValue: "https://staged.example.com",
     currentUrl: "https://current.example.com",
     hasUnsubmittedChanges: true,
+    isBusy: false,
+    error: null,
   });
 
   assert.match(html, /URL input/);
   assert.match(html, /Current URL:<\/strong> https:\/\/current\.example\.com/);
   assert.match(html, /Draft URL updated\. Open controls can use this value next\./);
   assert.match(html, /data-url-input="true"/);
+  assert.match(html, /data-url-open-button="true"/);
+  assert.match(html, />\s*Open\s*<\/button>/);
   assert.match(html, /value="https:\/\/staged\.example\.com"/);
 });
 
@@ -182,11 +186,28 @@ test("renders URL input fallback copy when no page is loaded", () => {
     draftValue: "",
     currentUrl: null,
     hasUnsubmittedChanges: false,
+    isBusy: false,
+    error: null,
   });
 
   assert.match(html, /No page URL is loaded yet\./);
   assert.match(html, /The field mirrors the current page URL until you edit it\./);
   assert.match(html, /placeholder="https:\/\/example\.com"/);
+});
+
+test("renders URL input busy and error states while opening", () => {
+  const html = renderUrlInputPanel({
+    draftValue: "https://example.com",
+    currentUrl: "https://example.com",
+    hasUnsubmittedChanges: false,
+    isBusy: true,
+    error: "The browser could not open that URL.",
+  });
+
+  assert.match(html, /Opening\.\.\./);
+  assert.match(html, /The browser could not open that URL\./);
+  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /role="alert"/);
 });
 
 test("renders nearby playback controls with volume and speed values", () => {
