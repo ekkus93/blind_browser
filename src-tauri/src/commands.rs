@@ -247,9 +247,11 @@ pub struct AgentStateData {
     pub pending_confirmation_id: Option<String>,
     pub pending_plan_execution: Option<PendingPlanExecutionState>,
     pub tts_model_settings: TtsModelSettings,
+    pub local_tts_model_settings: LocalTtsModelSettings,
     pub tts_voice_settings: TtsVoiceSettings,
     pub tts_provider_settings: TtsProviderSettings,
     pub asr_provider_settings: AsrProviderSettings,
+    pub local_asr_model_settings: LocalAsrModelSettings,
     pub planner_provider_settings: PlannerProviderSettings,
     pub provider_failover_settings: ProviderFailoverSettings,
     pub confirmation_settings: ConfirmationSettings,
@@ -290,6 +292,16 @@ pub struct TtsModelSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct LocalTtsModelSettings {
+    pub profile_name: Option<String>,
+    pub backend: Option<String>,
+    pub model_id: Option<String>,
+    pub model_path: Option<String>,
+    pub default_voice: Option<String>,
+    pub sample_rate: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct TtsVoiceOption {
     pub voice_name: String,
     pub display_label: String,
@@ -312,6 +324,16 @@ pub struct TtsProviderSettings {
 pub struct AsrProviderSettings {
     pub active_mode: ProviderMode,
     pub available_modes: Vec<ProviderMode>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct LocalAsrModelSettings {
+    pub profile_name: Option<String>,
+    pub backend: Option<String>,
+    pub model_id: Option<String>,
+    pub model_path: Option<String>,
+    pub language: Option<String>,
+    pub threads: Option<u16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -6068,7 +6090,15 @@ mod tests {
                             model_label: String::from("default"),
                         }],
                     },
-                    tts_voice_settings: TtsVoiceSettings {
+                    local_tts_model_settings: LocalTtsModelSettings {
+                        profile_name: Some(String::from("kitten-default")),
+                        backend: Some(String::from("kitten_tts_rs")),
+                        model_id: Some(String::from("default")),
+                        model_path: Some(String::from("/path/to/kitten/model")),
+                        default_voice: Some(String::from("Bruno")),
+                        sample_rate: Some(24_000),
+                    },
+                tts_voice_settings: TtsVoiceSettings {
                         mode: ProviderMode::Local,
                         active_voice: Some(String::from("Bruno")),
                         available_voices: vec![
@@ -6090,7 +6120,15 @@ mod tests {
                         active_mode: ProviderMode::Local,
                         available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
                     },
-                    planner_provider_settings: PlannerProviderSettings {
+                    local_asr_model_settings: LocalAsrModelSettings {
+                        profile_name: Some(String::from("whisper-default")),
+                        backend: Some(String::from("whisper")),
+                        model_id: Some(String::from("tiny")),
+                        model_path: Some(String::from("/path/to/whisper/model")),
+                        language: Some(String::from("en")),
+                        threads: Some(4),
+                    },
+                planner_provider_settings: PlannerProviderSettings {
                         active_mode: ProviderMode::Remote,
                         available_modes: vec![ProviderMode::Remote],
                         summary: String::from("Planner currently uses configured remote profiles only."),
@@ -7895,6 +7933,14 @@ mod tests {
                         model_label: String::from("default"),
                     }],
                 },
+                local_tts_model_settings: LocalTtsModelSettings {
+                    profile_name: Some(String::from("kitten-default")),
+                    backend: Some(String::from("kitten_tts_rs")),
+                    model_id: Some(String::from("default")),
+                    model_path: Some(String::from("/path/to/kitten/model")),
+                    default_voice: Some(String::from("Bruno")),
+                    sample_rate: Some(24_000),
+                },
                 tts_voice_settings: TtsVoiceSettings {
                     mode: ProviderMode::Local,
                     active_voice: Some(String::from("Bruno")),
@@ -7916,6 +7962,14 @@ mod tests {
                 asr_provider_settings: AsrProviderSettings {
                     active_mode: ProviderMode::Local,
                     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+                },
+                local_asr_model_settings: LocalAsrModelSettings {
+                    profile_name: Some(String::from("whisper-default")),
+                    backend: Some(String::from("whisper")),
+                    model_id: Some(String::from("tiny")),
+                    model_path: Some(String::from("/path/to/whisper/model")),
+                    language: Some(String::from("en")),
+                    threads: Some(4),
                 },
                 planner_provider_settings: PlannerProviderSettings {
                     active_mode: ProviderMode::Remote,
@@ -9095,6 +9149,14 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+            local_tts_model_settings: LocalTtsModelSettings {
+                profile_name: Some(String::from("kitten-default")),
+                backend: Some(String::from("kitten_tts_rs")),
+                model_id: Some(String::from("default")),
+                model_path: Some(String::from("/path/to/kitten/model")),
+                default_voice: Some(String::from("Bruno")),
+                sample_rate: Some(24_000),
+            },
             tts_voice_settings: TtsVoiceSettings {
                 mode: ProviderMode::Local,
                 active_voice: Some(String::from("Bruno")),
@@ -9116,6 +9178,14 @@ mod tests {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+local_asr_model_settings: LocalAsrModelSettings {
+    profile_name: Some(String::from("whisper-default")),
+    backend: Some(String::from("whisper")),
+    model_id: Some(String::from("tiny")),
+    model_path: Some(String::from("/path/to/whisper/model")),
+    language: Some(String::from("en")),
+    threads: Some(4),
 },
 planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
@@ -9195,6 +9265,14 @@ ocr_threshold_settings: OcrThresholdSettings {
                     model_label: String::from("default"),
                 }],
             },
+            local_tts_model_settings: LocalTtsModelSettings {
+                profile_name: Some(String::from("kitten-default")),
+                backend: Some(String::from("kitten_tts_rs")),
+                model_id: Some(String::from("default")),
+                model_path: Some(String::from("/path/to/kitten/model")),
+                default_voice: Some(String::from("Bruno")),
+                sample_rate: Some(24_000),
+            },
             tts_voice_settings: TtsVoiceSettings {
                 mode: ProviderMode::Local,
                 active_voice: Some(String::from("Bruno")),
@@ -9216,6 +9294,14 @@ ocr_threshold_settings: OcrThresholdSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+local_asr_model_settings: LocalAsrModelSettings {
+    profile_name: Some(String::from("whisper-default")),
+    backend: Some(String::from("whisper")),
+    model_id: Some(String::from("tiny")),
+    model_path: Some(String::from("/path/to/whisper/model")),
+    language: Some(String::from("en")),
+    threads: Some(4),
 },
 planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
@@ -9288,6 +9374,14 @@ ocr_threshold_settings: OcrThresholdSettings {
                     model_label: String::from("default"),
                 }],
             },
+            local_tts_model_settings: LocalTtsModelSettings {
+                profile_name: Some(String::from("kitten-default")),
+                backend: Some(String::from("kitten_tts_rs")),
+                model_id: Some(String::from("default")),
+                model_path: Some(String::from("/path/to/kitten/model")),
+                default_voice: Some(String::from("Bruno")),
+                sample_rate: Some(24_000),
+            },
             tts_voice_settings: TtsVoiceSettings {
                 mode: ProviderMode::Local,
                 active_voice: Some(String::from("Bruno")),
@@ -9309,6 +9403,14 @@ ocr_threshold_settings: OcrThresholdSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+local_asr_model_settings: LocalAsrModelSettings {
+    profile_name: Some(String::from("whisper-default")),
+    backend: Some(String::from("whisper")),
+    model_id: Some(String::from("tiny")),
+    model_path: Some(String::from("/path/to/whisper/model")),
+    language: Some(String::from("en")),
+    threads: Some(4),
 },
 planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
@@ -9373,6 +9475,14 @@ ocr_threshold_settings: OcrThresholdSettings {
                     model_label: String::from("default"),
                 }],
             },
+            local_tts_model_settings: LocalTtsModelSettings {
+                profile_name: Some(String::from("kitten-default")),
+                backend: Some(String::from("kitten_tts_rs")),
+                model_id: Some(String::from("default")),
+                model_path: Some(String::from("/path/to/kitten/model")),
+                default_voice: Some(String::from("Bruno")),
+                sample_rate: Some(24_000),
+            },
             tts_voice_settings: TtsVoiceSettings {
                 mode: ProviderMode::Local,
                 active_voice: Some(String::from("Bruno")),
@@ -9394,6 +9504,14 @@ ocr_threshold_settings: OcrThresholdSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+local_asr_model_settings: LocalAsrModelSettings {
+    profile_name: Some(String::from("whisper-default")),
+    backend: Some(String::from("whisper")),
+    model_id: Some(String::from("tiny")),
+    model_path: Some(String::from("/path/to/whisper/model")),
+    language: Some(String::from("en")),
+    threads: Some(4),
 },
 planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
@@ -9482,6 +9600,14 @@ ocr_threshold_settings: OcrThresholdSettings {
                     model_label: String::from("default"),
                 }],
             },
+            local_tts_model_settings: LocalTtsModelSettings {
+                profile_name: Some(String::from("kitten-default")),
+                backend: Some(String::from("kitten_tts_rs")),
+                model_id: Some(String::from("default")),
+                model_path: Some(String::from("/path/to/kitten/model")),
+                default_voice: Some(String::from("Bruno")),
+                sample_rate: Some(24_000),
+            },
             tts_voice_settings: TtsVoiceSettings {
                 mode: ProviderMode::Local,
                 active_voice: Some(String::from("Bruno")),
@@ -9503,6 +9629,14 @@ ocr_threshold_settings: OcrThresholdSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+local_asr_model_settings: LocalAsrModelSettings {
+    profile_name: Some(String::from("whisper-default")),
+    backend: Some(String::from("whisper")),
+    model_id: Some(String::from("tiny")),
+    model_path: Some(String::from("/path/to/whisper/model")),
+    language: Some(String::from("en")),
+    threads: Some(4),
 },
 planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
@@ -9586,6 +9720,14 @@ ocr_threshold_settings: OcrThresholdSettings {
                     model_label: String::from("default"),
                 }],
             },
+            local_tts_model_settings: LocalTtsModelSettings {
+                profile_name: Some(String::from("kitten-default")),
+                backend: Some(String::from("kitten_tts_rs")),
+                model_id: Some(String::from("default")),
+                model_path: Some(String::from("/path/to/kitten/model")),
+                default_voice: Some(String::from("Bruno")),
+                sample_rate: Some(24_000),
+            },
             tts_voice_settings: TtsVoiceSettings {
                 mode: ProviderMode::Local,
                 active_voice: Some(String::from("Bruno")),
@@ -9607,6 +9749,14 @@ ocr_threshold_settings: OcrThresholdSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+local_asr_model_settings: LocalAsrModelSettings {
+    profile_name: Some(String::from("whisper-default")),
+    backend: Some(String::from("whisper")),
+    model_id: Some(String::from("tiny")),
+    model_path: Some(String::from("/path/to/whisper/model")),
+    language: Some(String::from("en")),
+    threads: Some(4),
 },
 planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
@@ -9701,6 +9851,14 @@ ocr_threshold_settings: OcrThresholdSettings {
                     model_label: String::from("default"),
                 }],
             },
+            local_tts_model_settings: LocalTtsModelSettings {
+                profile_name: Some(String::from("kitten-default")),
+                backend: Some(String::from("kitten_tts_rs")),
+                model_id: Some(String::from("default")),
+                model_path: Some(String::from("/path/to/kitten/model")),
+                default_voice: Some(String::from("Bruno")),
+                sample_rate: Some(24_000),
+            },
             tts_voice_settings: TtsVoiceSettings {
                 mode: ProviderMode::Local,
                 active_voice: Some(String::from("Bruno")),
@@ -9722,6 +9880,14 @@ ocr_threshold_settings: OcrThresholdSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+local_asr_model_settings: LocalAsrModelSettings {
+    profile_name: Some(String::from("whisper-default")),
+    backend: Some(String::from("whisper")),
+    model_id: Some(String::from("tiny")),
+    model_path: Some(String::from("/path/to/whisper/model")),
+    language: Some(String::from("en")),
+    threads: Some(4),
 },
 planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
@@ -9791,6 +9957,14 @@ ocr_threshold_settings: OcrThresholdSettings {
                     model_label: String::from("default"),
                 }],
             },
+            local_tts_model_settings: LocalTtsModelSettings {
+                profile_name: Some(String::from("kitten-default")),
+                backend: Some(String::from("kitten_tts_rs")),
+                model_id: Some(String::from("default")),
+                model_path: Some(String::from("/path/to/kitten/model")),
+                default_voice: Some(String::from("Bruno")),
+                sample_rate: Some(24_000),
+            },
             tts_voice_settings: TtsVoiceSettings {
                 mode: ProviderMode::Local,
                 active_voice: Some(String::from("Bruno")),
@@ -9812,6 +9986,14 @@ ocr_threshold_settings: OcrThresholdSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+local_asr_model_settings: LocalAsrModelSettings {
+    profile_name: Some(String::from("whisper-default")),
+    backend: Some(String::from("whisper")),
+    model_id: Some(String::from("tiny")),
+    model_path: Some(String::from("/path/to/whisper/model")),
+    language: Some(String::from("en")),
+    threads: Some(4),
 },
 planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
@@ -9886,6 +10068,14 @@ ocr_threshold_settings: OcrThresholdSettings {
                     model_label: String::from("default"),
                 }],
             },
+            local_tts_model_settings: LocalTtsModelSettings {
+                profile_name: Some(String::from("kitten-default")),
+                backend: Some(String::from("kitten_tts_rs")),
+                model_id: Some(String::from("default")),
+                model_path: Some(String::from("/path/to/kitten/model")),
+                default_voice: Some(String::from("Bruno")),
+                sample_rate: Some(24_000),
+            },
             tts_voice_settings: TtsVoiceSettings {
                 mode: ProviderMode::Local,
                 active_voice: Some(String::from("Bruno")),
@@ -9907,6 +10097,14 @@ ocr_threshold_settings: OcrThresholdSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+local_asr_model_settings: LocalAsrModelSettings {
+    profile_name: Some(String::from("whisper-default")),
+    backend: Some(String::from("whisper")),
+    model_id: Some(String::from("tiny")),
+    model_path: Some(String::from("/path/to/whisper/model")),
+    language: Some(String::from("en")),
+    threads: Some(4),
 },
 planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
@@ -9975,6 +10173,14 @@ ocr_threshold_settings: OcrThresholdSettings {
                     model_label: String::from("default"),
                 }],
             },
+            local_tts_model_settings: LocalTtsModelSettings {
+                profile_name: Some(String::from("kitten-default")),
+                backend: Some(String::from("kitten_tts_rs")),
+                model_id: Some(String::from("default")),
+                model_path: Some(String::from("/path/to/kitten/model")),
+                default_voice: Some(String::from("Bruno")),
+                sample_rate: Some(24_000),
+            },
             tts_voice_settings: TtsVoiceSettings {
                 mode: ProviderMode::Local,
                 active_voice: Some(String::from("Bruno")),
@@ -9996,6 +10202,14 @@ ocr_threshold_settings: OcrThresholdSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+local_asr_model_settings: LocalAsrModelSettings {
+    profile_name: Some(String::from("whisper-default")),
+    backend: Some(String::from("whisper")),
+    model_id: Some(String::from("tiny")),
+    model_path: Some(String::from("/path/to/whisper/model")),
+    language: Some(String::from("en")),
+    threads: Some(4),
 },
 planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,

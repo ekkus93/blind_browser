@@ -891,3 +891,8 @@
 - Added a transient frontend guidance panel that appears only when surfaced errors look like missing local TTS or ASR model configuration/load failures.
 - The panel gives direct jump actions to the already-visible settings controls that can help recover today: TTS provider/model controls for TTS issues and the ASR provider control for ASR issues.
 - This keeps the slice honest by improving navigation to existing config surfaces without pretending model-download or local-path editing UI already exists.
+
+## 2026-03-26T09:06:07Z - GPT-5.4 - Settings now expose local model references
+- Extended `get_agent_state` with read-only local TTS and ASR model reference payloads so the frontend can show the configured local profile name, backend, model id, model path, and profile-specific details.
+- Added dedicated Settings panels for those local model references and updated the missing-model guidance actions so users can jump straight to the new local reference panels when TTS or ASR local-model failures surface.
+- Kept the slice honest by leaving edits in config for now; validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`189` Rust tests, `42` UI tests).

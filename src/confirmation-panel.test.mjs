@@ -8,6 +8,8 @@ import {
   renderSettingsAsrProviderPanel,
   renderSettingsConfirmationPanel,
   renderSettingsGuidancePanel,
+  renderSettingsLocalAsrModelPanel,
+  renderSettingsLocalTtsModelPanel,
   renderSettingsOcrThresholdPanel,
   renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
@@ -558,6 +560,23 @@ test("renders settings ASR provider errors and disabled state while saving", () 
   assert.match(html, /role="alert"/);
 });
 
+test("renders local ASR model reference details", () => {
+  const html = renderSettingsLocalAsrModelPanel({
+    profileName: "whisper-default",
+    backend: "whisper",
+    modelId: "tiny",
+    modelPath: "/models/whisper/tiny.bin",
+    language: "en",
+    threads: 4,
+  });
+
+  assert.match(html, /Local ASR model reference/);
+  assert.match(html, /configured local ASR profile/);
+  assert.match(html, /whisper-default/);
+  assert.match(html, /\/models\/whisper\/tiny\.bin/);
+  assert.match(html, /edit the app config directly/i);
+});
+
 test("renders settings TTS provider selection for configured modes", () => {
   const html = renderSettingsTtsProviderPanel({
     activeMode: "Local",
@@ -603,6 +622,23 @@ test("renders settings TTS model selection for configured profiles", () => {
   assert.match(html, /default \(kitten-default\)/);
   assert.match(html, /large-v1 \(kitten-large\)/);
   assert.match(html, /data-tts-model-select="true"/);
+});
+
+test("renders local TTS model reference details", () => {
+  const html = renderSettingsLocalTtsModelPanel({
+    profileName: "kitten-default",
+    backend: "kitten_tts_rs",
+    modelId: "default",
+    modelPath: "/models/kitten/default",
+    defaultVoice: "Bruno",
+    sampleRate: 24000,
+  });
+
+  assert.match(html, /Local TTS model reference/);
+  assert.match(html, /configured local TTS profile/);
+  assert.match(html, /kitten-default/);
+  assert.match(html, /\/models\/kitten\/default/);
+  assert.match(html, /24000/);
 });
 
 test("renders settings TTS model errors and disabled state while saving", () => {

@@ -52,6 +52,24 @@ export interface AsrProviderPanelState {
   error: string | null;
 }
 
+export interface LocalTtsModelPanelState {
+  profileName: string | null;
+  backend: string | null;
+  modelId: string | null;
+  modelPath: string | null;
+  defaultVoice: string | null;
+  sampleRate: number | null;
+}
+
+export interface LocalAsrModelPanelState {
+  profileName: string | null;
+  backend: string | null;
+  modelId: string | null;
+  modelPath: string | null;
+  language: string | null;
+  threads: number | null;
+}
+
 export interface PlannerProviderPanelState {
   activeMode: "Remote";
   availableModes: ["Remote"] | "Remote"[];
@@ -138,6 +156,14 @@ function renderConfirmationThresholdValue(confidenceThreshold: number): string {
 
 function renderOcrThresholdValue(value: number): string {
   return `${value}`;
+}
+
+function renderReadOnlySettingValue(value: string | number | null): string {
+  if (value === null) {
+    return "Not configured";
+  }
+
+  return escapeHtml(`${value}`);
 }
 
 export function renderConfirmationPanel(state: ConfirmationUiState): string {
@@ -665,6 +691,47 @@ export function renderSettingsAsrProviderPanel(state: AsrProviderPanelState): st
   `;
 }
 
+export function renderSettingsLocalTtsModelPanel(state: LocalTtsModelPanelState): string {
+  return `
+    <section class="settings-panel" aria-labelledby="settings-local-tts-model-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-local-tts-model-title">Local TTS model reference</h2>
+        <p class="settings-panel-description">
+          Review the configured local TTS profile that will be used whenever TTS runs in local
+          mode. To change these references, edit the app config directly.
+        </p>
+      </div>
+      <div class="settings-grid">
+        <div class="settings-control-card">
+          <span class="settings-control-label">Local TTS profile</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Backend</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.backend)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Model ID</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.modelId)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Model path</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.modelPath)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Default voice</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.defaultVoice)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Sample rate</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.sampleRate)}</span>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 export function renderSettingsTtsProviderPanel(state: TtsProviderPanelState): string {
   const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
   const errorCopy = state.error
@@ -701,6 +768,47 @@ export function renderSettingsTtsProviderPanel(state: TtsProviderPanelState): st
             ${optionsCopy}
           </select>
         </label>
+      </div>
+    </section>
+  `;
+}
+
+export function renderSettingsLocalAsrModelPanel(state: LocalAsrModelPanelState): string {
+  return `
+    <section class="settings-panel" aria-labelledby="settings-local-asr-model-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-local-asr-model-title">Local ASR model reference</h2>
+        <p class="settings-panel-description">
+          Review the configured local ASR profile that will be used whenever ASR runs in local
+          mode. To change these references, edit the app config directly.
+        </p>
+      </div>
+      <div class="settings-grid">
+        <div class="settings-control-card">
+          <span class="settings-control-label">Local ASR profile</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Backend</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.backend)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Model ID</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.modelId)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Model path</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.modelPath)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Language</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.language)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Threads</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.threads)}</span>
+        </div>
       </div>
     </section>
   `;

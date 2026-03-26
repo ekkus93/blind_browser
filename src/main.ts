@@ -7,6 +7,8 @@ import {
   renderSettingsAsrProviderPanel,
   renderSettingsConfirmationPanel,
   renderSettingsGuidancePanel,
+  renderSettingsLocalAsrModelPanel,
+  renderSettingsLocalTtsModelPanel,
   renderSettingsOcrThresholdPanel,
   renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
@@ -20,6 +22,8 @@ import {
   type AudioControlsPanelState,
   type AsrProviderPanelState,
   type ConfirmationSettingsPanelState,
+  type LocalAsrModelPanelState,
+  type LocalTtsModelPanelState,
   type OcrThresholdSettingsPanelState,
   type PlannerProviderPanelState,
   type ProviderFailoverPanelState,
@@ -105,8 +109,10 @@ let providerFailoverPanelState: ProviderFailoverPanelState = createInitialProvid
 let confirmationSettingsPanelState: ConfirmationSettingsPanelState = createInitialConfirmationSettingsPanelState();
 let ocrThresholdSettingsPanelState: OcrThresholdSettingsPanelState = createInitialOcrThresholdSettingsPanelState();
 let asrProviderPanelState: AsrProviderPanelState = createInitialAsrProviderPanelState();
+let localAsrModelPanelState: LocalAsrModelPanelState = createInitialLocalAsrModelPanelState();
 let ttsProviderPanelState: TtsProviderPanelState = createInitialTtsProviderPanelState();
 let ttsModelPanelState: TtsModelPanelState = createInitialTtsModelPanelState();
+let localTtsModelPanelState: LocalTtsModelPanelState = createInitialLocalTtsModelPanelState();
 let ttsVoicePanelState: TtsVoicePanelState = createInitialTtsVoicePanelState();
 let statusPanelState: StatusPanelState = createInitialStatusPanelState();
 let urlInputPanelState: UrlInputPanelState = createInitialUrlInputPanelState();
@@ -154,6 +160,17 @@ function createInitialAsrProviderPanelState(): AsrProviderPanelState {
   };
 }
 
+function createInitialLocalAsrModelPanelState(): LocalAsrModelPanelState {
+  return {
+    profileName: null,
+    backend: null,
+    modelId: null,
+    modelPath: null,
+    language: null,
+    threads: null,
+  };
+}
+
 function createInitialProviderFailoverPanelState(): ProviderFailoverPanelState {
   return {
     plannerAvailable: false,
@@ -188,6 +205,17 @@ function createInitialTtsProviderPanelState(): TtsProviderPanelState {
     availableModes: ["Local", "Remote"],
     isBusy: false,
     error: null,
+  };
+}
+
+function createInitialLocalTtsModelPanelState(): LocalTtsModelPanelState {
+  return {
+    profileName: null,
+    backend: null,
+    modelId: null,
+    modelPath: null,
+    defaultVoice: null,
+    sampleRate: null,
   };
 }
 
@@ -249,8 +277,10 @@ const renderApp = (
   confirmationSettingsPanel: ConfirmationSettingsPanelState,
   ocrThresholdSettingsPanel: OcrThresholdSettingsPanelState,
   asrProviderPanel: AsrProviderPanelState,
+  localAsrModelPanel: LocalAsrModelPanelState,
   ttsProviderPanel: TtsProviderPanelState,
   ttsModelPanel: TtsModelPanelState,
+  localTtsModelPanel: LocalTtsModelPanelState,
   ttsVoicePanel: TtsVoicePanelState,
   statusPanel: StatusPanelState,
   urlInputPanel: UrlInputPanelState,
@@ -299,8 +329,10 @@ const renderApp = (
       ${renderSettingsConfirmationPanel(confirmationSettingsPanel)}
       ${renderSettingsOcrThresholdPanel(ocrThresholdSettingsPanel)}
       ${renderSettingsAsrProviderPanel(asrProviderPanel)}
+      ${renderSettingsLocalAsrModelPanel(localAsrModelPanel)}
       ${renderSettingsTtsProviderPanel(ttsProviderPanel)}
       ${renderSettingsTtsModelPanel(ttsModelPanel)}
+      ${renderSettingsLocalTtsModelPanel(localTtsModelPanel)}
       ${renderSettingsTtsVoicePanel(ttsVoicePanel)}
       ${renderSettingsVolumePanel(audioControls)}
       ${renderSettingsSpeedPanel(audioControls)}
@@ -319,8 +351,10 @@ function rerender() {
     confirmationSettingsPanelState,
     ocrThresholdSettingsPanelState,
     asrProviderPanelState,
+    localAsrModelPanelState,
     ttsProviderPanelState,
     ttsModelPanelState,
+    localTtsModelPanelState,
     ttsVoicePanelState,
     statusPanelState,
     urlInputPanelState,
@@ -383,6 +417,14 @@ function setAsrProviderPanelState(nextState: Partial<AsrProviderPanelState>) {
   rerender();
 }
 
+function setLocalAsrModelPanelState(nextState: Partial<LocalAsrModelPanelState>) {
+  localAsrModelPanelState = {
+    ...localAsrModelPanelState,
+    ...nextState,
+  };
+  rerender();
+}
+
 function setTtsProviderPanelState(nextState: Partial<TtsProviderPanelState>) {
   ttsProviderPanelState = {
     ...ttsProviderPanelState,
@@ -394,6 +436,14 @@ function setTtsProviderPanelState(nextState: Partial<TtsProviderPanelState>) {
 function setTtsModelPanelState(nextState: Partial<TtsModelPanelState>) {
   ttsModelPanelState = {
     ...ttsModelPanelState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setLocalTtsModelPanelState(nextState: Partial<LocalTtsModelPanelState>) {
+  localTtsModelPanelState = {
+    ...localTtsModelPanelState,
     ...nextState,
   };
   rerender();
@@ -504,6 +554,7 @@ function guidanceStateForErrorMessage(message: string | null): SettingsGuidanceP
       actions: [
         { label: "Review TTS provider", targetId: "settings-tts-provider-control" },
         { label: "Review TTS model", targetId: "settings-tts-model-control" },
+        { label: "Review local TTS reference", targetId: "settings-local-tts-model-title" },
       ],
     };
   }
@@ -515,8 +566,11 @@ function guidanceStateForErrorMessage(message: string | null): SettingsGuidanceP
   ) {
     return {
       title: "Model setup needs attention",
-      message: "The current local ASR setup is unavailable. Review the ASR provider settings below.",
-      actions: [{ label: "Review ASR provider", targetId: "settings-asr-provider-control" }],
+      message: "The current local ASR setup is unavailable. Review the ASR provider and local model settings below.",
+      actions: [
+        { label: "Review ASR provider", targetId: "settings-asr-provider-control" },
+        { label: "Review local ASR reference", targetId: "settings-local-asr-model-title" },
+      ],
     };
   }
 
@@ -584,6 +638,14 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     isBusy: false,
     error: null,
   });
+  setLocalAsrModelPanelState({
+    profileName: agentState.local_asr_model_settings.profile_name,
+    backend: agentState.local_asr_model_settings.backend,
+    modelId: agentState.local_asr_model_settings.model_id,
+    modelPath: agentState.local_asr_model_settings.model_path,
+    language: agentState.local_asr_model_settings.language,
+    threads: agentState.local_asr_model_settings.threads,
+  });
   setTtsProviderPanelState({
     activeMode: agentState.tts_provider_settings.active_mode,
     availableModes: agentState.tts_provider_settings.available_modes,
@@ -599,6 +661,14 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     })),
     isBusy: false,
     error: null,
+  });
+  setLocalTtsModelPanelState({
+    profileName: agentState.local_tts_model_settings.profile_name,
+    backend: agentState.local_tts_model_settings.backend,
+    modelId: agentState.local_tts_model_settings.model_id,
+    modelPath: agentState.local_tts_model_settings.model_path,
+    defaultVoice: agentState.local_tts_model_settings.default_voice,
+    sampleRate: agentState.local_tts_model_settings.sample_rate,
   });
   setTtsVoicePanelState({
     mode: agentState.tts_voice_settings.mode,

@@ -38,9 +38,9 @@ use crate::commands::{
     StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
     SubmitActiveFormInput, ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData,
     TranscribeCommandData, TranscribeCommandInput, TtsModelOption, TtsModelSettings,
-    AsrProviderSettings, ConfirmationSettings, OcrThresholdSettings,
-    PlannerProviderSettings, ProviderFailoverSettings, TtsProviderSettings,
-    TtsVoiceOption, TtsVoiceSettings, TypeIntoElementData,
+    AsrProviderSettings, ConfirmationSettings, LocalAsrModelSettings, LocalTtsModelSettings,
+    OcrThresholdSettings, PlannerProviderSettings, ProviderFailoverSettings,
+    TtsProviderSettings, TtsVoiceOption, TtsVoiceSettings, TypeIntoElementData,
     TypeIntoElementInput,
 };
 use crate::config::{
@@ -2808,6 +2808,10 @@ impl AppCore {
         build_tts_model_settings(&self.config)
     }
 
+    fn current_local_tts_model_settings(&self) -> LocalTtsModelSettings {
+        build_local_tts_model_settings(&self.config)
+    }
+
     fn current_tts_voice_settings(&self) -> TtsVoiceSettings {
         build_tts_voice_settings(&self.config, &self.state.audio)
     }
@@ -2818,6 +2822,10 @@ impl AppCore {
 
     fn current_asr_provider_settings(&self) -> AsrProviderSettings {
         build_asr_provider_settings(&self.config)
+    }
+
+    fn current_local_asr_model_settings(&self) -> LocalAsrModelSettings {
+        build_local_asr_model_settings(&self.config)
     }
 
     fn current_planner_provider_settings(&self) -> PlannerProviderSettings {
@@ -3580,9 +3588,11 @@ impl AppCore {
             pending_confirmation_id: self.state.pending_confirmation_id.clone(),
             pending_plan_execution: self.state.pending_plan_execution.clone(),
             tts_model_settings: self.current_tts_model_settings(),
+            local_tts_model_settings: self.current_local_tts_model_settings(),
             tts_voice_settings: self.current_tts_voice_settings(),
             tts_provider_settings: self.current_tts_provider_settings(),
             asr_provider_settings: self.current_asr_provider_settings(),
+            local_asr_model_settings: self.current_local_asr_model_settings(),
             planner_provider_settings: self.current_planner_provider_settings(),
             provider_failover_settings: self.current_provider_failover_settings(),
             confirmation_settings: self.current_confirmation_settings(),
@@ -4141,6 +4151,22 @@ fn build_tts_model_settings(config: &AppConfig) -> TtsModelSettings {
     }
 }
 
+fn build_local_tts_model_settings(config: &AppConfig) -> LocalTtsModelSettings {
+    let profile_name = config.providers.tts.local_profile.clone();
+    let profile = profile_name
+        .as_ref()
+        .and_then(|configured_profile| config.local_tts_profiles.get(configured_profile));
+
+    LocalTtsModelSettings {
+        profile_name,
+        backend: profile.map(|configured_profile| configured_profile.backend.clone()),
+        model_id: profile.map(|configured_profile| configured_profile.model_id.clone()),
+        model_path: profile.map(|configured_profile| configured_profile.model_path.clone()),
+        default_voice: profile.map(|configured_profile| configured_profile.default_voice.clone()),
+        sample_rate: profile.map(|configured_profile| configured_profile.sample_rate),
+    }
+}
+
 fn build_tts_provider_settings(config: &AppConfig) -> TtsProviderSettings {
     let mut available_modes = Vec::new();
     if config
@@ -4237,6 +4263,22 @@ fn build_asr_provider_settings(config: &AppConfig) -> AsrProviderSettings {
     AsrProviderSettings {
         active_mode: config.providers.asr.mode.clone(),
         available_modes,
+    }
+}
+
+fn build_local_asr_model_settings(config: &AppConfig) -> LocalAsrModelSettings {
+    let profile_name = config.providers.asr.local_profile.clone();
+    let profile = profile_name
+        .as_ref()
+        .and_then(|configured_profile| config.local_asr_profiles.get(configured_profile));
+
+    LocalAsrModelSettings {
+        profile_name,
+        backend: profile.map(|configured_profile| configured_profile.backend.clone()),
+        model_id: profile.map(|configured_profile| configured_profile.model_id.clone()),
+        model_path: profile.map(|configured_profile| configured_profile.model_path.clone()),
+        language: profile.and_then(|configured_profile| configured_profile.language.clone()),
+        threads: profile.map(|configured_profile| configured_profile.threads),
     }
 }
 
@@ -6443,7 +6485,8 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
 mod tests {
     use super::{
         build_asr_provider_settings, build_confirmation_settings, build_extracted_page_model,
-        build_find_element_query, build_ocr_threshold_settings, build_planner_provider_settings,
+        build_find_element_query, build_local_asr_model_settings, build_local_tts_model_settings,
+        build_ocr_threshold_settings, build_planner_provider_settings,
         build_provider_failover_settings, build_tts_provider_settings, build_tts_voice_settings,
         build_visible_text_excerpt, determine_find_element_resolution,
         execute_bounded_replanning_loop, extracted_text_metrics, filter_interactive_elements,
@@ -6505,6 +6548,34 @@ mod tests {
         assert_eq!(settings.confirmation_confidence_threshold, 0.9);
         assert!(settings.allow_click_without_confirmation);
         assert!(settings.always_confirm_submit);
+    }
+
+    #[test]
+    fn build_local_tts_model_settings_reflects_configured_profile_details() {
+        let config = AppConfig::default();
+
+        let settings = build_local_tts_model_settings(&config);
+
+        assert_eq!(settings.profile_name.as_deref(), Some("kitten-default"));
+        assert_eq!(settings.backend.as_deref(), Some("kitten_tts_rs"));
+        assert_eq!(settings.model_id.as_deref(), Some("default"));
+        assert_eq!(settings.model_path.as_deref(), Some("/path/to/kitten/model"));
+        assert_eq!(settings.default_voice.as_deref(), Some("Bruno"));
+        assert_eq!(settings.sample_rate, Some(24_000));
+    }
+
+    #[test]
+    fn build_local_asr_model_settings_reflects_configured_profile_details() {
+        let config = AppConfig::default();
+
+        let settings = build_local_asr_model_settings(&config);
+
+        assert_eq!(settings.profile_name.as_deref(), Some("whisper-default"));
+        assert_eq!(settings.backend.as_deref(), Some("whisper"));
+        assert_eq!(settings.model_id.as_deref(), Some("tiny"));
+        assert_eq!(settings.model_path.as_deref(), Some("/path/to/whisper/model"));
+        assert_eq!(settings.language.as_deref(), Some("en"));
+        assert_eq!(settings.threads, Some(4));
     }
 
     #[test]

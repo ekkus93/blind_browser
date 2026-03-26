@@ -190,6 +190,15 @@ export interface TtsModelSettings {
   available_profiles: TtsModelOption[];
 }
 
+export interface LocalTtsModelSettings {
+  profile_name: string | null;
+  backend: string | null;
+  model_id: string | null;
+  model_path: string | null;
+  default_voice: string | null;
+  sample_rate: number | null;
+}
+
 export interface TtsVoiceOption {
   voice_name: string;
   display_label: string;
@@ -209,6 +218,15 @@ export interface TtsProviderSettings {
 export interface AsrProviderSettings {
   active_mode: SelectableProviderMode;
   available_modes: SelectableProviderMode[];
+}
+
+export interface LocalAsrModelSettings {
+  profile_name: string | null;
+  backend: string | null;
+  model_id: string | null;
+  model_path: string | null;
+  language: string | null;
+  threads: number | null;
 }
 
 export interface PlannerProviderSettings {
@@ -291,9 +309,11 @@ export interface AgentStateData {
   listening_state: ListeningState;
   audio: RuntimeAudioState;
   tts_model_settings: TtsModelSettings;
+  local_tts_model_settings: LocalTtsModelSettings;
   tts_voice_settings: TtsVoiceSettings;
   tts_provider_settings: TtsProviderSettings;
   asr_provider_settings: AsrProviderSettings;
+  local_asr_model_settings: LocalAsrModelSettings;
   planner_provider_settings: PlannerProviderSettings;
   provider_failover_settings: ProviderFailoverSettings;
   confirmation_settings: ConfirmationSettings;
