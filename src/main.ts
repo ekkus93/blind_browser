@@ -122,6 +122,7 @@ function createInitialUrlInputPanelState(): UrlInputPanelState {
     hasUnsubmittedChanges: false,
     isOpening: false,
     isReading: false,
+    isStopping: false,
     error: null,
   };
 }
@@ -312,6 +313,7 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     draftValue: urlInputPanelState.hasUnsubmittedChanges ? urlInputPanelState.draftValue : (agentState.url ?? ""),
     isOpening: false,
     isReading: false,
+    isStopping: false,
     error: null,
   });
 }
@@ -415,7 +417,7 @@ async function persistPlaybackSpeed(nextSpeed: number) {
 }
 
 async function openDraftUrl() {
-  if (urlInputPanelState.isOpening || urlInputPanelState.isReading) {
+  if (urlInputPanelState.isOpening || urlInputPanelState.isReading || urlInputPanelState.isStopping) {
     return;
   }
 
@@ -456,7 +458,7 @@ async function openDraftUrl() {
 }
 
 async function readCurrentPage() {
-  if (urlInputPanelState.isOpening || urlInputPanelState.isReading) {
+  if (urlInputPanelState.isOpening || urlInputPanelState.isReading || urlInputPanelState.isStopping) {
     return;
   }
 
@@ -504,6 +506,60 @@ async function readCurrentPage() {
     setUrlInputPanelState({
       ...previousState,
       isReading: false,
+      error: describeUrlInputFailure(error),
+    });
+  }
+}
+
+async function stopCurrentReading() {
+  if (urlInputPanelState.isOpening || urlInputPanelState.isReading || urlInputPanelState.isStopping) {
+    return;
+  }
+
+  const previousState = urlInputPanelState;
+  setUrlInputPanelState({
+    isStopping: true,
+    error: null,
+  });
+
+  try {
+    const requestId = createRequestId("stop-reading");
+    const plannerOutput = await resolveCommand(requestId, "stop reading");
+    if (plannerOutput.status === "Blocked") {
+      setUrlInputPanelState({
+        ...previousState,
+        isStopping: false,
+        error: describePlannerBlockedMessage(
+          "The runtime could not stop the current reading session.",
+          plannerOutput.user_message,
+        ),
+      });
+      return;
+    }
+
+    if (plannerOutput.status === "Complete") {
+      setUrlInputPanelState({
+        ...previousState,
+        isStopping: false,
+        error: describePlannerBlockedMessage(
+          "The runtime did not need to stop any current reading.",
+          plannerOutput.user_message,
+        ),
+      });
+      return;
+    }
+
+    await runPlannerExecution(requestId, plannerOutput, uiStore);
+    setUrlInputPanelState({
+      ...previousState,
+      isStopping: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setUrlInputPanelState({
+      ...previousState,
+      isStopping: false,
       error: describeUrlInputFailure(error),
     });
   }
@@ -661,6 +717,7 @@ app.addEventListener("click", (event) => {
     if (
       urlInputPanelState.isOpening ||
       urlInputPanelState.isReading ||
+      urlInputPanelState.isStopping ||
       urlOpenButton.disabled
     ) {
       return;
@@ -675,12 +732,28 @@ app.addEventListener("click", (event) => {
     if (
       urlInputPanelState.isOpening ||
       urlInputPanelState.isReading ||
+      urlInputPanelState.isStopping ||
       urlReadButton.disabled
     ) {
       return;
     }
 
     void readCurrentPage();
+    return;
+  }
+
+  const urlStopButton = target.closest<HTMLButtonElement>("[data-url-stop-button]");
+  if (urlStopButton) {
+    if (
+      urlInputPanelState.isOpening ||
+      urlInputPanelState.isReading ||
+      urlInputPanelState.isStopping ||
+      urlStopButton.disabled
+    ) {
+      return;
+    }
+
+    void stopCurrentReading();
     return;
   }
 

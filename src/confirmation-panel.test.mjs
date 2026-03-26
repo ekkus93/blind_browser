@@ -179,8 +179,10 @@ test("renders URL input with current URL and staged draft value", () => {
   assert.match(html, /data-url-input="true"/);
   assert.match(html, /data-url-open-button="true"/);
   assert.match(html, /data-url-read-button="true"/);
+  assert.match(html, /data-url-stop-button="true"/);
   assert.match(html, />\s*Open\s*<\/button>/);
   assert.match(html, />\s*Read\s*<\/button>/);
+  assert.match(html, />\s*Stop\s*<\/button>/);
   assert.match(html, /value="https:\/\/staged\.example\.com"/);
 });
 
@@ -191,6 +193,7 @@ test("renders URL input fallback copy when no page is loaded", () => {
     hasUnsubmittedChanges: false,
     isOpening: false,
     isReading: false,
+    isStopping: false,
     error: null,
   });
 
@@ -206,6 +209,7 @@ test("renders URL input busy and error states while opening", () => {
     hasUnsubmittedChanges: false,
     isOpening: true,
     isReading: false,
+    isStopping: false,
     error: "The browser could not open that URL.",
   });
 
@@ -222,10 +226,26 @@ test("renders URL input busy state while starting page reading", () => {
     hasUnsubmittedChanges: false,
     isOpening: false,
     isReading: true,
+    isStopping: false,
     error: null,
   });
 
   assert.match(html, /Reading\.\.\./);
+  assert.match(html, /disabled aria-disabled="true"/);
+});
+
+test("renders URL input busy state while stopping page reading", () => {
+  const html = renderUrlInputPanel({
+    draftValue: "https://example.com",
+    currentUrl: "https://example.com",
+    hasUnsubmittedChanges: false,
+    isOpening: false,
+    isReading: false,
+    isStopping: true,
+    error: null,
+  });
+
+  assert.match(html, /Stopping\.\.\./);
   assert.match(html, /disabled aria-disabled="true"/);
 });
 

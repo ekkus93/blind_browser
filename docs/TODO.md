@@ -299,7 +299,7 @@
 - [x] URL input
 - [x] Open button
 - [x] Read button
-- [ ] Stop button
+- [x] Stop button
 - [ ] Next / Previous buttons
 - [x] Push-to-talk button
 - [x] Add nearby playback volume control

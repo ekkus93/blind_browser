@@ -808,3 +808,9 @@
 - The frontend now resolves `"read page"` through `resolveCommand(...)`, executes the returned plan with the same request id via `runPlannerExecution(...)`, surfaces blocked planner `user_message` text directly in the panel, and refreshes runtime state after reading starts.
 - Added focused render coverage for the new read-button state in `src/confirmation-panel.test.mjs` and marked `Read button` complete in `docs/TODO.md`.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, with `174` Rust tests and `16` UI tests passing; Vite also warns in this shell that Node `22.11.0` is below its preferred `22.12+` floor even though the build still completes.
+
+## 2026-03-26T05:09:21Z - GPT-5.4 - Stop button wired through command resolution
+- Extended the URL panel in `src/confirmation-panel.ts`, `src/main.ts`, and `src/styles.css` with a `Stop` button and a dedicated stopping busy state so nearby navigation and narration controls remain explicit and separate.
+- The frontend now resolves `"stop reading"` through `resolveCommand(...)`, executes the returned plan with the same request id via `runPlannerExecution(...)`, surfaces blocked planner `user_message` text directly in the panel, and refreshes runtime state after narration stops.
+- Added focused render coverage for the new stop-button state in `src/confirmation-panel.test.mjs` and marked `Stop button` complete in `docs/TODO.md`.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, with `174` Rust tests and `17` UI tests passing; Vite also warns in this shell that Node `22.11.0` is below its preferred `22.12+` floor even though the build still completes.

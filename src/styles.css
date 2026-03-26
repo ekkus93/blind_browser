@@ -292,6 +292,16 @@ h1 {
   box-shadow: 0 16px 28px rgba(31, 127, 92, 0.24);
 }
 
+.url-stop-button {
+  background: linear-gradient(135deg, #8b342a, #b04736);
+  box-shadow: 0 12px 24px rgba(176, 71, 54, 0.18);
+}
+
+.url-stop-button:hover:not(:disabled),
+.url-stop-button:focus-visible {
+  box-shadow: 0 16px 28px rgba(176, 71, 54, 0.24);
+}
+
 .status-panel {
   margin-top: 18px;
   padding: 22px 24px;
