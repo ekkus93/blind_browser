@@ -26,7 +26,7 @@ use crate::commands::{
     SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
     SetTtsVoiceData, SetTtsVoiceInput, StartListeningData, StartListeningInput, StopListeningData,
     StopListeningInput, ToolError, ToolResult, TranscribeAndExecuteCommandData,
-    TranscribeCommandData, TranscribeCommandInput,
+    TranscribeCommandData, TranscribeCommandInput, TtsVoiceName,
 };
 use crate::config::ProviderMode;
 
@@ -223,7 +223,7 @@ fn set_browser_visibility(
 fn set_tts_voice(
     request_id: String,
     timeout_ms: Option<u64>,
-    voice: String,
+    voice: TtsVoiceName,
     app_core: tauri::State<'_, Mutex<AppCore>>,
 ) -> Result<ToolResult<SetTtsVoiceData>, ToolError> {
     let mut app_core = lock_app_core(&app_core)?;

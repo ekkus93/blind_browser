@@ -920,3 +920,17 @@
 - Added dedicated Tauri model-management commands that expose persisted `models_dir`, `check_on_startup`, and `auto_download_missing` settings, plus explicit manual download actions for the configured local TTS and ASR profiles.
 - Local downloads now map supported KittenTTS and Whisper model ids to known Hugging Face artifacts, write them into the configured models directory, and persist the resulting local profile `model_path` back to `config.toml`.
 - Fixed the shipped local ASR backend mismatch by using `whisper` consistently, added frontend Settings controls and download buttons for model management, and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`195` Rust tests, `48` UI tests).
+
+## 2026-03-26T21:17:02Z - GPT-5.4 - First schema/validation cleanup pass tightened Wave 1 tool contracts
+- `src-tauri/src/commands.rs` now uses a closed `TtsVoiceName` enum for `SetTtsVoiceInput` instead of a free-form string, so unknown voice names are rejected at deserialization time before execution.
+- Planner-side tool validation now also rejects blank `open_url`, `find_element`, `click_element`, `focus_element`, `type_into_element`, `read_region`, `confirm_action`, and `report_result` strings, plus invalid `find_element.max_candidates`, `transcribe_command.max_duration_ms`, and out-of-range playback volume/speed values.
+- Revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`; Rust tests are now `202` passed and UI tests remain `48` passed.
+
+## 2026-03-26T21:23:19Z - GPT-5.4 - Config/runtime enum cleanup closed backend and audio-format fields
+- `src-tauri/src/config.rs` now models `LocalTtsProfile.backend`, `LocalAsrProfile.backend`, and `RemoteTtsProfile.audio_format` as closed enums with stable serialized values (`kitten_tts_rs`, `whisper`, and `wav`) instead of free-form strings.
+- `src-tauri/src/tts.rs`, `src-tauri/src/asr.rs`, and `src-tauri/src/app_core.rs` now consume those enums directly, stringify them only when building UI-facing settings payloads, and no longer carry unreachable unsupported-backend or unsupported-audio-format runtime branches.
+- Revalidated with `cargo fmt --manifest-path src-tauri/Cargo.toml --all`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`.
+
+## 2026-03-26T21:29:59Z - GPT-5.4 - Validation rerun stayed green after enum cleanup
+- Re-ran the standard repo validation pass after the config/runtime enum cleanup and existing schema-contract changes without making further code changes.
+- `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed, Rust unit/integration tests remained `202` passed, and `pnpm test:ui` remained `48` passed.

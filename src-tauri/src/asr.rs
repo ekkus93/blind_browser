@@ -26,7 +26,6 @@ use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextPar
 pub const DEFAULT_TRANSCRIBE_DURATION_MS: u64 = 3_000;
 pub const MAX_TRANSCRIBE_DURATION_MS: u64 = 10_000;
 pub const WHISPER_TARGET_SAMPLE_RATE: u32 = 16_000;
-pub const WHISPER_BACKEND: &str = "whisper";
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum AsrProviderKind {
@@ -72,8 +71,6 @@ pub enum AsrRuntimeError {
         profile_name: String,
         provider: String,
     },
-    #[error("unsupported local asr backend '{backend}'")]
-    UnsupportedLocalBackend { backend: String },
     #[error("audio capture requires the 'audio' feature to be enabled")]
     AudioFeatureUnavailable,
     #[error("local asr requires the 'local-asr' feature to be enabled")]
@@ -234,12 +231,6 @@ impl AsrController {
                 profile_name: profile_name.clone(),
             }
         })?;
-
-        if profile.backend != WHISPER_BACKEND {
-            return Err(AsrRuntimeError::UnsupportedLocalBackend {
-                backend: profile.backend.clone(),
-            });
-        }
 
         let model_path = normalized_model_path(&profile.model_path)?;
         let audio = captured_audio.to_whisper_audio();

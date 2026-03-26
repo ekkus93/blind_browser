@@ -6,13 +6,13 @@ use thiserror::Error;
 
 use crate::audio_io::RuntimeAudioState;
 use crate::config::{
-    resolve_secret_ref, AppConfig, ProviderMode, RemoteProviderKind, RemoteTtsProfile,
+    resolve_secret_ref, AppConfig, ProviderMode, RemoteProviderKind, RemoteTtsAudioFormat,
+    RemoteTtsProfile,
 };
 
 #[cfg(feature = "local-tts")]
 use kitten_tts::model::KittenTTS;
 
-pub const KITTEN_TTS_BACKEND: &str = "kitten_tts_rs";
 pub const KITTEN_TTS_SAMPLE_RATE: u32 = 24_000;
 pub const KITTEN_TTS_CHANNELS: u16 = 1;
 pub const KITTEN_TTS_VOICES: &[&str] = &[
@@ -84,12 +84,8 @@ pub enum TtsRuntimeError {
     RemoteRequestBuildFailed { reason: String },
     #[error("remote tts request failed: {reason}")]
     RemoteRequestFailed { reason: String },
-    #[error("remote tts audio format '{audio_format}' is not supported")]
-    UnsupportedRemoteAudioFormat { audio_format: String },
     #[error("failed to decode the remote tts audio response: {reason}")]
     RemoteResponseDecodeFailed { reason: String },
-    #[error("unsupported local tts backend '{backend}'")]
-    UnsupportedLocalBackend { backend: String },
     #[error("local tts requires the 'local-tts' feature to be enabled")]
     LocalTtsFeatureUnavailable,
     #[error("local tts model path must not be empty")]
@@ -195,7 +191,7 @@ impl TtsController {
         }
 
         let voice = resolved_remote_voice(runtime_audio, profile)?;
-        let response_format = parse_openai_speech_response_format(&profile.audio_format)?;
+        let response_format = parse_openai_speech_response_format(profile.audio_format.clone());
         let request = CreateSpeechRequestArgs::default()
             .input(text.to_string())
             .model(SpeechModel::Other(profile.model.clone()))
@@ -229,8 +225,8 @@ impl TtsController {
                     samples: decoded.samples,
                 })
             }
-            _ => Err(TtsRuntimeError::UnsupportedRemoteAudioFormat {
-                audio_format: profile.audio_format.clone(),
+            _ => Err(TtsRuntimeError::RemoteResponseDecodeFailed {
+                reason: String::from("received an unexpected non-WAV audio response format"),
             }),
         }
     }
@@ -262,12 +258,6 @@ impl TtsController {
                 profile_name: profile_name.clone(),
             }
         })?;
-
-        if profile.backend != KITTEN_TTS_BACKEND {
-            return Err(TtsRuntimeError::UnsupportedLocalBackend {
-                backend: profile.backend.clone(),
-            });
-        }
 
         if profile.sample_rate != KITTEN_TTS_SAMPLE_RATE {
             return Err(TtsRuntimeError::UnsupportedLocalSampleRate {
@@ -388,15 +378,12 @@ fn is_openai_builtin_voice(voice: &str) -> bool {
 }
 
 fn parse_openai_speech_response_format(
-    audio_format: &str,
-) -> Result<async_openai::types::audio::SpeechResponseFormat, TtsRuntimeError> {
+    audio_format: RemoteTtsAudioFormat,
+) -> async_openai::types::audio::SpeechResponseFormat {
     use async_openai::types::audio::SpeechResponseFormat;
 
-    match audio_format.trim().to_ascii_lowercase().as_str() {
-        "wav" => Ok(SpeechResponseFormat::Wav),
-        _ => Err(TtsRuntimeError::UnsupportedRemoteAudioFormat {
-            audio_format: audio_format.trim().to_string(),
-        }),
+    match audio_format {
+        RemoteTtsAudioFormat::Wav => SpeechResponseFormat::Wav,
     }
 }
 
@@ -537,7 +524,10 @@ mod tests {
         resolved_remote_voice, resolved_voice, KITTEN_TTS_SAMPLE_RATE,
     };
     use crate::audio_io::RuntimeAudioState;
-    use crate::config::{LocalTtsProfile, RemoteProviderKind, RemoteTtsProfile, SecretRef};
+    use crate::config::{
+        LocalTtsBackend, LocalTtsProfile, RemoteProviderKind, RemoteTtsAudioFormat,
+        RemoteTtsProfile, SecretRef,
+    };
 
     #[test]
     fn resolved_voice_prefers_runtime_voice_over_profile_default() {
@@ -565,7 +555,7 @@ mod tests {
             organization: None,
             project: None,
             voice: String::from("alloy"),
-            audio_format: String::from("wav"),
+            audio_format: RemoteTtsAudioFormat::Wav,
             timeout_ms: 30_000,
         };
 
@@ -576,12 +566,10 @@ mod tests {
     }
 
     #[test]
-    fn parse_openai_speech_response_format_rejects_non_wav() {
-        let error =
-            parse_openai_speech_response_format("mp3").expect_err("mp3 should be unsupported");
+    fn parse_openai_speech_response_format_returns_wav() {
         assert_eq!(
-            error.to_string(),
-            "remote tts audio format 'mp3' is not supported"
+            parse_openai_speech_response_format(RemoteTtsAudioFormat::Wav),
+            async_openai::types::audio::SpeechResponseFormat::Wav
         );
     }
 
@@ -614,7 +602,7 @@ mod tests {
             ..RuntimeAudioState::default()
         };
         let profile = LocalTtsProfile {
-            backend: String::from("kitten_tts_rs"),
+            backend: LocalTtsBackend::KittenTtsRs,
             model_id: String::from("default"),
             model_path: String::from("/tmp/model"),
             default_voice: String::from("Bruno"),

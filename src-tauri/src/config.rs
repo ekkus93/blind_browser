@@ -126,6 +126,48 @@ pub enum RemoteProviderKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub enum RemoteTtsAudioFormat {
+    #[serde(rename = "wav")]
+    Wav,
+}
+
+impl std::fmt::Display for RemoteTtsAudioFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Wav => f.write_str("wav"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub enum LocalTtsBackend {
+    #[serde(rename = "kitten_tts_rs")]
+    KittenTtsRs,
+}
+
+impl std::fmt::Display for LocalTtsBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::KittenTtsRs => f.write_str("kitten_tts_rs"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub enum LocalAsrBackend {
+    #[serde(rename = "whisper")]
+    Whisper,
+}
+
+impl std::fmt::Display for LocalAsrBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Whisper => f.write_str("whisper"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct RemotePlannerProfile {
     pub provider: RemoteProviderKind,
     pub base_url: String,
@@ -147,7 +189,7 @@ pub struct RemoteTtsProfile {
     pub organization: Option<SecretRef>,
     pub project: Option<String>,
     pub voice: String,
-    pub audio_format: String,
+    pub audio_format: RemoteTtsAudioFormat,
     pub timeout_ms: u64,
 }
 
@@ -166,7 +208,7 @@ pub struct RemoteAsrProfile {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct LocalTtsProfile {
-    pub backend: String,
+    pub backend: LocalTtsBackend,
     pub model_id: String,
     pub model_path: String,
     pub default_voice: String,
@@ -175,7 +217,7 @@ pub struct LocalTtsProfile {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct LocalAsrProfile {
-    pub backend: String,
+    pub backend: LocalAsrBackend,
     pub model_id: String,
     pub model_path: String,
     pub language: Option<String>,
@@ -1069,7 +1111,7 @@ impl Default for AppConfig {
             organization: None,
             project: None,
             voice: String::from("alloy"),
-            audio_format: String::from("wav"),
+            audio_format: RemoteTtsAudioFormat::Wav,
             timeout_ms: 30_000,
         };
 
@@ -1101,7 +1143,7 @@ impl Default for AppConfig {
         local_tts_profiles.insert(
             String::from("kitten-default"),
             LocalTtsProfile {
-                backend: String::from("kitten_tts_rs"),
+                backend: LocalTtsBackend::KittenTtsRs,
                 model_id: String::from("default"),
                 model_path: String::from("/path/to/kitten/model"),
                 default_voice: String::from("Bruno"),
@@ -1113,7 +1155,7 @@ impl Default for AppConfig {
         local_asr_profiles.insert(
             String::from("whisper-default"),
             LocalAsrProfile {
-                backend: String::from("whisper"),
+                backend: LocalAsrBackend::Whisper,
                 model_id: String::from("tiny"),
                 model_path: String::from("/path/to/whisper/model"),
                 language: Some(String::from("en")),

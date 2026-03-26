@@ -2823,24 +2823,7 @@ impl AppCore {
         &mut self,
         input: SetTtsVoiceInput,
     ) -> ToolResult<SetTtsVoiceData> {
-        let voice = input.voice.trim().to_string();
-        if voice.is_empty() {
-            return ToolResult::failure(
-                ToolName::SetTtsVoice,
-                input.request_id,
-                ToolError {
-                    code: String::from("invalid_voice"),
-                    message: String::from(
-                        "voice must be a non-empty provider-supported voice name",
-                    ),
-                    retryable: false,
-                    details: None,
-                },
-                vec![String::from(
-                    "Voice update rejected because the voice name was empty.",
-                )],
-            );
-        }
+        let voice = input.voice.to_string();
 
         let changed = self.config.audio.default_tts_voice != voice;
         match self.set_default_tts_voice(voice.clone()) {
@@ -4331,7 +4314,7 @@ fn build_local_tts_model_settings(config: &AppConfig) -> LocalTtsModelSettings {
 
     LocalTtsModelSettings {
         profile_name,
-        backend: profile.map(|configured_profile| configured_profile.backend.clone()),
+        backend: profile.map(|configured_profile| configured_profile.backend.to_string()),
         model_id: profile.map(|configured_profile| configured_profile.model_id.clone()),
         model_path: profile.map(|configured_profile| configured_profile.model_path.clone()),
         default_voice: profile.map(|configured_profile| configured_profile.default_voice.clone()),
@@ -4430,7 +4413,7 @@ fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings {
             .map(secret_ref_reference),
         project: profile.and_then(|configured_profile| configured_profile.project.clone()),
         voice: profile.map(|configured_profile| configured_profile.voice.clone()),
-        audio_format: profile.map(|configured_profile| configured_profile.audio_format.clone()),
+        audio_format: profile.map(|configured_profile| configured_profile.audio_format.to_string()),
         timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
     }
 }
@@ -4525,7 +4508,7 @@ fn build_local_asr_model_settings(config: &AppConfig) -> LocalAsrModelSettings {
 
     LocalAsrModelSettings {
         profile_name,
-        backend: profile.map(|configured_profile| configured_profile.backend.clone()),
+        backend: profile.map(|configured_profile| configured_profile.backend.to_string()),
         model_id: profile.map(|configured_profile| configured_profile.model_id.clone()),
         model_path: profile.map(|configured_profile| configured_profile.model_path.clone()),
         language: profile.and_then(|configured_profile| configured_profile.language.clone()),
@@ -4557,7 +4540,7 @@ fn build_model_management_settings(config: &AppConfig) -> ModelManagementSetting
         auto_download_missing: config.models.auto_download_missing,
         local_tts: ManagedLocalModelStatusData {
             profile_name: local_tts_profile_name,
-            backend: local_tts_profile.map(|profile| profile.backend.clone()),
+            backend: local_tts_profile.map(|profile| profile.backend.to_string()),
             model_id: local_tts_profile.map(|profile| profile.model_id.clone()),
             model_path: local_tts_profile.map(|profile| profile.model_path.clone()),
             available: local_tts_profile.is_some_and(local_tts_model_is_available),
@@ -4570,7 +4553,7 @@ fn build_model_management_settings(config: &AppConfig) -> ModelManagementSetting
         },
         local_asr: ManagedLocalModelStatusData {
             profile_name: local_asr_profile_name,
-            backend: local_asr_profile.map(|profile| profile.backend.clone()),
+            backend: local_asr_profile.map(|profile| profile.backend.to_string()),
             model_id: local_asr_profile.map(|profile| profile.model_id.clone()),
             model_path: local_asr_profile.map(|profile| profile.model_path.clone()),
             available: local_asr_profile.is_some_and(local_asr_model_is_available),
@@ -5327,12 +5310,6 @@ fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolError {
             retryable: false,
             details: None,
         },
-        TtsRuntimeError::UnsupportedLocalBackend { .. } => ToolError {
-            code: String::from("unsupported_tts_backend"),
-            message: error.to_string(),
-            retryable: false,
-            details: None,
-        },
         TtsRuntimeError::LocalTtsFeatureUnavailable
         | TtsRuntimeError::RemoteTtsFeatureUnavailable => ToolError {
             code: String::from("tts_backend_unavailable"),
@@ -5362,12 +5339,6 @@ fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolError {
             code: String::from("tts_request_failed"),
             message: error.to_string(),
             retryable: true,
-            details: None,
-        },
-        TtsRuntimeError::UnsupportedRemoteAudioFormat { .. } => ToolError {
-            code: String::from("unsupported_tts_audio_format"),
-            message: error.to_string(),
-            retryable: false,
             details: None,
         },
         TtsRuntimeError::RemoteResponseDecodeFailed { .. } => ToolError {
@@ -5437,7 +5408,6 @@ fn asr_runtime_error_to_tool_error(error: &AsrRuntimeError) -> ToolError {
         | AsrRuntimeError::MissingRemoteProfile
         | AsrRuntimeError::MissingRemoteProfileDefinition { .. } => "asr_profile_unavailable",
         AsrRuntimeError::UnsupportedRemoteProvider { .. } => "unsupported_asr_provider",
-        AsrRuntimeError::UnsupportedLocalBackend { .. } => "unsupported_asr_backend",
         AsrRuntimeError::AudioFeatureUnavailable => "audio_backend_unavailable",
         AsrRuntimeError::LocalAsrFeatureUnavailable
         | AsrRuntimeError::RemoteAsrFeatureUnavailable => "asr_backend_unavailable",

@@ -615,6 +615,86 @@ pub struct ConfirmActionResolution {
     pub resume_outcome: ExecutionOutcome,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+pub enum TtsVoiceName {
+    #[serde(rename = "Bella")]
+    Bella,
+    #[serde(rename = "Jasper")]
+    Jasper,
+    #[serde(rename = "Luna")]
+    Luna,
+    #[serde(rename = "Bruno")]
+    Bruno,
+    #[serde(rename = "Rosie")]
+    Rosie,
+    #[serde(rename = "Hugo")]
+    Hugo,
+    #[serde(rename = "Kiki")]
+    Kiki,
+    #[serde(rename = "Leo")]
+    Leo,
+    #[serde(rename = "alloy")]
+    Alloy,
+    #[serde(rename = "ash")]
+    Ash,
+    #[serde(rename = "ballad")]
+    Ballad,
+    #[serde(rename = "coral")]
+    Coral,
+    #[serde(rename = "echo")]
+    Echo,
+    #[serde(rename = "fable")]
+    Fable,
+    #[serde(rename = "onyx")]
+    Onyx,
+    #[serde(rename = "nova")]
+    Nova,
+    #[serde(rename = "sage")]
+    Sage,
+    #[serde(rename = "shimmer")]
+    Shimmer,
+    #[serde(rename = "verse")]
+    Verse,
+    #[serde(rename = "marin")]
+    Marin,
+    #[serde(rename = "cedar")]
+    Cedar,
+}
+
+impl TtsVoiceName {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Bella => "Bella",
+            Self::Jasper => "Jasper",
+            Self::Luna => "Luna",
+            Self::Bruno => "Bruno",
+            Self::Rosie => "Rosie",
+            Self::Hugo => "Hugo",
+            Self::Kiki => "Kiki",
+            Self::Leo => "Leo",
+            Self::Alloy => "alloy",
+            Self::Ash => "ash",
+            Self::Ballad => "ballad",
+            Self::Coral => "coral",
+            Self::Echo => "echo",
+            Self::Fable => "fable",
+            Self::Onyx => "onyx",
+            Self::Nova => "nova",
+            Self::Sage => "sage",
+            Self::Shimmer => "shimmer",
+            Self::Verse => "verse",
+            Self::Marin => "marin",
+            Self::Cedar => "cedar",
+        }
+    }
+}
+
+impl std::fmt::Display for TtsVoiceName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ReportStatus {
     Success,
@@ -1029,7 +1109,7 @@ pub struct ExtractPageModelData {
 pub struct SetTtsVoiceInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
-    pub voice: String,
+    pub voice: TtsVoiceName,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -2130,49 +2210,21 @@ fn schema_json<T: JsonSchema>() -> serde_json::Value {
 
 fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> {
     match step.tool_name {
-        ToolName::OpenUrl => validate_tool_arguments::<OpenUrlInput>(step),
+        ToolName::OpenUrl => validate_open_url_input(&deserialize_tool_arguments(step)?),
         ToolName::GoBack => validate_tool_arguments::<GoBackInput>(step),
         ToolName::GoForward => validate_tool_arguments::<GoForwardInput>(step),
         ToolName::ReloadPage => validate_tool_arguments::<ReloadPageInput>(step),
         ToolName::ScrollPage => validate_tool_arguments::<ScrollPageInput>(step),
         ToolName::CaptureScreenshot => {
-            let input = serde_json::from_value::<CaptureScreenshotInput>(step.arguments.clone())
-                .map_err(|error| {
-                    invalid_planner_output(
-                        format!("tool arguments did not match the expected schema: {error}"),
-                        Some(serde_json::json!({
-                            "step_id": step.step_id,
-                            "tool_name": step.tool_name,
-                        })),
-                    )
-                })?;
+            let input = deserialize_tool_arguments::<CaptureScreenshotInput>(step)?;
             validate_capture_screenshot_input(&input)
         }
         ToolName::RunOcr => {
-            let input =
-                serde_json::from_value::<RunOcrInput>(step.arguments.clone()).map_err(|error| {
-                    invalid_planner_output(
-                        format!("tool arguments did not match the expected schema: {error}"),
-                        Some(serde_json::json!({
-                            "step_id": step.step_id,
-                            "tool_name": step.tool_name,
-                        })),
-                    )
-                })?;
+            let input = deserialize_tool_arguments::<RunOcrInput>(step)?;
             validate_run_ocr_input(&input)
         }
         ToolName::MergeOcrIntoPageModel => {
-            let input =
-                serde_json::from_value::<MergeOcrIntoPageModelInput>(step.arguments.clone())
-                    .map_err(|error| {
-                        invalid_planner_output(
-                            format!("tool arguments did not match the expected schema: {error}"),
-                            Some(serde_json::json!({
-                                "step_id": step.step_id,
-                                "tool_name": step.tool_name,
-                            })),
-                        )
-                    })?;
+            let input = deserialize_tool_arguments::<MergeOcrIntoPageModelInput>(step)?;
             validate_merge_ocr_into_page_model_input(&input)
         }
         ToolName::SetBrowserVisibility => {
@@ -2183,26 +2235,63 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
         ToolName::ListInteractiveElements => {
             validate_tool_arguments::<ListInteractiveElementsInput>(step)
         }
-        ToolName::FindElement => validate_tool_arguments::<FindElementInput>(step),
-        ToolName::ClickElement => validate_tool_arguments::<ClickElementInput>(step),
-        ToolName::FocusElement => validate_tool_arguments::<FocusElementInput>(step),
-        ToolName::TypeIntoElement => validate_tool_arguments::<TypeIntoElementInput>(step),
-        ToolName::SubmitActiveForm => validate_tool_arguments::<SubmitActiveFormInput>(step),
-        ToolName::ReadRegion => validate_tool_arguments::<ReadRegionInput>(step),
+        ToolName::FindElement => validate_find_element_input(&deserialize_tool_arguments(step)?),
+        ToolName::ClickElement => validate_click_element_input(&deserialize_tool_arguments(step)?),
+        ToolName::FocusElement => validate_focus_element_input(&deserialize_tool_arguments(step)?),
+        ToolName::TypeIntoElement => {
+            validate_type_into_element_input(&deserialize_tool_arguments(step)?)
+        }
+        ToolName::SubmitActiveForm => {
+            validate_submit_active_form_input(&deserialize_tool_arguments(step)?)
+        }
+        ToolName::ReadRegion => validate_read_region_input(&deserialize_tool_arguments(step)?),
         ToolName::ReadNextRegion => validate_tool_arguments::<ReadNextRegionInput>(step),
         ToolName::ReadPreviousRegion => validate_tool_arguments::<ReadPreviousRegionInput>(step),
         ToolName::StopSpeaking => validate_tool_arguments::<StopSpeakingInput>(step),
         ToolName::StartListening => validate_tool_arguments::<StartListeningInput>(step),
         ToolName::StopListening => validate_tool_arguments::<StopListeningInput>(step),
-        ToolName::TranscribeCommand => validate_tool_arguments::<TranscribeCommandInput>(step),
-        ToolName::SetTtsVoice => validate_tool_arguments::<SetTtsVoiceInput>(step),
-        ToolName::SetPlaybackVolume => validate_tool_arguments::<SetPlaybackVolumeInput>(step),
-        ToolName::SetPlaybackSpeed => validate_tool_arguments::<SetPlaybackSpeedInput>(step),
+        ToolName::TranscribeCommand => {
+            validate_transcribe_command_input(&deserialize_tool_arguments(step)?)
+        }
+        ToolName::SetTtsVoice => validate_set_tts_voice_input(&deserialize_tool_arguments(step)?),
+        ToolName::SetPlaybackVolume => {
+            validate_set_playback_volume_input(&deserialize_tool_arguments(step)?)
+        }
+        ToolName::SetPlaybackSpeed => {
+            validate_set_playback_speed_input(&deserialize_tool_arguments(step)?)
+        }
         ToolName::GetAgentState => validate_tool_arguments::<GetAgentStateInput>(step),
         ToolName::GetRuntimeStatus => validate_tool_arguments::<GetRuntimeStatusInput>(step),
-        ToolName::ConfirmAction => validate_tool_arguments::<ConfirmActionInput>(step),
-        ToolName::ReportResult => validate_tool_arguments::<ReportResultInput>(step),
+        ToolName::ConfirmAction => {
+            validate_confirm_action_input(&deserialize_tool_arguments(step)?)
+        }
+        ToolName::ReportResult => validate_report_result_input(&deserialize_tool_arguments(step)?),
     }
+}
+
+fn deserialize_tool_arguments<T: serde::de::DeserializeOwned>(
+    step: &PlannedStep,
+) -> Result<T, ToolError> {
+    serde_json::from_value::<T>(step.arguments.clone()).map_err(|error| {
+        invalid_planner_output(
+            format!("tool arguments did not match the expected schema: {error}"),
+            Some(serde_json::json!({
+                "step_id": step.step_id,
+                "tool_name": step.tool_name,
+            })),
+        )
+    })
+}
+
+fn validate_open_url_input(input: &OpenUrlInput) -> Result<(), ToolError> {
+    if input.url.trim().is_empty() {
+        return Err(invalid_planner_output(
+            "open_url requires a non-empty url",
+            None,
+        ));
+    }
+
+    Ok(())
 }
 
 fn validate_capture_screenshot_input(input: &CaptureScreenshotInput) -> Result<(), ToolError> {
@@ -2311,6 +2400,196 @@ fn validate_merge_ocr_into_page_model_input(
                     "height": bbox.height,
                 })),
             ));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_find_element_input(input: &FindElementInput) -> Result<(), ToolError> {
+    if input.description.trim().is_empty() {
+        return Err(invalid_planner_output(
+            "find_element requires a non-empty description",
+            None,
+        ));
+    }
+
+    for (field_name, value) in [
+        ("text", input.text.as_deref()),
+        ("color_hint", input.color_hint.as_deref()),
+        ("nearby_text", input.nearby_text.as_deref()),
+        ("selector_hint", input.selector_hint.as_deref()),
+    ] {
+        if let Some(value) = value {
+            if value.trim().is_empty() {
+                return Err(invalid_planner_output(
+                    format!("find_element {field_name} must be non-empty when provided"),
+                    None,
+                ));
+            }
+        }
+    }
+
+    if matches!(input.max_candidates, Some(0)) {
+        return Err(invalid_planner_output(
+            "find_element max_candidates must be greater than 0 when provided",
+            None,
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_click_element_input(input: &ClickElementInput) -> Result<(), ToolError> {
+    if input.element_id.trim().is_empty() {
+        return Err(invalid_planner_output(
+            "click_element requires a non-empty element_id",
+            None,
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_focus_element_input(input: &FocusElementInput) -> Result<(), ToolError> {
+    if input.element_id.trim().is_empty() {
+        return Err(invalid_planner_output(
+            "focus_element requires a non-empty element_id",
+            None,
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_type_into_element_input(input: &TypeIntoElementInput) -> Result<(), ToolError> {
+    if input.element_id.trim().is_empty() {
+        return Err(invalid_planner_output(
+            "type_into_element requires a non-empty element_id",
+            None,
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_submit_active_form_input(input: &SubmitActiveFormInput) -> Result<(), ToolError> {
+    if let Some(form_element_id) = input.form_element_id.as_deref() {
+        if form_element_id.trim().is_empty() {
+            return Err(invalid_planner_output(
+                "submit_active_form form_element_id must be non-empty when provided",
+                None,
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_read_region_input(input: &ReadRegionInput) -> Result<(), ToolError> {
+    if input.region_id.trim().is_empty() {
+        return Err(invalid_planner_output(
+            "read_region requires a non-empty region_id",
+            None,
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_transcribe_command_input(input: &TranscribeCommandInput) -> Result<(), ToolError> {
+    if matches!(input.max_duration_ms, Some(0)) {
+        return Err(invalid_planner_output(
+            "transcribe_command max_duration_ms must be greater than 0 when provided",
+            None,
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_set_tts_voice_input(_input: &SetTtsVoiceInput) -> Result<(), ToolError> {
+    Ok(())
+}
+
+fn validate_set_playback_volume_input(input: &SetPlaybackVolumeInput) -> Result<(), ToolError> {
+    if !input.volume.is_finite() {
+        return Err(invalid_planner_output(
+            "set_playback_volume requires a finite numeric volume value",
+            None,
+        ));
+    }
+
+    if !(0.0..=MAX_PLAYBACK_VOLUME).contains(&input.volume) {
+        return Err(invalid_planner_output(
+            format!("set_playback_volume volume must be between 0.0 and {MAX_PLAYBACK_VOLUME}"),
+            Some(serde_json::json!({ "volume": input.volume })),
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_set_playback_speed_input(input: &SetPlaybackSpeedInput) -> Result<(), ToolError> {
+    if !input.speed.is_finite() {
+        return Err(invalid_planner_output(
+            "set_playback_speed requires a finite numeric speed value",
+            None,
+        ));
+    }
+
+    if !(MIN_PLAYBACK_SPEED..=MAX_PLAYBACK_SPEED).contains(&input.speed) {
+        return Err(invalid_planner_output(
+            format!(
+                "set_playback_speed speed must be between {MIN_PLAYBACK_SPEED} and {MAX_PLAYBACK_SPEED}"
+            ),
+            Some(serde_json::json!({ "speed": input.speed })),
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_confirm_action_input(input: &ConfirmActionInput) -> Result<(), ToolError> {
+    if input.prompt_text.trim().is_empty() {
+        return Err(invalid_planner_output(
+            "confirm_action requires a non-empty prompt_text",
+            None,
+        ));
+    }
+
+    if input.reason.trim().is_empty() {
+        return Err(invalid_planner_output(
+            "confirm_action requires a non-empty reason",
+            None,
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_report_result_input(input: &ReportResultInput) -> Result<(), ToolError> {
+    if input.summary.trim().is_empty() {
+        return Err(invalid_planner_output(
+            "report_result requires a non-empty summary",
+            None,
+        ));
+    }
+
+    for (field_name, value) in [
+        (
+            "next_recommended_action",
+            input.next_recommended_action.as_deref(),
+        ),
+        ("user_message", input.user_message.as_deref()),
+    ] {
+        if let Some(value) = value {
+            if value.trim().is_empty() {
+                return Err(invalid_planner_output(
+                    format!("report_result {field_name} must be non-empty when provided"),
+                    None,
+                ));
+            }
         }
     }
 
@@ -6035,12 +6314,12 @@ mod tests {
             &mut self,
             input: SetTtsVoiceInput,
         ) -> ToolResult<SetTtsVoiceData> {
-            self.last_voice = Some(input.voice.clone());
+            self.last_voice = Some(input.voice.to_string());
             ToolResult::success(
                 ToolName::SetTtsVoice,
                 input.request_id,
                 SetTtsVoiceData {
-                    voice: input.voice,
+                    voice: input.voice.to_string(),
                     changed: true,
                 },
                 vec![String::from("voice updated")],
@@ -8573,6 +8852,251 @@ mod tests {
         assert!(error
             .message
             .contains("merge_ocr_into_page_model requires non-empty ocr_text"));
+    }
+
+    #[test]
+    fn set_tts_voice_input_accepts_known_voice_names_only() {
+        let local_voice: SetTtsVoiceInput = serde_json::from_value(serde_json::json!({
+            "request_id": "req-local-voice",
+            "voice": "Bruno"
+        }))
+        .expect("known local voice should deserialize");
+        assert_eq!(local_voice.voice, TtsVoiceName::Bruno);
+
+        let remote_voice: SetTtsVoiceInput = serde_json::from_value(serde_json::json!({
+            "request_id": "req-remote-voice",
+            "voice": "alloy"
+        }))
+        .expect("known remote voice should deserialize");
+        assert_eq!(remote_voice.voice, TtsVoiceName::Alloy);
+
+        let invalid_voice = serde_json::from_value::<SetTtsVoiceInput>(serde_json::json!({
+            "request_id": "req-invalid-voice",
+            "voice": "not-a-real-voice"
+        }));
+        assert!(invalid_voice.is_err());
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_open_url_with_blank_url() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::OpenUrl,
+                goal: String::from("open a page"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("open_url_direct")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-open-url"),
+                tool_name: ToolName::OpenUrl,
+                arguments: serde_json::json!({
+                    "request_id": "req-open-url",
+                    "url": "   ",
+                    "wait_for_load_state": "NetworkIdle"
+                }),
+                purpose: String::from("open a page"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("open_url_direct")],
+        )
+        .expect_err("validation should reject blank open_url values");
+        assert!(error.message.contains("open_url requires a non-empty url"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_find_element_with_blank_description() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::FindElement,
+                goal: String::from("find an element"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("find_element")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-find-element"),
+                tool_name: ToolName::FindElement,
+                arguments: serde_json::json!({
+                    "request_id": "req-find-element",
+                    "description": "   ",
+                    "text": null,
+                    "role": null,
+                    "color_hint": null,
+                    "nearby_text": null,
+                    "selector_hint": null,
+                    "visible_only": true,
+                    "max_candidates": 3
+                }),
+                purpose: String::from("find an element"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("find_element")],
+        )
+        .expect_err("validation should reject blank find_element descriptions");
+        assert!(error
+            .message
+            .contains("find_element requires a non-empty description"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_find_element_with_zero_max_candidates() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::FindElement,
+                goal: String::from("find an element"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("find_element")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-find-element"),
+                tool_name: ToolName::FindElement,
+                arguments: serde_json::json!({
+                    "request_id": "req-find-element",
+                    "description": "search field",
+                    "text": null,
+                    "role": null,
+                    "color_hint": null,
+                    "nearby_text": null,
+                    "selector_hint": null,
+                    "visible_only": true,
+                    "max_candidates": 0
+                }),
+                purpose: String::from("find an element"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("find_element")],
+        )
+        .expect_err("validation should reject zero max_candidates");
+        assert!(error
+            .message
+            .contains("find_element max_candidates must be greater than 0"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_set_playback_volume_out_of_range() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::SetPlaybackVolume,
+                goal: String::from("set playback volume"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("audio_controls")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-volume"),
+                tool_name: ToolName::SetPlaybackVolume,
+                arguments: serde_json::json!({
+                    "request_id": "req-volume",
+                    "volume": 1.5
+                }),
+                purpose: String::from("set the volume"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("audio_controls")],
+        )
+        .expect_err("validation should reject out-of-range playback volume");
+        assert!(error
+            .message
+            .contains("set_playback_volume volume must be between 0.0"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_set_playback_speed_out_of_range() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::SetPlaybackSpeed,
+                goal: String::from("set playback speed"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("audio_controls")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-speed"),
+                tool_name: ToolName::SetPlaybackSpeed,
+                arguments: serde_json::json!({
+                    "request_id": "req-speed",
+                    "speed": 10.0
+                }),
+                purpose: String::from("set the speed"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("audio_controls")],
+        )
+        .expect_err("validation should reject out-of-range playback speed");
+        assert!(error
+            .message
+            .contains("set_playback_speed speed must be between"));
+    }
+
+    #[test]
+    fn validate_confirm_action_input_rejects_blank_prompt() {
+        let error = validate_confirm_action_input(&ConfirmActionInput {
+            request_id: String::from("req-confirm"),
+            timeout_ms: None,
+            prompt_text: String::from("   "),
+            reason: String::from("Submission changes remote state."),
+        })
+        .expect_err("validation should reject blank confirm_action prompt_text");
+        assert!(error
+            .message
+            .contains("confirm_action requires a non-empty prompt_text"));
     }
 
     #[test]
