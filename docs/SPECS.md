@@ -300,6 +300,13 @@ Recommended precedence for secrets:
 - `inline` secrets should be supported only for development or explicit user choice.
 - Secrets must never be written to logs.
 - The UI should mask secret values and avoid echoing them after initial entry.
+
+Migration note (keyring-backed API keys)
+
+- The v1 runtime now supports storing UI-entered remote API keys in the operating system keyring. When a user saves an API key via the Settings UI or the corresponding Tauri command, the secret is written to the OS keyring and the config file is updated to a `from_keyring` reference (for example: `api_key = { from_keyring = { service = "blind_browser", account = "remote_profiles.openai-default" } }`).
+- Existing `from_env`, `from_file`, and `inline` references continue to work without change. No automatic bulk migration is performed.
+- To migrate a remote profile's inline API key to the OS keyring: open Settings → Remote profile, paste the API key into the masked API key input, and click Save. The app will store the key in the OS keyring and replace the `api_key` entry in `config.toml` with a `from_keyring` reference.
+- CI and unit tests use an in-memory test keyring. Production runs will use the platform keyring available on the host OS.
 - Example configs should use `from_env`, not inline keys.
 
 ### Validation Rules
