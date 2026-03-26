@@ -154,7 +154,7 @@
 - [x] Apply persisted playback speed through kitten_tts_rs native speed control
 - [x] Apply persisted playback speed through OpenAI TTS native speed control when remote TTS is active
 - [x] Add TTS provider selection
-- [ ] Expose KittenTTS voice choices: `Bella`, `Jasper`, `Luna`, `Bruno`, `Rosie`, `Hugo`, `Kiki`, `Leo`
+- [x] Expose KittenTTS voice choices: `Bella`, `Jasper`, `Luna`, `Bruno`, `Rosie`, `Hugo`, `Kiki`, `Leo`
 - [ ] Add caching layer (optional)
 
 ### Narration Module
@@ -308,7 +308,7 @@
 
 ### Settings UI
 - [x] TTS model selection
-- [ ] Voice selection
+- [x] Voice selection
 - [x] Speed control
 - [x] Volume control
 - [x] Visible/headless toggle

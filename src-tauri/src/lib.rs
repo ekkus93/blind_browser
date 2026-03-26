@@ -23,8 +23,9 @@ use crate::commands::{
     AgentStateData, ConfirmActionResolution, ExecutionOutcome, GetAgentStateInput, OpenUrlData,
     OpenUrlInput, PlannerOutput, SetBrowserVisibilityData, SetBrowserVisibilityInput,
     SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
-    StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
-    ToolResult, TranscribeAndExecuteCommandData, TranscribeCommandData, TranscribeCommandInput,
+    SetTtsVoiceData, SetTtsVoiceInput, StartListeningData, StartListeningInput,
+    StopListeningData, StopListeningInput, ToolError, ToolResult,
+    TranscribeAndExecuteCommandData, TranscribeCommandData, TranscribeCommandInput,
 };
 use crate::browser::BrowserVisibilityMode;
 
@@ -213,6 +214,22 @@ fn set_browser_visibility(
     }))
 }
 
+#[tauri::command]
+fn set_tts_voice(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    voice: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<ToolResult<SetTtsVoiceData>, ToolError> {
+    let mut app_core = lock_app_core(&app_core)?;
+
+    Ok(app_core.execute_set_tts_voice(SetTtsVoiceInput {
+        request_id,
+        timeout_ms,
+        voice,
+    }))
+}
+
 #[derive(serde::Serialize)]
 struct SetTtsModelSelectionData {
     profile_name: String,
@@ -277,6 +294,7 @@ pub fn run() {
             set_playback_volume,
             set_playback_speed,
             set_browser_visibility,
+            set_tts_voice,
             set_tts_model_selection
         ])
         .setup(|app| {

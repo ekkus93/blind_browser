@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::asr::{
     AsrController, AsrRuntimeError, DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS,
 };
-use crate::audio_io::{AudioPlaybackController, AudioPlaybackError};
+use crate::audio_io::{AudioPlaybackController, AudioPlaybackError, RuntimeAudioState};
 use crate::browser::{
     BrowserController, BrowserError, BrowserSessionConfig, BrowserVisibilityMode, LoadState,
 };
@@ -38,8 +38,8 @@ use crate::commands::{
     SubmitActiveFormData, SubmitActiveFormInput,
     StopListeningData, StopListeningInput, StopSpeakingData, StopSpeakingInput,
     ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData, TranscribeCommandData,
-    TranscribeCommandInput, TtsModelOption, TtsModelSettings, TypeIntoElementData,
-    TypeIntoElementInput,
+    TranscribeCommandInput, TtsModelOption, TtsModelSettings, TtsVoiceOption, TtsVoiceSettings,
+    TypeIntoElementData, TypeIntoElementInput,
 };
 use crate::config::{
     AppConfig, AudioSettings, ConfigError, RemotePlannerProfile, RemoteProviderKind, SecretRef,
@@ -52,7 +52,7 @@ use crate::ocr::{OcrController, OcrRuntimeError, OcrSettings};
 use crate::page_model::PageRegion;
 use crate::page_model::{ElementRole, ExtractionSource, PageModel, Rect, RegionSource};
 use crate::state::AppState;
-use crate::tts::{TtsController, TtsRuntimeError};
+use crate::tts::{KITTEN_TTS_VOICES, OPENAI_TTS_VOICES, TtsController, TtsRuntimeError};
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
@@ -2766,37 +2766,11 @@ impl AppCore {
     }
 
     fn current_tts_model_settings(&self) -> TtsModelSettings {
-        let mode = self.config.providers.tts.mode.clone();
-        let (active_profile, available_profiles) = match mode {
-            crate::config::ProviderMode::Local => (
-                self.config.providers.tts.local_profile.clone(),
-                self.config
-                    .local_tts_profiles
-                    .iter()
-                    .map(|(profile_name, profile)| TtsModelOption {
-                        profile_name: profile_name.clone(),
-                        model_label: profile.model_id.clone(),
-                    })
-                    .collect(),
-            ),
-            crate::config::ProviderMode::Remote => (
-                self.config.providers.tts.remote_profile.clone(),
-                self.config
-                    .remote_tts_profiles
-                    .iter()
-                    .map(|(profile_name, profile)| TtsModelOption {
-                        profile_name: profile_name.clone(),
-                        model_label: profile.model.clone(),
-                    })
-                    .collect(),
-            ),
-        };
+        build_tts_model_settings(&self.config)
+    }
 
-        TtsModelSettings {
-            mode,
-            active_profile,
-            available_profiles,
-        }
+    fn current_tts_voice_settings(&self) -> TtsVoiceSettings {
+        build_tts_voice_settings(&self.config, &self.state.audio)
     }
 
     pub fn execute_read_region(&mut self, input: ReadRegionInput) -> ToolResult<ReadRegionData> {
@@ -3508,6 +3482,7 @@ impl AppCore {
             pending_confirmation_id: self.state.pending_confirmation_id.clone(),
             pending_plan_execution: self.state.pending_plan_execution.clone(),
             tts_model_settings: self.current_tts_model_settings(),
+            tts_voice_settings: self.current_tts_voice_settings(),
         }
     }
 
@@ -4025,6 +4000,111 @@ impl ReplanningRuntime for AppCore {
         planner_output: &PlannerOutput,
     ) -> ExecutionOutcome {
         self.execute_planner_output(request_id, planner_output)
+    }
+}
+
+fn build_tts_model_settings(config: &AppConfig) -> TtsModelSettings {
+    let mode = config.providers.tts.mode.clone();
+    let (active_profile, available_profiles) = match mode {
+        crate::config::ProviderMode::Local => (
+            config.providers.tts.local_profile.clone(),
+            config
+                .local_tts_profiles
+                .iter()
+                .map(|(profile_name, profile)| TtsModelOption {
+                    profile_name: profile_name.clone(),
+                    model_label: profile.model_id.clone(),
+                })
+                .collect(),
+        ),
+        crate::config::ProviderMode::Remote => (
+            config.providers.tts.remote_profile.clone(),
+            config
+                .remote_tts_profiles
+                .iter()
+                .map(|(profile_name, profile)| TtsModelOption {
+                    profile_name: profile_name.clone(),
+                    model_label: profile.model.clone(),
+                })
+                .collect(),
+        ),
+    };
+
+    TtsModelSettings {
+        mode,
+        active_profile,
+        available_profiles,
+    }
+}
+
+fn build_tts_voice_settings(
+    config: &AppConfig,
+    runtime_audio: &RuntimeAudioState,
+) -> TtsVoiceSettings {
+    let mode = config.providers.tts.mode.clone();
+    let mut available_voices = match mode {
+        crate::config::ProviderMode::Local => KITTEN_TTS_VOICES
+            .iter()
+            .map(|voice| TtsVoiceOption {
+                voice_name: (*voice).to_string(),
+                display_label: (*voice).to_string(),
+            })
+            .collect(),
+        crate::config::ProviderMode::Remote => {
+            let active_remote_profile = config
+                .providers
+                .tts
+                .remote_profile
+                .as_ref()
+                .and_then(|profile_name| config.remote_tts_profiles.get(profile_name));
+            match active_remote_profile.map(|profile| &profile.provider) {
+                Some(RemoteProviderKind::OpenAi) => OPENAI_TTS_VOICES
+                    .iter()
+                    .map(|voice| TtsVoiceOption {
+                        voice_name: (*voice).to_string(),
+                        display_label: (*voice).to_string(),
+                    })
+                    .collect(),
+                Some(_) => active_remote_profile
+                    .map(|profile| {
+                        vec![TtsVoiceOption {
+                            voice_name: profile.voice.clone(),
+                            display_label: profile.voice.clone(),
+                        }]
+                    })
+                    .unwrap_or_default(),
+                None => Vec::new(),
+            }
+        }
+    };
+    let mut active_voice = runtime_audio
+        .tts_voice
+        .as_deref()
+        .map(str::trim)
+        .filter(|voice| !voice.is_empty())
+        .map(ToOwned::to_owned);
+
+    if let Some(current_voice) = active_voice.clone() {
+        if let Some(option) = available_voices
+            .iter()
+            .find(|option| option.voice_name.eq_ignore_ascii_case(&current_voice))
+        {
+            active_voice = Some(option.voice_name.clone());
+        } else {
+            available_voices.insert(
+                0,
+                TtsVoiceOption {
+                    voice_name: current_voice.clone(),
+                    display_label: current_voice,
+                },
+            );
+        }
+    }
+
+    TtsVoiceSettings {
+        mode,
+        active_voice,
+        available_voices,
     }
 }
 
@@ -6139,7 +6219,8 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
 #[cfg(test)]
 mod tests {
     use super::{
-        build_extracted_page_model, build_find_element_query, build_visible_text_excerpt,
+        build_extracted_page_model, build_find_element_query, build_tts_voice_settings,
+        build_visible_text_excerpt,
         determine_find_element_resolution, execute_bounded_replanning_loop, extracted_text_metrics,
         filter_interactive_elements, infer_extraction_source, normalize_absolute_url,
         merge_ocr_text_into_page_model, merged_region_text, normalize_optional_text,
@@ -6150,16 +6231,71 @@ mod tests {
         resolve_direct_focus_field_command, resolve_direct_submit_form_command,
         resolve_form_element, resolve_typeable_element, ReplanningRuntime,
     };
+    use crate::audio_io::RuntimeAudioState;
     use crate::commands::{
         ExecutionOutcome, ExecutionTrace, ExtractPageModelInput, FindElementInput, IntentName,
         IntentSummary, PlannedStep, PlannerOutput, PlannerStatus, PlannerToolHistoryEntry,
         ReportStatus, StepTransition, ToolName, ToolResult,
     };
+    use crate::config::{AppConfig, ProviderMode};
     use crate::page_model::{
         ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, Rect,
         RegionSource,
     };
     use crate::ocr::OcrSettings;
+    #[test]
+    fn build_tts_voice_settings_returns_kitten_voice_choices_for_local_mode() {
+        let config = AppConfig::default();
+        let runtime_audio = RuntimeAudioState::from(&config.audio);
+
+        let settings = build_tts_voice_settings(&config, &runtime_audio);
+
+        assert_eq!(settings.mode, ProviderMode::Local);
+        assert_eq!(settings.active_voice.as_deref(), Some("Bruno"));
+        assert_eq!(settings.available_voices.len(), 8);
+        assert!(settings
+            .available_voices
+            .iter()
+            .any(|option| option.voice_name == "Bella"));
+        assert!(settings
+            .available_voices
+            .iter()
+            .any(|option| option.voice_name == "Leo"));
+    }
+
+    #[test]
+    fn build_tts_voice_settings_preserves_custom_active_voice() {
+        let config = AppConfig::default();
+        let runtime_audio = RuntimeAudioState {
+            tts_voice: Some(String::from("CustomVoice")),
+            ..RuntimeAudioState::from(&config.audio)
+        };
+
+        let settings = build_tts_voice_settings(&config, &runtime_audio);
+
+        assert_eq!(settings.active_voice.as_deref(), Some("CustomVoice"));
+        assert_eq!(settings.available_voices[0].voice_name, "CustomVoice");
+    }
+
+    #[test]
+    fn build_tts_voice_settings_returns_openai_builtin_voices_for_remote_mode() {
+        let mut config = AppConfig::default();
+        config.providers.tts.mode = ProviderMode::Remote;
+        let runtime_audio = RuntimeAudioState {
+            tts_voice: Some(String::from("Alloy")),
+            ..RuntimeAudioState::from(&config.audio)
+        };
+
+        let settings = build_tts_voice_settings(&config, &runtime_audio);
+
+        assert_eq!(settings.mode, ProviderMode::Remote);
+        assert_eq!(settings.active_voice.as_deref(), Some("alloy"));
+        assert!(settings
+            .available_voices
+            .iter()
+            .any(|option| option.voice_name == "cedar"));
+    }
+
     #[test]
     fn normalize_optional_text_trims_and_drops_empty_values() {
         assert_eq!(normalize_optional_text(None), None);

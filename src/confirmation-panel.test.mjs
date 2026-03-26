@@ -6,6 +6,7 @@ import {
   renderConfirmationPanel,
   renderPushToTalkPanel,
   renderSettingsTtsModelPanel,
+  renderSettingsTtsVoicePanel,
   renderSettingsSpeedPanel,
   renderSettingsVolumePanel,
   renderStatusPanel,
@@ -440,6 +441,40 @@ test("renders settings TTS model errors and disabled state while saving", () => 
   assert.match(html, /The TTS model selection could not be saved\./);
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /role="alert"/);
+});
+
+test("renders settings voice selection for configured voices", () => {
+  const html = renderSettingsTtsVoicePanel({
+    mode: "Local",
+    activeVoice: "Bruno",
+    availableVoices: [
+      { voiceName: "Bella", displayLabel: "Bella" },
+      { voiceName: "Bruno", displayLabel: "Bruno" },
+    ],
+    isBusy: false,
+    error: null,
+  });
+
+  assert.match(html, /Voice selection/);
+  assert.match(html, /Choose from the configured local TTS voices/);
+  assert.match(html, /Configured TTS voice/);
+  assert.match(html, /Bruno/);
+  assert.match(html, /data-tts-voice-select="true"/);
+  assert.match(html, /<option value="Bruno" selected>Bruno<\/option>/);
+});
+
+test("renders settings voice errors and disabled state while saving", () => {
+  const html = renderSettingsTtsVoicePanel({
+    mode: "Remote",
+    activeVoice: "alloy",
+    availableVoices: [{ voiceName: "alloy", displayLabel: "alloy" }],
+    isBusy: true,
+    error: "The runtime could not save that voice.",
+  });
+
+  assert.match(html, /The runtime could not save that voice\./);
+  assert.match(html, /Choose from the configured remote TTS voices/);
+  assert.match(html, /disabled aria-disabled="true"/);
 });
 
 test("disables nearby playback controls while audio settings are saving", () => {

@@ -14,6 +14,13 @@ use kitten_tts::model::KittenTTS;
 pub const KITTEN_TTS_BACKEND: &str = "kitten_tts_rs";
 pub const KITTEN_TTS_SAMPLE_RATE: u32 = 24_000;
 pub const KITTEN_TTS_CHANNELS: u16 = 1;
+pub const KITTEN_TTS_VOICES: &[&str] = &[
+    "Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo",
+];
+pub const OPENAI_TTS_VOICES: &[&str] = &[
+    "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer",
+    "verse", "marin", "cedar",
+];
 const OPENAI_REMOTE_TTS_MIN_SPEED: f32 = 0.25;
 const OPENAI_REMOTE_TTS_MAX_SPEED: f32 = 4.0;
 
@@ -373,22 +380,10 @@ fn resolved_remote_voice(
 }
 
 fn is_openai_builtin_voice(voice: &str) -> bool {
-    matches!(
-        voice.trim().to_ascii_lowercase().as_str(),
-        "alloy"
-            | "ash"
-            | "ballad"
-            | "coral"
-            | "echo"
-            | "fable"
-            | "onyx"
-            | "nova"
-            | "sage"
-            | "shimmer"
-            | "verse"
-            | "marin"
-            | "cedar"
-    )
+    let normalized = voice.trim().to_ascii_lowercase();
+    OPENAI_TTS_VOICES
+        .iter()
+        .any(|candidate| *candidate == normalized)
 }
 
 fn parse_openai_speech_response_format(

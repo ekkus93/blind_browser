@@ -27,6 +27,17 @@ export interface TtsModelPanelState {
   error: string | null;
 }
 
+export interface TtsVoicePanelState {
+  mode: "Local" | "Remote" | "Disabled";
+  activeVoice: string | null;
+  availableVoices: Array<{
+    voiceName: string;
+    displayLabel: string;
+  }>;
+  isBusy: boolean;
+  error: string | null;
+}
+
 export interface UrlInputPanelState {
   draftValue: string;
   currentUrl: string | null;
@@ -54,6 +65,10 @@ export interface StatusPanelState {
 
 function renderTtsModelOptionLabel(profileName: string, modelLabel: string): string {
   return `${modelLabel} (${profileName})`;
+}
+
+function renderTtsVoiceOptionLabel(displayLabel: string, voiceName: string): string {
+  return displayLabel === voiceName ? displayLabel : `${displayLabel} (${voiceName})`;
 }
 
 export function renderConfirmationPanel(state: ConfirmationUiState): string {
@@ -366,6 +381,58 @@ export function renderSettingsTtsModelPanel(state: TtsModelPanelState): string {
             id="settings-tts-model-control"
             class="settings-control-select"
             data-tts-model-select="true"
+            ${disabledAttribute}
+          >
+            ${optionsCopy}
+          </select>
+        </label>
+      </div>
+    </section>
+  `;
+}
+
+export function renderSettingsTtsVoicePanel(state: TtsVoicePanelState): string {
+  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
+  const errorCopy = state.error
+    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+  const optionsCopy = state.availableVoices
+    .map((option) => {
+      const selected = option.voiceName === state.activeVoice ? " selected" : "";
+      return `<option value="${escapeHtml(option.voiceName)}"${selected}>${escapeHtml(
+        renderTtsVoiceOptionLabel(option.displayLabel, option.voiceName),
+      )}</option>`;
+    })
+    .join("");
+  const modeCopy =
+    state.mode === "Remote" ? "remote" : state.mode === "Local" ? "local" : "disabled";
+  const activeOption = state.availableVoices.find((option) => option.voiceName === state.activeVoice);
+
+  return `
+    <section class="settings-panel" aria-labelledby="settings-tts-voice-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-tts-voice-title">Voice selection</h2>
+        <p class="settings-panel-description">
+          Choose from the configured ${modeCopy} TTS voices for the current TTS mode. Changes apply
+          to the next utterance and persist across app restarts.
+        </p>
+        ${errorCopy}
+      </div>
+      <div class="settings-grid">
+        <label class="settings-control-card" for="settings-tts-voice-control">
+          <span class="settings-control-label">Configured TTS voice</span>
+          <span class="settings-control-value">${
+            activeOption
+              ? escapeHtml(renderTtsVoiceOptionLabel(activeOption.displayLabel, activeOption.voiceName))
+              : state.activeVoice
+                ? escapeHtml(state.activeVoice)
+                : "No configured voice"
+          }</span>
+          <select
+            id="settings-tts-voice-control"
+            class="settings-control-select"
+            data-tts-voice-select="true"
             ${disabledAttribute}
           >
             ${optionsCopy}

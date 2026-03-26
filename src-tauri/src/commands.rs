@@ -247,6 +247,7 @@ pub struct AgentStateData {
     pub pending_confirmation_id: Option<String>,
     pub pending_plan_execution: Option<PendingPlanExecutionState>,
     pub tts_model_settings: TtsModelSettings,
+    pub tts_voice_settings: TtsVoiceSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -280,6 +281,19 @@ pub struct TtsModelSettings {
     pub mode: ProviderMode,
     pub active_profile: Option<String>,
     pub available_profiles: Vec<TtsModelOption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct TtsVoiceOption {
+    pub voice_name: String,
+    pub display_label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct TtsVoiceSettings {
+    pub mode: ProviderMode,
+    pub active_voice: Option<String>,
+    pub available_voices: Vec<TtsVoiceOption>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -3305,7 +3319,7 @@ pub(crate) fn resolve_direct_open_url_command(
             name: IntentName::OpenUrl,
             goal: String::from("Open the requested URL."),
             target_description: Some(url.clone()),
-        },
+                            },
         selected_skill(active_skill_names, "open_url"),
         PlannedStep {
             step_id: String::from("open-url"),
@@ -3319,7 +3333,7 @@ pub(crate) fn resolve_direct_open_url_command(
             purpose: String::from("Open the requested URL and wait for the page to load."),
             on_success: StepTransition::Complete,
             on_failure: StepTransition::Replan,
-        },
+                            },
     ))
 }
 
@@ -3404,7 +3418,7 @@ pub(crate) fn resolve_direct_read_page_command(
             name: IntentName::ReadPage,
             goal: String::from("Read the current page from the beginning."),
             target_description: Some(String::from("current page")),
-        },
+                            },
         selected_skills,
         steps: vec![
             PlannedStep {
@@ -3538,7 +3552,7 @@ pub(crate) fn resolve_direct_read_title_command(
             name: IntentName::ReadTitle,
             goal: String::from("Read the current page title."),
             target_description: Some(String::from("current page title")),
-        },
+                            },
         selected_skills: selected_skill(active_skill_names, "read_title"),
         steps: vec![PlannedStep {
             step_id: String::from("report-page-title"),
@@ -3616,7 +3630,7 @@ pub(crate) fn resolve_direct_repeat_command(
             name: IntentName::Repeat,
             goal: String::from("Repeat the current narration region."),
             target_description: Some(String::from("current narration region")),
-        },
+                            },
         selected_skills,
         steps: vec![PlannedStep {
             step_id: String::from("repeat-current-region"),
@@ -4429,7 +4443,7 @@ fn build_audio_set_planner_output(
             name: spec.intent_name,
             goal: spec.goal,
             target_description: spec.target_description,
-        },
+                            },
         selected_skills: spec.selected_skills,
         steps: vec![
             PlannedStep {
@@ -4465,7 +4479,7 @@ fn build_audio_report_planner_output(
             name: intent_name,
             goal,
             target_description,
-        },
+                            },
         selected_skills,
         steps: vec![build_report_result_step(
             request_id,
@@ -4491,7 +4505,7 @@ fn build_browser_visibility_planner_output(
             name: IntentName::SetBrowserVisibility,
             goal: String::from("Set the browser visibility mode to the requested target."),
             target_description: Some(format_browser_visibility_mode(target_mode)),
-        },
+                            },
         selected_skills,
         steps: vec![
             PlannedStep {
@@ -4538,7 +4552,7 @@ fn build_status_query_planner_output(spec: StatusQueryPlanSpec<'_>) -> PlannerOu
             name: spec.intent_name,
             goal: spec.goal,
             target_description: spec.target_description,
-        },
+                            },
         selected_skills: spec.selected_skills,
         steps: vec![
             PlannedStep {
@@ -4922,7 +4936,7 @@ where
             initial_step_id: current_step_id,
             block_side_effects_until_confirmation: planner_output.status
                 == PlannerStatus::NeedsConfirmation,
-        },
+                            },
         &mut run_step,
         trace,
     )
@@ -4975,7 +4989,7 @@ where
             steps: &pending_plan_execution.queued_steps,
             initial_step_id: next_step_id,
             block_side_effects_until_confirmation: false,
-        },
+                            },
         &mut run_step,
         trace,
     )
@@ -5304,7 +5318,7 @@ where
                     )],
                 );
             }
-        },
+                            },
         None => None,
     };
 
@@ -5978,6 +5992,20 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+                    tts_voice_settings: TtsVoiceSettings {
+                        mode: ProviderMode::Local,
+                        active_voice: Some(String::from("Bruno")),
+                        available_voices: vec![
+                            TtsVoiceOption {
+                                voice_name: String::from("Bella"),
+                                display_label: String::from("Bella"),
+                            },
+                            TtsVoiceOption {
+                                voice_name: String::from("Bruno"),
+                                display_label: String::from("Bruno"),
+                            },
+                        ],
+                    },
                 },
                 vec![String::from("agent state read")],
             )
@@ -7753,6 +7781,20 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+                    tts_voice_settings: TtsVoiceSettings {
+                        mode: ProviderMode::Local,
+                        active_voice: Some(String::from("Bruno")),
+                        available_voices: vec![
+                            TtsVoiceOption {
+                                voice_name: String::from("Bella"),
+                                display_label: String::from("Bella"),
+                            },
+                            TtsVoiceOption {
+                                voice_name: String::from("Bruno"),
+                                display_label: String::from("Bruno"),
+                            },
+                        ],
+                    },
             },
             safety: PlannerSafetySettings {
                 confirmation_confidence_threshold: 0.9,
@@ -8912,6 +8954,20 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+                    tts_voice_settings: TtsVoiceSettings {
+                        mode: ProviderMode::Local,
+                        active_voice: Some(String::from("Bruno")),
+                        available_voices: vec![
+                            TtsVoiceOption {
+                                voice_name: String::from("Bella"),
+                                display_label: String::from("Bella"),
+                            },
+                            TtsVoiceOption {
+                                voice_name: String::from("Bruno"),
+                                display_label: String::from("Bruno"),
+                            },
+                        ],
+                    },
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -8967,6 +9023,20 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+                    tts_voice_settings: TtsVoiceSettings {
+                        mode: ProviderMode::Local,
+                        active_voice: Some(String::from("Bruno")),
+                        available_voices: vec![
+                            TtsVoiceOption {
+                                voice_name: String::from("Bella"),
+                                display_label: String::from("Bella"),
+                            },
+                            TtsVoiceOption {
+                                voice_name: String::from("Bruno"),
+                                display_label: String::from("Bruno"),
+                            },
+                        ],
+                    },
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9015,6 +9085,20 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+                    tts_voice_settings: TtsVoiceSettings {
+                        mode: ProviderMode::Local,
+                        active_voice: Some(String::from("Bruno")),
+                        available_voices: vec![
+                            TtsVoiceOption {
+                                voice_name: String::from("Bella"),
+                                display_label: String::from("Bella"),
+                            },
+                            TtsVoiceOption {
+                                voice_name: String::from("Bruno"),
+                                display_label: String::from("Bruno"),
+                            },
+                        ],
+                    },
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9058,6 +9142,20 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+                    tts_voice_settings: TtsVoiceSettings {
+                        mode: ProviderMode::Local,
+                        active_voice: Some(String::from("Bruno")),
+                        available_voices: vec![
+                            TtsVoiceOption {
+                                voice_name: String::from("Bella"),
+                                display_label: String::from("Bella"),
+                            },
+                            TtsVoiceOption {
+                                voice_name: String::from("Bruno"),
+                                display_label: String::from("Bruno"),
+                            },
+                        ],
+                    },
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: agent_state.page_id.clone(),
@@ -9125,6 +9223,20 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+                    tts_voice_settings: TtsVoiceSettings {
+                        mode: ProviderMode::Local,
+                        active_voice: Some(String::from("Bruno")),
+                        available_voices: vec![
+                            TtsVoiceOption {
+                                voice_name: String::from("Bella"),
+                                display_label: String::from("Bella"),
+                            },
+                            TtsVoiceOption {
+                                voice_name: String::from("Bruno"),
+                                display_label: String::from("Bruno"),
+                            },
+                        ],
+                    },
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: agent_state.page_id.clone(),
@@ -9187,6 +9299,20 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+                    tts_voice_settings: TtsVoiceSettings {
+                        mode: ProviderMode::Local,
+                        active_voice: Some(String::from("Bruno")),
+                        available_voices: vec![
+                            TtsVoiceOption {
+                                voice_name: String::from("Bella"),
+                                display_label: String::from("Bella"),
+                            },
+                            TtsVoiceOption {
+                                voice_name: String::from("Bruno"),
+                                display_label: String::from("Bruno"),
+                            },
+                        ],
+                    },
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: None,
@@ -9260,6 +9386,20 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+                    tts_voice_settings: TtsVoiceSettings {
+                        mode: ProviderMode::Local,
+                        active_voice: Some(String::from("Bruno")),
+                        available_voices: vec![
+                            TtsVoiceOption {
+                                voice_name: String::from("Bella"),
+                                display_label: String::from("Bella"),
+                            },
+                            TtsVoiceOption {
+                                voice_name: String::from("Bruno"),
+                                display_label: String::from("Bruno"),
+                            },
+                        ],
+                    },
         };
 
         let planner_output = resolve_direct_repeat_command(
@@ -9308,6 +9448,20 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+                    tts_voice_settings: TtsVoiceSettings {
+                        mode: ProviderMode::Local,
+                        active_voice: Some(String::from("Bruno")),
+                        available_voices: vec![
+                            TtsVoiceOption {
+                                voice_name: String::from("Bella"),
+                                display_label: String::from("Bella"),
+                            },
+                            TtsVoiceOption {
+                                voice_name: String::from("Bruno"),
+                                display_label: String::from("Bruno"),
+                            },
+                        ],
+                    },
         };
 
         let planner_output =
@@ -9361,6 +9515,20 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+                    tts_voice_settings: TtsVoiceSettings {
+                        mode: ProviderMode::Local,
+                        active_voice: Some(String::from("Bruno")),
+                        available_voices: vec![
+                            TtsVoiceOption {
+                                voice_name: String::from("Bella"),
+                                display_label: String::from("Bella"),
+                            },
+                            TtsVoiceOption {
+                                voice_name: String::from("Bruno"),
+                                display_label: String::from("Bruno"),
+                            },
+                        ],
+                    },
         };
 
         let planner_output = resolve_direct_read_title_command(
@@ -9408,6 +9576,20 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
+                    tts_voice_settings: TtsVoiceSettings {
+                        mode: ProviderMode::Local,
+                        active_voice: Some(String::from("Bruno")),
+                        available_voices: vec![
+                            TtsVoiceOption {
+                                voice_name: String::from("Bella"),
+                                display_label: String::from("Bella"),
+                            },
+                            TtsVoiceOption {
+                                voice_name: String::from("Bruno"),
+                                display_label: String::from("Bruno"),
+                            },
+                        ],
+                    },
         };
 
         let planner_output = resolve_direct_read_title_command(

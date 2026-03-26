@@ -131,6 +131,11 @@ export interface SetPlaybackSpeedData {
   changed: boolean;
 }
 
+export interface SetTtsVoiceData {
+  voice: string;
+  changed: boolean;
+}
+
 export interface SetBrowserVisibilityData {
   mode: BrowserVisibilityMode;
   changed: boolean;
@@ -182,6 +187,17 @@ export interface TtsModelSettings {
   mode: ProviderMode;
   active_profile: string | null;
   available_profiles: TtsModelOption[];
+}
+
+export interface TtsVoiceOption {
+  voice_name: string;
+  display_label: string;
+}
+
+export interface TtsVoiceSettings {
+  mode: ProviderMode;
+  active_voice: string | null;
+  available_voices: TtsVoiceOption[];
 }
 
 export interface ToolHistoryEntry {
@@ -240,6 +256,7 @@ export interface AgentStateData {
   listening_state: ListeningState;
   audio: RuntimeAudioState;
   tts_model_settings: TtsModelSettings;
+  tts_voice_settings: TtsVoiceSettings;
   last_transcript: string | null;
   last_tool_call: LastToolCallSummary | null;
   pending_confirmation_id: string | null;
@@ -462,6 +479,19 @@ export async function setBrowserVisibility(input: {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     mode: input.mode,
+  });
+  return unwrapToolResult(result);
+}
+
+export async function setTtsVoice(input: {
+  requestId: string;
+  timeoutMs?: number;
+  voice: string;
+}): Promise<SetTtsVoiceData> {
+  const result = await invoke<ToolResult<SetTtsVoiceData>>("set_tts_voice", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    voice: input.voice,
   });
   return unwrapToolResult(result);
 }

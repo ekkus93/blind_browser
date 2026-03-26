@@ -846,3 +846,8 @@
 - The existing `fix-node-version.sh` was reinstalling frontend dependencies under `Node.js 22.12.0` but, when executed normally, could not change the caller's shell back from `22.11.0`, so later `pnpm build` commands still showed the Vite warning.
 - Updated `fix-node-version.sh` and `README.md` so the supported workflow is `source ./fix-node-version.sh`; when sourced, the current shell stays on `22.12.0`, and when executed normally the helper now explains that limitation explicitly.
 - Verified with `source ./fix-node-version.sh && node -v && pnpm test:ui && pnpm build`: the shell stays on `v22.12.0`, all `27` UI tests pass, and the Vite unsupported-Node warning no longer appears.
+
+## 2026-03-26T07:00:00Z - GPT-5.4 - Settings voice selector landed
+- Added a dedicated Settings UI voice selector that reuses the persisted `set_tts_voice` path instead of introducing a frontend-only voice setting.
+- The Rust runtime now exposes `tts_voice_settings` through `get_agent_state`, including the shipped KittenTTS voice list for local mode, the built-in OpenAI voice list for remote mode, and preservation of any already-configured custom voice so the UI never drops an existing setting.
+- Added Rust coverage for current-mode voice choice derivation and frontend render coverage for the new selector; validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`178` Rust tests, `29` UI tests).
