@@ -59,7 +59,7 @@
 - [x] Define final field set for provider failover preferences
 - [x] Define config schema for persistent playback volume and playback speed
 - [x] Define named remote and local provider profiles
-- [x] Define `SecretRef` support for env, file, and inline secret resolution
+- [x] Define `SecretRef` support for env, file, and keyring secret resolution
 - [x] Define validation rules for category-specific profile references and provider modes
 - [x] Document secure default examples using environment-variable secret references
 - [x] Define exact shipped `config.example.toml` contents and first-launch defaults

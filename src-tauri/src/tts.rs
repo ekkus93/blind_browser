@@ -559,8 +559,8 @@ mod tests {
             provider: RemoteProviderKind::OpenAi,
             base_url: String::from("https://api.openai.com/v1"),
             model: String::from("gpt-4o-mini-tts"),
-            api_key: SecretRef::Inline {
-                inline: String::from("test"),
+            api_key: SecretRef::FromEnv {
+                from_env: String::from("OPENAI_API_KEY"),
             },
             organization: None,
             project: None,

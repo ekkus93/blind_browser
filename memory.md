@@ -906,3 +906,12 @@
 - Extended `SecretRef` with `from_keyring` support, centralized secret resolution/reference formatting, and added config persistence helpers that store UI-entered remote API keys in the OS keyring while writing only a keyring reference back to `config.toml`.
 - Added Tauri commands and frontend settings controls for secure API key entry on the remote planner, remote TTS, and remote ASR panels, plus guidance that points users back to those controls when remote-secret errors surface.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`194` Rust tests, `46` UI tests).
+
+## 2026-03-26T19:34:32Z - GPT-5.4 - Removed bogus migration wording and audited inline secret support
+- Cleaned up README, CHANGELOG, and SPECS text that incorrectly described keyring-backed API key storage as a "migration" for this new project.
+- Audited remaining `inline` secret support and confirmed it is still an explicit runtime/spec feature (`SecretRef::Inline` in `src-tauri/src/config.rs` and matching spec text), not a separate migration tool or hidden compatibility layer.
+
+## 2026-03-26T19:46:12Z - GPT-5.4 - Inline secret support removed
+- Removed `SecretRef::Inline` from the Rust config model and secret-resolution/reference paths, so inline API-key values in config no longer deserialize.
+- Updated shipped examples, specs, changelog text, and tests to use only `from_env`, `from_file`, and `from_keyring` secret references; Ollama defaults now point at `OLLAMA_API_KEY`.
+- Added a regression test that rejects inline secret refs and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`195` Rust tests, `46` UI tests).

@@ -281,7 +281,6 @@ enum SecretRef {
   FromEnv { from_env: String },
   FromKeyring { from_keyring: { service: String, account: String } },
   FromFile { from_file: String },
-  Inline { inline: String },
 }
 ```
 
@@ -290,24 +289,22 @@ Recommended precedence for secrets:
 1. environment variable reference
 2. OS keyring reference
 3. file reference
-4. inline secret only as a last resort
 
 ### Secret Handling Rules
 
 - The main config should prefer `from_env` for API keys.
 - `from_keyring` is acceptable for UI-entered secrets when the app stores only a keyring reference in TOML.
 - `from_file` is acceptable for local deployments where environment management is inconvenient.
-- `inline` secrets should be supported only for development or explicit user choice.
 - Secrets must never be written to logs.
 - The UI should mask secret values and avoid echoing them after initial entry.
 
-Migration note (keyring-backed API keys)
+Keyring-backed API keys
 
 - The v1 runtime now supports storing UI-entered remote API keys in the operating system keyring. When a user saves an API key via the Settings UI or the corresponding Tauri command, the secret is written to the OS keyring and the config file is updated to a `from_keyring` reference (for example: `api_key = { from_keyring = { service = "blind_browser", account = "remote_profiles.openai-default" } }`).
-- Existing `from_env`, `from_file`, and `inline` references continue to work without change. No automatic bulk migration is performed.
-- To migrate a remote profile's inline API key to the OS keyring: open Settings → Remote profile, paste the API key into the masked API key input, and click Save. The app will store the key in the OS keyring and replace the `api_key` entry in `config.toml` with a `from_keyring` reference.
+- Existing `from_env`, `from_file`, and `from_keyring` references are valid `SecretRef` forms.
+- When the Settings UI saves a remote API key, it writes the secret to the OS keyring and stores only the keyring reference in `config.toml`.
 - CI and unit tests use an in-memory test keyring. Production runs will use the platform keyring available on the host OS.
-- Example configs should use `from_env`, not inline keys.
+- Example configs should use `from_env`, not plaintext API keys in config.
 
 ### Validation Rules
 

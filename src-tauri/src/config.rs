@@ -68,7 +68,6 @@ pub enum SecretRef {
     FromEnv { from_env: String },
     FromFile { from_file: String },
     FromKeyring { from_keyring: KeyringRef },
-    Inline { inline: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -655,7 +654,6 @@ pub fn secret_ref_reference(secret_ref: &SecretRef) -> String {
                 from_keyring.service, from_keyring.account
             )
         }
-        SecretRef::Inline { .. } => String::from("Inline secret stored in config"),
     }
 }
 
@@ -670,7 +668,6 @@ pub fn resolve_secret_ref(secret_ref: &SecretRef) -> Result<String, String> {
         SecretRef::FromKeyring { from_keyring } => {
             get_keyring_secret(&from_keyring.service, &from_keyring.account)
         }
-        SecretRef::Inline { inline } => Ok(inline.trim().to_string()),
     }
     .and_then(|value| {
         if value.is_empty() {
@@ -922,8 +919,8 @@ impl Default for AppConfig {
             provider: RemoteProviderKind::Ollama,
             base_url: String::from("http://localhost:11434/v1"),
             model: String::from("qwen2.5:3b-instruct"),
-            api_key: SecretRef::Inline {
-                inline: String::from("ollama"),
+            api_key: SecretRef::FromEnv {
+                from_env: String::from("OLLAMA_API_KEY"),
             },
             organization: None,
             project: None,
@@ -1137,7 +1134,7 @@ include_previous_value = false
 provider = "Ollama"
 base_url = "http://localhost:11434/v1"
 model = "qwen2.5:3b-instruct"
-api_key = { inline = "ollama" }
+api_key = { from_env = "OLLAMA_API_KEY" }
 temperature_milli = 200
 max_output_tokens = 1024
 timeout_ms = 30000
@@ -1166,6 +1163,84 @@ threads = 4
         assert_eq!(profile.provider, RemoteProviderKind::Ollama);
         assert_eq!(profile.base_url, "http://localhost:11434/v1");
         assert_eq!(profile.model, "qwen2.5:3b-instruct");
+        assert_eq!(
+            profile.api_key,
+            SecretRef::FromEnv {
+                from_env: String::from("OLLAMA_API_KEY"),
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_inline_secret_refs() {
+        let invalid = r#"
+[providers.planner]
+mode = "remote"
+remote_profile = "ollama-default"
+
+[providers.tts]
+mode = "local"
+local_profile = "kitten-default"
+
+[providers.asr]
+mode = "local"
+local_profile = "whisper-default"
+
+[audio]
+playback_volume = 1.0
+playback_speed = 1.0
+default_tts_voice = "Bruno"
+
+[safety]
+confirmation_confidence_threshold = 0.9
+allow_click_without_confirmation = true
+always_confirm_submit = true
+
+[ocr]
+trigger_on_no_extractable_text = true
+sparse_text_char_threshold = 200
+sparse_text_region_threshold = 2
+prefer_region_ocr = true
+
+[models]
+models_dir = "~/.config/blind_browser/models"
+check_on_startup = true
+auto_download_missing = false
+
+[speech_feedback]
+style = "Short"
+confirm_setting_changes = true
+include_previous_value = false
+
+[remote_profiles.ollama-default]
+provider = "Ollama"
+base_url = "http://localhost:11434/v1"
+model = "qwen2.5:3b-instruct"
+api_key = { inline = "ollama" }
+temperature_milli = 200
+max_output_tokens = 1024
+timeout_ms = 30000
+
+[local_profiles.kitten-default]
+backend = "kitten_tts_rs"
+model_id = "default"
+model_path = "/path/to/kitten/model"
+default_voice = "Bruno"
+sample_rate = 24000
+
+[local_profiles.whisper-default]
+backend = "whisper"
+model_id = "tiny"
+model_path = "/path/to/whisper/model"
+language = "en"
+threads = 4
+"#;
+
+        let error = AppConfig::load_from_str(invalid).expect_err("config should be invalid");
+        assert!(
+            matches!(error, ConfigError::Validation(ref message) if message.contains("data did not match any variant of untagged enum SecretRef")),
+            "expected inline secret refs to fail validation, got {error}"
+        );
     }
 
     #[test]
@@ -1214,7 +1289,7 @@ include_previous_value = false
 provider = "Ollama"
 base_url = "http://localhost:11434/v1"
 model = "qwen2.5:3b-instruct"
-api_key = { inline = "ollama" }
+api_key = { from_env = "OLLAMA_API_KEY" }
 temperature_milli = 200
 max_output_tokens = 1024
 timeout_ms = 30000
