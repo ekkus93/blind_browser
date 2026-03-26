@@ -69,12 +69,14 @@ export {
 const app = document.querySelector<HTMLDivElement>("#app");
 const uiStore = createExecutionUiStore();
 const PUSH_TO_TALK_RELEASE_CAPTURE_MS = 1;
+const CONTINUOUS_LISTEN_CAPTURE_MS = 3_000;
 let currentExecutionUiState = uiStore.getState();
 let pushToTalkState: PushToTalkPanelState = createInitialPushToTalkState();
 let audioControlsState: AudioControlsPanelState = createInitialAudioControlsState();
 let statusPanelState: StatusPanelState = createInitialStatusPanelState();
 let urlInputPanelState: UrlInputPanelState = createInitialUrlInputPanelState();
 let activePushToTalkSource: "keyboard" | "pointer" | null = null;
+let continuousListeningLoopActive = false;
 
 if (!app) {
   throw new Error("App root element was not found.");
@@ -294,6 +296,11 @@ function currentRegionLabelForAgentState(agentState: AgentStateData): string | n
 }
 
 function applyAgentStateToPanels(agentState: AgentStateData) {
+  setPushToTalkState({
+    enabled: agentState.listening_state.push_to_talk_enabled,
+    isListening: agentState.listening_state.is_listening,
+    lastTranscript: agentState.last_transcript,
+  });
   setAudioControlsState({
     playbackVolume: agentState.audio.playback_volume,
     playbackSpeed: agentState.audio.playback_speed,
@@ -320,6 +327,9 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     isRewinding: false,
     error: null,
   });
+  if (agentState.listening_state.is_listening && !pushToTalkState.isHolding) {
+    void ensureContinuousListeningLoop();
+  }
 }
 
 function isUrlInputActionBusy(): boolean {
@@ -402,6 +412,82 @@ async function refreshRuntimePanelsFromRuntime() {
     setStatusPanelState({
       error: message,
     });
+  }
+}
+
+async function stopContinuousListeningAfterFailure(message: string) {
+  if (!pushToTalkState.isListening) {
+    setPushToTalkState({
+      isBusy: false,
+      lastError: message,
+    });
+    return;
+  }
+
+  try {
+    const result = await stopListening({
+      requestId: createRequestId("continuous-listen-stop"),
+    });
+    setPushToTalkState({
+      enabled: result.listening_state.push_to_talk_enabled,
+      isListening: result.listening_state.is_listening,
+      isBusy: false,
+      lastError: message,
+    });
+  } catch (error: unknown) {
+    const stopFailure = describePushToTalkFailure(error);
+    setPushToTalkState({
+      isListening: false,
+      isBusy: false,
+      lastError: `${message} The runtime also failed to stop hands-free listening: ${stopFailure}`,
+    });
+  }
+}
+
+async function ensureContinuousListeningLoop() {
+  if (continuousListeningLoopActive || !pushToTalkState.isListening || pushToTalkState.isHolding) {
+    return;
+  }
+
+  continuousListeningLoopActive = true;
+
+  try {
+    while (pushToTalkState.isListening && !pushToTalkState.isHolding) {
+      setPushToTalkState({
+        isBusy: true,
+        lastError: null,
+      });
+
+      const result = await transcribeAndExecuteCommand({
+        requestId: createRequestId("continuous-listen"),
+        maxDurationMs: CONTINUOUS_LISTEN_CAPTURE_MS,
+        autoStop: false,
+      });
+
+      setPushToTalkState({
+        enabled: result.transcription.listening_state.push_to_talk_enabled,
+        isListening: result.transcription.listening_state.is_listening,
+        isBusy: false,
+        lastTranscript: result.transcription.transcript ?? pushToTalkState.lastTranscript,
+        lastError: result.command_error?.message ?? null,
+      });
+
+      if (result.execution_outcome) {
+        uiStore.applyOutcome(result.execution_outcome);
+      }
+
+      await refreshRuntimePanelsFromRuntime();
+
+      if (!result.transcription.listening_state.is_listening) {
+        break;
+      }
+    }
+  } catch (error: unknown) {
+    const message = describePushToTalkFailure(error);
+    await stopContinuousListeningAfterFailure(message);
+    await refreshRuntimePanelsFromRuntime();
+  } finally {
+    continuousListeningLoopActive = false;
   }
 }
 
@@ -587,7 +673,12 @@ async function readPreviousRegion() {
 }
 
 async function beginPushToTalk(source: "keyboard" | "pointer") {
-  if (!pushToTalkState.enabled || pushToTalkState.isHolding || pushToTalkState.isBusy) {
+  if (
+    !pushToTalkState.enabled ||
+    pushToTalkState.isHolding ||
+    pushToTalkState.isBusy ||
+    pushToTalkState.isListening
+  ) {
     return;
   }
 
@@ -698,6 +789,9 @@ async function releasePushToTalk(source: "keyboard" | "pointer") {
       uiStore.applyOutcome(executionOutcome);
     }
     await refreshRuntimePanelsFromRuntime();
+    if (pushToTalkState.isListening && !pushToTalkState.isHolding) {
+      void ensureContinuousListeningLoop();
+    }
   } catch (error: unknown) {
     setPushToTalkState({
       isListening: false,

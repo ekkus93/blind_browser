@@ -128,9 +128,41 @@ test("renders push-to-talk instructions and button label for the idle state", ()
     lastError: null,
   });
 
-  assert.match(html, /Hold Space or press and hold the button to speak a command\./);
+  assert.match(
+    html,
+    /Hold Space or press and hold the button to speak a command\. Say start listening to keep voice input active\./,
+  );
   assert.match(html, /Hold to talk/);
   assert.match(html, /data-push-to-talk-button="true"/);
+});
+
+test("renders hands-free listening copy when continuous voice input is active", () => {
+  const html = renderPushToTalkPanel({
+    enabled: true,
+    isHolding: false,
+    isListening: true,
+    isBusy: false,
+    lastTranscript: "start listening",
+    lastError: null,
+  });
+
+  assert.match(html, /Hands-free listening is active\. Say a command, or say stop listening to leave hands-free mode\./);
+  assert.match(html, /Last transcript:<\/strong> start listening/);
+  assert.match(html, /disabled aria-disabled="true"/);
+});
+
+test("renders hands-free listening busy copy while processing the next spoken command", () => {
+  const html = renderPushToTalkPanel({
+    enabled: true,
+    isHolding: false,
+    isListening: true,
+    isBusy: true,
+    lastTranscript: null,
+    lastError: null,
+  });
+
+  assert.match(html, /Hands-free listening is active and processing the next spoken command\./);
+  assert.match(html, /disabled aria-disabled="true"/);
 });
 
 test("renders push-to-talk transcript and active button state while holding", () => {

@@ -13,6 +13,7 @@ Low-resource desktop web-reading assistant for vision-impaired users.
 - Chromium backend via chromiumoxide
 - Push-to-talk (wake word deferred to v2)
 - Voice-first control; no keyboard or mouse required for normal operation
+- After a spoken `start listening` command, the frontend should keep cycling bounded transcription and command execution hands-free until the user says `stop listening` or the runtime exits listening with an explicit error.
 
 ---
 

@@ -140,20 +140,24 @@ export function renderConfirmationPanel(state: ConfirmationUiState): string {
 export function renderPushToTalkPanel(state: PushToTalkPanelState): string {
   const statusCopy = state.isHolding
     ? "Listening now. Release to transcribe and run the spoken command."
-    : state.isBusy
-      ? "Processing the captured speech command."
+    : state.isListening && state.isBusy
+      ? "Hands-free listening is active and processing the next spoken command."
       : state.isListening
-        ? "Listening is active."
-        : state.enabled
-          ? "Hold Space or press and hold the button to speak a command."
-          : "Push-to-talk is unavailable in the current runtime state.";
+        ? "Hands-free listening is active. Say a command, or say stop listening to leave hands-free mode."
+        : state.isBusy
+          ? "Processing the captured speech command."
+          : state.enabled
+            ? "Hold Space or press and hold the button to speak a command. Say start listening to keep voice input active."
+            : "Push-to-talk is unavailable in the current runtime state.";
   const transcriptCopy = state.lastTranscript
     ? `<p class="push-to-talk-transcript"><strong>Last transcript:</strong> ${escapeHtml(state.lastTranscript)}</p>`
     : "";
   const errorCopy = state.lastError
     ? `<p class="push-to-talk-error" role="alert">${escapeHtml(state.lastError)}</p>`
     : "";
-  const disabledAttribute = !state.enabled || state.isBusy ? " disabled aria-disabled=\"true\"" : "";
+  const disabledAttribute = !state.enabled || state.isBusy || state.isListening
+    ? " disabled aria-disabled=\"true\""
+    : "";
   const buttonLabel = state.isHolding ? "Release to transcribe" : "Hold to talk";
 
   return `

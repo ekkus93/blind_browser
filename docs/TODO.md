@@ -304,7 +304,7 @@
 - [x] Push-to-talk button
 - [x] Add nearby playback volume control
 - [x] Add nearby playback speed control
-- [ ] Ensure normal operation is fully voice-controlled
+- [x] Ensure normal operation is fully voice-controlled
 
 ### Settings UI
 - [ ] TTS model selection
