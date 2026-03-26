@@ -164,6 +164,16 @@
 ## 2026-03-23T20:26:44Z - GPT-5.4 - Retry-copy render coverage is now symmetric
 - `src/confirmation-panel.test.mjs` now also verifies that `Can retry.` appears only for retryable backend tool errors and does not appear for non-retryable backend or transport failures.
 
+## 2026-03-26T07:14:21Z - GPT-5.4 - Settings TTS provider selection landed
+- `src-tauri/src/app_core.rs` now derives `tts_provider_settings` for `get_agent_state` and persists TTS mode changes through `set_tts_provider_mode(...)`, preserving the existing local and remote profile references.
+- `src/tauri-api.ts`, `src/confirmation-panel.ts`, and `src/main.ts` now expose a dedicated Settings selector for switching TTS between the configured local and remote providers, then refresh the adjacent model and voice selectors from runtime state.
+- `docs/TODO.md` now marks `TTS provider selection` complete, and validation is green with `cargo fmt`, `cargo clippy`, `cargo test`, `pnpm test:ui`, and `pnpm build` under the sourced Node 22.12.0 workflow.
+
+## 2026-03-26T07:25:33Z - GPT-5.4 - Settings ASR provider selection landed
+- `src-tauri/src/config.rs`, `src-tauri/src/app_core.rs`, `src-tauri/src/commands.rs`, and `src-tauri/src/lib.rs` now expose persisted ASR provider-mode selection and runtime-derived `asr_provider_settings` through `get_agent_state`, preserving the existing local and remote ASR profile references.
+- `src/tauri-api.ts`, `src/confirmation-panel.ts`, `src/confirmation-panel.test.mjs`, and `src/main.ts` now expose a dedicated Settings selector for switching ASR between the configured local and remote providers and surfacing save errors inline.
+- `docs/TODO.md` now marks `ASR provider selection` and `ASR provider selection behavior` complete, and validation is green with `cargo clippy`, `cargo test`, `pnpm test:ui`, and `pnpm build` under the sourced Node 22.12.0 workflow.
+
 ## 2026-03-24T18:12:24Z - GPT-5.4 - Local planner and failover implemented
 - `src-tauri/src/app_core.rs` now supports local planner resolution through `llama-cpp-2`, using the configured local planner profile, model chat template, bounded token generation, and explicit extraction of the first complete JSON object before `PlannerOutput` deserialization.
 - Remote planner resolution now falls back to the configured local planner only when `providers.planner.failover_to_local = true`, and logs that failover path explicitly instead of silently changing providers.

@@ -5,6 +5,8 @@ import {
   renderAudioControlsPanel,
   renderConfirmationPanel,
   renderPushToTalkPanel,
+  renderSettingsAsrProviderPanel,
+  renderSettingsTtsProviderPanel,
   renderSettingsTtsModelPanel,
   renderSettingsTtsVoicePanel,
   renderSettingsSpeedPanel,
@@ -405,6 +407,62 @@ test("renders settings speed errors and disabled state while saving", () => {
   });
 
   assert.match(html, /The playback speed could not be saved\./);
+  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /role="alert"/);
+});
+
+test("renders settings ASR provider selection for configured modes", () => {
+  const html = renderSettingsAsrProviderPanel({
+    activeMode: "Local",
+    availableModes: ["Local", "Remote"],
+    isBusy: false,
+    error: null,
+  });
+
+  assert.match(html, /ASR provider selection/);
+  assert.match(html, /configured local or remote ASR provider/);
+  assert.match(html, /Local provider/);
+  assert.match(html, /Remote provider/);
+  assert.match(html, /data-asr-provider-select="true"/);
+});
+
+test("renders settings ASR provider errors and disabled state while saving", () => {
+  const html = renderSettingsAsrProviderPanel({
+    activeMode: "Remote",
+    availableModes: ["Local", "Remote"],
+    isBusy: true,
+    error: "The ASR provider selection could not be saved.",
+  });
+
+  assert.match(html, /The ASR provider selection could not be saved\./);
+  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /role="alert"/);
+});
+
+test("renders settings TTS provider selection for configured modes", () => {
+  const html = renderSettingsTtsProviderPanel({
+    activeMode: "Local",
+    availableModes: ["Local", "Remote"],
+    isBusy: false,
+    error: null,
+  });
+
+  assert.match(html, /TTS provider selection/);
+  assert.match(html, /configured local or remote TTS provider/);
+  assert.match(html, /Local provider/);
+  assert.match(html, /Remote provider/);
+  assert.match(html, /data-tts-provider-select="true"/);
+});
+
+test("renders settings TTS provider errors and disabled state while saving", () => {
+  const html = renderSettingsTtsProviderPanel({
+    activeMode: "Remote",
+    availableModes: ["Local", "Remote"],
+    isBusy: true,
+    error: "The TTS provider selection could not be saved.",
+  });
+
+  assert.match(html, /The TTS provider selection could not be saved\./);
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /role="alert"/);
 });

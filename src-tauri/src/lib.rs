@@ -19,15 +19,16 @@ pub mod tts;
 use tauri::Manager;
 
 use crate::app_core::AppCore;
+use crate::browser::BrowserVisibilityMode;
 use crate::commands::{
     AgentStateData, ConfirmActionResolution, ExecutionOutcome, GetAgentStateInput, OpenUrlData,
     OpenUrlInput, PlannerOutput, SetBrowserVisibilityData, SetBrowserVisibilityInput,
     SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
-    SetTtsVoiceData, SetTtsVoiceInput, StartListeningData, StartListeningInput,
-    StopListeningData, StopListeningInput, ToolError, ToolResult,
-    TranscribeAndExecuteCommandData, TranscribeCommandData, TranscribeCommandInput,
+    SetTtsVoiceData, SetTtsVoiceInput, StartListeningData, StartListeningInput, StopListeningData,
+    StopListeningInput, ToolError, ToolResult, TranscribeAndExecuteCommandData,
+    TranscribeCommandData, TranscribeCommandInput,
 };
-use crate::browser::BrowserVisibilityMode;
+use crate::config::ProviderMode;
 
 fn lock_app_core<'a>(
     app_core: &'a tauri::State<'a, Mutex<AppCore>>,
@@ -175,11 +176,13 @@ fn set_playback_volume(
 ) -> Result<ToolResult<SetPlaybackVolumeData>, ToolError> {
     let mut app_core = lock_app_core(&app_core)?;
 
-    Ok(app_core.execute_set_playback_volume(SetPlaybackVolumeInput {
-        request_id,
-        timeout_ms,
-        volume,
-    }))
+    Ok(
+        app_core.execute_set_playback_volume(SetPlaybackVolumeInput {
+            request_id,
+            timeout_ms,
+            volume,
+        }),
+    )
 }
 
 #[tauri::command]
@@ -207,11 +210,13 @@ fn set_browser_visibility(
 ) -> Result<ToolResult<SetBrowserVisibilityData>, ToolError> {
     let mut app_core = lock_app_core(&app_core)?;
 
-    Ok(app_core.execute_set_browser_visibility(SetBrowserVisibilityInput {
-        request_id,
-        timeout_ms,
-        mode,
-    }))
+    Ok(
+        app_core.execute_set_browser_visibility(SetBrowserVisibilityInput {
+            request_id,
+            timeout_ms,
+            mode,
+        }),
+    )
 }
 
 #[tauri::command]
@@ -228,6 +233,66 @@ fn set_tts_voice(
         timeout_ms,
         voice,
     }))
+}
+
+#[derive(serde::Serialize)]
+struct SetAsrProviderSelectionData {
+    mode: ProviderMode,
+    changed: bool,
+}
+
+#[tauri::command]
+fn set_asr_provider_selection(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    mode: ProviderMode,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<SetAsrProviderSelectionData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let changed = app_core.config.providers.asr.mode != mode;
+
+    app_core
+        .set_asr_provider_mode(mode.clone())
+        .map_err(|error| ToolError {
+            code: String::from("asr_provider_selection_persist_failed"),
+            message: format!("Failed to persist the requested ASR provider selection: {error}"),
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(SetAsrProviderSelectionData { mode, changed })
+}
+
+#[derive(serde::Serialize)]
+struct SetTtsProviderSelectionData {
+    mode: ProviderMode,
+    changed: bool,
+}
+
+#[tauri::command]
+fn set_tts_provider_selection(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    mode: ProviderMode,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<SetTtsProviderSelectionData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let changed = app_core.config.providers.tts.mode != mode;
+
+    app_core
+        .set_tts_provider_mode(mode.clone())
+        .map_err(|error| ToolError {
+            code: String::from("tts_provider_selection_persist_failed"),
+            message: format!("Failed to persist the requested TTS provider selection: {error}"),
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(SetTtsProviderSelectionData { mode, changed })
 }
 
 #[derive(serde::Serialize)]
@@ -250,7 +315,9 @@ fn set_tts_model_selection(
     if profile_name.is_empty() {
         return Err(ToolError {
             code: String::from("invalid_tts_model_profile"),
-            message: String::from("TTS model selection requires a non-empty configured profile name."),
+            message: String::from(
+                "TTS model selection requires a non-empty configured profile name.",
+            ),
             retryable: false,
             details: None,
         });
@@ -295,6 +362,8 @@ pub fn run() {
             set_playback_speed,
             set_browser_visibility,
             set_tts_voice,
+            set_tts_provider_selection,
+            set_asr_provider_selection,
             set_tts_model_selection
         ])
         .setup(|app| {

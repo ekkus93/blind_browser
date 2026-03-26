@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export type ProviderMode = "Local" | "Remote" | "Disabled";
+export type SelectableProviderMode = Exclude<ProviderMode, "Disabled">;
 
 export type BrowserVisibilityMode = "Visible" | "Headless";
 
@@ -200,6 +201,16 @@ export interface TtsVoiceSettings {
   available_voices: TtsVoiceOption[];
 }
 
+export interface TtsProviderSettings {
+  active_mode: SelectableProviderMode;
+  available_modes: SelectableProviderMode[];
+}
+
+export interface AsrProviderSettings {
+  active_mode: SelectableProviderMode;
+  available_modes: SelectableProviderMode[];
+}
+
 export interface ToolHistoryEntry {
   tool_name: ToolName;
   ok: boolean;
@@ -257,6 +268,8 @@ export interface AgentStateData {
   audio: RuntimeAudioState;
   tts_model_settings: TtsModelSettings;
   tts_voice_settings: TtsVoiceSettings;
+  tts_provider_settings: TtsProviderSettings;
+  asr_provider_settings: AsrProviderSettings;
   last_transcript: string | null;
   last_tool_call: LastToolCallSummary | null;
   pending_confirmation_id: string | null;
@@ -494,6 +507,30 @@ export async function setTtsVoice(input: {
     voice: input.voice,
   });
   return unwrapToolResult(result);
+}
+
+export async function setAsrProviderSelection(input: {
+  requestId: string;
+  timeoutMs?: number;
+  mode: SelectableProviderMode;
+}): Promise<{ mode: SelectableProviderMode; changed: boolean }> {
+  return invoke<{ mode: SelectableProviderMode; changed: boolean }>("set_asr_provider_selection", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    mode: input.mode,
+  });
+}
+
+export async function setTtsProviderSelection(input: {
+  requestId: string;
+  timeoutMs?: number;
+  mode: SelectableProviderMode;
+}): Promise<{ mode: SelectableProviderMode; changed: boolean }> {
+  return invoke<{ mode: SelectableProviderMode; changed: boolean }>("set_tts_provider_selection", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    mode: input.mode,
+  });
 }
 
 export async function setTtsModelSelection(input: {

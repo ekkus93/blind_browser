@@ -248,6 +248,8 @@ pub struct AgentStateData {
     pub pending_plan_execution: Option<PendingPlanExecutionState>,
     pub tts_model_settings: TtsModelSettings,
     pub tts_voice_settings: TtsVoiceSettings,
+    pub tts_provider_settings: TtsProviderSettings,
+    pub asr_provider_settings: AsrProviderSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -294,6 +296,18 @@ pub struct TtsVoiceSettings {
     pub mode: ProviderMode,
     pub active_voice: Option<String>,
     pub available_voices: Vec<TtsVoiceOption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct TtsProviderSettings {
+    pub active_mode: ProviderMode,
+    pub available_modes: Vec<ProviderMode>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct AsrProviderSettings {
+    pub active_mode: ProviderMode,
+    pub available_modes: Vec<ProviderMode>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -1435,7 +1449,9 @@ pub fn canonical_planner_output_examples() -> BTreeMap<String, PlannerOutput> {
                             "element_id": "link-help",
                             "double_click": false
                         }),
-                        purpose: String::from("Activate the requested link without an extra confirmation step."),
+                        purpose: String::from(
+                            "Activate the requested link without an extra confirmation step.",
+                        ),
                         on_success: StepTransition::NextStep {
                             step_id: String::from("report-click-link"),
                         },
@@ -2034,22 +2050,8 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
             validate_capture_screenshot_input(&input)
         }
         ToolName::RunOcr => {
-            let input = serde_json::from_value::<RunOcrInput>(step.arguments.clone()).map_err(
-                |error| {
-                    invalid_planner_output(
-                        format!("tool arguments did not match the expected schema: {error}"),
-                        Some(serde_json::json!({
-                            "step_id": step.step_id,
-                            "tool_name": step.tool_name,
-                        })),
-                    )
-                },
-            )?;
-            validate_run_ocr_input(&input)
-        }
-        ToolName::MergeOcrIntoPageModel => {
-            let input = serde_json::from_value::<MergeOcrIntoPageModelInput>(step.arguments.clone())
-                .map_err(|error| {
+            let input =
+                serde_json::from_value::<RunOcrInput>(step.arguments.clone()).map_err(|error| {
                     invalid_planner_output(
                         format!("tool arguments did not match the expected schema: {error}"),
                         Some(serde_json::json!({
@@ -2058,6 +2060,20 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
                         })),
                     )
                 })?;
+            validate_run_ocr_input(&input)
+        }
+        ToolName::MergeOcrIntoPageModel => {
+            let input =
+                serde_json::from_value::<MergeOcrIntoPageModelInput>(step.arguments.clone())
+                    .map_err(|error| {
+                        invalid_planner_output(
+                            format!("tool arguments did not match the expected schema: {error}"),
+                            Some(serde_json::json!({
+                                "step_id": step.step_id,
+                                "tool_name": step.tool_name,
+                            })),
+                        )
+                    })?;
             validate_merge_ocr_into_page_model_input(&input)
         }
         ToolName::SetBrowserVisibility => {
@@ -2096,8 +2112,9 @@ fn validate_capture_screenshot_input(input: &CaptureScreenshotInput) -> Result<(
         .as_deref()
         .map(str::trim)
         .is_some_and(|region_id| !region_id.is_empty());
-    let targeting_modes =
-        usize::from(input.full_page) + usize::from(region_id_active) + usize::from(input.bbox.is_some());
+    let targeting_modes = usize::from(input.full_page)
+        + usize::from(region_id_active)
+        + usize::from(input.bbox.is_some());
     if targeting_modes > 1 {
         return Err(invalid_planner_output(
             "capture_screenshot supports at most one targeting mode from full_page, region_id, or bbox",
@@ -2980,7 +2997,10 @@ pub(crate) fn resolve_direct_audio_command(
     }
 
     if is_volume_query_phrase(&normalized) {
-        let summary = format!("Playback volume is {}.", format_playback_volume(current_volume));
+        let summary = format!(
+            "Playback volume is {}.",
+            format_playback_volume(current_volume)
+        );
         return Some(build_audio_report_planner_output(
             request_id,
             IntentName::GetPlaybackVolume,
@@ -2992,7 +3012,10 @@ pub(crate) fn resolve_direct_audio_command(
     }
 
     if is_speed_query_phrase(&normalized) {
-        let summary = format!("Playback speed is {}.", format_playback_speed(current_speed));
+        let summary = format!(
+            "Playback speed is {}.",
+            format_playback_speed(current_speed)
+        );
         return Some(build_audio_report_planner_output(
             request_id,
             IntentName::GetPlaybackSpeed,
@@ -3004,7 +3027,10 @@ pub(crate) fn resolve_direct_audio_command(
     }
 
     if let Some(volume) = parse_volume_command(&normalized, current_volume) {
-        let summary = format!("Playback volume set to {}.", format_playback_volume(volume.value));
+        let summary = format!(
+            "Playback volume set to {}.",
+            format_playback_volume(volume.value)
+        );
         return Some(build_audio_set_planner_output(AudioSetPlanSpec {
             request_id,
             intent_name: IntentName::SetPlaybackVolume,
@@ -3025,7 +3051,10 @@ pub(crate) fn resolve_direct_audio_command(
     }
 
     if let Some(speed) = parse_speed_command(&normalized, current_speed) {
-        let summary = format!("Playback speed set to {}.", format_playback_speed(speed.value));
+        let summary = format!(
+            "Playback speed set to {}.",
+            format_playback_speed(speed.value)
+        );
         return Some(build_audio_set_planner_output(AudioSetPlanSpec {
             request_id,
             intent_name: IntentName::SetPlaybackSpeed,
@@ -3194,7 +3223,9 @@ pub(crate) fn resolve_direct_navigation_readback_command(
                     "timeout_ms": serde_json::Value::Null,
                     "interrupt_current": true
                 }),
-                purpose: String::from("Move narration to the previous region and start reading it."),
+                purpose: String::from(
+                    "Move narration to the previous region and start reading it.",
+                ),
                 on_success: StepTransition::Complete,
                 on_failure: StepTransition::Replan,
             },
@@ -3319,7 +3350,7 @@ pub(crate) fn resolve_direct_open_url_command(
             name: IntentName::OpenUrl,
             goal: String::from("Open the requested URL."),
             target_description: Some(url.clone()),
-                            },
+        },
         selected_skill(active_skill_names, "open_url"),
         PlannedStep {
             step_id: String::from("open-url"),
@@ -3333,7 +3364,7 @@ pub(crate) fn resolve_direct_open_url_command(
             purpose: String::from("Open the requested URL and wait for the page to load."),
             on_success: StepTransition::Complete,
             on_failure: StepTransition::Replan,
-                            },
+        },
     ))
 }
 
@@ -3401,7 +3432,9 @@ pub(crate) fn resolve_direct_read_page_command(
                     "region_id": region_id,
                     "interrupt_current": true
                 }),
-                purpose: String::from("Restart narration from the first readable region of the current page."),
+                purpose: String::from(
+                    "Restart narration from the first readable region of the current page.",
+                ),
                 on_success: StepTransition::Complete,
                 on_failure: StepTransition::Replan,
             }],
@@ -3418,7 +3451,7 @@ pub(crate) fn resolve_direct_read_page_command(
             name: IntentName::ReadPage,
             goal: String::from("Read the current page from the beginning."),
             target_description: Some(String::from("current page")),
-                            },
+        },
         selected_skills,
         steps: vec![
             PlannedStep {
@@ -3445,7 +3478,9 @@ pub(crate) fn resolve_direct_read_page_command(
                     "timeout_ms": serde_json::Value::Null,
                     "interrupt_current": true
                 }),
-                purpose: String::from("Start narration from the first readable region of the refreshed page."),
+                purpose: String::from(
+                    "Start narration from the first readable region of the refreshed page.",
+                ),
                 on_success: StepTransition::Complete,
                 on_failure: StepTransition::Replan,
             },
@@ -3552,7 +3587,7 @@ pub(crate) fn resolve_direct_read_title_command(
             name: IntentName::ReadTitle,
             goal: String::from("Read the current page title."),
             target_description: Some(String::from("current page title")),
-                            },
+        },
         selected_skills: selected_skill(active_skill_names, "read_title"),
         steps: vec![PlannedStep {
             step_id: String::from("report-page-title"),
@@ -3613,7 +3648,9 @@ pub(crate) fn resolve_direct_repeat_command(
                     "next_recommended_action": "Read the page or move to a region first.",
                     "user_message": summary
                 }),
-                purpose: String::from("Report that no current narration region is available to repeat."),
+                purpose: String::from(
+                    "Report that no current narration region is available to repeat.",
+                ),
                 on_success: StepTransition::Complete,
                 on_failure: StepTransition::Replan,
             }],
@@ -3630,7 +3667,7 @@ pub(crate) fn resolve_direct_repeat_command(
             name: IntentName::Repeat,
             goal: String::from("Repeat the current narration region."),
             target_description: Some(String::from("current narration region")),
-                            },
+        },
         selected_skills,
         steps: vec![PlannedStep {
             step_id: String::from("repeat-current-region"),
@@ -3641,7 +3678,9 @@ pub(crate) fn resolve_direct_repeat_command(
                 "region_id": region_id,
                 "interrupt_current": true
             }),
-            purpose: String::from("Repeat the current narration region from the stored narration cursor."),
+            purpose: String::from(
+                "Repeat the current narration region from the stored narration cursor.",
+            ),
             on_success: StepTransition::Complete,
             on_failure: StepTransition::Replan,
         }],
@@ -4202,7 +4241,9 @@ fn is_fill_input_phrase(normalized: &str) -> bool {
         || normalized.contains("fill in ")
         || (normalized.contains("fill ") && normalized.contains(" field"))
         || normalized.contains("type into ")
-        || (normalized.contains("type ") && normalized.contains(" into ") && normalized.contains(" field"))
+        || (normalized.contains("type ")
+            && normalized.contains(" into ")
+            && normalized.contains(" field"))
         || (normalized.contains("enter ") && normalized.contains(" field"))
         || (normalized.contains("put ") && normalized.contains(" field"))
         || (normalized.contains("choose ") && normalized.contains(" list"))
@@ -4390,7 +4431,10 @@ fn is_browser_visibility_phrase(normalized: &str) -> bool {
 }
 
 fn selected_skill(active_skill_names: &[String], skill_name: &'static str) -> Vec<String> {
-    if active_skill_names.iter().any(|active_name| active_name == skill_name) {
+    if active_skill_names
+        .iter()
+        .any(|active_name| active_name == skill_name)
+    {
         vec![String::from(skill_name)]
     } else {
         Vec::new()
@@ -4434,16 +4478,14 @@ fn build_single_step_planner_output(
     }
 }
 
-fn build_audio_set_planner_output(
-    spec: AudioSetPlanSpec<'_>,
-) -> PlannerOutput {
+fn build_audio_set_planner_output(spec: AudioSetPlanSpec<'_>) -> PlannerOutput {
     PlannerOutput {
         status: PlannerStatus::Ready,
         intent: IntentSummary {
             name: spec.intent_name,
             goal: spec.goal,
             target_description: spec.target_description,
-                            },
+        },
         selected_skills: spec.selected_skills,
         steps: vec![
             PlannedStep {
@@ -4479,7 +4521,7 @@ fn build_audio_report_planner_output(
             name: intent_name,
             goal,
             target_description,
-                            },
+        },
         selected_skills,
         steps: vec![build_report_result_step(
             request_id,
@@ -4505,7 +4547,7 @@ fn build_browser_visibility_planner_output(
             name: IntentName::SetBrowserVisibility,
             goal: String::from("Set the browser visibility mode to the requested target."),
             target_description: Some(format_browser_visibility_mode(target_mode)),
-                            },
+        },
         selected_skills,
         steps: vec![
             PlannedStep {
@@ -4552,7 +4594,7 @@ fn build_status_query_planner_output(spec: StatusQueryPlanSpec<'_>) -> PlannerOu
             name: spec.intent_name,
             goal: spec.goal,
             target_description: spec.target_description,
-                            },
+        },
         selected_skills: spec.selected_skills,
         steps: vec![
             PlannedStep {
@@ -4624,7 +4666,10 @@ fn format_browser_visibility_mode(mode: BrowserVisibilityMode) -> String {
 }
 
 fn format_current_url_summary(agent_state: &AgentStateData) -> String {
-    match (normalized_optional_text(agent_state.title.as_deref()), agent_state.url.as_deref()) {
+    match (
+        normalized_optional_text(agent_state.title.as_deref()),
+        agent_state.url.as_deref(),
+    ) {
         (Some(title), Some(url)) => format!("Current page is {title} at {url}."),
         (None, Some(url)) => format!("Current page URL is {url}."),
         (Some(title), None) => format!("Current page is {title}."),
@@ -4742,7 +4787,8 @@ fn parse_browser_visibility_command(
         return Some(BrowserVisibilityMode::Visible);
     }
 
-    if normalized.contains("toggle browser visibility") || normalized.contains("toggle visibility") {
+    if normalized.contains("toggle browser visibility") || normalized.contains("toggle visibility")
+    {
         return Some(match current_visibility {
             BrowserVisibilityMode::Visible => BrowserVisibilityMode::Headless,
             BrowserVisibilityMode::Headless => BrowserVisibilityMode::Visible,
@@ -4936,7 +4982,7 @@ where
             initial_step_id: current_step_id,
             block_side_effects_until_confirmation: planner_output.status
                 == PlannerStatus::NeedsConfirmation,
-                            },
+        },
         &mut run_step,
         trace,
     )
@@ -4989,7 +5035,7 @@ where
             steps: &pending_plan_execution.queued_steps,
             initial_step_id: next_step_id,
             block_side_effects_until_confirmation: false,
-                            },
+        },
         &mut run_step,
         trace,
     )
@@ -5318,7 +5364,7 @@ where
                     )],
                 );
             }
-                            },
+        },
         None => None,
     };
 
@@ -5534,11 +5580,9 @@ mod tests {
                 input.request_id,
                 MergeOcrIntoPageModelData {
                     page_id: input.page_id,
-                    updated_region_ids: vec![
-                        input
-                            .region_id
-                            .unwrap_or_else(|| String::from("ocr-region-1")),
-                    ],
+                    updated_region_ids: vec![input
+                        .region_id
+                        .unwrap_or_else(|| String::from("ocr-region-1"))],
                     merged_text_length: input.ocr_text.trim().len(),
                 },
                 vec![String::from("merged OCR text into the page model")],
@@ -5984,14 +6028,14 @@ mod tests {
                     }),
                     pending_confirmation_id: None,
                     pending_plan_execution: None,
-            tts_model_settings: TtsModelSettings {
-                mode: ProviderMode::Local,
-                active_profile: Some(String::from("kitten-default")),
-                available_profiles: vec![TtsModelOption {
-                    profile_name: String::from("kitten-default"),
-                    model_label: String::from("default"),
-                }],
-            },
+                    tts_model_settings: TtsModelSettings {
+                        mode: ProviderMode::Local,
+                        active_profile: Some(String::from("kitten-default")),
+                        available_profiles: vec![TtsModelOption {
+                            profile_name: String::from("kitten-default"),
+                            model_label: String::from("default"),
+                        }],
+                    },
                     tts_voice_settings: TtsVoiceSettings {
                         mode: ProviderMode::Local,
                         active_voice: Some(String::from("Bruno")),
@@ -6005,6 +6049,14 @@ mod tests {
                                 display_label: String::from("Bruno"),
                             },
                         ],
+                    },
+                    tts_provider_settings: TtsProviderSettings {
+                        active_mode: ProviderMode::Local,
+                        available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+                    },
+                    asr_provider_settings: AsrProviderSettings {
+                        active_mode: ProviderMode::Local,
+                        available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
                     },
                 },
                 vec![String::from("agent state read")],
@@ -6795,10 +6847,7 @@ mod tests {
             Some("input-1")
         );
         let data = result.data.expect("focus_element should serialize");
-        assert_eq!(
-            data.get("focused"),
-            Some(&serde_json::Value::Bool(true))
-        );
+        assert_eq!(data.get("focused"), Some(&serde_json::Value::Bool(true)));
     }
 
     #[test]
@@ -6865,7 +6914,10 @@ mod tests {
         );
         let data = result.data.expect("submit_active_form should serialize");
         assert_eq!(data.get("submitted"), Some(&serde_json::Value::Bool(true)));
-        assert_eq!(data.get("page_changed"), Some(&serde_json::Value::Bool(true)));
+        assert_eq!(
+            data.get("page_changed"),
+            Some(&serde_json::Value::Bool(true))
+        );
     }
 
     #[test]
@@ -7605,15 +7657,13 @@ mod tests {
     #[test]
     fn canonical_planner_output_examples_validate_against_current_contract() {
         let available_tools = planner_available_tools();
-        let active_skill_names = build_planner_skill_selection(None, None, "", &available_tools)
-            .active_skill_names;
+        let active_skill_names =
+            build_planner_skill_selection(None, None, "", &available_tools).active_skill_names;
 
         for (example_name, planner_output) in canonical_planner_output_examples() {
             validate_planner_output(&planner_output, &available_tools, &active_skill_names)
                 .unwrap_or_else(|error| {
-                    panic!(
-                        "canonical planner example '{example_name}' should validate: {error:?}"
-                    )
+                    panic!("canonical planner example '{example_name}' should validate: {error:?}")
                 });
         }
     }
@@ -7634,14 +7684,26 @@ mod tests {
 
     #[test]
     fn shared_contract_enums_serialize_expected_variants() {
-        assert_eq!(serde_json::json!(crate::page_model::ElementRole::Landmark), "Landmark");
-        assert_eq!(serde_json::json!(crate::page_model::ElementRole::Other), "Other");
-        assert_eq!(serde_json::json!(crate::page_model::RegionSource::Mixed), "Mixed");
+        assert_eq!(
+            serde_json::json!(crate::page_model::ElementRole::Landmark),
+            "Landmark"
+        );
+        assert_eq!(
+            serde_json::json!(crate::page_model::ElementRole::Other),
+            "Other"
+        );
+        assert_eq!(
+            serde_json::json!(crate::page_model::RegionSource::Mixed),
+            "Mixed"
+        );
         assert_eq!(
             serde_json::json!(crate::page_model::ExtractionSource::Merged),
             "Merged"
         );
-        assert_eq!(serde_json::json!(ReportStatus::NeedsFollowUp), "NeedsFollowUp");
+        assert_eq!(
+            serde_json::json!(ReportStatus::NeedsFollowUp),
+            "NeedsFollowUp"
+        );
     }
 
     #[test]
@@ -7773,28 +7835,36 @@ mod tests {
                 last_tool_call: None,
                 pending_confirmation_id: None,
                 pending_plan_execution: None,
-            tts_model_settings: TtsModelSettings {
-                mode: ProviderMode::Local,
-                active_profile: Some(String::from("kitten-default")),
-                available_profiles: vec![TtsModelOption {
-                    profile_name: String::from("kitten-default"),
-                    model_label: String::from("default"),
-                }],
-            },
-                    tts_voice_settings: TtsVoiceSettings {
-                        mode: ProviderMode::Local,
-                        active_voice: Some(String::from("Bruno")),
-                        available_voices: vec![
-                            TtsVoiceOption {
-                                voice_name: String::from("Bella"),
-                                display_label: String::from("Bella"),
-                            },
-                            TtsVoiceOption {
-                                voice_name: String::from("Bruno"),
-                                display_label: String::from("Bruno"),
-                            },
-                        ],
-                    },
+                tts_model_settings: TtsModelSettings {
+                    mode: ProviderMode::Local,
+                    active_profile: Some(String::from("kitten-default")),
+                    available_profiles: vec![TtsModelOption {
+                        profile_name: String::from("kitten-default"),
+                        model_label: String::from("default"),
+                    }],
+                },
+                tts_voice_settings: TtsVoiceSettings {
+                    mode: ProviderMode::Local,
+                    active_voice: Some(String::from("Bruno")),
+                    available_voices: vec![
+                        TtsVoiceOption {
+                            voice_name: String::from("Bella"),
+                            display_label: String::from("Bella"),
+                        },
+                        TtsVoiceOption {
+                            voice_name: String::from("Bruno"),
+                            display_label: String::from("Bruno"),
+                        },
+                    ],
+                },
+                tts_provider_settings: TtsProviderSettings {
+                    active_mode: ProviderMode::Local,
+                    available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+                },
+                asr_provider_settings: AsrProviderSettings {
+                    active_mode: ProviderMode::Local,
+                    available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+                },
             },
             safety: PlannerSafetySettings {
                 confirmation_confidence_threshold: 0.9,
@@ -7896,7 +7966,9 @@ mod tests {
         )
         .expect_err("submit-form plans should require NeedsConfirmation status");
         assert_eq!(error.code, "invalid_planner_output");
-        assert!(error.message.contains("submit-form planner output must use NeedsConfirmation"));
+        assert!(error
+            .message
+            .contains("submit-form planner output must use NeedsConfirmation"));
     }
 
     #[test]
@@ -8087,7 +8159,10 @@ mod tests {
         validate_planner_output(
             &planner_output,
             &available_tools,
-            &[String::from("open_link_by_text"), String::from("confirm_action")],
+            &[
+                String::from("open_link_by_text"),
+                String::from("confirm_action"),
+            ],
         )
         .expect("click plans should validate when they use the bounded confirmation flow");
     }
@@ -8299,10 +8374,7 @@ mod tests {
 
     #[test]
     fn infer_intent_hint_recognizes_status_and_history_queries() {
-        assert_eq!(
-            infer_intent_hint("can i go back"),
-            IntentName::GetStatus
-        );
+        assert_eq!(infer_intent_hint("can i go back"), IntentName::GetStatus);
         assert_eq!(
             infer_intent_hint("are you listening"),
             IntentName::GetStatus
@@ -8315,10 +8387,7 @@ mod tests {
             infer_intent_hint("what is the statuz"),
             IntentName::GetStatus
         );
-        assert_eq!(
-            infer_intent_hint("are you listenin"),
-            IntentName::GetStatus
-        );
+        assert_eq!(infer_intent_hint("are you listenin"), IntentName::GetStatus);
         assert_eq!(
             infer_intent_hint("what is the curent url"),
             IntentName::GetCurrentUrl
@@ -8331,7 +8400,10 @@ mod tests {
         assert_eq!(infer_intent_hint("go forward"), IntentName::GoForward);
         assert_eq!(infer_intent_hint("refesh page"), IntentName::ReloadPage);
         assert_eq!(infer_intent_hint("next"), IntentName::ReadNext);
-        assert_eq!(infer_intent_hint("prevous region"), IntentName::ReadPrevious);
+        assert_eq!(
+            infer_intent_hint("prevous region"),
+            IntentName::ReadPrevious
+        );
         assert_eq!(infer_intent_hint("stpo reading"), IntentName::Stop);
     }
 
@@ -8375,10 +8447,7 @@ mod tests {
     fn infer_intent_hint_recognizes_read_page_phrases() {
         assert_eq!(infer_intent_hint("read page"), IntentName::ReadPage);
         assert_eq!(infer_intent_hint("read this page"), IntentName::ReadPage);
-        assert_eq!(
-            infer_intent_hint("read current page"),
-            IntentName::ReadPage
-        );
+        assert_eq!(infer_intent_hint("read current page"), IntentName::ReadPage);
     }
 
     #[test]
@@ -8476,7 +8545,10 @@ mod tests {
                 text: None
             })
         );
-        assert_eq!(parse_direct_fill_field_command("focus the email field"), None);
+        assert_eq!(
+            parse_direct_fill_field_command("focus the email field"),
+            None
+        );
     }
 
     #[test]
@@ -8506,10 +8578,7 @@ mod tests {
                 text: None
             })
         );
-        assert_eq!(
-            parse_direct_fill_and_submit_command("submit form"),
-            None
-        );
+        assert_eq!(parse_direct_fill_and_submit_command("submit form"), None);
     }
 
     #[test]
@@ -8954,20 +9023,28 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
-                    tts_voice_settings: TtsVoiceSettings {
-                        mode: ProviderMode::Local,
-                        active_voice: Some(String::from("Bruno")),
-                        available_voices: vec![
-                            TtsVoiceOption {
-                                voice_name: String::from("Bella"),
-                                display_label: String::from("Bella"),
-                            },
-                            TtsVoiceOption {
-                                voice_name: String::from("Bruno"),
-                                display_label: String::from("Bruno"),
-                            },
-                        ],
+            tts_voice_settings: TtsVoiceSettings {
+                mode: ProviderMode::Local,
+                active_voice: Some(String::from("Bruno")),
+                available_voices: vec![
+                    TtsVoiceOption {
+                        voice_name: String::from("Bella"),
+                        display_label: String::from("Bella"),
                     },
+                    TtsVoiceOption {
+                        voice_name: String::from("Bruno"),
+                        display_label: String::from("Bruno"),
+                    },
+                ],
+            },
+            tts_provider_settings: TtsProviderSettings {
+                active_mode: ProviderMode::Local,
+                available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+            },
+asr_provider_settings: AsrProviderSettings {
+    active_mode: ProviderMode::Local,
+    available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -8980,7 +9057,10 @@ mod tests {
         .expect("read-page command should resolve");
 
         assert_eq!(planner_output.intent.name, IntentName::ReadPage);
-        assert_eq!(planner_output.selected_skills, vec![String::from("read_page")]);
+        assert_eq!(
+            planner_output.selected_skills,
+            vec![String::from("read_page")]
+        );
         assert_eq!(planner_output.steps.len(), 1);
         assert_eq!(planner_output.steps[0].tool_name, ToolName::ReadRegion);
         assert_eq!(
@@ -9023,20 +9103,28 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
-                    tts_voice_settings: TtsVoiceSettings {
-                        mode: ProviderMode::Local,
-                        active_voice: Some(String::from("Bruno")),
-                        available_voices: vec![
-                            TtsVoiceOption {
-                                voice_name: String::from("Bella"),
-                                display_label: String::from("Bella"),
-                            },
-                            TtsVoiceOption {
-                                voice_name: String::from("Bruno"),
-                                display_label: String::from("Bruno"),
-                            },
-                        ],
+            tts_voice_settings: TtsVoiceSettings {
+                mode: ProviderMode::Local,
+                active_voice: Some(String::from("Bruno")),
+                available_voices: vec![
+                    TtsVoiceOption {
+                        voice_name: String::from("Bella"),
+                        display_label: String::from("Bella"),
                     },
+                    TtsVoiceOption {
+                        voice_name: String::from("Bruno"),
+                        display_label: String::from("Bruno"),
+                    },
+                ],
+            },
+            tts_provider_settings: TtsProviderSettings {
+                active_mode: ProviderMode::Local,
+                available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+            },
+asr_provider_settings: AsrProviderSettings {
+    active_mode: ProviderMode::Local,
+    available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9049,7 +9137,10 @@ mod tests {
         .expect("read-page command should resolve");
 
         assert_eq!(planner_output.steps.len(), 2);
-        assert_eq!(planner_output.steps[0].tool_name, ToolName::ExtractPageModel);
+        assert_eq!(
+            planner_output.steps[0].tool_name,
+            ToolName::ExtractPageModel
+        );
         assert_eq!(
             planner_output.steps[0].arguments.get("use_dom_extraction"),
             Some(&serde_json::json!(true))
@@ -9085,20 +9176,28 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
-                    tts_voice_settings: TtsVoiceSettings {
-                        mode: ProviderMode::Local,
-                        active_voice: Some(String::from("Bruno")),
-                        available_voices: vec![
-                            TtsVoiceOption {
-                                voice_name: String::from("Bella"),
-                                display_label: String::from("Bella"),
-                            },
-                            TtsVoiceOption {
-                                voice_name: String::from("Bruno"),
-                                display_label: String::from("Bruno"),
-                            },
-                        ],
+            tts_voice_settings: TtsVoiceSettings {
+                mode: ProviderMode::Local,
+                active_voice: Some(String::from("Bruno")),
+                available_voices: vec![
+                    TtsVoiceOption {
+                        voice_name: String::from("Bella"),
+                        display_label: String::from("Bella"),
                     },
+                    TtsVoiceOption {
+                        voice_name: String::from("Bruno"),
+                        display_label: String::from("Bruno"),
+                    },
+                ],
+            },
+            tts_provider_settings: TtsProviderSettings {
+                active_mode: ProviderMode::Local,
+                available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+            },
+asr_provider_settings: AsrProviderSettings {
+    active_mode: ProviderMode::Local,
+    available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9142,20 +9241,28 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
-                    tts_voice_settings: TtsVoiceSettings {
-                        mode: ProviderMode::Local,
-                        active_voice: Some(String::from("Bruno")),
-                        available_voices: vec![
-                            TtsVoiceOption {
-                                voice_name: String::from("Bella"),
-                                display_label: String::from("Bella"),
-                            },
-                            TtsVoiceOption {
-                                voice_name: String::from("Bruno"),
-                                display_label: String::from("Bruno"),
-                            },
-                        ],
+            tts_voice_settings: TtsVoiceSettings {
+                mode: ProviderMode::Local,
+                active_voice: Some(String::from("Bruno")),
+                available_voices: vec![
+                    TtsVoiceOption {
+                        voice_name: String::from("Bella"),
+                        display_label: String::from("Bella"),
                     },
+                    TtsVoiceOption {
+                        voice_name: String::from("Bruno"),
+                        display_label: String::from("Bruno"),
+                    },
+                ],
+            },
+            tts_provider_settings: TtsProviderSettings {
+                active_mode: ProviderMode::Local,
+                available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+            },
+asr_provider_settings: AsrProviderSettings {
+    active_mode: ProviderMode::Local,
+    available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: agent_state.page_id.clone(),
@@ -9223,20 +9330,28 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
-                    tts_voice_settings: TtsVoiceSettings {
-                        mode: ProviderMode::Local,
-                        active_voice: Some(String::from("Bruno")),
-                        available_voices: vec![
-                            TtsVoiceOption {
-                                voice_name: String::from("Bella"),
-                                display_label: String::from("Bella"),
-                            },
-                            TtsVoiceOption {
-                                voice_name: String::from("Bruno"),
-                                display_label: String::from("Bruno"),
-                            },
-                        ],
+            tts_voice_settings: TtsVoiceSettings {
+                mode: ProviderMode::Local,
+                active_voice: Some(String::from("Bruno")),
+                available_voices: vec![
+                    TtsVoiceOption {
+                        voice_name: String::from("Bella"),
+                        display_label: String::from("Bella"),
                     },
+                    TtsVoiceOption {
+                        voice_name: String::from("Bruno"),
+                        display_label: String::from("Bruno"),
+                    },
+                ],
+            },
+            tts_provider_settings: TtsProviderSettings {
+                active_mode: ProviderMode::Local,
+                available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+            },
+asr_provider_settings: AsrProviderSettings {
+    active_mode: ProviderMode::Local,
+    available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: agent_state.page_id.clone(),
@@ -9299,20 +9414,28 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
-                    tts_voice_settings: TtsVoiceSettings {
-                        mode: ProviderMode::Local,
-                        active_voice: Some(String::from("Bruno")),
-                        available_voices: vec![
-                            TtsVoiceOption {
-                                voice_name: String::from("Bella"),
-                                display_label: String::from("Bella"),
-                            },
-                            TtsVoiceOption {
-                                voice_name: String::from("Bruno"),
-                                display_label: String::from("Bruno"),
-                            },
-                        ],
+            tts_voice_settings: TtsVoiceSettings {
+                mode: ProviderMode::Local,
+                active_voice: Some(String::from("Bruno")),
+                available_voices: vec![
+                    TtsVoiceOption {
+                        voice_name: String::from("Bella"),
+                        display_label: String::from("Bella"),
                     },
+                    TtsVoiceOption {
+                        voice_name: String::from("Bruno"),
+                        display_label: String::from("Bruno"),
+                    },
+                ],
+            },
+            tts_provider_settings: TtsProviderSettings {
+                active_mode: ProviderMode::Local,
+                available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+            },
+asr_provider_settings: AsrProviderSettings {
+    active_mode: ProviderMode::Local,
+    available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: None,
@@ -9386,20 +9509,28 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
-                    tts_voice_settings: TtsVoiceSettings {
-                        mode: ProviderMode::Local,
-                        active_voice: Some(String::from("Bruno")),
-                        available_voices: vec![
-                            TtsVoiceOption {
-                                voice_name: String::from("Bella"),
-                                display_label: String::from("Bella"),
-                            },
-                            TtsVoiceOption {
-                                voice_name: String::from("Bruno"),
-                                display_label: String::from("Bruno"),
-                            },
-                        ],
+            tts_voice_settings: TtsVoiceSettings {
+                mode: ProviderMode::Local,
+                active_voice: Some(String::from("Bruno")),
+                available_voices: vec![
+                    TtsVoiceOption {
+                        voice_name: String::from("Bella"),
+                        display_label: String::from("Bella"),
                     },
+                    TtsVoiceOption {
+                        voice_name: String::from("Bruno"),
+                        display_label: String::from("Bruno"),
+                    },
+                ],
+            },
+            tts_provider_settings: TtsProviderSettings {
+                active_mode: ProviderMode::Local,
+                available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+            },
+asr_provider_settings: AsrProviderSettings {
+    active_mode: ProviderMode::Local,
+    available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
         };
 
         let planner_output = resolve_direct_repeat_command(
@@ -9448,20 +9579,28 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
-                    tts_voice_settings: TtsVoiceSettings {
-                        mode: ProviderMode::Local,
-                        active_voice: Some(String::from("Bruno")),
-                        available_voices: vec![
-                            TtsVoiceOption {
-                                voice_name: String::from("Bella"),
-                                display_label: String::from("Bella"),
-                            },
-                            TtsVoiceOption {
-                                voice_name: String::from("Bruno"),
-                                display_label: String::from("Bruno"),
-                            },
-                        ],
+            tts_voice_settings: TtsVoiceSettings {
+                mode: ProviderMode::Local,
+                active_voice: Some(String::from("Bruno")),
+                available_voices: vec![
+                    TtsVoiceOption {
+                        voice_name: String::from("Bella"),
+                        display_label: String::from("Bella"),
                     },
+                    TtsVoiceOption {
+                        voice_name: String::from("Bruno"),
+                        display_label: String::from("Bruno"),
+                    },
+                ],
+            },
+            tts_provider_settings: TtsProviderSettings {
+                active_mode: ProviderMode::Local,
+                available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+            },
+asr_provider_settings: AsrProviderSettings {
+    active_mode: ProviderMode::Local,
+    available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
         };
 
         let planner_output =
@@ -9515,20 +9654,28 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
-                    tts_voice_settings: TtsVoiceSettings {
-                        mode: ProviderMode::Local,
-                        active_voice: Some(String::from("Bruno")),
-                        available_voices: vec![
-                            TtsVoiceOption {
-                                voice_name: String::from("Bella"),
-                                display_label: String::from("Bella"),
-                            },
-                            TtsVoiceOption {
-                                voice_name: String::from("Bruno"),
-                                display_label: String::from("Bruno"),
-                            },
-                        ],
+            tts_voice_settings: TtsVoiceSettings {
+                mode: ProviderMode::Local,
+                active_voice: Some(String::from("Bruno")),
+                available_voices: vec![
+                    TtsVoiceOption {
+                        voice_name: String::from("Bella"),
+                        display_label: String::from("Bella"),
                     },
+                    TtsVoiceOption {
+                        voice_name: String::from("Bruno"),
+                        display_label: String::from("Bruno"),
+                    },
+                ],
+            },
+            tts_provider_settings: TtsProviderSettings {
+                active_mode: ProviderMode::Local,
+                available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+            },
+asr_provider_settings: AsrProviderSettings {
+    active_mode: ProviderMode::Local,
+    available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
         };
 
         let planner_output = resolve_direct_read_title_command(
@@ -9576,20 +9723,28 @@ mod tests {
                     model_label: String::from("default"),
                 }],
             },
-                    tts_voice_settings: TtsVoiceSettings {
-                        mode: ProviderMode::Local,
-                        active_voice: Some(String::from("Bruno")),
-                        available_voices: vec![
-                            TtsVoiceOption {
-                                voice_name: String::from("Bella"),
-                                display_label: String::from("Bella"),
-                            },
-                            TtsVoiceOption {
-                                voice_name: String::from("Bruno"),
-                                display_label: String::from("Bruno"),
-                            },
-                        ],
+            tts_voice_settings: TtsVoiceSettings {
+                mode: ProviderMode::Local,
+                active_voice: Some(String::from("Bruno")),
+                available_voices: vec![
+                    TtsVoiceOption {
+                        voice_name: String::from("Bella"),
+                        display_label: String::from("Bella"),
                     },
+                    TtsVoiceOption {
+                        voice_name: String::from("Bruno"),
+                        display_label: String::from("Bruno"),
+                    },
+                ],
+            },
+            tts_provider_settings: TtsProviderSettings {
+                active_mode: ProviderMode::Local,
+                available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+            },
+asr_provider_settings: AsrProviderSettings {
+    active_mode: ProviderMode::Local,
+    available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
         };
 
         let planner_output = resolve_direct_read_title_command(

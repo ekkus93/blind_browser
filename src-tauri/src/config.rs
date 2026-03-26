@@ -295,6 +295,52 @@ impl AppConfig {
         Self::persist_tts_provider_selection_at_path(&config_path, selection)
     }
 
+    pub fn persist_asr_provider_selection_for_app(
+        app_handle: &AppHandle,
+        selection: &ProviderSelection,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::persist_asr_provider_selection_at_path(&config_path, selection)
+    }
+
+    pub fn persist_asr_provider_selection_at_path(
+        path: impl AsRef<Path>,
+        selection: &ProviderSelection,
+    ) -> Result<Self, ConfigError> {
+        let path = path.as_ref();
+
+        let mut document = if path.exists() {
+            load_document_table_from_path(path)?
+        } else {
+            load_document_table_from_str(Self::default_template())?
+        };
+
+        let providers_value = document
+            .entry(String::from("providers"))
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        let Some(providers_table) = providers_value.as_table_mut() else {
+            return Err(ConfigError::Validation(String::from(
+                "providers must remain a TOML table",
+            )));
+        };
+        providers_table.insert(String::from("asr"), toml::Value::try_from(selection.clone())?);
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
+                path: parent.to_path_buf(),
+                source,
+            })?;
+        }
+
+        let serialized = toml::to_string_pretty(&document)?;
+        fs::write(path, serialized).map_err(|source| ConfigError::Write {
+            path: path.to_path_buf(),
+            source,
+        })?;
+
+        Self::load_from_path(path)
+    }
+
     pub fn persist_tts_provider_selection_at_path(
         path: impl AsRef<Path>,
         selection: &ProviderSelection,
@@ -1003,6 +1049,24 @@ threads = 4
         if let Some(parent) = path.parent() {
             let _ = std::fs::remove_dir_all(parent);
         }
+    }
+
+    #[test]
+    fn persists_asr_provider_selection_and_reloads_it() {
+        let path = test_config_path("persist_asr_provider");
+        let expected_selection = ProviderSelection {
+            mode: ProviderMode::Remote,
+            remote_profile: Some(String::from("openai-transcribe-default")),
+            local_profile: Some(String::from("whisper-default")),
+            failover_to_local: None,
+        };
+
+        let persisted = AppConfig::persist_asr_provider_selection_at_path(&path, &expected_selection)
+            .expect("asr provider selection should persist successfully");
+        let reloaded = AppConfig::load_from_path(&path).expect("persisted config should reload");
+
+        assert_eq!(persisted.providers.asr, expected_selection);
+        assert_eq!(reloaded.providers.asr, expected_selection);
     }
 
     #[test]

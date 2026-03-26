@@ -38,6 +38,20 @@ export interface TtsVoicePanelState {
   error: string | null;
 }
 
+export interface TtsProviderPanelState {
+  activeMode: "Local" | "Remote";
+  availableModes: Array<"Local" | "Remote">;
+  isBusy: boolean;
+  error: string | null;
+}
+
+export interface AsrProviderPanelState {
+  activeMode: "Local" | "Remote";
+  availableModes: Array<"Local" | "Remote">;
+  isBusy: boolean;
+  error: string | null;
+}
+
 export interface UrlInputPanelState {
   draftValue: string;
   currentUrl: string | null;
@@ -69,6 +83,10 @@ function renderTtsModelOptionLabel(profileName: string, modelLabel: string): str
 
 function renderTtsVoiceOptionLabel(displayLabel: string, voiceName: string): string {
   return displayLabel === voiceName ? displayLabel : `${displayLabel} (${voiceName})`;
+}
+
+function renderProviderModeLabel(mode: "Local" | "Remote"): string {
+  return mode === "Local" ? "Local provider" : "Remote provider";
 }
 
 export function renderConfirmationPanel(state: ConfirmationUiState): string {
@@ -335,6 +353,88 @@ export function renderSettingsSpeedPanel(state: AudioControlsPanelState): string
             value="${state.playbackSpeed.toFixed(2)}"
             ${busyAttribute}
           />
+        </label>
+      </div>
+    </section>
+  `;
+}
+
+export function renderSettingsAsrProviderPanel(state: AsrProviderPanelState): string {
+  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
+  const errorCopy = state.error
+    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+  const optionsCopy = state.availableModes
+    .map((mode) => {
+      const selected = mode === state.activeMode ? " selected" : "";
+      return `<option value="${escapeHtml(mode)}"${selected}>${escapeHtml(renderProviderModeLabel(mode))}</option>`;
+    })
+    .join("");
+
+  return `
+    <section class="settings-panel" aria-labelledby="settings-asr-provider-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-asr-provider-title">ASR provider selection</h2>
+        <p class="settings-panel-description">
+          Choose whether spoken command transcription uses the configured local or remote ASR provider.
+          Changes apply to the next listening request and preserve the current provider profiles.
+        </p>
+        ${errorCopy}
+      </div>
+      <div class="settings-grid">
+        <label class="settings-control-card" for="settings-asr-provider-control">
+          <span class="settings-control-label">ASR provider</span>
+          <span class="settings-control-value">${escapeHtml(renderProviderModeLabel(state.activeMode))}</span>
+          <select
+            id="settings-asr-provider-control"
+            class="settings-control-select"
+            data-asr-provider-select="true"
+            ${disabledAttribute}
+          >
+            ${optionsCopy}
+          </select>
+        </label>
+      </div>
+    </section>
+  `;
+}
+
+export function renderSettingsTtsProviderPanel(state: TtsProviderPanelState): string {
+  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
+  const errorCopy = state.error
+    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+  const optionsCopy = state.availableModes
+    .map((mode) => {
+      const selected = mode === state.activeMode ? " selected" : "";
+      return `<option value="${escapeHtml(mode)}"${selected}>${escapeHtml(renderProviderModeLabel(mode))}</option>`;
+    })
+    .join("");
+
+  return `
+    <section class="settings-panel" aria-labelledby="settings-tts-provider-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-tts-provider-title">TTS provider selection</h2>
+        <p class="settings-panel-description">
+          Choose whether spoken output uses the configured local or remote TTS provider. Changes
+          apply to the next utterance and preserve the current provider profiles.
+        </p>
+        ${errorCopy}
+      </div>
+      <div class="settings-grid">
+        <label class="settings-control-card" for="settings-tts-provider-control">
+          <span class="settings-control-label">TTS provider</span>
+          <span class="settings-control-value">${escapeHtml(renderProviderModeLabel(state.activeMode))}</span>
+          <select
+            id="settings-tts-provider-control"
+            class="settings-control-select"
+            data-tts-provider-select="true"
+            ${disabledAttribute}
+          >
+            ${optionsCopy}
+          </select>
         </label>
       </div>
     </section>

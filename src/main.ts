@@ -4,6 +4,8 @@ import {
   renderAudioControlsPanel,
   renderConfirmationPanel,
   renderPushToTalkPanel,
+  renderSettingsAsrProviderPanel,
+  renderSettingsTtsProviderPanel,
   renderSettingsTtsModelPanel,
   renderSettingsTtsVoicePanel,
   renderSettingsSpeedPanel,
@@ -11,9 +13,11 @@ import {
   renderStatusPanel,
   renderUrlInputPanel,
   type AudioControlsPanelState,
+  type AsrProviderPanelState,
   type PushToTalkPanelState,
   type StatusPanelState,
   type TtsModelPanelState,
+  type TtsProviderPanelState,
   type TtsVoicePanelState,
   type UrlInputPanelState,
 } from "./confirmation-panel";
@@ -31,9 +35,11 @@ import {
   openUrl,
   resolveCommand,
   setBrowserVisibility,
+  setAsrProviderSelection,
   setPlaybackSpeed,
   setPlaybackVolume,
   setTtsModelSelection,
+  setTtsProviderSelection,
   setTtsVoice,
   startListening,
   stopListening,
@@ -81,6 +87,8 @@ const CONTINUOUS_LISTEN_CAPTURE_MS = 3_000;
 let currentExecutionUiState = uiStore.getState();
 let pushToTalkState: PushToTalkPanelState = createInitialPushToTalkState();
 let audioControlsState: AudioControlsPanelState = createInitialAudioControlsState();
+let asrProviderPanelState: AsrProviderPanelState = createInitialAsrProviderPanelState();
+let ttsProviderPanelState: TtsProviderPanelState = createInitialTtsProviderPanelState();
 let ttsModelPanelState: TtsModelPanelState = createInitialTtsModelPanelState();
 let ttsVoicePanelState: TtsVoicePanelState = createInitialTtsVoicePanelState();
 let statusPanelState: StatusPanelState = createInitialStatusPanelState();
@@ -107,6 +115,24 @@ function createInitialAudioControlsState(): AudioControlsPanelState {
   return {
     playbackVolume: 1,
     playbackSpeed: 1,
+    isBusy: false,
+    error: null,
+  };
+}
+
+function createInitialAsrProviderPanelState(): AsrProviderPanelState {
+  return {
+    activeMode: "Local",
+    availableModes: ["Local", "Remote"],
+    isBusy: false,
+    error: null,
+  };
+}
+
+function createInitialTtsProviderPanelState(): TtsProviderPanelState {
+  return {
+    activeMode: "Local",
+    availableModes: ["Local", "Remote"],
     isBusy: false,
     error: null,
   };
@@ -165,6 +191,8 @@ const renderApp = (
   uiState: ExecutionUiState,
   pushToTalk: PushToTalkPanelState,
   audioControls: AudioControlsPanelState,
+  asrProviderPanel: AsrProviderPanelState,
+  ttsProviderPanel: TtsProviderPanelState,
   ttsModelPanel: TtsModelPanelState,
   ttsVoicePanel: TtsVoicePanelState,
   statusPanel: StatusPanelState,
@@ -208,6 +236,8 @@ const renderApp = (
       ${renderUrlInputPanel(urlInputPanel)}
       ${renderStatusPanel(statusPanel)}
       ${renderAudioControlsPanel(audioControls)}
+      ${renderSettingsAsrProviderPanel(asrProviderPanel)}
+      ${renderSettingsTtsProviderPanel(ttsProviderPanel)}
       ${renderSettingsTtsModelPanel(ttsModelPanel)}
       ${renderSettingsTtsVoicePanel(ttsVoicePanel)}
       ${renderSettingsVolumePanel(audioControls)}
@@ -222,6 +252,8 @@ function rerender() {
     currentExecutionUiState,
     pushToTalkState,
     audioControlsState,
+    asrProviderPanelState,
+    ttsProviderPanelState,
     ttsModelPanelState,
     ttsVoicePanelState,
     statusPanelState,
@@ -240,6 +272,22 @@ function setPushToTalkState(nextState: Partial<PushToTalkPanelState>) {
 function setAudioControlsState(nextState: Partial<AudioControlsPanelState>) {
   audioControlsState = {
     ...audioControlsState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setAsrProviderPanelState(nextState: Partial<AsrProviderPanelState>) {
+  asrProviderPanelState = {
+    ...asrProviderPanelState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setTtsProviderPanelState(nextState: Partial<TtsProviderPanelState>) {
+  ttsProviderPanelState = {
+    ...ttsProviderPanelState,
     ...nextState,
   };
   rerender();
@@ -358,6 +406,18 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
   setAudioControlsState({
     playbackVolume: agentState.audio.playback_volume,
     playbackSpeed: agentState.audio.playback_speed,
+    error: null,
+  });
+  setAsrProviderPanelState({
+    activeMode: agentState.asr_provider_settings.active_mode,
+    availableModes: agentState.asr_provider_settings.available_modes,
+    isBusy: false,
+    error: null,
+  });
+  setTtsProviderPanelState({
+    activeMode: agentState.tts_provider_settings.active_mode,
+    availableModes: agentState.tts_provider_settings.available_modes,
+    isBusy: false,
     error: null,
   });
   setTtsModelPanelState({
@@ -482,6 +542,14 @@ async function refreshRuntimePanelsFromRuntime() {
     const message = describeAudioControlFailure(error);
     setAudioControlsState({
       error: message,
+    });
+    setAsrProviderPanelState({
+      error: message,
+      isBusy: false,
+    });
+    setTtsProviderPanelState({
+      error: message,
+      isBusy: false,
     });
     setTtsModelPanelState({
       error: message,
@@ -649,6 +717,77 @@ async function persistPlaybackSpeed(nextSpeed: number) {
       playbackSpeed: previousState.playbackSpeed,
       isBusy: false,
       error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function persistAsrProviderSelection(nextMode: "Local" | "Remote") {
+  const previousState = asrProviderPanelState;
+  setAsrProviderPanelState({
+    activeMode: nextMode,
+    isBusy: true,
+    error: null,
+  });
+
+  try {
+    const result = await setAsrProviderSelection({
+      requestId: createRequestId("asr-provider"),
+      mode: nextMode,
+    });
+    setAsrProviderPanelState({
+      activeMode: result.mode,
+      isBusy: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setAsrProviderPanelState({
+      activeMode: previousState.activeMode,
+      isBusy: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function persistTtsProviderSelection(nextMode: "Local" | "Remote") {
+  const previousProviderState = ttsProviderPanelState;
+  const previousModelState = ttsModelPanelState;
+  const previousVoiceState = ttsVoicePanelState;
+  setTtsProviderPanelState({
+    activeMode: nextMode,
+    isBusy: true,
+    error: null,
+  });
+  setTtsModelPanelState({ isBusy: true, error: null });
+  setTtsVoicePanelState({ isBusy: true, error: null });
+
+  try {
+    const result = await setTtsProviderSelection({
+      requestId: createRequestId("tts-provider"),
+      mode: nextMode,
+    });
+    setTtsProviderPanelState({
+      activeMode: result.mode,
+      isBusy: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    const message = describeAudioControlFailure(error);
+    setTtsProviderPanelState({
+      activeMode: previousProviderState.activeMode,
+      isBusy: false,
+      error: message,
+    });
+    setTtsModelPanelState({
+      activeProfile: previousModelState.activeProfile,
+      isBusy: false,
+      error: previousModelState.error,
+    });
+    setTtsVoicePanelState({
+      activeVoice: previousVoiceState.activeVoice,
+      isBusy: false,
+      error: previousVoiceState.error,
     });
   }
 }
@@ -1101,7 +1240,7 @@ app.addEventListener("change", (event) => {
     return;
   }
 
-  if (audioControlsState.isBusy || ttsModelPanelState.isBusy || ttsVoicePanelState.isBusy) {
+  if (audioControlsState.isBusy || asrProviderPanelState.isBusy || ttsProviderPanelState.isBusy || ttsModelPanelState.isBusy || ttsVoicePanelState.isBusy) {
     return;
   }
 
@@ -1112,6 +1251,16 @@ app.addEventListener("change", (event) => {
 
   if (target instanceof HTMLInputElement && target.dataset.audioControl === "speed") {
     void persistPlaybackSpeed(Number.parseFloat(target.value));
+    return;
+  }
+
+  if (target instanceof HTMLSelectElement && target.dataset.asrProviderSelect === "true") {
+    void persistAsrProviderSelection(target.value as "Local" | "Remote");
+    return;
+  }
+
+  if (target instanceof HTMLSelectElement && target.dataset.ttsProviderSelect === "true") {
+    void persistTtsProviderSelection(target.value as "Local" | "Remote");
     return;
   }
 

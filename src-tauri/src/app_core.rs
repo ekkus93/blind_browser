@@ -17,29 +17,30 @@ use crate::commands::{
     planner_output_schema, resolve_direct_audio_command, resolve_direct_browser_visibility_command,
     resolve_direct_navigation_readback_command, resolve_direct_open_url_command,
     resolve_direct_read_page_command, resolve_direct_read_title_command,
-    resolve_direct_repeat_command, resolve_direct_status_query_command, resolve_direct_voice_input_command,
-    resume_after_confirmation, tool_input_schema, validate_planner_output,
-    AgentStateData, CaptureScreenshotData, CaptureScreenshotInput, ClickElementData,
-    ClickElementInput, ConfirmActionData, ConfirmActionInput, ConfirmActionResolution,
-    DeterministicToolExecutor, ExecutionOutcome, ExecutionTrace,
+    resolve_direct_repeat_command, resolve_direct_status_query_command,
+    resolve_direct_voice_input_command, resume_after_confirmation, tool_input_schema,
+    validate_planner_output, AgentStateData, CaptureScreenshotData, CaptureScreenshotInput,
+    ClickElementData, ClickElementInput, ConfirmActionData, ConfirmActionInput,
+    ConfirmActionResolution, DeterministicToolExecutor, ExecutionOutcome, ExecutionTrace,
     ExtractPageModelData, ExtractPageModelInput, FindElementData, FindElementInput,
     FocusElementData, FocusElementInput, GetAgentStateInput, GetPageSnapshotInput,
     GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData,
     GoForwardInput, IntentName, IntentSummary, ListInteractiveElementsData,
-    ListInteractiveElementsInput, OpenUrlData, OpenUrlInput, PageSnapshotData, PlannedStep,
-    PlannerInput, PlannerOutput, PlannerStatus, PlannerToolHistoryEntry,
-    ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
-    ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
-    MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput, ReportResultData, ReportResultInput,
+    ListInteractiveElementsInput, MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput,
+    OpenUrlData, OpenUrlInput, PageSnapshotData, PlannedStep, PlannerInput, PlannerOutput,
+    PlannerStatus, PlannerToolHistoryEntry, ProviderSelectionStatus, ReadNextRegionData,
+    ReadNextRegionInput, ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData,
+    ReadRegionInput, ReloadPageData, ReloadPageInput, ReportResultData, ReportResultInput,
     ReportStatus, RunOcrData, RunOcrInput, ScrollPageData, ScrollPageInput,
     SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
     SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
-    SetTtsVoiceInput, StartListeningData, StartListeningInput, StepTransition,
-    SubmitActiveFormData, SubmitActiveFormInput,
-    StopListeningData, StopListeningInput, StopSpeakingData, StopSpeakingInput,
-    ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData, TranscribeCommandData,
-    TranscribeCommandInput, TtsModelOption, TtsModelSettings, TtsVoiceOption, TtsVoiceSettings,
-    TypeIntoElementData, TypeIntoElementInput,
+    SetTtsVoiceInput, StartListeningData, StartListeningInput, StepTransition, StopListeningData,
+    StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
+    SubmitActiveFormInput, ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData,
+    TranscribeCommandData, TranscribeCommandInput, TtsModelOption, TtsModelSettings,
+    AsrProviderSettings, TtsProviderSettings, TtsVoiceOption, TtsVoiceSettings,
+    TypeIntoElementData,
+    TypeIntoElementInput,
 };
 use crate::config::{
     AppConfig, AudioSettings, ConfigError, RemotePlannerProfile, RemoteProviderKind, SecretRef,
@@ -52,7 +53,7 @@ use crate::ocr::{OcrController, OcrRuntimeError, OcrSettings};
 use crate::page_model::PageRegion;
 use crate::page_model::{ElementRole, ExtractionSource, PageModel, Rect, RegionSource};
 use crate::state::AppState;
-use crate::tts::{KITTEN_TTS_VOICES, OPENAI_TTS_VOICES, TtsController, TtsRuntimeError};
+use crate::tts::{TtsController, TtsRuntimeError, KITTEN_TTS_VOICES, OPENAI_TTS_VOICES};
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
@@ -91,7 +92,11 @@ trait ReplanningRuntime {
         recent_tool_results: &[PlannerToolHistoryEntry],
     ) -> Result<PlannerOutput, ToolError>;
 
-    fn execute_plan(&mut self, request_id: String, planner_output: &PlannerOutput) -> ExecutionOutcome;
+    fn execute_plan(
+        &mut self,
+        request_id: String,
+        planner_output: &PlannerOutput,
+    ) -> ExecutionOutcome;
 }
 
 fn execution_trace_to_tool_history_entries(trace: &ExecutionTrace) -> Vec<PlannerToolHistoryEntry> {
@@ -292,6 +297,32 @@ impl AppCore {
 
         let config =
             AppConfig::persist_tts_provider_selection_for_app(&self.app_handle, &selection)?;
+        self.config = config;
+        Ok(())
+    }
+
+    pub fn set_tts_provider_mode(
+        &mut self,
+        mode: crate::config::ProviderMode,
+    ) -> Result<(), ConfigError> {
+        let mut selection = self.config.providers.tts.clone();
+        selection.mode = mode;
+
+        let config =
+            AppConfig::persist_tts_provider_selection_for_app(&self.app_handle, &selection)?;
+        self.config = config;
+        Ok(())
+    }
+
+    pub fn set_asr_provider_mode(
+        &mut self,
+        mode: crate::config::ProviderMode,
+    ) -> Result<(), ConfigError> {
+        let mut selection = self.config.providers.asr.clone();
+        selection.mode = mode;
+
+        let config =
+            AppConfig::persist_asr_provider_selection_for_app(&self.app_handle, &selection)?;
         self.config = config;
         Ok(())
     }
@@ -639,7 +670,10 @@ impl AppCore {
         input: CaptureScreenshotInput,
     ) -> ToolResult<CaptureScreenshotData> {
         if self.state.current_page_id.is_none() {
-            return Self::browser_runtime_missing_page(ToolName::CaptureScreenshot, input.request_id);
+            return Self::browser_runtime_missing_page(
+                ToolName::CaptureScreenshot,
+                input.request_id,
+            );
         }
 
         let region_id = input
@@ -649,8 +683,9 @@ impl AppCore {
             .filter(|region_id| !region_id.is_empty())
             .map(ToOwned::to_owned);
         let region_id_active = input.region_id.as_deref().is_some();
-        let targeting_modes =
-            usize::from(input.full_page) + usize::from(region_id_active) + usize::from(input.bbox.is_some());
+        let targeting_modes = usize::from(input.full_page)
+            + usize::from(region_id_active)
+            + usize::from(input.bbox.is_some());
         if targeting_modes > 1 {
             return ToolResult::failure(
                 ToolName::CaptureScreenshot,
@@ -728,21 +763,21 @@ impl AppCore {
             input.bbox.clone()
         };
 
-        let browser_screenshot =
-            match self
-                .browser
-                .capture_screenshot(input.full_page, screenshot_bbox.clone(), input.timeout_ms)
-            {
-                Ok(browser_screenshot) => browser_screenshot,
-                Err(error) => {
-                    return self.browser_tool_failure(
-                        ToolName::CaptureScreenshot,
-                        input.request_id,
-                        String::from("Live browser screenshot capture did not complete successfully."),
-                        error,
-                    )
-                }
-            };
+        let browser_screenshot = match self.browser.capture_screenshot(
+            input.full_page,
+            screenshot_bbox.clone(),
+            input.timeout_ms,
+        ) {
+            Ok(browser_screenshot) => browser_screenshot,
+            Err(error) => {
+                return self.browser_tool_failure(
+                    ToolName::CaptureScreenshot,
+                    input.request_id,
+                    String::from("Live browser screenshot capture did not complete successfully."),
+                    error,
+                )
+            }
+        };
 
         if let Some(current_page) = self.state.current_page.as_mut() {
             current_page.url = Some(browser_screenshot.url.clone());
@@ -770,7 +805,9 @@ impl AppCore {
                 input.request_id,
                 ToolError {
                     code: String::from("screenshot_write_failed"),
-                    message: String::from("capture_screenshot could not write the PNG file to app storage"),
+                    message: String::from(
+                        "capture_screenshot could not write the PNG file to app storage",
+                    ),
                     retryable: true,
                     details: Some(serde_json::json!({
                         "path": screenshot_path.display().to_string(),
@@ -876,16 +913,14 @@ impl AppCore {
         let ocr_bbox = if let Some(region_id) = region_id.as_deref() {
             let regions = match self.readable_regions() {
                 Ok(regions) => regions,
-                Err(error) => {
-                    return ToolResult::failure(
-                        ToolName::RunOcr,
-                        input.request_id,
-                        error,
-                        vec![String::from(
-                            "Region-targeted OCR requires readable regions in the current page model.",
-                        )],
-                    )
-                }
+                Err(error) => return ToolResult::failure(
+                    ToolName::RunOcr,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Region-targeted OCR requires readable regions in the current page model.",
+                    )],
+                ),
             };
 
             match region_bbox_by_id(regions, region_id) {
@@ -930,7 +965,9 @@ impl AppCore {
                     ToolName::RunOcr,
                     input.request_id,
                     error,
-                    vec![String::from("OCR could not resolve the cached screenshot path.")],
+                    vec![String::from(
+                        "OCR could not resolve the cached screenshot path.",
+                    )],
                 )
             }
         };
@@ -970,8 +1007,9 @@ impl AppCore {
             }
         };
 
-        let mut observations =
-            vec![String::from("Ran deterministic OCR on the requested cached screenshot.")];
+        let mut observations = vec![String::from(
+            "Ran deterministic OCR on the requested cached screenshot.",
+        )];
         if region_id.is_some() {
             observations.push(String::from(
                 "OCR was limited to the requested page region using its stored bounding box.",
@@ -1019,9 +1057,7 @@ impl AppCore {
                 input.request_id,
                 ToolError {
                     code: String::from("invalid_page_id"),
-                    message: String::from(
-                        "merge_ocr_into_page_model requires a non-empty page_id",
-                    ),
+                    message: String::from("merge_ocr_into_page_model requires a non-empty page_id"),
                     retryable: false,
                     details: None,
                 },
@@ -1077,9 +1113,7 @@ impl AppCore {
                 input.request_id,
                 ToolError {
                     code: String::from("invalid_ocr_text"),
-                    message: String::from(
-                        "merge_ocr_into_page_model requires non-empty ocr_text",
-                    ),
+                    message: String::from("merge_ocr_into_page_model requires non-empty ocr_text"),
                     retryable: false,
                     details: None,
                 },
@@ -1450,7 +1484,10 @@ impl AppCore {
 
                     let merge_result =
                         self.execute_merge_ocr_into_page_model(MergeOcrIntoPageModelInput {
-                            request_id: format!("{}-ocr-fallback-merge-{region_id}", input.request_id),
+                            request_id: format!(
+                                "{}-ocr-fallback-merge-{region_id}",
+                                input.request_id
+                            ),
                             timeout_ms: input.timeout_ms,
                             page_id: page_id.clone(),
                             region_id: Some(region_id.clone()),
@@ -1558,7 +1595,8 @@ impl AppCore {
             .iter()
             .filter(|region| !region.text.trim().is_empty())
             .count();
-        let extraction_source = infer_extraction_source(&runtime_page_model, input.use_dom_extraction);
+        let extraction_source =
+            infer_extraction_source(&runtime_page_model, input.use_dom_extraction);
 
         ToolResult::success(
             ToolName::ExtractPageModel,
@@ -2773,6 +2811,14 @@ impl AppCore {
         build_tts_voice_settings(&self.config, &self.state.audio)
     }
 
+    fn current_tts_provider_settings(&self) -> TtsProviderSettings {
+        build_tts_provider_settings(&self.config)
+    }
+
+    fn current_asr_provider_settings(&self) -> AsrProviderSettings {
+        build_asr_provider_settings(&self.config)
+    }
+
     pub fn execute_read_region(&mut self, input: ReadRegionInput) -> ToolResult<ReadRegionData> {
         self.sync_narration_playback_state();
         let region_id = input.region_id.trim().to_string();
@@ -3196,17 +3242,15 @@ impl AppCore {
             }));
         };
 
-        let (command_error, execution_outcome) = if let Some(transcript) = transcription.transcript.clone() {
-            match self.execute_command_with_replanning(request_id.clone(), transcript) {
-                Ok(outcome) => (
-                    None,
-                    Some(outcome),
-                ),
-                Err(error) => (Some(error), None),
-            }
-        } else {
-            (None, None)
-        };
+        let (command_error, execution_outcome) =
+            if let Some(transcript) = transcription.transcript.clone() {
+                match self.execute_command_with_replanning(request_id.clone(), transcript) {
+                    Ok(outcome) => (None, Some(outcome)),
+                    Err(error) => (Some(error), None),
+                }
+            } else {
+                (None, None)
+            };
 
         Ok(TranscribeAndExecuteCommandData {
             transcription,
@@ -3287,7 +3331,9 @@ impl AppCore {
                 user_message,
             },
             vec![
-                String::from("Reported the final planner result in a structured deterministic payload."),
+                String::from(
+                    "Reported the final planner result in a structured deterministic payload.",
+                ),
                 String::from("Started spoken feedback for the reported result summary."),
             ],
         )
@@ -3483,6 +3529,8 @@ impl AppCore {
             pending_plan_execution: self.state.pending_plan_execution.clone(),
             tts_model_settings: self.current_tts_model_settings(),
             tts_voice_settings: self.current_tts_voice_settings(),
+            tts_provider_settings: self.current_tts_provider_settings(),
+            asr_provider_settings: self.current_asr_provider_settings(),
         }
     }
 
@@ -4037,6 +4085,70 @@ fn build_tts_model_settings(config: &AppConfig) -> TtsModelSettings {
     }
 }
 
+fn build_tts_provider_settings(config: &AppConfig) -> TtsProviderSettings {
+    let mut available_modes = Vec::new();
+    if config
+        .providers
+        .tts
+        .local_profile
+        .as_ref()
+        .and_then(|profile_name| config.local_tts_profiles.get(profile_name))
+        .is_some()
+    {
+        available_modes.push(crate::config::ProviderMode::Local);
+    }
+    if config
+        .providers
+        .tts
+        .remote_profile
+        .as_ref()
+        .and_then(|profile_name| config.remote_tts_profiles.get(profile_name))
+        .is_some()
+    {
+        available_modes.push(crate::config::ProviderMode::Remote);
+    }
+    if available_modes.is_empty() {
+        available_modes.push(config.providers.tts.mode.clone());
+    }
+
+    TtsProviderSettings {
+        active_mode: config.providers.tts.mode.clone(),
+        available_modes,
+    }
+}
+
+fn build_asr_provider_settings(config: &AppConfig) -> AsrProviderSettings {
+    let mut available_modes = Vec::new();
+    if config
+        .providers
+        .asr
+        .local_profile
+        .as_ref()
+        .and_then(|profile_name| config.local_asr_profiles.get(profile_name))
+        .is_some()
+    {
+        available_modes.push(crate::config::ProviderMode::Local);
+    }
+    if config
+        .providers
+        .asr
+        .remote_profile
+        .as_ref()
+        .and_then(|profile_name| config.remote_asr_profiles.get(profile_name))
+        .is_some()
+    {
+        available_modes.push(crate::config::ProviderMode::Remote);
+    }
+    if available_modes.is_empty() {
+        available_modes.push(config.providers.asr.mode.clone());
+    }
+
+    AsrProviderSettings {
+        active_mode: config.providers.asr.mode.clone(),
+        available_modes,
+    }
+}
+
 fn build_tts_voice_settings(
     config: &AppConfig,
     runtime_audio: &RuntimeAudioState,
@@ -4358,7 +4470,11 @@ fn merge_ocr_text_into_page_model(
     }
 
     if let Some(region_id) = region_id {
-        let Some(region) = page.regions.iter_mut().find(|region| region.region_id == region_id) else {
+        let Some(region) = page
+            .regions
+            .iter_mut()
+            .find(|region| region.region_id == region_id)
+        else {
             return Err(ToolError {
                 code: String::from("unknown_region_id"),
                 message: String::from(
@@ -4393,14 +4509,16 @@ fn merge_ocr_text_into_page_model(
 }
 
 fn extracted_text_metrics(page: &PageModel) -> (usize, usize) {
-    page.regions.iter().fold((0usize, 0usize), |(chars, regions), region| {
-        let trimmed = region.text.trim();
-        if trimmed.is_empty() {
-            (chars, regions)
-        } else {
-            (chars + trimmed.chars().count(), regions + 1)
-        }
-    })
+    page.regions
+        .iter()
+        .fold((0usize, 0usize), |(chars, regions), region| {
+            let trimmed = region.text.trim();
+            if trimmed.is_empty() {
+                (chars, regions)
+            } else {
+                (chars + trimmed.chars().count(), regions + 1)
+            }
+        })
 }
 
 fn has_positive_bbox(region: &PageRegion) -> bool {
@@ -4657,9 +4775,8 @@ fn asr_runtime_error_to_tool_error(error: &AsrRuntimeError) -> ToolError {
         AsrRuntimeError::UnsupportedRemoteProvider { .. } => "unsupported_asr_provider",
         AsrRuntimeError::UnsupportedLocalBackend { .. } => "unsupported_asr_backend",
         AsrRuntimeError::AudioFeatureUnavailable => "audio_backend_unavailable",
-        AsrRuntimeError::LocalAsrFeatureUnavailable | AsrRuntimeError::RemoteAsrFeatureUnavailable => {
-            "asr_backend_unavailable"
-        }
+        AsrRuntimeError::LocalAsrFeatureUnavailable
+        | AsrRuntimeError::RemoteAsrFeatureUnavailable => "asr_backend_unavailable",
         AsrRuntimeError::MissingInputDevice => "audio_input_unavailable",
         AsrRuntimeError::InputConfigUnavailable { .. } => "audio_input_config_unavailable",
         AsrRuntimeError::UnsupportedInputSampleFormat { .. } => "unsupported_audio_input_format",
@@ -4999,7 +5116,9 @@ fn resolve_direct_fill_field_command(
                     "Open a page first, then ask me to fill a field.",
                 )),
                 step_id: String::from("report-missing-fill-page"),
-                purpose: String::from("Report that there is no active page available for field entry."),
+                purpose: String::from(
+                    "Report that there is no active page available for field entry.",
+                ),
             },
         ));
     };
@@ -5084,7 +5203,9 @@ fn resolve_direct_fill_field_command(
                         "clear_first": true,
                         "submit_after": false
                     }),
-                    purpose: String::from("Replace the requested field contents with the spoken value."),
+                    purpose: String::from(
+                        "Replace the requested field contents with the spoken value.",
+                    ),
                     on_success: StepTransition::Complete,
                     on_failure: StepTransition::Replan,
                 },
@@ -5252,8 +5373,9 @@ fn resolve_direct_fill_and_submit_command(
     };
 
     if let Some(element_id) = chosen_element_id {
-        let prompt_text =
-            format!("Do you want me to fill the {description} field with {text} and then submit that form?");
+        let prompt_text = format!(
+            "Do you want me to fill the {description} field with {text} and then submit that form?"
+        );
         let confirmation_reason =
             String::from("filling the field and submitting the form may change or send data");
         return Some(PlannerOutput {
@@ -5406,7 +5528,9 @@ fn resolve_direct_submit_form_command(
                     "Open a page first, then ask me to submit the form.",
                 )),
                 step_id: String::from("report-missing-submit-page"),
-                purpose: String::from("Report that there is no active page available for form submission."),
+                purpose: String::from(
+                    "Report that there is no active page available for form submission.",
+                ),
             },
         ));
     };
@@ -5424,18 +5548,24 @@ fn resolve_direct_submit_form_command(
                 goal: String::from("Submit the active form."),
                 target_description: Some(String::from("current form")),
                 selected_skills,
-                summary: String::from("I could not identify a submittable form on the current page."),
+                summary: String::from(
+                    "I could not identify a submittable form on the current page.",
+                ),
                 next_recommended_action: Some(String::from(
                     "Focus a field in the form or describe which form you want to submit.",
                 )),
                 step_id: String::from("report-missing-submit-form"),
-                purpose: String::from("Report that no submittable form could be identified on the current page."),
+                purpose: String::from(
+                    "Report that no submittable form could be identified on the current page.",
+                ),
             },
         ));
     } else {
         let candidate_names = summarize_form_candidate_names(&candidate_forms);
         let summary = if candidate_names.is_empty() {
-            String::from("I found multiple forms on the current page. Please tell me which one to submit.")
+            String::from(
+                "I found multiple forms on the current page. Please tell me which one to submit.",
+            )
         } else {
             format!(
                 "I found multiple forms on the current page: {}. Please tell me which one to submit.",
@@ -5591,7 +5721,11 @@ fn focusable_field_elements(page: &PageModel) -> Vec<crate::page_model::Interact
     filter_interactive_elements(
         &page.interactive_elements,
         true,
-        Some(&[ElementRole::Input, ElementRole::TextArea, ElementRole::Select]),
+        Some(&[
+            ElementRole::Input,
+            ElementRole::TextArea,
+            ElementRole::Select,
+        ]),
     )
     .into_iter()
     .filter(|element| {
@@ -5634,9 +5768,7 @@ fn summarize_candidate_names(
         .collect()
 }
 
-fn summarize_form_candidate_names(
-    forms: &[crate::page_model::InteractiveElement],
-) -> Vec<String> {
+fn summarize_form_candidate_names(forms: &[crate::page_model::InteractiveElement]) -> Vec<String> {
     forms
         .iter()
         .map(describe_form_element)
@@ -6219,17 +6351,17 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
 #[cfg(test)]
 mod tests {
     use super::{
-        build_extracted_page_model, build_find_element_query, build_tts_voice_settings,
-        build_visible_text_excerpt,
-        determine_find_element_resolution, execute_bounded_replanning_loop, extracted_text_metrics,
-        filter_interactive_elements, infer_extraction_source, normalize_absolute_url,
-        merge_ocr_text_into_page_model, merged_region_text, normalize_optional_text,
-        planner_system_prompt, rank_find_element_candidates, region_bbox_by_id, region_first_ocr_target_ids,
-        resolve_clickable_element, should_trigger_extract_page_model_ocr_fallback,
-        resolve_direct_fill_and_submit_command,
-        resolve_direct_fill_field_command,
-        resolve_direct_focus_field_command, resolve_direct_submit_form_command,
-        resolve_form_element, resolve_typeable_element, ReplanningRuntime,
+        build_asr_provider_settings, build_extracted_page_model, build_find_element_query,
+        build_tts_provider_settings, build_tts_voice_settings, build_visible_text_excerpt,
+        determine_find_element_resolution,
+        execute_bounded_replanning_loop, extracted_text_metrics, filter_interactive_elements,
+        infer_extraction_source, merge_ocr_text_into_page_model, merged_region_text,
+        normalize_absolute_url, normalize_optional_text, planner_system_prompt,
+        rank_find_element_candidates, region_bbox_by_id, region_first_ocr_target_ids,
+        resolve_clickable_element, resolve_direct_fill_and_submit_command,
+        resolve_direct_fill_field_command, resolve_direct_focus_field_command,
+        resolve_direct_submit_form_command, resolve_form_element, resolve_typeable_element,
+        should_trigger_extract_page_model_ocr_fallback, ReplanningRuntime,
     };
     use crate::audio_io::RuntimeAudioState;
     use crate::commands::{
@@ -6238,11 +6370,37 @@ mod tests {
         ReportStatus, StepTransition, ToolName, ToolResult,
     };
     use crate::config::{AppConfig, ProviderMode};
+    use crate::ocr::OcrSettings;
     use crate::page_model::{
         ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, Rect,
         RegionSource,
     };
-    use crate::ocr::OcrSettings;
+    #[test]
+    fn build_asr_provider_settings_returns_available_modes() {
+        let config = AppConfig::default();
+
+        let settings = build_asr_provider_settings(&config);
+
+        assert_eq!(settings.active_mode, ProviderMode::Local);
+        assert_eq!(
+            settings.available_modes,
+            vec![ProviderMode::Local, ProviderMode::Remote]
+        );
+    }
+
+    #[test]
+    fn build_tts_provider_settings_returns_available_modes() {
+        let config = AppConfig::default();
+
+        let settings = build_tts_provider_settings(&config);
+
+        assert_eq!(settings.active_mode, ProviderMode::Local);
+        assert_eq!(
+            settings.available_modes,
+            vec![ProviderMode::Local, ProviderMode::Remote]
+        );
+    }
+
     #[test]
     fn build_tts_voice_settings_returns_kitten_voice_choices_for_local_mode() {
         let config = AppConfig::default();
@@ -6622,9 +6780,7 @@ mod tests {
         };
 
         assert!(should_trigger_extract_page_model_ocr_fallback(
-            true,
-            &page,
-            &settings
+            true, &page, &settings
         ));
     }
 
@@ -6649,9 +6805,7 @@ mod tests {
         };
 
         assert!(should_trigger_extract_page_model_ocr_fallback(
-            true,
-            &page,
-            &settings
+            true, &page, &settings
         ));
     }
 
@@ -6748,7 +6902,9 @@ mod tests {
                 PageRegion {
                     region_id: String::from("region-1"),
                     label: None,
-                    text: String::from("This first region contains comfortably more than twenty characters."),
+                    text: String::from(
+                        "This first region contains comfortably more than twenty characters.",
+                    ),
                     bbox: None,
                     source: RegionSource::Dom,
                 },
@@ -6769,9 +6925,7 @@ mod tests {
         };
 
         assert!(!should_trigger_extract_page_model_ocr_fallback(
-            true,
-            &page,
-            &settings
+            true, &page, &settings
         ));
     }
 
@@ -6935,7 +7089,10 @@ mod tests {
 
         assert_eq!(updated_region_ids, vec![String::from("region-1")]);
         assert_eq!(page.regions[0].source, RegionSource::Mixed);
-        assert_eq!(page.regions[0].text, String::from("DOM summary\n\nOCR detail"));
+        assert_eq!(
+            page.regions[0].text,
+            String::from("DOM summary\n\nOCR detail")
+        );
         assert_eq!(
             page.regions[0].bbox,
             Some(Rect {
@@ -7016,7 +7173,10 @@ mod tests {
         )
         .expect("merge should create a new OCR region when no target region_id is supplied");
 
-        assert_eq!(updated_region_ids, vec![String::from("ocr-region-generated")]);
+        assert_eq!(
+            updated_region_ids,
+            vec![String::from("ocr-region-generated")]
+        );
         assert_eq!(page.regions.len(), 1);
         assert_eq!(page.regions[0].region_id, "ocr-region-generated");
         assert_eq!(page.regions[0].source, RegionSource::Ocr);
@@ -7123,7 +7283,10 @@ mod tests {
         .expect("focus-field command should resolve");
 
         assert_eq!(planner_output.intent.name, IntentName::FillInput);
-        assert_eq!(planner_output.selected_skills, vec![String::from("focus_field")]);
+        assert_eq!(
+            planner_output.selected_skills,
+            vec![String::from("focus_field")]
+        );
         assert_eq!(planner_output.steps.len(), 1);
         assert_eq!(planner_output.steps[0].tool_name, ToolName::FocusElement);
         assert_eq!(
@@ -7343,7 +7506,10 @@ mod tests {
         assert_eq!(planner_output.steps[0].tool_name, ToolName::ConfirmAction);
         assert_eq!(planner_output.steps[1].tool_name, ToolName::FocusElement);
         assert_eq!(planner_output.steps[2].tool_name, ToolName::TypeIntoElement);
-        assert_eq!(planner_output.steps[3].tool_name, ToolName::SubmitActiveForm);
+        assert_eq!(
+            planner_output.steps[3].tool_name,
+            ToolName::SubmitActiveForm
+        );
         assert_eq!(
             planner_output.steps[2].arguments.get("text"),
             Some(&serde_json::json!("phil@example.com"))
@@ -7442,10 +7608,16 @@ mod tests {
 
         assert_eq!(planner_output.status, PlannerStatus::NeedsConfirmation);
         assert_eq!(planner_output.intent.name, IntentName::SubmitForm);
-        assert_eq!(planner_output.selected_skills, vec![String::from("submit_form")]);
+        assert_eq!(
+            planner_output.selected_skills,
+            vec![String::from("submit_form")]
+        );
         assert_eq!(planner_output.steps.len(), 2);
         assert_eq!(planner_output.steps[0].tool_name, ToolName::ConfirmAction);
-        assert_eq!(planner_output.steps[1].tool_name, ToolName::SubmitActiveForm);
+        assert_eq!(
+            planner_output.steps[1].tool_name,
+            ToolName::SubmitActiveForm
+        );
         assert_eq!(
             planner_output.steps[1].arguments.get("form_element_id"),
             Some(&serde_json::json!("form-login"))
@@ -7717,7 +7889,10 @@ mod tests {
     #[test]
     fn bounded_replanning_loop_replans_once_with_recent_tool_history() {
         let mut runtime = MockReplanningRuntime {
-            resolve_results: vec![Ok(mock_planner_output("step-1")), Ok(mock_planner_output("step-2"))],
+            resolve_results: vec![
+                Ok(mock_planner_output("step-1")),
+                Ok(mock_planner_output("step-2")),
+            ],
             execute_results: vec![
                 ExecutionOutcome::NeedsReplan {
                     trace: mock_trace("step-1", ToolName::GetRuntimeStatus, "first plan failed"),
@@ -7752,13 +7927,24 @@ mod tests {
     #[test]
     fn bounded_replanning_loop_stops_after_replan_limit() {
         let mut runtime = MockReplanningRuntime {
-            resolve_results: vec![Ok(mock_planner_output("step-1")), Ok(mock_planner_output("step-2"))],
+            resolve_results: vec![
+                Ok(mock_planner_output("step-1")),
+                Ok(mock_planner_output("step-2")),
+            ],
             execute_results: vec![
                 ExecutionOutcome::NeedsReplan {
-                    trace: mock_trace("step-1", ToolName::GetRuntimeStatus, "first replan requested"),
+                    trace: mock_trace(
+                        "step-1",
+                        ToolName::GetRuntimeStatus,
+                        "first replan requested",
+                    ),
                 },
                 ExecutionOutcome::NeedsReplan {
-                    trace: mock_trace("step-2", ToolName::GetRuntimeStatus, "second replan requested"),
+                    trace: mock_trace(
+                        "step-2",
+                        ToolName::GetRuntimeStatus,
+                        "second replan requested",
+                    ),
                 },
             ],
             resolve_recent_tool_results: Vec::new(),

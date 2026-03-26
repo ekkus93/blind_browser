@@ -313,8 +313,8 @@
 - [x] Volume control
 - [x] Visible/headless toggle
 - [ ] Planner provider selection
-- [ ] TTS provider selection
-- [ ] ASR provider selection
+- [x] TTS provider selection
+- [x] ASR provider selection
 - [ ] Remote API configuration inputs or references
 - [ ] Local model configuration inputs or references
 - [ ] Provider failover toggle where supported
@@ -400,8 +400,8 @@
 - [ ] Command parsing
 - [ ] LLM provider selection behavior
 - [ ] Default local model profile selection behavior
-- [ ] TTS provider selection behavior
-- [ ] ASR provider selection behavior
+- [x] TTS provider selection behavior
+- [x] ASR provider selection behavior
 - [ ] Deterministic tool result schemas
 - [ ] Common tool envelope serialization/deserialization
 - [ ] Planner input/output schema serialization/deserialization
