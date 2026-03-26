@@ -881,3 +881,8 @@
 - Added persisted confirmation-behavior settings to `get_agent_state` plus dedicated Tauri setters for `safety.confirmation_confidence_threshold` and `safety.allow_click_without_confirmation`.
 - Added a thin frontend Settings panel with a threshold slider, a click-without-confirmation checkbox, and explicit read-only copy that submit actions still always require confirmation.
 - Added focused Rust and frontend render coverage for the new persistence and UI path; validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`185` Rust tests, `37` UI tests).
+
+## 2026-03-26T08:22:43Z - GPT-5.4 - Settings OCR threshold controls landed
+- Added persisted OCR-threshold settings to `get_agent_state` plus a dedicated Tauri setter for `ocr.sparse_text_char_threshold` and `ocr.sparse_text_region_threshold`.
+- Added a thin frontend Settings panel with two numeric controls for the sparse-text character and region thresholds while intentionally leaving the other OCR toggles unchanged in this slice.
+- Added focused Rust and frontend render coverage for the new persistence and UI path; validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`187` Rust tests, `39` UI tests).

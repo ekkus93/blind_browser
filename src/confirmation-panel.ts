@@ -73,6 +73,13 @@ export interface ConfirmationSettingsPanelState {
   error: string | null;
 }
 
+export interface OcrThresholdSettingsPanelState {
+  sparseTextCharThreshold: number;
+  sparseTextRegionThreshold: number;
+  isBusy: boolean;
+  error: string | null;
+}
+
 export interface UrlInputPanelState {
   draftValue: string;
   currentUrl: string | null;
@@ -116,6 +123,10 @@ function renderFailoverAvailabilityLabel(available: boolean): string {
 
 function renderConfirmationThresholdValue(confidenceThreshold: number): string {
   return `${Math.round(confidenceThreshold * 100)}%`;
+}
+
+function renderOcrThresholdValue(value: number): string {
+  return `${value}`;
 }
 
 export function renderConfirmationPanel(state: ConfirmationUiState): string {
@@ -513,6 +524,57 @@ export function renderSettingsConfirmationPanel(state: ConfirmationSettingsPanel
           <span class="settings-control-label">Submit actions</span>
           <span class="settings-control-value">${state.alwaysConfirmSubmit ? "Always require confirmation" : "Confirmation not required"}</span>
         </div>
+      </div>
+    </section>
+  `;
+}
+
+export function renderSettingsOcrThresholdPanel(state: OcrThresholdSettingsPanelState): string {
+  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
+  const errorCopy = state.error
+    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+
+  return `
+    <section class="settings-panel" aria-labelledby="settings-ocr-thresholds-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-ocr-thresholds-title">OCR thresholds</h2>
+        <p class="settings-panel-description">
+          Adjust when sparse DOM extraction should trigger OCR fallback. Existing OCR fallback
+          toggles remain unchanged by this panel.
+        </p>
+        ${errorCopy}
+      </div>
+      <div class="settings-grid">
+        <label class="settings-control-card" for="settings-ocr-char-threshold-control">
+          <span class="settings-control-label">Sparse text character threshold</span>
+          <span class="settings-control-value">${renderOcrThresholdValue(state.sparseTextCharThreshold)}</span>
+          <input
+            id="settings-ocr-char-threshold-control"
+            class="settings-control-input"
+            data-ocr-threshold-control="char"
+            type="number"
+            min="1"
+            step="1"
+            value="${state.sparseTextCharThreshold}"
+            ${disabledAttribute}
+          />
+        </label>
+        <label class="settings-control-card" for="settings-ocr-region-threshold-control">
+          <span class="settings-control-label">Sparse text region threshold</span>
+          <span class="settings-control-value">${renderOcrThresholdValue(state.sparseTextRegionThreshold)}</span>
+          <input
+            id="settings-ocr-region-threshold-control"
+            class="settings-control-input"
+            data-ocr-threshold-control="region"
+            type="number"
+            min="1"
+            step="1"
+            value="${state.sparseTextRegionThreshold}"
+            ${disabledAttribute}
+          />
+        </label>
       </div>
     </section>
   `;

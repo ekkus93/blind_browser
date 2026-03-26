@@ -341,6 +341,13 @@ struct SetAllowClickWithoutConfirmationData {
     changed: bool,
 }
 
+#[derive(serde::Serialize)]
+struct SetOcrThresholdsData {
+    sparse_text_char_threshold: u32,
+    sparse_text_region_threshold: u32,
+    changed: bool,
+}
+
 #[tauri::command]
 fn set_allow_click_without_confirmation(
     request_id: String,
@@ -367,6 +374,36 @@ fn set_allow_click_without_confirmation(
 
     Ok(SetAllowClickWithoutConfirmationData {
         allow_click_without_confirmation,
+        changed,
+    })
+}
+
+#[tauri::command]
+fn set_ocr_thresholds(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    sparse_text_char_threshold: u32,
+    sparse_text_region_threshold: u32,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<SetOcrThresholdsData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let changed = app_core.config.ocr.sparse_text_char_threshold != sparse_text_char_threshold
+        || app_core.config.ocr.sparse_text_region_threshold != sparse_text_region_threshold;
+
+    app_core
+        .set_ocr_thresholds(sparse_text_char_threshold, sparse_text_region_threshold)
+        .map_err(|error| ToolError {
+            code: String::from("ocr_thresholds_persist_failed"),
+            message: format!("Failed to persist the requested OCR thresholds: {error}"),
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(SetOcrThresholdsData {
+        sparse_text_char_threshold,
+        sparse_text_region_threshold,
         changed,
     })
 }
@@ -434,6 +471,7 @@ pub fn run() {
             set_tts_voice,
             set_confirmation_threshold,
             set_allow_click_without_confirmation,
+            set_ocr_thresholds,
             set_tts_provider_selection,
             set_asr_provider_selection,
             set_tts_model_selection

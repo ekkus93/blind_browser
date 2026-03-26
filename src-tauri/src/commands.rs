@@ -253,6 +253,7 @@ pub struct AgentStateData {
     pub planner_provider_settings: PlannerProviderSettings,
     pub provider_failover_settings: ProviderFailoverSettings,
     pub confirmation_settings: ConfirmationSettings,
+    pub ocr_threshold_settings: OcrThresholdSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -333,6 +334,12 @@ pub struct ConfirmationSettings {
     pub confirmation_confidence_threshold: f32,
     pub allow_click_without_confirmation: bool,
     pub always_confirm_submit: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct OcrThresholdSettings {
+    pub sparse_text_char_threshold: u32,
+    pub sparse_text_region_threshold: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -6099,6 +6106,10 @@ mod tests {
                         allow_click_without_confirmation: true,
                         always_confirm_submit: true,
                     },
+                    ocr_threshold_settings: OcrThresholdSettings {
+                        sparse_text_char_threshold: 200,
+                        sparse_text_region_threshold: 2,
+                    },
                 },
                 vec![String::from("agent state read")],
             )
@@ -7922,6 +7933,10 @@ mod tests {
                     allow_click_without_confirmation: true,
                     always_confirm_submit: true,
                 },
+                ocr_threshold_settings: OcrThresholdSettings {
+                    sparse_text_char_threshold: 200,
+                    sparse_text_region_threshold: 2,
+                },
             },
             safety: PlannerSafetySettings {
                 confirmation_confidence_threshold: 0.9,
@@ -9118,6 +9133,10 @@ confirmation_settings: ConfirmationSettings {
     allow_click_without_confirmation: true,
     always_confirm_submit: true,
 },
+ocr_threshold_settings: OcrThresholdSettings {
+    sparse_text_char_threshold: 200,
+    sparse_text_region_threshold: 2,
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9214,6 +9233,10 @@ confirmation_settings: ConfirmationSettings {
     allow_click_without_confirmation: true,
     always_confirm_submit: true,
 },
+ocr_threshold_settings: OcrThresholdSettings {
+    sparse_text_char_threshold: 200,
+    sparse_text_region_threshold: 2,
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9303,6 +9326,10 @@ confirmation_settings: ConfirmationSettings {
     allow_click_without_confirmation: true,
     always_confirm_submit: true,
 },
+ocr_threshold_settings: OcrThresholdSettings {
+    sparse_text_char_threshold: 200,
+    sparse_text_region_threshold: 2,
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9383,6 +9410,10 @@ confirmation_settings: ConfirmationSettings {
     confirmation_confidence_threshold: 0.9,
     allow_click_without_confirmation: true,
     always_confirm_submit: true,
+},
+ocr_threshold_settings: OcrThresholdSettings {
+    sparse_text_char_threshold: 200,
+    sparse_text_region_threshold: 2,
 },
         };
         let runtime_status = GetRuntimeStatusData {
@@ -9489,6 +9520,10 @@ confirmation_settings: ConfirmationSettings {
     allow_click_without_confirmation: true,
     always_confirm_submit: true,
 },
+ocr_threshold_settings: OcrThresholdSettings {
+    sparse_text_char_threshold: 200,
+    sparse_text_region_threshold: 2,
+},
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: agent_state.page_id.clone(),
@@ -9588,6 +9623,10 @@ confirmation_settings: ConfirmationSettings {
     confirmation_confidence_threshold: 0.9,
     allow_click_without_confirmation: true,
     always_confirm_submit: true,
+},
+ocr_threshold_settings: OcrThresholdSettings {
+    sparse_text_char_threshold: 200,
+    sparse_text_region_threshold: 2,
 },
         };
         let runtime_status = GetRuntimeStatusData {
@@ -9700,6 +9739,10 @@ confirmation_settings: ConfirmationSettings {
     allow_click_without_confirmation: true,
     always_confirm_submit: true,
 },
+ocr_threshold_settings: OcrThresholdSettings {
+    sparse_text_char_threshold: 200,
+    sparse_text_region_threshold: 2,
+},
         };
 
         let planner_output = resolve_direct_repeat_command(
@@ -9785,6 +9828,10 @@ confirmation_settings: ConfirmationSettings {
     confirmation_confidence_threshold: 0.9,
     allow_click_without_confirmation: true,
     always_confirm_submit: true,
+},
+ocr_threshold_settings: OcrThresholdSettings {
+    sparse_text_char_threshold: 200,
+    sparse_text_region_threshold: 2,
 },
         };
 
@@ -9877,6 +9924,10 @@ confirmation_settings: ConfirmationSettings {
     allow_click_without_confirmation: true,
     always_confirm_submit: true,
 },
+ocr_threshold_settings: OcrThresholdSettings {
+    sparse_text_char_threshold: 200,
+    sparse_text_region_threshold: 2,
+},
         };
 
         let planner_output = resolve_direct_read_title_command(
@@ -9961,6 +10012,10 @@ confirmation_settings: ConfirmationSettings {
     confirmation_confidence_threshold: 0.9,
     allow_click_without_confirmation: true,
     always_confirm_submit: true,
+},
+ocr_threshold_settings: OcrThresholdSettings {
+    sparse_text_char_threshold: 200,
+    sparse_text_region_threshold: 2,
 },
         };
 

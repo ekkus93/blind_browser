@@ -7,6 +7,7 @@ import {
   renderPushToTalkPanel,
   renderSettingsAsrProviderPanel,
   renderSettingsConfirmationPanel,
+  renderSettingsOcrThresholdPanel,
   renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
   renderSettingsTtsProviderPanel,
@@ -477,6 +478,37 @@ test("renders confirmation settings errors and disabled state while saving", () 
   });
 
   assert.match(html, /The confirmation settings could not be saved\./);
+  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /role="alert"/);
+});
+
+test("renders OCR threshold settings controls", () => {
+  const html = renderSettingsOcrThresholdPanel({
+    sparseTextCharThreshold: 120,
+    sparseTextRegionThreshold: 3,
+    isBusy: false,
+    error: null,
+  });
+
+  assert.match(html, /OCR thresholds/);
+  assert.match(html, /trigger OCR fallback/);
+  assert.match(html, /Sparse text character threshold/);
+  assert.match(html, /Sparse text region threshold/);
+  assert.match(html, /data-ocr-threshold-control="char"/);
+  assert.match(html, /data-ocr-threshold-control="region"/);
+  assert.match(html, /value="120"/);
+  assert.match(html, /value="3"/);
+});
+
+test("renders OCR threshold settings errors and disabled state while saving", () => {
+  const html = renderSettingsOcrThresholdPanel({
+    sparseTextCharThreshold: 200,
+    sparseTextRegionThreshold: 2,
+    isBusy: true,
+    error: "The OCR thresholds could not be saved.",
+  });
+
+  assert.match(html, /The OCR thresholds could not be saved\./);
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /role="alert"/);
 });

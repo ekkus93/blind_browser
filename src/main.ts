@@ -6,6 +6,7 @@ import {
   renderPushToTalkPanel,
   renderSettingsAsrProviderPanel,
   renderSettingsConfirmationPanel,
+  renderSettingsOcrThresholdPanel,
   renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
   renderSettingsTtsProviderPanel,
@@ -18,6 +19,7 @@ import {
   type AudioControlsPanelState,
   type AsrProviderPanelState,
   type ConfirmationSettingsPanelState,
+  type OcrThresholdSettingsPanelState,
   type PlannerProviderPanelState,
   type ProviderFailoverPanelState,
   type PushToTalkPanelState,
@@ -44,6 +46,7 @@ import {
   setBrowserVisibility,
   setAsrProviderSelection,
   setConfirmationThreshold,
+  setOcrThresholds,
   setPlaybackSpeed,
   setPlaybackVolume,
   setTtsModelSelection,
@@ -98,6 +101,7 @@ let audioControlsState: AudioControlsPanelState = createInitialAudioControlsStat
 let plannerProviderPanelState: PlannerProviderPanelState = createInitialPlannerProviderPanelState();
 let providerFailoverPanelState: ProviderFailoverPanelState = createInitialProviderFailoverPanelState();
 let confirmationSettingsPanelState: ConfirmationSettingsPanelState = createInitialConfirmationSettingsPanelState();
+let ocrThresholdSettingsPanelState: OcrThresholdSettingsPanelState = createInitialOcrThresholdSettingsPanelState();
 let asrProviderPanelState: AsrProviderPanelState = createInitialAsrProviderPanelState();
 let ttsProviderPanelState: TtsProviderPanelState = createInitialTtsProviderPanelState();
 let ttsModelPanelState: TtsModelPanelState = createInitialTtsModelPanelState();
@@ -162,6 +166,15 @@ function createInitialConfirmationSettingsPanelState(): ConfirmationSettingsPane
     confirmationConfidenceThreshold: 0.9,
     allowClickWithoutConfirmation: true,
     alwaysConfirmSubmit: true,
+    isBusy: false,
+    error: null,
+  };
+}
+
+function createInitialOcrThresholdSettingsPanelState(): OcrThresholdSettingsPanelState {
+  return {
+    sparseTextCharThreshold: 200,
+    sparseTextRegionThreshold: 2,
     isBusy: false,
     error: null,
   };
@@ -232,6 +245,7 @@ const renderApp = (
   plannerProviderPanel: PlannerProviderPanelState,
   providerFailoverPanel: ProviderFailoverPanelState,
   confirmationSettingsPanel: ConfirmationSettingsPanelState,
+  ocrThresholdSettingsPanel: OcrThresholdSettingsPanelState,
   asrProviderPanel: AsrProviderPanelState,
   ttsProviderPanel: TtsProviderPanelState,
   ttsModelPanel: TtsModelPanelState,
@@ -280,6 +294,7 @@ const renderApp = (
       ${renderSettingsPlannerProviderPanel(plannerProviderPanel)}
       ${renderSettingsProviderFailoverPanel(providerFailoverPanel)}
       ${renderSettingsConfirmationPanel(confirmationSettingsPanel)}
+      ${renderSettingsOcrThresholdPanel(ocrThresholdSettingsPanel)}
       ${renderSettingsAsrProviderPanel(asrProviderPanel)}
       ${renderSettingsTtsProviderPanel(ttsProviderPanel)}
       ${renderSettingsTtsModelPanel(ttsModelPanel)}
@@ -299,6 +314,7 @@ function rerender() {
     plannerProviderPanelState,
     providerFailoverPanelState,
     confirmationSettingsPanelState,
+    ocrThresholdSettingsPanelState,
     asrProviderPanelState,
     ttsProviderPanelState,
     ttsModelPanelState,
@@ -343,6 +359,14 @@ function setProviderFailoverPanelState(nextState: Partial<ProviderFailoverPanelS
 function setConfirmationSettingsPanelState(nextState: Partial<ConfirmationSettingsPanelState>) {
   confirmationSettingsPanelState = {
     ...confirmationSettingsPanelState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setOcrThresholdSettingsPanelState(nextState: Partial<OcrThresholdSettingsPanelState>) {
+  ocrThresholdSettingsPanelState = {
+    ...ocrThresholdSettingsPanelState,
     ...nextState,
   };
   rerender();
@@ -494,6 +518,12 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     confirmationConfidenceThreshold: agentState.confirmation_settings.confirmation_confidence_threshold,
     allowClickWithoutConfirmation: agentState.confirmation_settings.allow_click_without_confirmation,
     alwaysConfirmSubmit: agentState.confirmation_settings.always_confirm_submit,
+    isBusy: false,
+    error: null,
+  });
+  setOcrThresholdSettingsPanelState({
+    sparseTextCharThreshold: agentState.ocr_threshold_settings.sparse_text_char_threshold,
+    sparseTextRegionThreshold: agentState.ocr_threshold_settings.sparse_text_region_threshold,
     isBusy: false,
     error: null,
   });
@@ -997,6 +1027,38 @@ async function persistAllowClickWithoutConfirmation(nextValue: boolean) {
   }
 }
 
+async function persistOcrThresholds(nextCharThreshold: number, nextRegionThreshold: number) {
+  const previousState = ocrThresholdSettingsPanelState;
+  setOcrThresholdSettingsPanelState({
+    sparseTextCharThreshold: nextCharThreshold,
+    sparseTextRegionThreshold: nextRegionThreshold,
+    isBusy: true,
+    error: null,
+  });
+
+  try {
+    const result = await setOcrThresholds({
+      requestId: createRequestId("ocr-thresholds"),
+      sparseTextCharThreshold: nextCharThreshold,
+      sparseTextRegionThreshold: nextRegionThreshold,
+    });
+    setOcrThresholdSettingsPanelState({
+      sparseTextCharThreshold: result.sparse_text_char_threshold,
+      sparseTextRegionThreshold: result.sparse_text_region_threshold,
+      isBusy: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setOcrThresholdSettingsPanelState({
+      sparseTextCharThreshold: previousState.sparseTextCharThreshold,
+      sparseTextRegionThreshold: previousState.sparseTextRegionThreshold,
+      isBusy: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
 async function openDraftUrl() {
   if (isUrlInputActionBusy()) {
     return;
@@ -1382,6 +1444,22 @@ app.addEventListener("input", (event) => {
     return;
   }
 
+  if (target.dataset.ocrThresholdControl === "char") {
+    setOcrThresholdSettingsPanelState({
+      sparseTextCharThreshold: Number.parseInt(target.value, 10),
+      error: null,
+    });
+    return;
+  }
+
+  if (target.dataset.ocrThresholdControl === "region") {
+    setOcrThresholdSettingsPanelState({
+      sparseTextRegionThreshold: Number.parseInt(target.value, 10),
+      error: null,
+    });
+    return;
+  }
+
   if (target.dataset.urlInput === "true") {
     setUrlInputPanelState({
       draftValue: target.value,
@@ -1400,6 +1478,7 @@ app.addEventListener("change", (event) => {
   if (
     audioControlsState.isBusy ||
     confirmationSettingsPanelState.isBusy ||
+    ocrThresholdSettingsPanelState.isBusy ||
     asrProviderPanelState.isBusy ||
     ttsProviderPanelState.isBusy ||
     ttsModelPanelState.isBusy ||
@@ -1425,6 +1504,22 @@ app.addEventListener("change", (event) => {
 
   if (target instanceof HTMLInputElement && target.dataset.clickWithoutConfirmationToggle === "true") {
     void persistAllowClickWithoutConfirmation(target.checked);
+    return;
+  }
+
+  if (target instanceof HTMLInputElement && target.dataset.ocrThresholdControl === "char") {
+    void persistOcrThresholds(
+      Number.parseInt(target.value, 10),
+      ocrThresholdSettingsPanelState.sparseTextRegionThreshold,
+    );
+    return;
+  }
+
+  if (target instanceof HTMLInputElement && target.dataset.ocrThresholdControl === "region") {
+    void persistOcrThresholds(
+      ocrThresholdSettingsPanelState.sparseTextCharThreshold,
+      Number.parseInt(target.value, 10),
+    );
     return;
   }
 

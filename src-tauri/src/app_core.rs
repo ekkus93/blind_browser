@@ -38,9 +38,9 @@ use crate::commands::{
     StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
     SubmitActiveFormInput, ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData,
     TranscribeCommandData, TranscribeCommandInput, TtsModelOption, TtsModelSettings,
-    AsrProviderSettings, ConfirmationSettings, PlannerProviderSettings,
-    ProviderFailoverSettings, TtsProviderSettings, TtsVoiceOption, TtsVoiceSettings,
-    TypeIntoElementData,
+    AsrProviderSettings, ConfirmationSettings, OcrThresholdSettings,
+    PlannerProviderSettings, ProviderFailoverSettings, TtsProviderSettings,
+    TtsVoiceOption, TtsVoiceSettings, TypeIntoElementData,
     TypeIntoElementInput,
 };
 use crate::config::{
@@ -2832,6 +2832,10 @@ impl AppCore {
         build_confirmation_settings(&self.config)
     }
 
+    fn current_ocr_threshold_settings(&self) -> OcrThresholdSettings {
+        build_ocr_threshold_settings(&self.config)
+    }
+
     pub fn set_confirmation_confidence_threshold(
         &mut self,
         confirmation_confidence_threshold: f32,
@@ -2850,6 +2854,19 @@ impl AppCore {
         let mut safety = self.config.safety.clone();
         safety.allow_click_without_confirmation = allow_click_without_confirmation;
         let next_config = AppConfig::persist_safety_settings_for_app(&self.app_handle, &safety)?;
+        self.config = next_config;
+        Ok(())
+    }
+
+    pub fn set_ocr_thresholds(
+        &mut self,
+        sparse_text_char_threshold: u32,
+        sparse_text_region_threshold: u32,
+    ) -> Result<(), ConfigError> {
+        let mut ocr = self.config.ocr.clone();
+        ocr.sparse_text_char_threshold = sparse_text_char_threshold;
+        ocr.sparse_text_region_threshold = sparse_text_region_threshold;
+        let next_config = AppConfig::persist_ocr_settings_for_app(&self.app_handle, &ocr)?;
         self.config = next_config;
         Ok(())
     }
@@ -3569,6 +3586,7 @@ impl AppCore {
             planner_provider_settings: self.current_planner_provider_settings(),
             provider_failover_settings: self.current_provider_failover_settings(),
             confirmation_settings: self.current_confirmation_settings(),
+            ocr_threshold_settings: self.current_ocr_threshold_settings(),
         }
     }
 
@@ -4180,6 +4198,13 @@ fn build_confirmation_settings(config: &AppConfig) -> ConfirmationSettings {
         confirmation_confidence_threshold: config.safety.confirmation_confidence_threshold,
         allow_click_without_confirmation: config.safety.allow_click_without_confirmation,
         always_confirm_submit: config.safety.always_confirm_submit,
+    }
+}
+
+fn build_ocr_threshold_settings(config: &AppConfig) -> OcrThresholdSettings {
+    OcrThresholdSettings {
+        sparse_text_char_threshold: config.ocr.sparse_text_char_threshold,
+        sparse_text_region_threshold: config.ocr.sparse_text_region_threshold,
     }
 }
 
@@ -6418,9 +6443,9 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
 mod tests {
     use super::{
         build_asr_provider_settings, build_confirmation_settings, build_extracted_page_model,
-        build_find_element_query, build_planner_provider_settings, build_provider_failover_settings,
-        build_tts_provider_settings, build_tts_voice_settings, build_visible_text_excerpt,
-        determine_find_element_resolution,
+        build_find_element_query, build_ocr_threshold_settings, build_planner_provider_settings,
+        build_provider_failover_settings, build_tts_provider_settings, build_tts_voice_settings,
+        build_visible_text_excerpt, determine_find_element_resolution,
         execute_bounded_replanning_loop, extracted_text_metrics, filter_interactive_elements,
         infer_extraction_source, merge_ocr_text_into_page_model, merged_region_text,
         normalize_absolute_url, normalize_optional_text, planner_system_prompt,
@@ -6480,6 +6505,16 @@ mod tests {
         assert_eq!(settings.confirmation_confidence_threshold, 0.9);
         assert!(settings.allow_click_without_confirmation);
         assert!(settings.always_confirm_submit);
+    }
+
+    #[test]
+    fn build_ocr_threshold_settings_reflects_configured_ocr_values() {
+        let config = AppConfig::default();
+
+        let settings = build_ocr_threshold_settings(&config);
+
+        assert_eq!(settings.sparse_text_char_threshold, 200);
+        assert_eq!(settings.sparse_text_region_threshold, 2);
     }
 
     #[test]

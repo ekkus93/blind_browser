@@ -230,6 +230,11 @@ export interface ConfirmationSettings {
   always_confirm_submit: boolean;
 }
 
+export interface OcrThresholdSettings {
+  sparse_text_char_threshold: number;
+  sparse_text_region_threshold: number;
+}
+
 export interface ToolHistoryEntry {
   tool_name: ToolName;
   ok: boolean;
@@ -292,6 +297,7 @@ export interface AgentStateData {
   planner_provider_settings: PlannerProviderSettings;
   provider_failover_settings: ProviderFailoverSettings;
   confirmation_settings: ConfirmationSettings;
+  ocr_threshold_settings: OcrThresholdSettings;
   last_transcript: string | null;
   last_tool_call: LastToolCallSummary | null;
   pending_confirmation_id: string | null;
@@ -595,6 +601,28 @@ export async function setAllowClickWithoutConfirmation(input: {
       allowClickWithoutConfirmation: input.allowClickWithoutConfirmation,
     },
   );
+}
+
+export async function setOcrThresholds(input: {
+  requestId: string;
+  timeoutMs?: number;
+  sparseTextCharThreshold: number;
+  sparseTextRegionThreshold: number;
+}): Promise<{
+  sparse_text_char_threshold: number;
+  sparse_text_region_threshold: number;
+  changed: boolean;
+}> {
+  return invoke<{
+    sparse_text_char_threshold: number;
+    sparse_text_region_threshold: number;
+    changed: boolean;
+  }>("set_ocr_thresholds", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    sparseTextCharThreshold: input.sparseTextCharThreshold,
+    sparseTextRegionThreshold: input.sparseTextRegionThreshold,
+  });
 }
 
 export function classifyInvokeFailure(error: unknown): InvokeFailure {

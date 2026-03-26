@@ -260,6 +260,14 @@ impl AppConfig {
         Self::persist_safety_settings_at_path(&config_path, safety)
     }
 
+    pub fn persist_ocr_settings_for_app(
+        app_handle: &AppHandle,
+        ocr: &OcrSettings,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::persist_ocr_settings_at_path(&config_path, ocr)
+    }
+
     pub fn persist_audio_settings_at_path(
         path: impl AsRef<Path>,
         audio: &AudioSettings,
@@ -308,6 +316,36 @@ impl AppConfig {
         };
 
         document.insert(String::from("safety"), toml::Value::try_from(safety.clone())?);
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
+                path: parent.to_path_buf(),
+                source,
+            })?;
+        }
+
+        let serialized = toml::to_string_pretty(&document)?;
+        fs::write(path, serialized).map_err(|source| ConfigError::Write {
+            path: path.to_path_buf(),
+            source,
+        })?;
+
+        Self::load_from_path(path)
+    }
+
+    pub fn persist_ocr_settings_at_path(
+        path: impl AsRef<Path>,
+        ocr: &OcrSettings,
+    ) -> Result<Self, ConfigError> {
+        let path = path.as_ref();
+
+        let mut document = if path.exists() {
+            load_document_table_from_path(path)?
+        } else {
+            load_document_table_from_str(Self::default_template())?
+        };
+
+        document.insert(String::from("ocr"), toml::Value::try_from(ocr.clone())?);
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
@@ -800,6 +838,7 @@ mod tests {
         AppConfig, AudioSettings, ConfigError, ProviderMode, ProviderSelection,
         RemoteProviderKind, SafetySettings,
     };
+    use crate::ocr::OcrSettings;
 
     fn test_config_path(label: &str) -> PathBuf {
         let unique_id = SystemTime::now()
@@ -1107,6 +1146,28 @@ threads = 4
 
         assert_eq!(persisted.safety, expected_safety);
         assert_eq!(reloaded.safety, expected_safety);
+
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::remove_dir_all(parent);
+        }
+    }
+
+    #[test]
+    fn persists_ocr_settings_and_reloads_them() {
+        let path = test_config_path("persist_ocr");
+        let expected_ocr = OcrSettings {
+            trigger_on_no_extractable_text: true,
+            sparse_text_char_threshold: 120,
+            sparse_text_region_threshold: 3,
+            prefer_region_ocr: true,
+        };
+
+        let persisted = AppConfig::persist_ocr_settings_at_path(&path, &expected_ocr)
+            .expect("ocr settings should persist successfully");
+        let reloaded = AppConfig::load_from_path(&path).expect("persisted config should reload");
+
+        assert_eq!(persisted.ocr, expected_ocr);
+        assert_eq!(reloaded.ocr, expected_ocr);
 
         if let Some(parent) = path.parent() {
             let _ = std::fs::remove_dir_all(parent);

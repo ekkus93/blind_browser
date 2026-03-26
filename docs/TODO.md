@@ -320,7 +320,7 @@
 - [x] Provider failover toggle where supported
 - [ ] Secret entry UX that stores references or masked secrets safely
 - [x] Add settings for confirmation threshold and click-without-confirmation behavior
-- [ ] Add settings for OCR thresholds
+- [x] Add settings for OCR thresholds
 - [ ] Add model management controls and manual download button
 - [ ] Provide an easy path to config controls from missing-model warnings/errors
 
