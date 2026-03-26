@@ -300,7 +300,7 @@
 - [x] Open button
 - [x] Read button
 - [x] Stop button
-- [ ] Next / Previous buttons
+- [x] Next / Previous buttons
 - [x] Push-to-talk button
 - [x] Add nearby playback volume control
 - [x] Add nearby playback speed control

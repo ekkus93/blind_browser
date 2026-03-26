@@ -23,6 +23,8 @@ export interface UrlInputPanelState {
   isOpening: boolean;
   isReading: boolean;
   isStopping: boolean;
+  isAdvancing: boolean;
+  isRewinding: boolean;
   error: string | null;
 }
 
@@ -237,7 +239,9 @@ export function renderUrlInputPanel(state: UrlInputPanelState): string {
     ? '<p class="url-input-status" role="status">Draft URL updated. Open controls can use this value next.</p>'
     : '<p class="url-input-status" role="status">The field mirrors the current page URL until you edit it.</p>';
   const disabledAttribute =
-    state.isOpening || state.isReading || state.isStopping ? " disabled aria-disabled=\"true\"" : "";
+    state.isOpening || state.isReading || state.isStopping || state.isAdvancing || state.isRewinding
+      ? " disabled aria-disabled=\"true\""
+      : "";
   const errorCopy = state.error
     ? `<p class="url-input-error" role="alert">${escapeHtml(state.error)}</p>`
     : "";
@@ -294,6 +298,22 @@ export function renderUrlInputPanel(state: UrlInputPanelState): string {
           ${disabledAttribute}
         >
           ${state.isStopping ? "Stopping..." : "Stop"}
+        </button>
+        <button
+          type="button"
+          class="url-open-button url-previous-button"
+          data-url-previous-button="true"
+          ${disabledAttribute}
+        >
+          ${state.isRewinding ? "Previous..." : "Previous"}
+        </button>
+        <button
+          type="button"
+          class="url-open-button url-next-button"
+          data-url-next-button="true"
+          ${disabledAttribute}
+        >
+          ${state.isAdvancing ? "Next..." : "Next"}
         </button>
       </div>
     </section>

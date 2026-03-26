@@ -123,6 +123,8 @@ function createInitialUrlInputPanelState(): UrlInputPanelState {
     isOpening: false,
     isReading: false,
     isStopping: false,
+    isAdvancing: false,
+    isRewinding: false,
     error: null,
   };
 }
@@ -314,8 +316,75 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     isOpening: false,
     isReading: false,
     isStopping: false,
+    isAdvancing: false,
+    isRewinding: false,
     error: null,
   });
+}
+
+function isUrlInputActionBusy(): boolean {
+  return (
+    urlInputPanelState.isOpening ||
+    urlInputPanelState.isReading ||
+    urlInputPanelState.isStopping ||
+    urlInputPanelState.isAdvancing ||
+    urlInputPanelState.isRewinding
+  );
+}
+
+async function executeUrlPanelPlannerCommand(input: {
+  busyState: Partial<UrlInputPanelState>;
+  clearState: Partial<UrlInputPanelState>;
+  requestPrefix: string;
+  transcript: string;
+  blockedMessage: string;
+  completeMessage: string;
+}) {
+  if (isUrlInputActionBusy()) {
+    return;
+  }
+
+  const previousState = urlInputPanelState;
+  setUrlInputPanelState({
+    ...input.busyState,
+    error: null,
+  });
+
+  try {
+    const requestId = createRequestId(input.requestPrefix);
+    const plannerOutput = await resolveCommand(requestId, input.transcript);
+    if (plannerOutput.status === "Blocked") {
+      setUrlInputPanelState({
+        ...previousState,
+        ...input.clearState,
+        error: describePlannerBlockedMessage(input.blockedMessage, plannerOutput.user_message),
+      });
+      return;
+    }
+
+    if (plannerOutput.status === "Complete") {
+      setUrlInputPanelState({
+        ...previousState,
+        ...input.clearState,
+        error: describePlannerBlockedMessage(input.completeMessage, plannerOutput.user_message),
+      });
+      return;
+    }
+
+    await runPlannerExecution(requestId, plannerOutput, uiStore);
+    setUrlInputPanelState({
+      ...previousState,
+      ...input.clearState,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setUrlInputPanelState({
+      ...previousState,
+      ...input.clearState,
+      error: describeUrlInputFailure(error),
+    });
+  }
 }
 
 async function refreshRuntimePanelsFromRuntime() {
@@ -417,7 +486,7 @@ async function persistPlaybackSpeed(nextSpeed: number) {
 }
 
 async function openDraftUrl() {
-  if (urlInputPanelState.isOpening || urlInputPanelState.isReading || urlInputPanelState.isStopping) {
+  if (isUrlInputActionBusy()) {
     return;
   }
 
@@ -458,111 +527,63 @@ async function openDraftUrl() {
 }
 
 async function readCurrentPage() {
-  if (urlInputPanelState.isOpening || urlInputPanelState.isReading || urlInputPanelState.isStopping) {
-    return;
-  }
-
-  const previousState = urlInputPanelState;
-  setUrlInputPanelState({
-    isReading: true,
-    error: null,
+  await executeUrlPanelPlannerCommand({
+    busyState: {
+      isReading: true,
+    },
+    clearState: {
+      isReading: false,
+    },
+    requestPrefix: "read-page",
+    transcript: "read page",
+    blockedMessage: "The runtime could not start reading the current page.",
+    completeMessage: "The runtime did not need to run any reading steps.",
   });
-
-  try {
-    const requestId = createRequestId("read-page");
-    const plannerOutput = await resolveCommand(requestId, "read page");
-    if (plannerOutput.status === "Blocked") {
-      setUrlInputPanelState({
-        ...previousState,
-        isReading: false,
-        error: describePlannerBlockedMessage(
-          "The runtime could not start reading the current page.",
-          plannerOutput.user_message,
-        ),
-      });
-      return;
-    }
-
-    if (plannerOutput.status === "Complete") {
-      setUrlInputPanelState({
-        ...previousState,
-        isReading: false,
-        error: describePlannerBlockedMessage(
-          "The runtime did not need to run any reading steps.",
-          plannerOutput.user_message,
-        ),
-      });
-      return;
-    }
-
-    await runPlannerExecution(requestId, plannerOutput, uiStore);
-    setUrlInputPanelState({
-      ...previousState,
-      isReading: false,
-      error: null,
-    });
-    await refreshRuntimePanelsFromRuntime();
-  } catch (error: unknown) {
-    setUrlInputPanelState({
-      ...previousState,
-      isReading: false,
-      error: describeUrlInputFailure(error),
-    });
-  }
 }
 
 async function stopCurrentReading() {
-  if (urlInputPanelState.isOpening || urlInputPanelState.isReading || urlInputPanelState.isStopping) {
-    return;
-  }
-
-  const previousState = urlInputPanelState;
-  setUrlInputPanelState({
-    isStopping: true,
-    error: null,
+  await executeUrlPanelPlannerCommand({
+    busyState: {
+      isStopping: true,
+    },
+    clearState: {
+      isStopping: false,
+    },
+    requestPrefix: "stop-reading",
+    transcript: "stop reading",
+    blockedMessage: "The runtime could not stop the current reading session.",
+    completeMessage: "The runtime did not need to stop any current reading.",
   });
+}
 
-  try {
-    const requestId = createRequestId("stop-reading");
-    const plannerOutput = await resolveCommand(requestId, "stop reading");
-    if (plannerOutput.status === "Blocked") {
-      setUrlInputPanelState({
-        ...previousState,
-        isStopping: false,
-        error: describePlannerBlockedMessage(
-          "The runtime could not stop the current reading session.",
-          plannerOutput.user_message,
-        ),
-      });
-      return;
-    }
+async function readNextRegion() {
+  await executeUrlPanelPlannerCommand({
+    busyState: {
+      isAdvancing: true,
+    },
+    clearState: {
+      isAdvancing: false,
+    },
+    requestPrefix: "read-next",
+    transcript: "continue reading",
+    blockedMessage: "The runtime could not move to the next reading region.",
+    completeMessage: "The runtime did not need to move to another reading region.",
+  });
+}
 
-    if (plannerOutput.status === "Complete") {
-      setUrlInputPanelState({
-        ...previousState,
-        isStopping: false,
-        error: describePlannerBlockedMessage(
-          "The runtime did not need to stop any current reading.",
-          plannerOutput.user_message,
-        ),
-      });
-      return;
-    }
-
-    await runPlannerExecution(requestId, plannerOutput, uiStore);
-    setUrlInputPanelState({
-      ...previousState,
-      isStopping: false,
-      error: null,
-    });
-    await refreshRuntimePanelsFromRuntime();
-  } catch (error: unknown) {
-    setUrlInputPanelState({
-      ...previousState,
-      isStopping: false,
-      error: describeUrlInputFailure(error),
-    });
-  }
+async function readPreviousRegion() {
+  await executeUrlPanelPlannerCommand({
+    busyState: {
+      isRewinding: true,
+    },
+    clearState: {
+      isRewinding: false,
+    },
+    requestPrefix: "read-previous",
+    transcript: "previous section",
+    blockedMessage: "The runtime could not move to the previous reading region.",
+    completeMessage: "The runtime did not need to move to a previous reading region.",
+  });
 }
 
 async function beginPushToTalk(source: "keyboard" | "pointer") {
@@ -715,9 +736,7 @@ app.addEventListener("click", (event) => {
   const urlOpenButton = target.closest<HTMLButtonElement>("[data-url-open-button]");
   if (urlOpenButton) {
     if (
-      urlInputPanelState.isOpening ||
-      urlInputPanelState.isReading ||
-      urlInputPanelState.isStopping ||
+      isUrlInputActionBusy() ||
       urlOpenButton.disabled
     ) {
       return;
@@ -730,9 +749,7 @@ app.addEventListener("click", (event) => {
   const urlReadButton = target.closest<HTMLButtonElement>("[data-url-read-button]");
   if (urlReadButton) {
     if (
-      urlInputPanelState.isOpening ||
-      urlInputPanelState.isReading ||
-      urlInputPanelState.isStopping ||
+      isUrlInputActionBusy() ||
       urlReadButton.disabled
     ) {
       return;
@@ -745,15 +762,33 @@ app.addEventListener("click", (event) => {
   const urlStopButton = target.closest<HTMLButtonElement>("[data-url-stop-button]");
   if (urlStopButton) {
     if (
-      urlInputPanelState.isOpening ||
-      urlInputPanelState.isReading ||
-      urlInputPanelState.isStopping ||
+      isUrlInputActionBusy() ||
       urlStopButton.disabled
     ) {
       return;
     }
 
     void stopCurrentReading();
+    return;
+  }
+
+  const urlPreviousButton = target.closest<HTMLButtonElement>("[data-url-previous-button]");
+  if (urlPreviousButton) {
+    if (isUrlInputActionBusy() || urlPreviousButton.disabled) {
+      return;
+    }
+
+    void readPreviousRegion();
+    return;
+  }
+
+  const urlNextButton = target.closest<HTMLButtonElement>("[data-url-next-button]");
+  if (urlNextButton) {
+    if (isUrlInputActionBusy() || urlNextButton.disabled) {
+      return;
+    }
+
+    void readNextRegion();
     return;
   }
 

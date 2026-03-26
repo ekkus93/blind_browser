@@ -170,6 +170,9 @@ test("renders URL input with current URL and staged draft value", () => {
     hasUnsubmittedChanges: true,
     isOpening: false,
     isReading: false,
+    isStopping: false,
+    isAdvancing: false,
+    isRewinding: false,
     error: null,
   });
 
@@ -180,9 +183,13 @@ test("renders URL input with current URL and staged draft value", () => {
   assert.match(html, /data-url-open-button="true"/);
   assert.match(html, /data-url-read-button="true"/);
   assert.match(html, /data-url-stop-button="true"/);
+  assert.match(html, /data-url-previous-button="true"/);
+  assert.match(html, /data-url-next-button="true"/);
   assert.match(html, />\s*Open\s*<\/button>/);
   assert.match(html, />\s*Read\s*<\/button>/);
   assert.match(html, />\s*Stop\s*<\/button>/);
+  assert.match(html, />\s*Previous\s*<\/button>/);
+  assert.match(html, />\s*Next\s*<\/button>/);
   assert.match(html, /value="https:\/\/staged\.example\.com"/);
 });
 
@@ -194,6 +201,8 @@ test("renders URL input fallback copy when no page is loaded", () => {
     isOpening: false,
     isReading: false,
     isStopping: false,
+    isAdvancing: false,
+    isRewinding: false,
     error: null,
   });
 
@@ -210,6 +219,8 @@ test("renders URL input busy and error states while opening", () => {
     isOpening: true,
     isReading: false,
     isStopping: false,
+    isAdvancing: false,
+    isRewinding: false,
     error: "The browser could not open that URL.",
   });
 
@@ -227,6 +238,8 @@ test("renders URL input busy state while starting page reading", () => {
     isOpening: false,
     isReading: true,
     isStopping: false,
+    isAdvancing: false,
+    isRewinding: false,
     error: null,
   });
 
@@ -242,10 +255,46 @@ test("renders URL input busy state while stopping page reading", () => {
     isOpening: false,
     isReading: false,
     isStopping: true,
+    isAdvancing: false,
+    isRewinding: false,
     error: null,
   });
 
   assert.match(html, /Stopping\.\.\./);
+  assert.match(html, /disabled aria-disabled="true"/);
+});
+
+test("renders URL input busy state while moving to the next reading region", () => {
+  const html = renderUrlInputPanel({
+    draftValue: "https://example.com",
+    currentUrl: "https://example.com",
+    hasUnsubmittedChanges: false,
+    isOpening: false,
+    isReading: false,
+    isStopping: false,
+    isAdvancing: true,
+    isRewinding: false,
+    error: null,
+  });
+
+  assert.match(html, /Next\.\.\./);
+  assert.match(html, /disabled aria-disabled="true"/);
+});
+
+test("renders URL input busy state while moving to the previous reading region", () => {
+  const html = renderUrlInputPanel({
+    draftValue: "https://example.com",
+    currentUrl: "https://example.com",
+    hasUnsubmittedChanges: false,
+    isOpening: false,
+    isReading: false,
+    isStopping: false,
+    isAdvancing: false,
+    isRewinding: true,
+    error: null,
+  });
+
+  assert.match(html, /Previous\.\.\./);
   assert.match(html, /disabled aria-disabled="true"/);
 });
 

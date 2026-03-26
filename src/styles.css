@@ -211,6 +211,7 @@ h1 {
 
 .url-input-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
   min-width: min(420px, 100%);
@@ -300,6 +301,26 @@ h1 {
 .url-stop-button:hover:not(:disabled),
 .url-stop-button:focus-visible {
   box-shadow: 0 16px 28px rgba(176, 71, 54, 0.24);
+}
+
+.url-previous-button {
+  background: linear-gradient(135deg, #4e4f88, #6b66b3);
+  box-shadow: 0 12px 24px rgba(107, 102, 179, 0.18);
+}
+
+.url-previous-button:hover:not(:disabled),
+.url-previous-button:focus-visible {
+  box-shadow: 0 16px 28px rgba(107, 102, 179, 0.24);
+}
+
+.url-next-button {
+  background: linear-gradient(135deg, #1f5b7a, #28779f);
+  box-shadow: 0 12px 24px rgba(40, 119, 159, 0.18);
+}
+
+.url-next-button:hover:not(:disabled),
+.url-next-button:focus-visible {
+  box-shadow: 0 16px 28px rgba(40, 119, 159, 0.24);
 }
 
 .status-panel {
