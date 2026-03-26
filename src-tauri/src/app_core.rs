@@ -38,8 +38,9 @@ use crate::commands::{
     StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
     SubmitActiveFormInput, ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData,
     TranscribeCommandData, TranscribeCommandInput, TtsModelOption, TtsModelSettings,
-    AsrProviderSettings, PlannerProviderSettings, ProviderFailoverSettings, TtsProviderSettings,
-    TtsVoiceOption, TtsVoiceSettings, TypeIntoElementData,
+    AsrProviderSettings, ConfirmationSettings, PlannerProviderSettings,
+    ProviderFailoverSettings, TtsProviderSettings, TtsVoiceOption, TtsVoiceSettings,
+    TypeIntoElementData,
     TypeIntoElementInput,
 };
 use crate::config::{
@@ -2827,6 +2828,32 @@ impl AppCore {
         build_provider_failover_settings(&self.config)
     }
 
+    fn current_confirmation_settings(&self) -> ConfirmationSettings {
+        build_confirmation_settings(&self.config)
+    }
+
+    pub fn set_confirmation_confidence_threshold(
+        &mut self,
+        confirmation_confidence_threshold: f32,
+    ) -> Result<(), ConfigError> {
+        let mut safety = self.config.safety.clone();
+        safety.confirmation_confidence_threshold = confirmation_confidence_threshold;
+        let next_config = AppConfig::persist_safety_settings_for_app(&self.app_handle, &safety)?;
+        self.config = next_config;
+        Ok(())
+    }
+
+    pub fn set_allow_click_without_confirmation(
+        &mut self,
+        allow_click_without_confirmation: bool,
+    ) -> Result<(), ConfigError> {
+        let mut safety = self.config.safety.clone();
+        safety.allow_click_without_confirmation = allow_click_without_confirmation;
+        let next_config = AppConfig::persist_safety_settings_for_app(&self.app_handle, &safety)?;
+        self.config = next_config;
+        Ok(())
+    }
+
     pub fn execute_read_region(&mut self, input: ReadRegionInput) -> ToolResult<ReadRegionData> {
         self.sync_narration_playback_state();
         let region_id = input.region_id.trim().to_string();
@@ -3541,6 +3568,7 @@ impl AppCore {
             asr_provider_settings: self.current_asr_provider_settings(),
             planner_provider_settings: self.current_planner_provider_settings(),
             provider_failover_settings: self.current_provider_failover_settings(),
+            confirmation_settings: self.current_confirmation_settings(),
         }
     }
 
@@ -4144,6 +4172,14 @@ fn build_provider_failover_settings(_config: &AppConfig) -> ProviderFailoverSett
         summary: String::from(
             "Automatic provider failover is not currently available in the live runtime.",
         ),
+    }
+}
+
+fn build_confirmation_settings(config: &AppConfig) -> ConfirmationSettings {
+    ConfirmationSettings {
+        confirmation_confidence_threshold: config.safety.confirmation_confidence_threshold,
+        allow_click_without_confirmation: config.safety.allow_click_without_confirmation,
+        always_confirm_submit: config.safety.always_confirm_submit,
     }
 }
 
@@ -6381,8 +6417,8 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
 #[cfg(test)]
 mod tests {
     use super::{
-        build_asr_provider_settings, build_extracted_page_model, build_find_element_query,
-        build_planner_provider_settings, build_provider_failover_settings,
+        build_asr_provider_settings, build_confirmation_settings, build_extracted_page_model,
+        build_find_element_query, build_planner_provider_settings, build_provider_failover_settings,
         build_tts_provider_settings, build_tts_voice_settings, build_visible_text_excerpt,
         determine_find_element_resolution,
         execute_bounded_replanning_loop, extracted_text_metrics, filter_interactive_elements,
@@ -6433,6 +6469,17 @@ mod tests {
             settings.summary,
             String::from("Automatic provider failover is not currently available in the live runtime.")
         );
+    }
+
+    #[test]
+    fn build_confirmation_settings_reflects_configured_safety_values() {
+        let config = AppConfig::default();
+
+        let settings = build_confirmation_settings(&config);
+
+        assert_eq!(settings.confirmation_confidence_threshold, 0.9);
+        assert!(settings.allow_click_without_confirmation);
+        assert!(settings.always_confirm_submit);
     }
 
     #[test]

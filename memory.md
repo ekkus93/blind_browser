@@ -876,3 +876,8 @@
 - Replaced the hardcoded `REPO_ROOT="/home/phil/work/blind_browser"` in `setup-dev-env.sh` with the same `BASH_SOURCE[0]`-based repo-root detection pattern already used by `fix-node-version.sh`.
 - This removes the machine-specific `/home/phil` dependency so the dev setup script can be run from any checkout location without editing the file first.
 - Verified the change with `bash -n setup-dev-env.sh` and a targeted search confirming `/home/phil` no longer appears in that script.
+
+## 2026-03-26T08:13:58Z - GPT-5.4 - Settings confirmation behavior controls landed
+- Added persisted confirmation-behavior settings to `get_agent_state` plus dedicated Tauri setters for `safety.confirmation_confidence_threshold` and `safety.allow_click_without_confirmation`.
+- Added a thin frontend Settings panel with a threshold slider, a click-without-confirmation checkbox, and explicit read-only copy that submit actions still always require confirmation.
+- Added focused Rust and frontend render coverage for the new persistence and UI path; validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`185` Rust tests, `37` UI tests).

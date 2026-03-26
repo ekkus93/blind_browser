@@ -224,6 +224,12 @@ export interface ProviderFailoverSettings {
   summary: string;
 }
 
+export interface ConfirmationSettings {
+  confirmation_confidence_threshold: number;
+  allow_click_without_confirmation: boolean;
+  always_confirm_submit: boolean;
+}
+
 export interface ToolHistoryEntry {
   tool_name: ToolName;
   ok: boolean;
@@ -285,6 +291,7 @@ export interface AgentStateData {
   asr_provider_settings: AsrProviderSettings;
   planner_provider_settings: PlannerProviderSettings;
   provider_failover_settings: ProviderFailoverSettings;
+  confirmation_settings: ConfirmationSettings;
   last_transcript: string | null;
   last_tool_call: LastToolCallSummary | null;
   pending_confirmation_id: string | null;
@@ -558,6 +565,36 @@ export async function setTtsModelSelection(input: {
     timeoutMs: input.timeoutMs,
     profileName: input.profileName,
   });
+}
+
+export async function setConfirmationThreshold(input: {
+  requestId: string;
+  timeoutMs?: number;
+  confirmationConfidenceThreshold: number;
+}): Promise<{ confirmation_confidence_threshold: number; changed: boolean }> {
+  return invoke<{ confirmation_confidence_threshold: number; changed: boolean }>(
+    "set_confirmation_threshold",
+    {
+      requestId: input.requestId,
+      timeoutMs: input.timeoutMs,
+      confirmationConfidenceThreshold: input.confirmationConfidenceThreshold,
+    },
+  );
+}
+
+export async function setAllowClickWithoutConfirmation(input: {
+  requestId: string;
+  timeoutMs?: number;
+  allowClickWithoutConfirmation: boolean;
+}): Promise<{ allow_click_without_confirmation: boolean; changed: boolean }> {
+  return invoke<{ allow_click_without_confirmation: boolean; changed: boolean }>(
+    "set_allow_click_without_confirmation",
+    {
+      requestId: input.requestId,
+      timeoutMs: input.timeoutMs,
+      allowClickWithoutConfirmation: input.allowClickWithoutConfirmation,
+    },
+  );
 }
 
 export function classifyInvokeFailure(error: unknown): InvokeFailure {

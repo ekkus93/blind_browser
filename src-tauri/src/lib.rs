@@ -301,6 +301,76 @@ struct SetTtsModelSelectionData {
     changed: bool,
 }
 
+#[derive(serde::Serialize)]
+struct SetConfirmationThresholdData {
+    confirmation_confidence_threshold: f32,
+    changed: bool,
+}
+
+#[tauri::command]
+fn set_confirmation_threshold(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    confirmation_confidence_threshold: f32,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<SetConfirmationThresholdData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let changed = app_core.config.safety.confirmation_confidence_threshold
+        != confirmation_confidence_threshold;
+
+    app_core
+        .set_confirmation_confidence_threshold(confirmation_confidence_threshold)
+        .map_err(|error| ToolError {
+            code: String::from("confirmation_threshold_persist_failed"),
+            message: format!("Failed to persist the requested confirmation threshold: {error}"),
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(SetConfirmationThresholdData {
+        confirmation_confidence_threshold,
+        changed,
+    })
+}
+
+#[derive(serde::Serialize)]
+struct SetAllowClickWithoutConfirmationData {
+    allow_click_without_confirmation: bool,
+    changed: bool,
+}
+
+#[tauri::command]
+fn set_allow_click_without_confirmation(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    allow_click_without_confirmation: bool,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<SetAllowClickWithoutConfirmationData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let changed = app_core.config.safety.allow_click_without_confirmation
+        != allow_click_without_confirmation;
+
+    app_core
+        .set_allow_click_without_confirmation(allow_click_without_confirmation)
+        .map_err(|error| ToolError {
+            code: String::from("allow_click_without_confirmation_persist_failed"),
+            message: format!(
+                "Failed to persist the requested click-without-confirmation setting: {error}"
+            ),
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(SetAllowClickWithoutConfirmationData {
+        allow_click_without_confirmation,
+        changed,
+    })
+}
+
 #[tauri::command]
 fn set_tts_model_selection(
     request_id: String,
@@ -362,6 +432,8 @@ pub fn run() {
             set_playback_speed,
             set_browser_visibility,
             set_tts_voice,
+            set_confirmation_threshold,
+            set_allow_click_without_confirmation,
             set_tts_provider_selection,
             set_asr_provider_selection,
             set_tts_model_selection

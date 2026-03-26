@@ -65,6 +65,14 @@ export interface ProviderFailoverPanelState {
   summary: string;
 }
 
+export interface ConfirmationSettingsPanelState {
+  confirmationConfidenceThreshold: number;
+  allowClickWithoutConfirmation: boolean;
+  alwaysConfirmSubmit: boolean;
+  isBusy: boolean;
+  error: string | null;
+}
+
 export interface UrlInputPanelState {
   draftValue: string;
   currentUrl: string | null;
@@ -104,6 +112,10 @@ function renderProviderModeLabel(mode: "Local" | "Remote"): string {
 
 function renderFailoverAvailabilityLabel(available: boolean): string {
   return available ? "Available" : "Unavailable";
+}
+
+function renderConfirmationThresholdValue(confidenceThreshold: number): string {
+  return `${Math.round(confidenceThreshold * 100)}%`;
 }
 
 export function renderConfirmationPanel(state: ConfirmationUiState): string {
@@ -446,6 +458,61 @@ export function renderSettingsProviderFailoverPanel(state: ProviderFailoverPanel
         ${renderFailoverCard("planner", "Planner failover", state.plannerAvailable)}
         ${renderFailoverCard("tts", "TTS failover", state.ttsAvailable)}
         ${renderFailoverCard("asr", "ASR failover", state.asrAvailable)}
+      </div>
+    </section>
+  `;
+}
+
+export function renderSettingsConfirmationPanel(state: ConfirmationSettingsPanelState): string {
+  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
+  const errorCopy = state.error
+    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+  const clickWithoutConfirmationChecked = state.allowClickWithoutConfirmation ? " checked" : "";
+
+  return `
+    <section class="settings-panel" aria-labelledby="settings-confirmation-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-confirmation-title">Confirmation behavior</h2>
+        <p class="settings-panel-description">
+          Adjust how confidently the runtime can resolve a click before it asks for confirmation.
+          Form submission still always requires confirmation.
+        </p>
+        ${errorCopy}
+      </div>
+      <div class="settings-grid">
+        <label class="settings-control-card" for="settings-confirmation-threshold-control">
+          <span class="settings-control-label">Click confirmation threshold</span>
+          <span class="settings-control-value">${renderConfirmationThresholdValue(state.confirmationConfidenceThreshold)}</span>
+          <input
+            id="settings-confirmation-threshold-control"
+            class="settings-control-input"
+            data-confirmation-threshold-control="true"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value="${state.confirmationConfidenceThreshold.toFixed(2)}"
+            ${disabledAttribute}
+          />
+        </label>
+        <label class="settings-control-card" for="settings-click-without-confirmation-toggle">
+          <span class="settings-control-label">Allow confident clicks without confirmation</span>
+          <span class="settings-control-value">${state.allowClickWithoutConfirmation ? "Enabled" : "Disabled"}</span>
+          <input
+            id="settings-click-without-confirmation-toggle"
+            class="settings-control-input"
+            data-click-without-confirmation-toggle="true"
+            type="checkbox"
+            ${clickWithoutConfirmationChecked}
+            ${disabledAttribute}
+          />
+        </label>
+        <div class="settings-control-card" aria-live="polite">
+          <span class="settings-control-label">Submit actions</span>
+          <span class="settings-control-value">${state.alwaysConfirmSubmit ? "Always require confirmation" : "Confirmation not required"}</span>
+        </div>
       </div>
     </section>
   `;

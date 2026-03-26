@@ -5,6 +5,7 @@ import {
   renderConfirmationPanel,
   renderPushToTalkPanel,
   renderSettingsAsrProviderPanel,
+  renderSettingsConfirmationPanel,
   renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
   renderSettingsTtsProviderPanel,
@@ -16,6 +17,7 @@ import {
   renderUrlInputPanel,
   type AudioControlsPanelState,
   type AsrProviderPanelState,
+  type ConfirmationSettingsPanelState,
   type PlannerProviderPanelState,
   type ProviderFailoverPanelState,
   type PushToTalkPanelState,
@@ -38,8 +40,10 @@ import {
   getAgentState,
   openUrl,
   resolveCommand,
+  setAllowClickWithoutConfirmation,
   setBrowserVisibility,
   setAsrProviderSelection,
+  setConfirmationThreshold,
   setPlaybackSpeed,
   setPlaybackVolume,
   setTtsModelSelection,
@@ -93,6 +97,7 @@ let pushToTalkState: PushToTalkPanelState = createInitialPushToTalkState();
 let audioControlsState: AudioControlsPanelState = createInitialAudioControlsState();
 let plannerProviderPanelState: PlannerProviderPanelState = createInitialPlannerProviderPanelState();
 let providerFailoverPanelState: ProviderFailoverPanelState = createInitialProviderFailoverPanelState();
+let confirmationSettingsPanelState: ConfirmationSettingsPanelState = createInitialConfirmationSettingsPanelState();
 let asrProviderPanelState: AsrProviderPanelState = createInitialAsrProviderPanelState();
 let ttsProviderPanelState: TtsProviderPanelState = createInitialTtsProviderPanelState();
 let ttsModelPanelState: TtsModelPanelState = createInitialTtsModelPanelState();
@@ -149,6 +154,16 @@ function createInitialProviderFailoverPanelState(): ProviderFailoverPanelState {
     ttsAvailable: false,
     asrAvailable: false,
     summary: "Automatic provider failover is not currently available in the live runtime.",
+  };
+}
+
+function createInitialConfirmationSettingsPanelState(): ConfirmationSettingsPanelState {
+  return {
+    confirmationConfidenceThreshold: 0.9,
+    allowClickWithoutConfirmation: true,
+    alwaysConfirmSubmit: true,
+    isBusy: false,
+    error: null,
   };
 }
 
@@ -216,6 +231,7 @@ const renderApp = (
   audioControls: AudioControlsPanelState,
   plannerProviderPanel: PlannerProviderPanelState,
   providerFailoverPanel: ProviderFailoverPanelState,
+  confirmationSettingsPanel: ConfirmationSettingsPanelState,
   asrProviderPanel: AsrProviderPanelState,
   ttsProviderPanel: TtsProviderPanelState,
   ttsModelPanel: TtsModelPanelState,
@@ -263,6 +279,7 @@ const renderApp = (
       ${renderAudioControlsPanel(audioControls)}
       ${renderSettingsPlannerProviderPanel(plannerProviderPanel)}
       ${renderSettingsProviderFailoverPanel(providerFailoverPanel)}
+      ${renderSettingsConfirmationPanel(confirmationSettingsPanel)}
       ${renderSettingsAsrProviderPanel(asrProviderPanel)}
       ${renderSettingsTtsProviderPanel(ttsProviderPanel)}
       ${renderSettingsTtsModelPanel(ttsModelPanel)}
@@ -281,6 +298,7 @@ function rerender() {
     audioControlsState,
     plannerProviderPanelState,
     providerFailoverPanelState,
+    confirmationSettingsPanelState,
     asrProviderPanelState,
     ttsProviderPanelState,
     ttsModelPanelState,
@@ -317,6 +335,14 @@ function setPlannerProviderPanelState(nextState: Partial<PlannerProviderPanelSta
 function setProviderFailoverPanelState(nextState: Partial<ProviderFailoverPanelState>) {
   providerFailoverPanelState = {
     ...providerFailoverPanelState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setConfirmationSettingsPanelState(nextState: Partial<ConfirmationSettingsPanelState>) {
+  confirmationSettingsPanelState = {
+    ...confirmationSettingsPanelState,
     ...nextState,
   };
   rerender();
@@ -463,6 +489,13 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     ttsAvailable: agentState.provider_failover_settings.tts_available,
     asrAvailable: agentState.provider_failover_settings.asr_available,
     summary: agentState.provider_failover_settings.summary,
+  });
+  setConfirmationSettingsPanelState({
+    confirmationConfidenceThreshold: agentState.confirmation_settings.confirmation_confidence_threshold,
+    allowClickWithoutConfirmation: agentState.confirmation_settings.allow_click_without_confirmation,
+    alwaysConfirmSubmit: agentState.confirmation_settings.always_confirm_submit,
+    isBusy: false,
+    error: null,
   });
   setAsrProviderPanelState({
     activeMode: agentState.asr_provider_settings.active_mode,
@@ -904,6 +937,66 @@ async function persistTtsVoiceSelection(nextVoice: string) {
   }
 }
 
+async function persistConfirmationThreshold(nextThreshold: number) {
+  const previousState = confirmationSettingsPanelState;
+  setConfirmationSettingsPanelState({
+    confirmationConfidenceThreshold: nextThreshold,
+    isBusy: true,
+    error: null,
+  });
+
+  try {
+    const result = await setConfirmationThreshold({
+      requestId: createRequestId("confirmation-threshold"),
+      confirmationConfidenceThreshold: nextThreshold,
+    });
+    setConfirmationSettingsPanelState({
+      confirmationConfidenceThreshold: result.confirmation_confidence_threshold,
+      isBusy: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setConfirmationSettingsPanelState({
+      confirmationConfidenceThreshold: previousState.confirmationConfidenceThreshold,
+      allowClickWithoutConfirmation: previousState.allowClickWithoutConfirmation,
+      alwaysConfirmSubmit: previousState.alwaysConfirmSubmit,
+      isBusy: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function persistAllowClickWithoutConfirmation(nextValue: boolean) {
+  const previousState = confirmationSettingsPanelState;
+  setConfirmationSettingsPanelState({
+    allowClickWithoutConfirmation: nextValue,
+    isBusy: true,
+    error: null,
+  });
+
+  try {
+    const result = await setAllowClickWithoutConfirmation({
+      requestId: createRequestId("click-without-confirmation"),
+      allowClickWithoutConfirmation: nextValue,
+    });
+    setConfirmationSettingsPanelState({
+      allowClickWithoutConfirmation: result.allow_click_without_confirmation,
+      isBusy: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setConfirmationSettingsPanelState({
+      confirmationConfidenceThreshold: previousState.confirmationConfidenceThreshold,
+      allowClickWithoutConfirmation: previousState.allowClickWithoutConfirmation,
+      alwaysConfirmSubmit: previousState.alwaysConfirmSubmit,
+      isBusy: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
 async function openDraftUrl() {
   if (isUrlInputActionBusy()) {
     return;
@@ -1281,6 +1374,14 @@ app.addEventListener("input", (event) => {
     return;
   }
 
+  if (target.dataset.confirmationThresholdControl === "true") {
+    setConfirmationSettingsPanelState({
+      confirmationConfidenceThreshold: Number.parseFloat(target.value),
+      error: null,
+    });
+    return;
+  }
+
   if (target.dataset.urlInput === "true") {
     setUrlInputPanelState({
       draftValue: target.value,
@@ -1296,7 +1397,14 @@ app.addEventListener("change", (event) => {
     return;
   }
 
-  if (audioControlsState.isBusy || asrProviderPanelState.isBusy || ttsProviderPanelState.isBusy || ttsModelPanelState.isBusy || ttsVoicePanelState.isBusy) {
+  if (
+    audioControlsState.isBusy ||
+    confirmationSettingsPanelState.isBusy ||
+    asrProviderPanelState.isBusy ||
+    ttsProviderPanelState.isBusy ||
+    ttsModelPanelState.isBusy ||
+    ttsVoicePanelState.isBusy
+  ) {
     return;
   }
 
@@ -1307,6 +1415,16 @@ app.addEventListener("change", (event) => {
 
   if (target instanceof HTMLInputElement && target.dataset.audioControl === "speed") {
     void persistPlaybackSpeed(Number.parseFloat(target.value));
+    return;
+  }
+
+  if (target instanceof HTMLInputElement && target.dataset.confirmationThresholdControl === "true") {
+    void persistConfirmationThreshold(Number.parseFloat(target.value));
+    return;
+  }
+
+  if (target instanceof HTMLInputElement && target.dataset.clickWithoutConfirmationToggle === "true") {
+    void persistAllowClickWithoutConfirmation(target.checked);
     return;
   }
 

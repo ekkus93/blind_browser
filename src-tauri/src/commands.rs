@@ -252,6 +252,7 @@ pub struct AgentStateData {
     pub asr_provider_settings: AsrProviderSettings,
     pub planner_provider_settings: PlannerProviderSettings,
     pub provider_failover_settings: ProviderFailoverSettings,
+    pub confirmation_settings: ConfirmationSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -325,6 +326,13 @@ pub struct ProviderFailoverSettings {
     pub tts_available: bool,
     pub asr_available: bool,
     pub summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct ConfirmationSettings {
+    pub confirmation_confidence_threshold: f32,
+    pub allow_click_without_confirmation: bool,
+    pub always_confirm_submit: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -6086,6 +6094,11 @@ mod tests {
                         asr_available: false,
                         summary: String::from("Automatic provider failover is not currently available in the live runtime."),
                     },
+                    confirmation_settings: ConfirmationSettings {
+                        confirmation_confidence_threshold: 0.9,
+                        allow_click_without_confirmation: true,
+                        always_confirm_submit: true,
+                    },
                 },
                 vec![String::from("agent state read")],
             )
@@ -7904,6 +7917,11 @@ mod tests {
                     asr_available: false,
                     summary: String::from("Automatic provider failover is not currently available in the live runtime."),
                 },
+                confirmation_settings: ConfirmationSettings {
+                    confirmation_confidence_threshold: 0.9,
+                    allow_click_without_confirmation: true,
+                    always_confirm_submit: true,
+                },
             },
             safety: PlannerSafetySettings {
                 confirmation_confidence_threshold: 0.9,
@@ -9095,6 +9113,11 @@ provider_failover_settings: ProviderFailoverSettings {
     asr_available: false,
     summary: String::from("Automatic provider failover is not currently available in the live runtime."),
 },
+confirmation_settings: ConfirmationSettings {
+    confirmation_confidence_threshold: 0.9,
+    allow_click_without_confirmation: true,
+    always_confirm_submit: true,
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9186,6 +9209,11 @@ provider_failover_settings: ProviderFailoverSettings {
     asr_available: false,
     summary: String::from("Automatic provider failover is not currently available in the live runtime."),
 },
+confirmation_settings: ConfirmationSettings {
+    confirmation_confidence_threshold: 0.9,
+    allow_click_without_confirmation: true,
+    always_confirm_submit: true,
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9270,6 +9298,11 @@ provider_failover_settings: ProviderFailoverSettings {
     asr_available: false,
     summary: String::from("Automatic provider failover is not currently available in the live runtime."),
 },
+confirmation_settings: ConfirmationSettings {
+    confirmation_confidence_threshold: 0.9,
+    allow_click_without_confirmation: true,
+    always_confirm_submit: true,
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9345,6 +9378,11 @@ provider_failover_settings: ProviderFailoverSettings {
     tts_available: false,
     asr_available: false,
     summary: String::from("Automatic provider failover is not currently available in the live runtime."),
+},
+confirmation_settings: ConfirmationSettings {
+    confirmation_confidence_threshold: 0.9,
+    allow_click_without_confirmation: true,
+    always_confirm_submit: true,
 },
         };
         let runtime_status = GetRuntimeStatusData {
@@ -9446,6 +9484,11 @@ provider_failover_settings: ProviderFailoverSettings {
     asr_available: false,
     summary: String::from("Automatic provider failover is not currently available in the live runtime."),
 },
+confirmation_settings: ConfirmationSettings {
+    confirmation_confidence_threshold: 0.9,
+    allow_click_without_confirmation: true,
+    always_confirm_submit: true,
+},
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: agent_state.page_id.clone(),
@@ -9540,6 +9583,11 @@ provider_failover_settings: ProviderFailoverSettings {
     tts_available: false,
     asr_available: false,
     summary: String::from("Automatic provider failover is not currently available in the live runtime."),
+},
+confirmation_settings: ConfirmationSettings {
+    confirmation_confidence_threshold: 0.9,
+    allow_click_without_confirmation: true,
+    always_confirm_submit: true,
 },
         };
         let runtime_status = GetRuntimeStatusData {
@@ -9647,6 +9695,11 @@ provider_failover_settings: ProviderFailoverSettings {
     asr_available: false,
     summary: String::from("Automatic provider failover is not currently available in the live runtime."),
 },
+confirmation_settings: ConfirmationSettings {
+    confirmation_confidence_threshold: 0.9,
+    allow_click_without_confirmation: true,
+    always_confirm_submit: true,
+},
         };
 
         let planner_output = resolve_direct_repeat_command(
@@ -9727,6 +9780,11 @@ provider_failover_settings: ProviderFailoverSettings {
     tts_available: false,
     asr_available: false,
     summary: String::from("Automatic provider failover is not currently available in the live runtime."),
+},
+confirmation_settings: ConfirmationSettings {
+    confirmation_confidence_threshold: 0.9,
+    allow_click_without_confirmation: true,
+    always_confirm_submit: true,
 },
         };
 
@@ -9814,6 +9872,11 @@ provider_failover_settings: ProviderFailoverSettings {
     asr_available: false,
     summary: String::from("Automatic provider failover is not currently available in the live runtime."),
 },
+confirmation_settings: ConfirmationSettings {
+    confirmation_confidence_threshold: 0.9,
+    allow_click_without_confirmation: true,
+    always_confirm_submit: true,
+},
         };
 
         let planner_output = resolve_direct_read_title_command(
@@ -9893,6 +9956,11 @@ provider_failover_settings: ProviderFailoverSettings {
     tts_available: false,
     asr_available: false,
     summary: String::from("Automatic provider failover is not currently available in the live runtime."),
+},
+confirmation_settings: ConfirmationSettings {
+    confirmation_confidence_threshold: 0.9,
+    allow_click_without_confirmation: true,
+    always_confirm_submit: true,
 },
         };
 

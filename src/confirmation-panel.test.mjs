@@ -6,6 +6,7 @@ import {
   renderConfirmationPanel,
   renderPushToTalkPanel,
   renderSettingsAsrProviderPanel,
+  renderSettingsConfirmationPanel,
   renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
   renderSettingsTtsProviderPanel,
@@ -446,6 +447,38 @@ test("renders settings provider failover as read-only unavailable controls", () 
   assert.match(html, /data-provider-failover-toggle="asr"/);
   assert.match(html, /Unavailable/);
   assert.match(html, /aria-disabled="true"/);
+});
+
+test("renders settings confirmation behavior controls", () => {
+  const html = renderSettingsConfirmationPanel({
+    confirmationConfidenceThreshold: 0.82,
+    allowClickWithoutConfirmation: true,
+    alwaysConfirmSubmit: true,
+    isBusy: false,
+    error: null,
+  });
+
+  assert.match(html, /Confirmation behavior/);
+  assert.match(html, /Form submission still always requires confirmation/);
+  assert.match(html, /Click confirmation threshold/);
+  assert.match(html, /82%/);
+  assert.match(html, /data-confirmation-threshold-control="true"/);
+  assert.match(html, /data-click-without-confirmation-toggle="true"/);
+  assert.match(html, /Always require confirmation/);
+});
+
+test("renders confirmation settings errors and disabled state while saving", () => {
+  const html = renderSettingsConfirmationPanel({
+    confirmationConfidenceThreshold: 0.9,
+    allowClickWithoutConfirmation: false,
+    alwaysConfirmSubmit: true,
+    isBusy: true,
+    error: "The confirmation settings could not be saved.",
+  });
+
+  assert.match(html, /The confirmation settings could not be saved\./);
+  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /role="alert"/);
 });
 
 test("renders settings ASR provider selection for configured modes", () => {
