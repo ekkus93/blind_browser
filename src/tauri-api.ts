@@ -173,6 +173,17 @@ export interface ProviderSelectionStatus {
   asr_mode: ProviderMode;
 }
 
+export interface TtsModelOption {
+  profile_name: string;
+  model_label: string;
+}
+
+export interface TtsModelSettings {
+  mode: ProviderMode;
+  active_profile: string | null;
+  available_profiles: TtsModelOption[];
+}
+
 export interface ToolHistoryEntry {
   tool_name: ToolName;
   ok: boolean;
@@ -228,6 +239,7 @@ export interface AgentStateData {
   speaking: boolean;
   listening_state: ListeningState;
   audio: RuntimeAudioState;
+  tts_model_settings: TtsModelSettings;
   last_transcript: string | null;
   last_tool_call: LastToolCallSummary | null;
   pending_confirmation_id: string | null;
@@ -452,6 +464,18 @@ export async function setBrowserVisibility(input: {
     mode: input.mode,
   });
   return unwrapToolResult(result);
+}
+
+export async function setTtsModelSelection(input: {
+  requestId: string;
+  timeoutMs?: number;
+  profileName: string;
+}): Promise<{ profile_name: string; changed: boolean }> {
+  return invoke<{ profile_name: string; changed: boolean }>("set_tts_model_selection", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    profileName: input.profileName,
+  });
 }
 
 export function classifyInvokeFailure(error: unknown): InvokeFailure {

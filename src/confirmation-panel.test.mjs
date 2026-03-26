@@ -5,6 +5,7 @@ import {
   renderAudioControlsPanel,
   renderConfirmationPanel,
   renderPushToTalkPanel,
+  renderSettingsTtsModelPanel,
   renderSettingsSpeedPanel,
   renderSettingsVolumePanel,
   renderStatusPanel,
@@ -403,6 +404,40 @@ test("renders settings speed errors and disabled state while saving", () => {
   });
 
   assert.match(html, /The playback speed could not be saved\./);
+  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /role="alert"/);
+});
+
+test("renders settings TTS model selection for configured profiles", () => {
+  const html = renderSettingsTtsModelPanel({
+    mode: "Local",
+    activeProfile: "kitten-default",
+    availableProfiles: [
+      { profileName: "kitten-default", modelLabel: "default" },
+      { profileName: "kitten-large", modelLabel: "large-v1" },
+    ],
+    isBusy: false,
+    error: null,
+  });
+
+  assert.match(html, /TTS model selection/);
+  assert.match(html, /configured local TTS models/);
+  assert.match(html, /default \(kitten-default\)/);
+  assert.match(html, /large-v1 \(kitten-large\)/);
+  assert.match(html, /data-tts-model-select="true"/);
+});
+
+test("renders settings TTS model errors and disabled state while saving", () => {
+  const html = renderSettingsTtsModelPanel({
+    mode: "Remote",
+    activeProfile: "openai-tts-default",
+    availableProfiles: [{ profileName: "openai-tts-default", modelLabel: "gpt-4o-mini-tts" }],
+    isBusy: true,
+    error: "The TTS model selection could not be saved.",
+  });
+
+  assert.match(html, /configured remote TTS models/);
+  assert.match(html, /The TTS model selection could not be saved\./);
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /role="alert"/);
 });

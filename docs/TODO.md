@@ -307,7 +307,7 @@
 - [x] Ensure normal operation is fully voice-controlled
 
 ### Settings UI
-- [ ] TTS model selection
+- [x] TTS model selection
 - [ ] Voice selection
 - [x] Speed control
 - [x] Volume control

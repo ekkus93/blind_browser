@@ -4,14 +4,26 @@ set -euo pipefail
 
 REQUIRED_NODE_VERSION="22.12.0"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
+IS_SOURCED=0
+
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+  IS_SOURCED=1
+fi
+
+fail() {
+  echo "error: $*" >&2
+  if [ "$IS_SOURCED" -eq 1 ]; then
+    return 1
+  fi
+  exit 1
+}
 
 echo "==> Switching to Node.js ${REQUIRED_NODE_VERSION}"
 
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 if [ ! -s "$NVM_DIR/nvm.sh" ]; then
-  echo "error: nvm was not found at $NVM_DIR/nvm.sh" >&2
-  echo "error: install nvm first, then rerun this script" >&2
-  exit 1
+  fail "nvm was not found at $NVM_DIR/nvm.sh"
 fi
 
 # shellcheck disable=SC1090
@@ -30,5 +42,13 @@ rm -rf node_modules
 pnpm install
 
 echo "==> Done"
-echo "You can now rerun:"
-echo "  pnpm build"
+if [ "$IS_SOURCED" -eq 1 ]; then
+  echo "Your current shell now uses Node.js $(node -p 'process.versions.node')."
+  echo "You can now rerun:"
+  echo "  pnpm build"
+else
+  echo "Dependencies were reinstalled with Node.js ${REQUIRED_NODE_VERSION},"
+  echo "but this script cannot change the parent shell when executed normally."
+  echo "To switch your current shell too, run:"
+  echo "  source ./${SCRIPT_NAME}"
+fi

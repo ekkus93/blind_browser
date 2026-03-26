@@ -16,6 +16,17 @@ export interface AudioControlsPanelState {
   error: string | null;
 }
 
+export interface TtsModelPanelState {
+  mode: "Local" | "Remote" | "Disabled";
+  activeProfile: string | null;
+  availableProfiles: Array<{
+    profileName: string;
+    modelLabel: string;
+  }>;
+  isBusy: boolean;
+  error: string | null;
+}
+
 export interface UrlInputPanelState {
   draftValue: string;
   currentUrl: string | null;
@@ -39,6 +50,10 @@ export interface StatusPanelState {
   canGoForward: boolean;
   isUpdatingVisibility: boolean;
   error: string | null;
+}
+
+function renderTtsModelOptionLabel(profileName: string, modelLabel: string): string {
+  return `${modelLabel} (${profileName})`;
 }
 
 export function renderConfirmationPanel(state: ConfirmationUiState): string {
@@ -305,6 +320,56 @@ export function renderSettingsSpeedPanel(state: AudioControlsPanelState): string
             value="${state.playbackSpeed.toFixed(2)}"
             ${busyAttribute}
           />
+        </label>
+      </div>
+    </section>
+  `;
+}
+
+export function renderSettingsTtsModelPanel(state: TtsModelPanelState): string {
+  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
+  const errorCopy = state.error
+    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+  const optionsCopy = state.availableProfiles
+    .map((option) => {
+      const selected = option.profileName === state.activeProfile ? " selected" : "";
+      return `<option value="${escapeHtml(option.profileName)}"${selected}>${escapeHtml(
+        renderTtsModelOptionLabel(option.profileName, option.modelLabel),
+      )}</option>`;
+    })
+    .join("");
+  const modeCopy =
+    state.mode === "Remote" ? "remote" : state.mode === "Local" ? "local" : "disabled";
+  const activeOption = state.availableProfiles.find((option) => option.profileName === state.activeProfile);
+
+  return `
+    <section class="settings-panel" aria-labelledby="settings-tts-model-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-tts-model-title">TTS model selection</h2>
+        <p class="settings-panel-description">
+          Choose from the configured ${modeCopy} TTS models for the current TTS mode. Changes apply
+          to the next utterance and persist across app restarts.
+        </p>
+        ${errorCopy}
+      </div>
+      <div class="settings-grid">
+        <label class="settings-control-card" for="settings-tts-model-control">
+          <span class="settings-control-label">Configured TTS model</span>
+          <span class="settings-control-value">${
+            activeOption
+              ? escapeHtml(renderTtsModelOptionLabel(activeOption.profileName, activeOption.modelLabel))
+              : "No configured model"
+          }</span>
+          <select
+            id="settings-tts-model-control"
+            class="settings-control-select"
+            data-tts-model-select="true"
+            ${disabledAttribute}
+          >
+            ${optionsCopy}
+          </select>
         </label>
       </div>
     </section>

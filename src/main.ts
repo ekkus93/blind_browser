@@ -4,6 +4,7 @@ import {
   renderAudioControlsPanel,
   renderConfirmationPanel,
   renderPushToTalkPanel,
+  renderSettingsTtsModelPanel,
   renderSettingsSpeedPanel,
   renderSettingsVolumePanel,
   renderStatusPanel,
@@ -11,6 +12,7 @@ import {
   type AudioControlsPanelState,
   type PushToTalkPanelState,
   type StatusPanelState,
+  type TtsModelPanelState,
   type UrlInputPanelState,
 } from "./confirmation-panel";
 import {
@@ -29,6 +31,7 @@ import {
   setBrowserVisibility,
   setPlaybackSpeed,
   setPlaybackVolume,
+  setTtsModelSelection,
   startListening,
   stopListening,
   transcribeAndExecuteCommand,
@@ -75,6 +78,7 @@ const CONTINUOUS_LISTEN_CAPTURE_MS = 3_000;
 let currentExecutionUiState = uiStore.getState();
 let pushToTalkState: PushToTalkPanelState = createInitialPushToTalkState();
 let audioControlsState: AudioControlsPanelState = createInitialAudioControlsState();
+let ttsModelPanelState: TtsModelPanelState = createInitialTtsModelPanelState();
 let statusPanelState: StatusPanelState = createInitialStatusPanelState();
 let urlInputPanelState: UrlInputPanelState = createInitialUrlInputPanelState();
 let activePushToTalkSource: "keyboard" | "pointer" | null = null;
@@ -99,6 +103,16 @@ function createInitialAudioControlsState(): AudioControlsPanelState {
   return {
     playbackVolume: 1,
     playbackSpeed: 1,
+    isBusy: false,
+    error: null,
+  };
+}
+
+function createInitialTtsModelPanelState(): TtsModelPanelState {
+  return {
+    mode: "Local",
+    activeProfile: null,
+    availableProfiles: [],
     isBusy: false,
     error: null,
   };
@@ -137,6 +151,7 @@ const renderApp = (
   uiState: ExecutionUiState,
   pushToTalk: PushToTalkPanelState,
   audioControls: AudioControlsPanelState,
+  ttsModelPanel: TtsModelPanelState,
   statusPanel: StatusPanelState,
   urlInputPanel: UrlInputPanelState,
 ) => {
@@ -178,6 +193,7 @@ const renderApp = (
       ${renderUrlInputPanel(urlInputPanel)}
       ${renderStatusPanel(statusPanel)}
       ${renderAudioControlsPanel(audioControls)}
+      ${renderSettingsTtsModelPanel(ttsModelPanel)}
       ${renderSettingsVolumePanel(audioControls)}
       ${renderSettingsSpeedPanel(audioControls)}
       ${renderConfirmationPanel(uiState.confirmation)}
@@ -190,6 +206,7 @@ function rerender() {
     currentExecutionUiState,
     pushToTalkState,
     audioControlsState,
+    ttsModelPanelState,
     statusPanelState,
     urlInputPanelState,
   );
@@ -206,6 +223,14 @@ function setPushToTalkState(nextState: Partial<PushToTalkPanelState>) {
 function setAudioControlsState(nextState: Partial<AudioControlsPanelState>) {
   audioControlsState = {
     ...audioControlsState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setTtsModelPanelState(nextState: Partial<TtsModelPanelState>) {
+  ttsModelPanelState = {
+    ...ttsModelPanelState,
     ...nextState,
   };
   rerender();
@@ -310,6 +335,16 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     playbackSpeed: agentState.audio.playback_speed,
     error: null,
   });
+  setTtsModelPanelState({
+    mode: agentState.tts_model_settings.mode,
+    activeProfile: agentState.tts_model_settings.active_profile,
+    availableProfiles: agentState.tts_model_settings.available_profiles.map((option) => ({
+      profileName: option.profile_name,
+      modelLabel: option.model_label,
+    })),
+    isBusy: false,
+    error: null,
+  });
   setStatusPanelState({
     pageTitle: agentState.title ?? agentState.url,
     currentRegionLabel: currentRegionLabelForAgentState(agentState),
@@ -412,6 +447,10 @@ async function refreshRuntimePanelsFromRuntime() {
     const message = describeAudioControlFailure(error);
     setAudioControlsState({
       error: message,
+    });
+    setTtsModelPanelState({
+      error: message,
+      isBusy: false,
     });
     setStatusPanelState({
       error: message,
@@ -569,6 +608,34 @@ async function persistPlaybackSpeed(nextSpeed: number) {
   } catch (error: unknown) {
     setAudioControlsState({
       playbackSpeed: previousState.playbackSpeed,
+      isBusy: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function persistTtsModelSelection(nextProfileName: string) {
+  const previousState = ttsModelPanelState;
+  setTtsModelPanelState({
+    activeProfile: nextProfileName,
+    isBusy: true,
+    error: null,
+  });
+
+  try {
+    const result = await setTtsModelSelection({
+      requestId: createRequestId("tts-model"),
+      profileName: nextProfileName,
+    });
+    setTtsModelPanelState({
+      activeProfile: result.profile_name,
+      isBusy: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setTtsModelPanelState({
+      activeProfile: previousState.activeProfile,
       isBusy: false,
       error: describeAudioControlFailure(error),
     });
@@ -963,21 +1030,26 @@ app.addEventListener("input", (event) => {
 
 app.addEventListener("change", (event) => {
   const target = event.target;
-  if (!(target instanceof HTMLInputElement)) {
+  if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) {
     return;
   }
 
-  if (audioControlsState.isBusy) {
+  if (audioControlsState.isBusy || ttsModelPanelState.isBusy) {
     return;
   }
 
-  if (target.dataset.audioControl === "volume") {
+  if (target instanceof HTMLInputElement && target.dataset.audioControl === "volume") {
     void persistPlaybackVolume(Number.parseFloat(target.value));
     return;
   }
 
-  if (target.dataset.audioControl === "speed") {
+  if (target instanceof HTMLInputElement && target.dataset.audioControl === "speed") {
     void persistPlaybackSpeed(Number.parseFloat(target.value));
+    return;
+  }
+
+  if (target instanceof HTMLSelectElement && target.dataset.ttsModelSelect === "true") {
+    void persistTtsModelSelection(target.value);
   }
 });
 

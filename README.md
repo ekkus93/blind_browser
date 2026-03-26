@@ -95,14 +95,13 @@ The audio stack depends on ALSA headers via `cpal` and `alsa-sys`. If `pkg-confi
 
 Rust crates that use `bindgen` may also require `clang` and `libclang-dev`. If a build fails while parsing system headers with errors such as `fatal error: 'stddef.h' file not found`, install those packages and rerun the build.
 
-The frontend build currently requires a Node.js version supported by Vite and its native bindings. If `pnpm build` reports that Vite needs `20.19+` or `22.12+`, switch to a supported version and reinstall JavaScript dependencies before retrying:
+The frontend build currently requires a Node.js version supported by Vite and its native bindings. If `pnpm build` reports that Vite needs `20.19+` or `22.12+`, switch to a supported version in your current shell and reinstall JavaScript dependencies before retrying:
 
 ```bash
-nvm install 22.12.0
-nvm use 22.12.0
-rm -rf node_modules
-pnpm install
+source ./fix-node-version.sh
 ```
+
+If you execute `./fix-node-version.sh` normally, it will reinstall dependencies under `22.12.0` but cannot change the caller's shell. Use `source ./fix-node-version.sh` when you want the following `pnpm` commands in that shell to run under `22.12.0`.
 
 ## Linux OCR Prerequisites
 

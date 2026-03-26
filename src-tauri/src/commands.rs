@@ -246,6 +246,7 @@ pub struct AgentStateData {
     pub last_tool_call: Option<LastToolCallSummary>,
     pub pending_confirmation_id: Option<String>,
     pub pending_plan_execution: Option<PendingPlanExecutionState>,
+    pub tts_model_settings: TtsModelSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -266,6 +267,19 @@ pub struct ProviderSelectionStatus {
     pub planner_mode: ProviderMode,
     pub tts_mode: ProviderMode,
     pub asr_mode: ProviderMode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct TtsModelOption {
+    pub profile_name: String,
+    pub model_label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct TtsModelSettings {
+    pub mode: ProviderMode,
+    pub active_profile: Option<String>,
+    pub available_profiles: Vec<TtsModelOption>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -5956,6 +5970,14 @@ mod tests {
                     }),
                     pending_confirmation_id: None,
                     pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
                 },
                 vec![String::from("agent state read")],
             )
@@ -7723,6 +7745,14 @@ mod tests {
                 last_tool_call: None,
                 pending_confirmation_id: None,
                 pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
             },
             safety: PlannerSafetySettings {
                 confirmation_confidence_threshold: 0.9,
@@ -8874,6 +8904,14 @@ mod tests {
             last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -8921,6 +8959,14 @@ mod tests {
             last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -8961,6 +9007,14 @@ mod tests {
             last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -8996,6 +9050,14 @@ mod tests {
             last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: agent_state.page_id.clone(),
@@ -9055,6 +9117,14 @@ mod tests {
             last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: agent_state.page_id.clone(),
@@ -9109,6 +9179,14 @@ mod tests {
             last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: None,
@@ -9174,6 +9252,14 @@ mod tests {
             last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
         };
 
         let planner_output = resolve_direct_repeat_command(
@@ -9214,6 +9300,14 @@ mod tests {
             last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
         };
 
         let planner_output =
@@ -9259,6 +9353,14 @@ mod tests {
             last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
         };
 
         let planner_output = resolve_direct_read_title_command(
@@ -9298,6 +9400,14 @@ mod tests {
             last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
         };
 
         let planner_output = resolve_direct_read_title_command(

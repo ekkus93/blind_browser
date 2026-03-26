@@ -213,6 +213,53 @@ fn set_browser_visibility(
     }))
 }
 
+#[derive(serde::Serialize)]
+struct SetTtsModelSelectionData {
+    profile_name: String,
+    changed: bool,
+}
+
+#[tauri::command]
+fn set_tts_model_selection(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    profile_name: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<SetTtsModelSelectionData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let profile_name = profile_name.trim().to_string();
+    if profile_name.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_tts_model_profile"),
+            message: String::from("TTS model selection requires a non-empty configured profile name."),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    let current_profile = match app_core.config.providers.tts.mode {
+        crate::config::ProviderMode::Local => app_core.config.providers.tts.local_profile.clone(),
+        crate::config::ProviderMode::Remote => app_core.config.providers.tts.remote_profile.clone(),
+    };
+    let changed = current_profile.as_deref() != Some(profile_name.as_str());
+
+    app_core
+        .set_active_tts_profile(profile_name.clone())
+        .map_err(|error| ToolError {
+            code: String::from("tts_model_selection_persist_failed"),
+            message: format!("Failed to persist the requested TTS model selection: {error}"),
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(SetTtsModelSelectionData {
+        profile_name,
+        changed,
+    })
+}
+
 pub fn run() {
     logging::init_logging();
 
@@ -229,7 +276,8 @@ pub fn run() {
             get_agent_state,
             set_playback_volume,
             set_playback_speed,
-            set_browser_visibility
+            set_browser_visibility,
+            set_tts_model_selection
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

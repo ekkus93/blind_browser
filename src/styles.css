@@ -619,6 +619,27 @@ h1 {
   accent-color: #29583f;
 }
 
+.settings-control-select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(41, 88, 63, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  color: #1f2527;
+  font: inherit;
+}
+
+.settings-control-select:focus-visible {
+  outline: 2px solid rgba(41, 88, 63, 0.22);
+  outline-offset: 2px;
+  border-color: rgba(41, 88, 63, 0.3);
+}
+
+.settings-control-select:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
 .settings-control-input:disabled {
   cursor: progress;
   opacity: 0.6;

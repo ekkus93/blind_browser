@@ -38,7 +38,8 @@ use crate::commands::{
     SubmitActiveFormData, SubmitActiveFormInput,
     StopListeningData, StopListeningInput, StopSpeakingData, StopSpeakingInput,
     ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData, TranscribeCommandData,
-    TranscribeCommandInput, TypeIntoElementData, TypeIntoElementInput,
+    TranscribeCommandInput, TtsModelOption, TtsModelSettings, TypeIntoElementData,
+    TypeIntoElementInput,
 };
 use crate::config::{
     AppConfig, AudioSettings, ConfigError, RemotePlannerProfile, RemoteProviderKind, SecretRef,
@@ -272,6 +273,27 @@ impl AppCore {
         let mut audio = self.config.audio.clone();
         audio.default_tts_voice = default_tts_voice.into();
         self.update_audio_settings(audio)
+    }
+
+    pub fn set_active_tts_profile(
+        &mut self,
+        profile_name: impl Into<String>,
+    ) -> Result<(), ConfigError> {
+        let profile_name = profile_name.into();
+        let mut selection = self.config.providers.tts.clone();
+        match selection.mode {
+            crate::config::ProviderMode::Local => {
+                selection.local_profile = Some(profile_name);
+            }
+            crate::config::ProviderMode::Remote => {
+                selection.remote_profile = Some(profile_name);
+            }
+        }
+
+        let config =
+            AppConfig::persist_tts_provider_selection_for_app(&self.app_handle, &selection)?;
+        self.config = config;
+        Ok(())
     }
 
     pub fn set_browser_visibility(&mut self, mode: BrowserVisibilityMode) {
@@ -2743,6 +2765,40 @@ impl AppCore {
         )
     }
 
+    fn current_tts_model_settings(&self) -> TtsModelSettings {
+        let mode = self.config.providers.tts.mode.clone();
+        let (active_profile, available_profiles) = match mode {
+            crate::config::ProviderMode::Local => (
+                self.config.providers.tts.local_profile.clone(),
+                self.config
+                    .local_tts_profiles
+                    .iter()
+                    .map(|(profile_name, profile)| TtsModelOption {
+                        profile_name: profile_name.clone(),
+                        model_label: profile.model_id.clone(),
+                    })
+                    .collect(),
+            ),
+            crate::config::ProviderMode::Remote => (
+                self.config.providers.tts.remote_profile.clone(),
+                self.config
+                    .remote_tts_profiles
+                    .iter()
+                    .map(|(profile_name, profile)| TtsModelOption {
+                        profile_name: profile_name.clone(),
+                        model_label: profile.model.clone(),
+                    })
+                    .collect(),
+            ),
+        };
+
+        TtsModelSettings {
+            mode,
+            active_profile,
+            available_profiles,
+        }
+    }
+
     pub fn execute_read_region(&mut self, input: ReadRegionInput) -> ToolResult<ReadRegionData> {
         self.sync_narration_playback_state();
         let region_id = input.region_id.trim().to_string();
@@ -3451,6 +3507,7 @@ impl AppCore {
             last_tool_call: self.state.last_tool_call.clone(),
             pending_confirmation_id: self.state.pending_confirmation_id.clone(),
             pending_plan_execution: self.state.pending_plan_execution.clone(),
+            tts_model_settings: self.current_tts_model_settings(),
         }
     }
 
