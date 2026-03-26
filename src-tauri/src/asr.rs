@@ -265,7 +265,9 @@ impl AsrController {
             })?;
 
         match &profile.provider {
-            RemoteProviderKind::OpenAi => self.transcribe_with_openai_remote(profile, captured_audio),
+            RemoteProviderKind::OpenAi => {
+                self.transcribe_with_openai_remote(profile, captured_audio)
+            }
             other => Err(AsrRuntimeError::UnsupportedRemoteProvider {
                 profile_name: profile_name.clone(),
                 provider: format!("{other:?}"),
@@ -303,11 +305,12 @@ impl AsrController {
         let (sender, receiver) = mpsc::channel();
         thread::spawn(move || {
             let client = Client::with_config(openai_config);
-            let result = futures::executor::block_on(client.audio().transcription().create(request))
-                .map(|response| response.text)
-                .map_err(|error| AsrRuntimeError::RemoteRequestFailed {
-                    reason: error.to_string(),
-                });
+            let result =
+                futures::executor::block_on(client.audio().transcription().create(request))
+                    .map(|response| response.text)
+                    .map_err(|error| AsrRuntimeError::RemoteRequestFailed {
+                        reason: error.to_string(),
+                    });
             let _ = sender.send(result);
         });
 
@@ -502,9 +505,8 @@ impl CapturedAudio {
     fn to_remote_wav_bytes(&self) -> Result<Vec<u8>, AsrRuntimeError> {
         let mono = interleaved_to_mono(&self.samples, self.channels);
         let audio = resample_linear(&mono, self.sample_rate, WHISPER_TARGET_SAMPLE_RATE);
-        encode_wav_pcm16(&audio, WHISPER_TARGET_SAMPLE_RATE, 1).map_err(|reason| {
-            AsrRuntimeError::RemoteAudioEncodeFailed { reason }
-        })
+        encode_wav_pcm16(&audio, WHISPER_TARGET_SAMPLE_RATE, 1)
+            .map_err(|reason| AsrRuntimeError::RemoteAudioEncodeFailed { reason })
     }
 }
 
@@ -753,7 +755,10 @@ mod tests {
 
     #[test]
     fn normalized_optional_string_trims_and_drops_empty_values() {
-        assert_eq!(normalized_optional_string(Some("  en ")), Some(String::from("en")));
+        assert_eq!(
+            normalized_optional_string(Some("  en ")),
+            Some(String::from("en"))
+        );
         assert_eq!(normalized_optional_string(Some("   ")), None);
         assert_eq!(normalized_optional_string(None), None);
     }

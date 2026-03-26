@@ -216,10 +216,11 @@ mod tests {
 
         assert_eq!(state.pending_confirmation_id.as_deref(), Some("confirm-1"));
         assert_eq!(
-            state
-                .last_tool_call
-                .as_ref()
-                .map(|entry| (&entry.tool_name, entry.ok, entry.request_id.as_str())),
+            state.last_tool_call.as_ref().map(|entry| (
+                &entry.tool_name,
+                entry.ok,
+                entry.request_id.as_str()
+            )),
             Some((&ToolName::ConfirmAction, true, "req-1"))
         );
         assert_eq!(
@@ -282,10 +283,11 @@ mod tests {
         assert!(state.pending_confirmation_id.is_none());
         assert!(state.pending_plan_execution.is_none());
         assert_eq!(
-            state
-                .last_tool_call
-                .as_ref()
-                .map(|entry| (&entry.tool_name, entry.ok, entry.request_id.as_str())),
+            state.last_tool_call.as_ref().map(|entry| (
+                &entry.tool_name,
+                entry.ok,
+                entry.request_id.as_str()
+            )),
             Some((&ToolName::SetPlaybackVolume, false, "req-2"))
         );
     }
@@ -337,7 +339,10 @@ mod tests {
             &AppConfig::default_template()
                 .replace("playback_volume = 1.0", "playback_volume = 0.25")
                 .replace("playback_speed = 1.0", "playback_speed = 1.6")
-                .replace("default_tts_voice = \"Bruno\"", "default_tts_voice = \"Rosie\""),
+                .replace(
+                    "default_tts_voice = \"Bruno\"",
+                    "default_tts_voice = \"Rosie\"",
+                ),
         )
         .expect("config should load");
 
@@ -398,7 +403,11 @@ mod tests {
         .expect("legacy app state should deserialize");
 
         assert_eq!(
-            state.current_page.as_ref().and_then(|page| page.regions.first()).and_then(|region| region.bbox.clone()),
+            state
+                .current_page
+                .as_ref()
+                .and_then(|page| page.regions.first())
+                .and_then(|region| region.bbox.clone()),
             None
         );
     }

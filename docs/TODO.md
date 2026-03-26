@@ -315,7 +315,7 @@
 - [x] Planner provider selection
 - [x] TTS provider selection
 - [x] ASR provider selection
-- [ ] Remote API configuration inputs or references
+- [x] Remote API configuration inputs or references
 - [x] Local model configuration inputs or references
 - [x] Provider failover toggle where supported
 - [ ] Secret entry UX that stores references or masked secrets safely

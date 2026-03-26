@@ -76,6 +76,45 @@ export interface PlannerProviderPanelState {
   summary: string;
 }
 
+export interface RemotePlannerPanelState {
+  profileName: string | null;
+  provider: string | null;
+  baseUrl: string | null;
+  model: string | null;
+  apiKeyReference: string | null;
+  organizationReference: string | null;
+  project: string | null;
+  temperatureMilli: number | null;
+  maxOutputTokens: number | null;
+  timeoutMs: number | null;
+}
+
+export interface RemoteTtsPanelState {
+  profileName: string | null;
+  provider: string | null;
+  baseUrl: string | null;
+  model: string | null;
+  apiKeyReference: string | null;
+  organizationReference: string | null;
+  project: string | null;
+  voice: string | null;
+  audioFormat: string | null;
+  timeoutMs: number | null;
+}
+
+export interface RemoteAsrPanelState {
+  profileName: string | null;
+  provider: string | null;
+  baseUrl: string | null;
+  model: string | null;
+  apiKeyReference: string | null;
+  organizationReference: string | null;
+  project: string | null;
+  language: string | null;
+  temperatureMilli: number | null;
+  timeoutMs: number | null;
+}
+
 export interface ProviderFailoverPanelState {
   plannerAvailable: boolean;
   ttsAvailable: boolean;
@@ -471,6 +510,63 @@ export function renderSettingsPlannerProviderPanel(state: PlannerProviderPanelSt
   `;
 }
 
+export function renderSettingsRemotePlannerPanel(state: RemotePlannerPanelState): string {
+  return `
+    <section class="settings-panel" aria-labelledby="settings-remote-planner-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-remote-planner-title">Remote planner API reference</h2>
+        <p class="settings-panel-description">
+          Review the configured remote planner profile and API references. Secret values stay masked
+          here; edit the app config directly to change those references.
+        </p>
+      </div>
+      <div class="settings-grid">
+        <div class="settings-control-card">
+          <span class="settings-control-label">Planner remote profile</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Provider</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.provider)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Base URL</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.baseUrl)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Model</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.model)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">API key reference</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.apiKeyReference)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Organization reference</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.organizationReference)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Project</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.project)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Temperature (milli)</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.temperatureMilli)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Max output tokens</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.maxOutputTokens)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Timeout (ms)</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.timeoutMs)}</span>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 export function renderSettingsProviderFailoverPanel(state: ProviderFailoverPanelState): string {
   const renderFailoverCard = (
     providerKey: "planner" | "tts" | "asr",
@@ -732,6 +828,63 @@ export function renderSettingsLocalTtsModelPanel(state: LocalTtsModelPanelState)
   `;
 }
 
+export function renderSettingsRemoteTtsPanel(state: RemoteTtsPanelState): string {
+  return `
+    <section class="settings-panel" aria-labelledby="settings-remote-tts-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-remote-tts-title">Remote TTS API reference</h2>
+        <p class="settings-panel-description">
+          Review the configured remote TTS profile that will be used whenever TTS runs in remote
+          mode. Secret values stay masked here; edit the app config directly to change them.
+        </p>
+      </div>
+      <div class="settings-grid">
+        <div class="settings-control-card">
+          <span class="settings-control-label">Remote TTS profile</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Provider</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.provider)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Base URL</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.baseUrl)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Model</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.model)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">API key reference</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.apiKeyReference)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Organization reference</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.organizationReference)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Project</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.project)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Voice</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.voice)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Audio format</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.audioFormat)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Timeout (ms)</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.timeoutMs)}</span>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 export function renderSettingsTtsProviderPanel(state: TtsProviderPanelState): string {
   const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
   const errorCopy = state.error
@@ -808,6 +961,63 @@ export function renderSettingsLocalAsrModelPanel(state: LocalAsrModelPanelState)
         <div class="settings-control-card">
           <span class="settings-control-label">Threads</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.threads)}</span>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+export function renderSettingsRemoteAsrPanel(state: RemoteAsrPanelState): string {
+  return `
+    <section class="settings-panel" aria-labelledby="settings-remote-asr-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-remote-asr-title">Remote ASR API reference</h2>
+        <p class="settings-panel-description">
+          Review the configured remote ASR profile that will be used whenever ASR runs in remote
+          mode. Secret values stay masked here; edit the app config directly to change them.
+        </p>
+      </div>
+      <div class="settings-grid">
+        <div class="settings-control-card">
+          <span class="settings-control-label">Remote ASR profile</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Provider</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.provider)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Base URL</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.baseUrl)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Model</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.model)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">API key reference</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.apiKeyReference)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Organization reference</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.organizationReference)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Project</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.project)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Language</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.language)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Temperature (milli)</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.temperatureMilli)}</span>
+        </div>
+        <div class="settings-control-card">
+          <span class="settings-control-label">Timeout (ms)</span>
+          <span class="settings-control-value">${renderReadOnlySettingValue(state.timeoutMs)}</span>
         </div>
       </div>
     </section>

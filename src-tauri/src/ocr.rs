@@ -89,13 +89,11 @@ impl OcrController {
                 engine.set_rectangle(left, top, width, height);
             }
 
-            let extracted_text = normalize_ocr_text(
-                engine
-                    .get_utf8_text()
-                    .map_err(|error| OcrRuntimeError::TextExtractionFailed {
-                        reason: error.to_string(),
-                    })?,
-            );
+            let extracted_text = normalize_ocr_text(engine.get_utf8_text().map_err(|error| {
+                OcrRuntimeError::TextExtractionFailed {
+                    reason: error.to_string(),
+                }
+            })?);
 
             Ok(OcrExtraction {
                 extracted_text,

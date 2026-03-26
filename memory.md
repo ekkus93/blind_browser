@@ -896,3 +896,8 @@
 - Extended `get_agent_state` with read-only local TTS and ASR model reference payloads so the frontend can show the configured local profile name, backend, model id, model path, and profile-specific details.
 - Added dedicated Settings panels for those local model references and updated the missing-model guidance actions so users can jump straight to the new local reference panels when TTS or ASR local-model failures surface.
 - Kept the slice honest by leaving edits in config for now; validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`189` Rust tests, `42` UI tests).
+
+## 2026-03-26T09:24:48Z - GPT-5.4 - Settings now expose remote API references
+- Extended `get_agent_state` with read-only remote planner, remote TTS, and remote ASR settings payloads so the frontend can show the configured active remote profile details without exposing raw secrets.
+- Added dedicated Settings panels for the remote planner/TTS/ASR profiles, including masked secret-reference sources such as environment-variable and file references instead of inline secret values.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`192` Rust tests, `45` UI tests).

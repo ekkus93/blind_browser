@@ -12,6 +12,9 @@ import {
   renderSettingsOcrThresholdPanel,
   renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
+  renderSettingsRemoteAsrPanel,
+  renderSettingsRemotePlannerPanel,
+  renderSettingsRemoteTtsPanel,
   renderSettingsTtsProviderPanel,
   renderSettingsTtsModelPanel,
   renderSettingsTtsVoicePanel,
@@ -27,6 +30,9 @@ import {
   type OcrThresholdSettingsPanelState,
   type PlannerProviderPanelState,
   type ProviderFailoverPanelState,
+  type RemoteAsrPanelState,
+  type RemotePlannerPanelState,
+  type RemoteTtsPanelState,
   type PushToTalkPanelState,
   type SettingsGuidancePanelState,
   type StatusPanelState,
@@ -105,14 +111,17 @@ let currentExecutionUiState = uiStore.getState();
 let pushToTalkState: PushToTalkPanelState = createInitialPushToTalkState();
 let audioControlsState: AudioControlsPanelState = createInitialAudioControlsState();
 let plannerProviderPanelState: PlannerProviderPanelState = createInitialPlannerProviderPanelState();
+let remotePlannerPanelState: RemotePlannerPanelState = createInitialRemotePlannerPanelState();
 let providerFailoverPanelState: ProviderFailoverPanelState = createInitialProviderFailoverPanelState();
 let confirmationSettingsPanelState: ConfirmationSettingsPanelState = createInitialConfirmationSettingsPanelState();
 let ocrThresholdSettingsPanelState: OcrThresholdSettingsPanelState = createInitialOcrThresholdSettingsPanelState();
 let asrProviderPanelState: AsrProviderPanelState = createInitialAsrProviderPanelState();
 let localAsrModelPanelState: LocalAsrModelPanelState = createInitialLocalAsrModelPanelState();
+let remoteAsrPanelState: RemoteAsrPanelState = createInitialRemoteAsrPanelState();
 let ttsProviderPanelState: TtsProviderPanelState = createInitialTtsProviderPanelState();
 let ttsModelPanelState: TtsModelPanelState = createInitialTtsModelPanelState();
 let localTtsModelPanelState: LocalTtsModelPanelState = createInitialLocalTtsModelPanelState();
+let remoteTtsPanelState: RemoteTtsPanelState = createInitialRemoteTtsPanelState();
 let ttsVoicePanelState: TtsVoicePanelState = createInitialTtsVoicePanelState();
 let statusPanelState: StatusPanelState = createInitialStatusPanelState();
 let urlInputPanelState: UrlInputPanelState = createInitialUrlInputPanelState();
@@ -151,6 +160,21 @@ function createInitialPlannerProviderPanelState(): PlannerProviderPanelState {
   };
 }
 
+function createInitialRemotePlannerPanelState(): RemotePlannerPanelState {
+  return {
+    profileName: null,
+    provider: null,
+    baseUrl: null,
+    model: null,
+    apiKeyReference: null,
+    organizationReference: null,
+    project: null,
+    temperatureMilli: null,
+    maxOutputTokens: null,
+    timeoutMs: null,
+  };
+}
+
 function createInitialAsrProviderPanelState(): AsrProviderPanelState {
   return {
     activeMode: "Local",
@@ -168,6 +192,21 @@ function createInitialLocalAsrModelPanelState(): LocalAsrModelPanelState {
     modelPath: null,
     language: null,
     threads: null,
+  };
+}
+
+function createInitialRemoteAsrPanelState(): RemoteAsrPanelState {
+  return {
+    profileName: null,
+    provider: null,
+    baseUrl: null,
+    model: null,
+    apiKeyReference: null,
+    organizationReference: null,
+    project: null,
+    language: null,
+    temperatureMilli: null,
+    timeoutMs: null,
   };
 }
 
@@ -216,6 +255,21 @@ function createInitialLocalTtsModelPanelState(): LocalTtsModelPanelState {
     modelPath: null,
     defaultVoice: null,
     sampleRate: null,
+  };
+}
+
+function createInitialRemoteTtsPanelState(): RemoteTtsPanelState {
+  return {
+    profileName: null,
+    provider: null,
+    baseUrl: null,
+    model: null,
+    apiKeyReference: null,
+    organizationReference: null,
+    project: null,
+    voice: null,
+    audioFormat: null,
+    timeoutMs: null,
   };
 }
 
@@ -273,14 +327,17 @@ const renderApp = (
   pushToTalk: PushToTalkPanelState,
   audioControls: AudioControlsPanelState,
   plannerProviderPanel: PlannerProviderPanelState,
+  remotePlannerPanel: RemotePlannerPanelState,
   providerFailoverPanel: ProviderFailoverPanelState,
   confirmationSettingsPanel: ConfirmationSettingsPanelState,
   ocrThresholdSettingsPanel: OcrThresholdSettingsPanelState,
   asrProviderPanel: AsrProviderPanelState,
   localAsrModelPanel: LocalAsrModelPanelState,
+  remoteAsrPanel: RemoteAsrPanelState,
   ttsProviderPanel: TtsProviderPanelState,
   ttsModelPanel: TtsModelPanelState,
   localTtsModelPanel: LocalTtsModelPanelState,
+  remoteTtsPanel: RemoteTtsPanelState,
   ttsVoicePanel: TtsVoicePanelState,
   statusPanel: StatusPanelState,
   urlInputPanel: UrlInputPanelState,
@@ -325,14 +382,17 @@ const renderApp = (
       ${renderAudioControlsPanel(audioControls)}
       ${renderSettingsGuidancePanel(currentSettingsGuidanceState())}
       ${renderSettingsPlannerProviderPanel(plannerProviderPanel)}
+      ${renderSettingsRemotePlannerPanel(remotePlannerPanel)}
       ${renderSettingsProviderFailoverPanel(providerFailoverPanel)}
       ${renderSettingsConfirmationPanel(confirmationSettingsPanel)}
       ${renderSettingsOcrThresholdPanel(ocrThresholdSettingsPanel)}
       ${renderSettingsAsrProviderPanel(asrProviderPanel)}
       ${renderSettingsLocalAsrModelPanel(localAsrModelPanel)}
+      ${renderSettingsRemoteAsrPanel(remoteAsrPanel)}
       ${renderSettingsTtsProviderPanel(ttsProviderPanel)}
       ${renderSettingsTtsModelPanel(ttsModelPanel)}
       ${renderSettingsLocalTtsModelPanel(localTtsModelPanel)}
+      ${renderSettingsRemoteTtsPanel(remoteTtsPanel)}
       ${renderSettingsTtsVoicePanel(ttsVoicePanel)}
       ${renderSettingsVolumePanel(audioControls)}
       ${renderSettingsSpeedPanel(audioControls)}
@@ -347,14 +407,17 @@ function rerender() {
     pushToTalkState,
     audioControlsState,
     plannerProviderPanelState,
+    remotePlannerPanelState,
     providerFailoverPanelState,
     confirmationSettingsPanelState,
     ocrThresholdSettingsPanelState,
     asrProviderPanelState,
     localAsrModelPanelState,
+    remoteAsrPanelState,
     ttsProviderPanelState,
     ttsModelPanelState,
     localTtsModelPanelState,
+    remoteTtsPanelState,
     ttsVoicePanelState,
     statusPanelState,
     urlInputPanelState,
@@ -380,6 +443,14 @@ function setAudioControlsState(nextState: Partial<AudioControlsPanelState>) {
 function setPlannerProviderPanelState(nextState: Partial<PlannerProviderPanelState>) {
   plannerProviderPanelState = {
     ...plannerProviderPanelState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setRemotePlannerPanelState(nextState: Partial<RemotePlannerPanelState>) {
+  remotePlannerPanelState = {
+    ...remotePlannerPanelState,
     ...nextState,
   };
   rerender();
@@ -425,6 +496,14 @@ function setLocalAsrModelPanelState(nextState: Partial<LocalAsrModelPanelState>)
   rerender();
 }
 
+function setRemoteAsrPanelState(nextState: Partial<RemoteAsrPanelState>) {
+  remoteAsrPanelState = {
+    ...remoteAsrPanelState,
+    ...nextState,
+  };
+  rerender();
+}
+
 function setTtsProviderPanelState(nextState: Partial<TtsProviderPanelState>) {
   ttsProviderPanelState = {
     ...ttsProviderPanelState,
@@ -444,6 +523,14 @@ function setTtsModelPanelState(nextState: Partial<TtsModelPanelState>) {
 function setLocalTtsModelPanelState(nextState: Partial<LocalTtsModelPanelState>) {
   localTtsModelPanelState = {
     ...localTtsModelPanelState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setRemoteTtsPanelState(nextState: Partial<RemoteTtsPanelState>) {
+  remoteTtsPanelState = {
+    ...remoteTtsPanelState,
     ...nextState,
   };
   rerender();
@@ -613,6 +700,18 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     availableModes: agentState.planner_provider_settings.available_modes,
     summary: agentState.planner_provider_settings.summary,
   });
+  setRemotePlannerPanelState({
+    profileName: agentState.remote_planner_settings.profile_name,
+    provider: agentState.remote_planner_settings.provider,
+    baseUrl: agentState.remote_planner_settings.base_url,
+    model: agentState.remote_planner_settings.model,
+    apiKeyReference: agentState.remote_planner_settings.api_key_reference,
+    organizationReference: agentState.remote_planner_settings.organization_reference,
+    project: agentState.remote_planner_settings.project,
+    temperatureMilli: agentState.remote_planner_settings.temperature_milli,
+    maxOutputTokens: agentState.remote_planner_settings.max_output_tokens,
+    timeoutMs: agentState.remote_planner_settings.timeout_ms,
+  });
   setProviderFailoverPanelState({
     plannerAvailable: agentState.provider_failover_settings.planner_available,
     ttsAvailable: agentState.provider_failover_settings.tts_available,
@@ -646,6 +745,18 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     language: agentState.local_asr_model_settings.language,
     threads: agentState.local_asr_model_settings.threads,
   });
+  setRemoteAsrPanelState({
+    profileName: agentState.remote_asr_settings.profile_name,
+    provider: agentState.remote_asr_settings.provider,
+    baseUrl: agentState.remote_asr_settings.base_url,
+    model: agentState.remote_asr_settings.model,
+    apiKeyReference: agentState.remote_asr_settings.api_key_reference,
+    organizationReference: agentState.remote_asr_settings.organization_reference,
+    project: agentState.remote_asr_settings.project,
+    language: agentState.remote_asr_settings.language,
+    temperatureMilli: agentState.remote_asr_settings.temperature_milli,
+    timeoutMs: agentState.remote_asr_settings.timeout_ms,
+  });
   setTtsProviderPanelState({
     activeMode: agentState.tts_provider_settings.active_mode,
     availableModes: agentState.tts_provider_settings.available_modes,
@@ -669,6 +780,18 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     modelPath: agentState.local_tts_model_settings.model_path,
     defaultVoice: agentState.local_tts_model_settings.default_voice,
     sampleRate: agentState.local_tts_model_settings.sample_rate,
+  });
+  setRemoteTtsPanelState({
+    profileName: agentState.remote_tts_settings.profile_name,
+    provider: agentState.remote_tts_settings.provider,
+    baseUrl: agentState.remote_tts_settings.base_url,
+    model: agentState.remote_tts_settings.model,
+    apiKeyReference: agentState.remote_tts_settings.api_key_reference,
+    organizationReference: agentState.remote_tts_settings.organization_reference,
+    project: agentState.remote_tts_settings.project,
+    voice: agentState.remote_tts_settings.voice,
+    audioFormat: agentState.remote_tts_settings.audio_format,
+    timeoutMs: agentState.remote_tts_settings.timeout_ms,
   });
   setTtsVoicePanelState({
     mode: agentState.tts_voice_settings.mode,

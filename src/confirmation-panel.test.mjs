@@ -13,6 +13,9 @@ import {
   renderSettingsOcrThresholdPanel,
   renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
+  renderSettingsRemoteAsrPanel,
+  renderSettingsRemotePlannerPanel,
+  renderSettingsRemoteTtsPanel,
   renderSettingsTtsProviderPanel,
   renderSettingsTtsModelPanel,
   renderSettingsTtsVoicePanel,
@@ -433,6 +436,27 @@ test("renders settings planner provider as remote-only", () => {
   assert.doesNotMatch(html, /Local provider/);
 });
 
+test("renders remote planner API reference details", () => {
+  const html = renderSettingsRemotePlannerPanel({
+    profileName: "openai-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-5.4-mini",
+    apiKeyReference: "Environment variable: OPENAI_API_KEY",
+    organizationReference: null,
+    project: null,
+    temperatureMilli: 200,
+    maxOutputTokens: 1024,
+    timeoutMs: 30000,
+  });
+
+  assert.match(html, /Remote planner API reference/);
+  assert.match(html, /Secret values stay masked/i);
+  assert.match(html, /openai-default/);
+  assert.match(html, /OPENAI_API_KEY/);
+  assert.match(html, /1024/);
+});
+
 test("renders settings provider failover as read-only unavailable controls", () => {
   const html = renderSettingsProviderFailoverPanel({
     plannerAvailable: false,
@@ -577,6 +601,27 @@ test("renders local ASR model reference details", () => {
   assert.match(html, /edit the app config directly/i);
 });
 
+test("renders remote ASR API reference details", () => {
+  const html = renderSettingsRemoteAsrPanel({
+    profileName: "openai-transcribe-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini-transcribe",
+    apiKeyReference: "Environment variable: OPENAI_API_KEY",
+    organizationReference: null,
+    project: null,
+    language: "en",
+    temperatureMilli: 0,
+    timeoutMs: 30000,
+  });
+
+  assert.match(html, /Remote ASR API reference/);
+  assert.match(html, /configured remote ASR profile/i);
+  assert.match(html, /openai-transcribe-default/);
+  assert.match(html, /OPENAI_API_KEY/);
+  assert.match(html, /gpt-4o-mini-transcribe/);
+});
+
 test("renders settings TTS provider selection for configured modes", () => {
   const html = renderSettingsTtsProviderPanel({
     activeMode: "Local",
@@ -639,6 +684,27 @@ test("renders local TTS model reference details", () => {
   assert.match(html, /kitten-default/);
   assert.match(html, /\/models\/kitten\/default/);
   assert.match(html, /24000/);
+});
+
+test("renders remote TTS API reference details", () => {
+  const html = renderSettingsRemoteTtsPanel({
+    profileName: "openai-tts-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini-tts",
+    apiKeyReference: "Environment variable: OPENAI_API_KEY",
+    organizationReference: null,
+    project: null,
+    voice: "alloy",
+    audioFormat: "wav",
+    timeoutMs: 30000,
+  });
+
+  assert.match(html, /Remote TTS API reference/);
+  assert.match(html, /configured remote TTS profile/i);
+  assert.match(html, /openai-tts-default/);
+  assert.match(html, /OPENAI_API_KEY/);
+  assert.match(html, /alloy/);
 });
 
 test("renders settings TTS model errors and disabled state while saving", () => {

@@ -19,27 +19,27 @@ use crate::commands::{
     resolve_direct_read_page_command, resolve_direct_read_title_command,
     resolve_direct_repeat_command, resolve_direct_status_query_command,
     resolve_direct_voice_input_command, resume_after_confirmation, tool_input_schema,
-    validate_planner_output, AgentStateData, CaptureScreenshotData, CaptureScreenshotInput,
-    ClickElementData, ClickElementInput, ConfirmActionData, ConfirmActionInput,
-    ConfirmActionResolution, DeterministicToolExecutor, ExecutionOutcome, ExecutionTrace,
-    ExtractPageModelData, ExtractPageModelInput, FindElementData, FindElementInput,
-    FocusElementData, FocusElementInput, GetAgentStateInput, GetPageSnapshotInput,
-    GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData,
-    GoForwardInput, IntentName, IntentSummary, ListInteractiveElementsData,
-    ListInteractiveElementsInput, MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput,
-    OpenUrlData, OpenUrlInput, PageSnapshotData, PlannedStep, PlannerInput, PlannerOutput,
-    PlannerStatus, PlannerToolHistoryEntry, ProviderSelectionStatus, ReadNextRegionData,
-    ReadNextRegionInput, ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData,
-    ReadRegionInput, ReloadPageData, ReloadPageInput, ReportResultData, ReportResultInput,
-    ReportStatus, RunOcrData, RunOcrInput, ScrollPageData, ScrollPageInput,
+    validate_planner_output, AgentStateData, AsrProviderSettings, CaptureScreenshotData,
+    CaptureScreenshotInput, ClickElementData, ClickElementInput, ConfirmActionData,
+    ConfirmActionInput, ConfirmActionResolution, ConfirmationSettings, DeterministicToolExecutor,
+    ExecutionOutcome, ExecutionTrace, ExtractPageModelData, ExtractPageModelInput, FindElementData,
+    FindElementInput, FocusElementData, FocusElementInput, GetAgentStateInput,
+    GetPageSnapshotInput, GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput,
+    GoForwardData, GoForwardInput, IntentName, IntentSummary, ListInteractiveElementsData,
+    ListInteractiveElementsInput, LocalAsrModelSettings, LocalTtsModelSettings,
+    MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput, OcrThresholdSettings, OpenUrlData,
+    OpenUrlInput, PageSnapshotData, PlannedStep, PlannerInput, PlannerOutput,
+    PlannerProviderSettings, PlannerStatus, PlannerToolHistoryEntry, ProviderFailoverSettings,
+    ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
+    ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
+    RemoteAsrSettings, RemotePlannerSettings, RemoteTtsSettings, ReportResultData,
+    ReportResultInput, ReportStatus, RunOcrData, RunOcrInput, ScrollPageData, ScrollPageInput,
     SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
     SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
     SetTtsVoiceInput, StartListeningData, StartListeningInput, StepTransition, StopListeningData,
     StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
     SubmitActiveFormInput, ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData,
     TranscribeCommandData, TranscribeCommandInput, TtsModelOption, TtsModelSettings,
-    AsrProviderSettings, ConfirmationSettings, LocalAsrModelSettings, LocalTtsModelSettings,
-    OcrThresholdSettings, PlannerProviderSettings, ProviderFailoverSettings,
     TtsProviderSettings, TtsVoiceOption, TtsVoiceSettings, TypeIntoElementData,
     TypeIntoElementInput,
 };
@@ -914,14 +914,16 @@ impl AppCore {
         let ocr_bbox = if let Some(region_id) = region_id.as_deref() {
             let regions = match self.readable_regions() {
                 Ok(regions) => regions,
-                Err(error) => return ToolResult::failure(
-                    ToolName::RunOcr,
-                    input.request_id,
-                    error,
-                    vec![String::from(
+                Err(error) => {
+                    return ToolResult::failure(
+                        ToolName::RunOcr,
+                        input.request_id,
+                        error,
+                        vec![String::from(
                         "Region-targeted OCR requires readable regions in the current page model.",
                     )],
-                ),
+                    )
+                }
             };
 
             match region_bbox_by_id(regions, region_id) {
@@ -2832,6 +2834,18 @@ impl AppCore {
         build_planner_provider_settings(&self.config)
     }
 
+    fn current_remote_planner_settings(&self) -> RemotePlannerSettings {
+        build_remote_planner_settings(&self.config)
+    }
+
+    fn current_remote_tts_settings(&self) -> RemoteTtsSettings {
+        build_remote_tts_settings(&self.config)
+    }
+
+    fn current_remote_asr_settings(&self) -> RemoteAsrSettings {
+        build_remote_asr_settings(&self.config)
+    }
+
     fn current_provider_failover_settings(&self) -> ProviderFailoverSettings {
         build_provider_failover_settings(&self.config)
     }
@@ -3594,6 +3608,9 @@ impl AppCore {
             asr_provider_settings: self.current_asr_provider_settings(),
             local_asr_model_settings: self.current_local_asr_model_settings(),
             planner_provider_settings: self.current_planner_provider_settings(),
+            remote_planner_settings: self.current_remote_planner_settings(),
+            remote_tts_settings: self.current_remote_tts_settings(),
+            remote_asr_settings: self.current_remote_asr_settings(),
             provider_failover_settings: self.current_provider_failover_settings(),
             confirmation_settings: self.current_confirmation_settings(),
             ocr_threshold_settings: self.current_ocr_threshold_settings(),
@@ -4205,6 +4222,93 @@ fn build_planner_provider_settings(config: &AppConfig) -> PlannerProviderSetting
         active_mode,
         available_modes: vec![crate::config::ProviderMode::Remote],
         summary: String::from("Planner currently uses configured remote profiles only."),
+    }
+}
+
+fn remote_provider_label(provider: &RemoteProviderKind) -> String {
+    match provider {
+        RemoteProviderKind::OpenAi => String::from("OpenAI"),
+        RemoteProviderKind::Ollama => String::from("Ollama"),
+    }
+}
+
+fn secret_ref_reference(secret_ref: &SecretRef) -> String {
+    match secret_ref {
+        SecretRef::FromEnv { from_env } => format!("Environment variable: {from_env}"),
+        SecretRef::FromFile { from_file } => format!("File reference: {from_file}"),
+        SecretRef::Inline { .. } => String::from("Inline secret stored in config"),
+    }
+}
+
+fn build_remote_planner_settings(config: &AppConfig) -> RemotePlannerSettings {
+    let profile_name = config.providers.planner.remote_profile.clone();
+    let profile = profile_name
+        .as_ref()
+        .and_then(|configured_profile| config.remote_planner_profiles.get(configured_profile));
+
+    RemotePlannerSettings {
+        profile_name,
+        provider: profile
+            .map(|configured_profile| remote_provider_label(&configured_profile.provider)),
+        base_url: profile.map(|configured_profile| configured_profile.base_url.clone()),
+        model: profile.map(|configured_profile| configured_profile.model.clone()),
+        api_key_reference: profile
+            .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
+        organization_reference: profile
+            .and_then(|configured_profile| configured_profile.organization.as_ref())
+            .map(secret_ref_reference),
+        project: profile.and_then(|configured_profile| configured_profile.project.clone()),
+        temperature_milli: profile.map(|configured_profile| configured_profile.temperature_milli),
+        max_output_tokens: profile.map(|configured_profile| configured_profile.max_output_tokens),
+        timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
+    }
+}
+
+fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings {
+    let profile_name = config.providers.tts.remote_profile.clone();
+    let profile = profile_name
+        .as_ref()
+        .and_then(|configured_profile| config.remote_tts_profiles.get(configured_profile));
+
+    RemoteTtsSettings {
+        profile_name,
+        provider: profile
+            .map(|configured_profile| remote_provider_label(&configured_profile.provider)),
+        base_url: profile.map(|configured_profile| configured_profile.base_url.clone()),
+        model: profile.map(|configured_profile| configured_profile.model.clone()),
+        api_key_reference: profile
+            .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
+        organization_reference: profile
+            .and_then(|configured_profile| configured_profile.organization.as_ref())
+            .map(secret_ref_reference),
+        project: profile.and_then(|configured_profile| configured_profile.project.clone()),
+        voice: profile.map(|configured_profile| configured_profile.voice.clone()),
+        audio_format: profile.map(|configured_profile| configured_profile.audio_format.clone()),
+        timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
+    }
+}
+
+fn build_remote_asr_settings(config: &AppConfig) -> RemoteAsrSettings {
+    let profile_name = config.providers.asr.remote_profile.clone();
+    let profile = profile_name
+        .as_ref()
+        .and_then(|configured_profile| config.remote_asr_profiles.get(configured_profile));
+
+    RemoteAsrSettings {
+        profile_name,
+        provider: profile
+            .map(|configured_profile| remote_provider_label(&configured_profile.provider)),
+        base_url: profile.map(|configured_profile| configured_profile.base_url.clone()),
+        model: profile.map(|configured_profile| configured_profile.model.clone()),
+        api_key_reference: profile
+            .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
+        organization_reference: profile
+            .and_then(|configured_profile| configured_profile.organization.as_ref())
+            .map(secret_ref_reference),
+        project: profile.and_then(|configured_profile| configured_profile.project.clone()),
+        language: profile.and_then(|configured_profile| configured_profile.language.clone()),
+        temperature_milli: profile.map(|configured_profile| configured_profile.temperature_milli),
+        timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
     }
 }
 
@@ -6487,7 +6591,8 @@ mod tests {
         build_asr_provider_settings, build_confirmation_settings, build_extracted_page_model,
         build_find_element_query, build_local_asr_model_settings, build_local_tts_model_settings,
         build_ocr_threshold_settings, build_planner_provider_settings,
-        build_provider_failover_settings, build_tts_provider_settings, build_tts_voice_settings,
+        build_provider_failover_settings, build_remote_asr_settings, build_remote_planner_settings,
+        build_remote_tts_settings, build_tts_provider_settings, build_tts_voice_settings,
         build_visible_text_excerpt, determine_find_element_resolution,
         execute_bounded_replanning_loop, extracted_text_metrics, filter_interactive_elements,
         infer_extraction_source, merge_ocr_text_into_page_model, merged_region_text,
@@ -6525,6 +6630,81 @@ mod tests {
     }
 
     #[test]
+    fn build_remote_planner_settings_reflects_configured_profile_details() {
+        let config = AppConfig::default();
+
+        let settings = build_remote_planner_settings(&config);
+
+        assert_eq!(settings.profile_name.as_deref(), Some("openai-default"));
+        assert_eq!(settings.provider.as_deref(), Some("OpenAI"));
+        assert_eq!(
+            settings.base_url.as_deref(),
+            Some("https://api.openai.com/v1")
+        );
+        assert_eq!(settings.model.as_deref(), Some("gpt-5.4-mini"));
+        assert_eq!(
+            settings.api_key_reference.as_deref(),
+            Some("Environment variable: OPENAI_API_KEY")
+        );
+        assert_eq!(settings.organization_reference, None);
+        assert_eq!(settings.project, None);
+        assert_eq!(settings.temperature_milli, Some(200));
+        assert_eq!(settings.max_output_tokens, Some(1024));
+        assert_eq!(settings.timeout_ms, Some(30_000));
+    }
+
+    #[test]
+    fn build_remote_tts_settings_reflects_configured_profile_details() {
+        let config = AppConfig::default();
+
+        let settings = build_remote_tts_settings(&config);
+
+        assert_eq!(settings.profile_name.as_deref(), Some("openai-tts-default"));
+        assert_eq!(settings.provider.as_deref(), Some("OpenAI"));
+        assert_eq!(
+            settings.base_url.as_deref(),
+            Some("https://api.openai.com/v1")
+        );
+        assert_eq!(settings.model.as_deref(), Some("gpt-4o-mini-tts"));
+        assert_eq!(
+            settings.api_key_reference.as_deref(),
+            Some("Environment variable: OPENAI_API_KEY")
+        );
+        assert_eq!(settings.organization_reference, None);
+        assert_eq!(settings.project, None);
+        assert_eq!(settings.voice.as_deref(), Some("alloy"));
+        assert_eq!(settings.audio_format.as_deref(), Some("wav"));
+        assert_eq!(settings.timeout_ms, Some(30_000));
+    }
+
+    #[test]
+    fn build_remote_asr_settings_reflects_configured_profile_details() {
+        let config = AppConfig::default();
+
+        let settings = build_remote_asr_settings(&config);
+
+        assert_eq!(
+            settings.profile_name.as_deref(),
+            Some("openai-transcribe-default")
+        );
+        assert_eq!(settings.provider.as_deref(), Some("OpenAI"));
+        assert_eq!(
+            settings.base_url.as_deref(),
+            Some("https://api.openai.com/v1")
+        );
+        assert_eq!(settings.model.as_deref(), Some("gpt-4o-mini-transcribe"));
+        assert_eq!(
+            settings.api_key_reference.as_deref(),
+            Some("Environment variable: OPENAI_API_KEY")
+        );
+        assert_eq!(settings.organization_reference, None);
+        assert_eq!(settings.project, None);
+        assert_eq!(settings.language.as_deref(), Some("en"));
+        assert_eq!(settings.temperature_milli, Some(0));
+        assert_eq!(settings.timeout_ms, Some(30_000));
+    }
+
+    #[test]
     fn build_provider_failover_settings_reports_unavailable_runtime_support() {
         let config = AppConfig::default();
 
@@ -6535,7 +6715,9 @@ mod tests {
         assert!(!settings.asr_available);
         assert_eq!(
             settings.summary,
-            String::from("Automatic provider failover is not currently available in the live runtime.")
+            String::from(
+                "Automatic provider failover is not currently available in the live runtime."
+            )
         );
     }
 
@@ -6559,7 +6741,10 @@ mod tests {
         assert_eq!(settings.profile_name.as_deref(), Some("kitten-default"));
         assert_eq!(settings.backend.as_deref(), Some("kitten_tts_rs"));
         assert_eq!(settings.model_id.as_deref(), Some("default"));
-        assert_eq!(settings.model_path.as_deref(), Some("/path/to/kitten/model"));
+        assert_eq!(
+            settings.model_path.as_deref(),
+            Some("/path/to/kitten/model")
+        );
         assert_eq!(settings.default_voice.as_deref(), Some("Bruno"));
         assert_eq!(settings.sample_rate, Some(24_000));
     }
@@ -6573,7 +6758,10 @@ mod tests {
         assert_eq!(settings.profile_name.as_deref(), Some("whisper-default"));
         assert_eq!(settings.backend.as_deref(), Some("whisper"));
         assert_eq!(settings.model_id.as_deref(), Some("tiny"));
-        assert_eq!(settings.model_path.as_deref(), Some("/path/to/whisper/model"));
+        assert_eq!(
+            settings.model_path.as_deref(),
+            Some("/path/to/whisper/model")
+        );
         assert_eq!(settings.language.as_deref(), Some("en"));
         assert_eq!(settings.threads, Some(4));
     }

@@ -7,11 +7,11 @@ use chromiumoxide::cdp::browser_protocol::page::{
     NavigationEntry, ReloadParams, Viewport,
 };
 #[cfg(feature = "browser")]
+use chromiumoxide::page::ScreenshotParams;
+#[cfg(feature = "browser")]
 use chromiumoxide::types::ClickOptions;
 #[cfg(feature = "browser")]
 use chromiumoxide::{Browser, BrowserConfig, Page};
-#[cfg(feature = "browser")]
-use chromiumoxide::page::ScreenshotParams;
 #[cfg(feature = "browser")]
 use futures::StreamExt;
 use schemars::JsonSchema;
@@ -295,8 +295,8 @@ impl BrowserController {
             let page = session.page.clone().ok_or(BrowserError::NoActivePage)?;
             let selector = stable_dom_selector(element)?;
             ensure_live_element(&page, element, selector)?;
-            let selector_literal =
-                serde_json::to_string(selector).map_err(|error| BrowserError::Resolve(error.to_string()))?;
+            let selector_literal = serde_json::to_string(selector)
+                .map_err(|error| BrowserError::Resolve(error.to_string()))?;
 
             let focus_result = tauri::async_runtime::block_on(async {
                 page.evaluate(format!(
@@ -362,10 +362,10 @@ impl BrowserController {
             let before = tauri::async_runtime::block_on(snapshot_page_state(&page))?;
             let selector = stable_dom_selector(element)?;
             ensure_live_element(&page, element, selector)?;
-            let selector_literal =
-                serde_json::to_string(selector).map_err(|error| BrowserError::Resolve(error.to_string()))?;
-            let text_literal =
-                serde_json::to_string(text).map_err(|error| BrowserError::Type(error.to_string()))?;
+            let selector_literal = serde_json::to_string(selector)
+                .map_err(|error| BrowserError::Resolve(error.to_string()))?;
+            let text_literal = serde_json::to_string(text)
+                .map_err(|error| BrowserError::Type(error.to_string()))?;
 
             let type_result = tauri::async_runtime::block_on(async {
                 page.evaluate(format!(
@@ -628,8 +628,7 @@ impl BrowserController {
             let session = self.ensure_session()?;
             let page = session.page.clone().ok_or(BrowserError::NoActivePage)?;
             let screenshot_bytes = tauri::async_runtime::block_on(async {
-                let mut builder =
-                    ScreenshotParams::builder().format(CaptureScreenshotFormat::Png);
+                let mut builder = ScreenshotParams::builder().format(CaptureScreenshotFormat::Png);
                 if full_page {
                     builder = builder.full_page(true);
                 }
@@ -644,8 +643,8 @@ impl BrowserController {
                         y: f64::from(bbox.y),
                         width: f64::from(bbox.width),
                         height: f64::from(bbox.height),
-                            scale: 1.0,
-                        });
+                        scale: 1.0,
+                    });
                 }
                 page.screenshot(builder.build())
                     .await
@@ -962,7 +961,11 @@ fn stable_dom_selector(element: &InteractiveElement) -> Result<&str, BrowserErro
 }
 
 #[cfg(feature = "browser")]
-fn ensure_live_element(page: &Page, element: &InteractiveElement, selector: &str) -> Result<(), BrowserError> {
+fn ensure_live_element(
+    page: &Page,
+    element: &InteractiveElement,
+    selector: &str,
+) -> Result<(), BrowserError> {
     tauri::async_runtime::block_on(async {
         page.find_element(selector)
             .await

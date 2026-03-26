@@ -235,6 +235,45 @@ export interface PlannerProviderSettings {
   summary: string;
 }
 
+export interface RemotePlannerSettings {
+  profile_name: string | null;
+  provider: string | null;
+  base_url: string | null;
+  model: string | null;
+  api_key_reference: string | null;
+  organization_reference: string | null;
+  project: string | null;
+  temperature_milli: number | null;
+  max_output_tokens: number | null;
+  timeout_ms: number | null;
+}
+
+export interface RemoteTtsSettings {
+  profile_name: string | null;
+  provider: string | null;
+  base_url: string | null;
+  model: string | null;
+  api_key_reference: string | null;
+  organization_reference: string | null;
+  project: string | null;
+  voice: string | null;
+  audio_format: string | null;
+  timeout_ms: number | null;
+}
+
+export interface RemoteAsrSettings {
+  profile_name: string | null;
+  provider: string | null;
+  base_url: string | null;
+  model: string | null;
+  api_key_reference: string | null;
+  organization_reference: string | null;
+  project: string | null;
+  language: string | null;
+  temperature_milli: number | null;
+  timeout_ms: number | null;
+}
+
 export interface ProviderFailoverSettings {
   planner_available: boolean;
   tts_available: boolean;
@@ -315,6 +354,9 @@ export interface AgentStateData {
   asr_provider_settings: AsrProviderSettings;
   local_asr_model_settings: LocalAsrModelSettings;
   planner_provider_settings: PlannerProviderSettings;
+  remote_planner_settings: RemotePlannerSettings;
+  remote_tts_settings: RemoteTtsSettings;
+  remote_asr_settings: RemoteAsrSettings;
   provider_failover_settings: ProviderFailoverSettings;
   confirmation_settings: ConfirmationSettings;
   ocr_threshold_settings: OcrThresholdSettings;

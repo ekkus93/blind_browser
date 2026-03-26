@@ -18,8 +18,8 @@ pub const KITTEN_TTS_VOICES: &[&str] = &[
     "Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo",
 ];
 pub const OPENAI_TTS_VOICES: &[&str] = &[
-    "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer",
-    "verse", "marin", "cedar",
+    "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse",
+    "marin", "cedar",
 ];
 const OPENAI_REMOTE_TTS_MIN_SPEED: f32 = 0.25;
 const OPENAI_REMOTE_TTS_MAX_SPEED: f32 = 4.0;

@@ -358,8 +358,8 @@ fn set_allow_click_without_confirmation(
     let _ = request_id;
     let _ = timeout_ms;
     let mut app_core = lock_app_core(&app_core)?;
-    let changed = app_core.config.safety.allow_click_without_confirmation
-        != allow_click_without_confirmation;
+    let changed =
+        app_core.config.safety.allow_click_without_confirmation != allow_click_without_confirmation;
 
     app_core
         .set_allow_click_without_confirmation(allow_click_without_confirmation)

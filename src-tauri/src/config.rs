@@ -315,7 +315,10 @@ impl AppConfig {
             load_document_table_from_str(Self::default_template())?
         };
 
-        document.insert(String::from("safety"), toml::Value::try_from(safety.clone())?);
+        document.insert(
+            String::from("safety"),
+            toml::Value::try_from(safety.clone())?,
+        );
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
@@ -399,7 +402,10 @@ impl AppConfig {
                 "providers must remain a TOML table",
             )));
         };
-        providers_table.insert(String::from("asr"), toml::Value::try_from(selection.clone())?);
+        providers_table.insert(
+            String::from("asr"),
+            toml::Value::try_from(selection.clone())?,
+        );
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
@@ -437,7 +443,10 @@ impl AppConfig {
                 "providers must remain a TOML table",
             )));
         };
-        providers_table.insert(String::from("tts"), toml::Value::try_from(selection.clone())?);
+        providers_table.insert(
+            String::from("tts"),
+            toml::Value::try_from(selection.clone())?,
+        );
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
@@ -835,8 +844,8 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        AppConfig, AudioSettings, ConfigError, ProviderMode, ProviderSelection,
-        RemoteProviderKind, SafetySettings,
+        AppConfig, AudioSettings, ConfigError, ProviderMode, ProviderSelection, RemoteProviderKind,
+        SafetySettings,
     };
     use crate::ocr::OcrSettings;
 
@@ -1184,8 +1193,9 @@ threads = 4
             failover_to_local: None,
         };
 
-        let persisted = AppConfig::persist_asr_provider_selection_at_path(&path, &expected_selection)
-            .expect("asr provider selection should persist successfully");
+        let persisted =
+            AppConfig::persist_asr_provider_selection_at_path(&path, &expected_selection)
+                .expect("asr provider selection should persist successfully");
         let reloaded = AppConfig::load_from_path(&path).expect("persisted config should reload");
 
         assert_eq!(persisted.providers.asr, expected_selection);
@@ -1202,8 +1212,9 @@ threads = 4
             failover_to_local: None,
         };
 
-        let persisted = AppConfig::persist_tts_provider_selection_at_path(&path, &expected_selection)
-            .expect("tts provider selection should persist successfully");
+        let persisted =
+            AppConfig::persist_tts_provider_selection_at_path(&path, &expected_selection)
+                .expect("tts provider selection should persist successfully");
         let reloaded = AppConfig::load_from_path(&path).expect("persisted config should reload");
 
         assert_eq!(persisted.providers.tts, expected_selection);
