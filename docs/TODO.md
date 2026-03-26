@@ -309,7 +309,7 @@
 ### Settings UI
 - [ ] TTS model selection
 - [ ] Voice selection
-- [ ] Speed control
+- [x] Speed control
 - [x] Volume control
 - [x] Visible/headless toggle
 - [ ] Planner provider selection

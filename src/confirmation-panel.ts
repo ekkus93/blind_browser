@@ -273,6 +273,44 @@ export function renderSettingsVolumePanel(state: AudioControlsPanelState): strin
   `;
 }
 
+export function renderSettingsSpeedPanel(state: AudioControlsPanelState): string {
+  const busyAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
+  const errorCopy = state.error
+    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+
+  return `
+    <section class="settings-panel" aria-labelledby="settings-speed-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-speed-title">Playback speed</h2>
+        <p class="settings-panel-description">
+          This dedicated settings control saves the default narration speed for future speech.
+          Updates apply on the next utterance and persist across app restarts.
+        </p>
+        ${errorCopy}
+      </div>
+      <div class="settings-grid">
+        <label class="settings-control-card" for="settings-playback-speed-control">
+          <span class="settings-control-label">Default speed</span>
+          <span class="settings-control-value">${state.playbackSpeed.toFixed(2)}x</span>
+          <input
+            id="settings-playback-speed-control"
+            class="settings-control-input"
+            data-audio-control="speed"
+            type="range"
+            min="0.5"
+            max="5"
+            step="0.05"
+            value="${state.playbackSpeed.toFixed(2)}"
+            ${busyAttribute}
+          />
+        </label>
+      </div>
+    </section>
+  `;
+}
+
 export function renderUrlInputPanel(state: UrlInputPanelState): string {
   const currentUrlCopy = state.currentUrl
     ? `<p class="url-input-current"><strong>Current URL:</strong> ${escapeHtml(state.currentUrl)}</p>`

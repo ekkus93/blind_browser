@@ -831,3 +831,8 @@
 - Added a dedicated Settings UI playback-volume panel in the thin Tauri frontend while reusing the existing persisted `set_playback_volume` flow and shared `AudioControlsPanelState`.
 - The nearby playback controls and the new Settings slider stay synchronized because both surfaces bind to the same frontend state and command path.
 - Added render coverage for the settings volume panel and validated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`23` UI tests passing; build still shows the known Node `22.11.0` vs Vite `22.12+` warning).
+
+## 2026-03-26T06:24:37Z - GPT-5.4 - Settings speed panel landed
+- Added a dedicated Settings UI playback-speed panel in the thin Tauri frontend while reusing the existing persisted `set_playback_speed` flow and shared `AudioControlsPanelState`.
+- The nearby playback controls and the new Settings speed slider stay synchronized because both surfaces bind to the same frontend state and command path.
+- Added render coverage for the settings speed panel and validated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`25` UI tests passing; build still shows the known Node `22.11.0` vs Vite `22.12+` warning).
