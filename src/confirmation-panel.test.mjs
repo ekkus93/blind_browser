@@ -168,7 +168,8 @@ test("renders URL input with current URL and staged draft value", () => {
     draftValue: "https://staged.example.com",
     currentUrl: "https://current.example.com",
     hasUnsubmittedChanges: true,
-    isBusy: false,
+    isOpening: false,
+    isReading: false,
     error: null,
   });
 
@@ -177,7 +178,9 @@ test("renders URL input with current URL and staged draft value", () => {
   assert.match(html, /Draft URL updated\. Open controls can use this value next\./);
   assert.match(html, /data-url-input="true"/);
   assert.match(html, /data-url-open-button="true"/);
+  assert.match(html, /data-url-read-button="true"/);
   assert.match(html, />\s*Open\s*<\/button>/);
+  assert.match(html, />\s*Read\s*<\/button>/);
   assert.match(html, /value="https:\/\/staged\.example\.com"/);
 });
 
@@ -186,7 +189,8 @@ test("renders URL input fallback copy when no page is loaded", () => {
     draftValue: "",
     currentUrl: null,
     hasUnsubmittedChanges: false,
-    isBusy: false,
+    isOpening: false,
+    isReading: false,
     error: null,
   });
 
@@ -200,7 +204,8 @@ test("renders URL input busy and error states while opening", () => {
     draftValue: "https://example.com",
     currentUrl: "https://example.com",
     hasUnsubmittedChanges: false,
-    isBusy: true,
+    isOpening: true,
+    isReading: false,
     error: "The browser could not open that URL.",
   });
 
@@ -208,6 +213,20 @@ test("renders URL input busy and error states while opening", () => {
   assert.match(html, /The browser could not open that URL\./);
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /role="alert"/);
+});
+
+test("renders URL input busy state while starting page reading", () => {
+  const html = renderUrlInputPanel({
+    draftValue: "https://example.com",
+    currentUrl: "https://example.com",
+    hasUnsubmittedChanges: false,
+    isOpening: false,
+    isReading: true,
+    error: null,
+  });
+
+  assert.match(html, /Reading\.\.\./);
+  assert.match(html, /disabled aria-disabled="true"/);
 });
 
 test("renders nearby playback controls with volume and speed values", () => {

@@ -15,6 +15,7 @@ import {
   createExecutionUiStore,
   describeConfirmationSubmissionFailure,
   resolveConfirmationResponse,
+  runPlannerExecution,
   type ExecutionUiState,
 } from "./planner-orchestration";
 import {
@@ -22,6 +23,7 @@ import {
   type AgentStateData,
   getAgentState,
   openUrl,
+  resolveCommand,
   setBrowserVisibility,
   setPlaybackSpeed,
   setPlaybackVolume,
@@ -118,7 +120,8 @@ function createInitialUrlInputPanelState(): UrlInputPanelState {
     draftValue: "",
     currentUrl: null,
     hasUnsubmittedChanges: false,
-    isBusy: false,
+    isOpening: false,
+    isReading: false,
     error: null,
   };
 }
@@ -274,6 +277,11 @@ function describeUrlInputFailure(error: unknown): string {
   return failure.message;
 }
 
+function describePlannerBlockedMessage(defaultMessage: string, userMessage: string | null): string {
+  const trimmed = userMessage?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : defaultMessage;
+}
+
 function currentRegionLabelForAgentState(agentState: AgentStateData): string | null {
   if (!agentState.narration_cursor) {
     return null;
@@ -302,7 +310,8 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
   setUrlInputPanelState({
     currentUrl: agentState.url,
     draftValue: urlInputPanelState.hasUnsubmittedChanges ? urlInputPanelState.draftValue : (agentState.url ?? ""),
-    isBusy: false,
+    isOpening: false,
+    isReading: false,
     error: null,
   });
 }
@@ -406,7 +415,7 @@ async function persistPlaybackSpeed(nextSpeed: number) {
 }
 
 async function openDraftUrl() {
-  if (urlInputPanelState.isBusy) {
+  if (urlInputPanelState.isOpening || urlInputPanelState.isReading) {
     return;
   }
 
@@ -420,7 +429,7 @@ async function openDraftUrl() {
 
   const previousState = urlInputPanelState;
   setUrlInputPanelState({
-    isBusy: true,
+    isOpening: true,
     error: null,
   });
 
@@ -433,14 +442,68 @@ async function openDraftUrl() {
       draftValue: result.final_url,
       currentUrl: result.final_url,
       hasUnsubmittedChanges: false,
-      isBusy: false,
+      isOpening: false,
       error: null,
     });
     await refreshRuntimePanelsFromRuntime();
   } catch (error: unknown) {
     setUrlInputPanelState({
       ...previousState,
-      isBusy: false,
+      isOpening: false,
+      error: describeUrlInputFailure(error),
+    });
+  }
+}
+
+async function readCurrentPage() {
+  if (urlInputPanelState.isOpening || urlInputPanelState.isReading) {
+    return;
+  }
+
+  const previousState = urlInputPanelState;
+  setUrlInputPanelState({
+    isReading: true,
+    error: null,
+  });
+
+  try {
+    const requestId = createRequestId("read-page");
+    const plannerOutput = await resolveCommand(requestId, "read page");
+    if (plannerOutput.status === "Blocked") {
+      setUrlInputPanelState({
+        ...previousState,
+        isReading: false,
+        error: describePlannerBlockedMessage(
+          "The runtime could not start reading the current page.",
+          plannerOutput.user_message,
+        ),
+      });
+      return;
+    }
+
+    if (plannerOutput.status === "Complete") {
+      setUrlInputPanelState({
+        ...previousState,
+        isReading: false,
+        error: describePlannerBlockedMessage(
+          "The runtime did not need to run any reading steps.",
+          plannerOutput.user_message,
+        ),
+      });
+      return;
+    }
+
+    await runPlannerExecution(requestId, plannerOutput, uiStore);
+    setUrlInputPanelState({
+      ...previousState,
+      isReading: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setUrlInputPanelState({
+      ...previousState,
+      isReading: false,
       error: describeUrlInputFailure(error),
     });
   }
@@ -595,11 +658,29 @@ app.addEventListener("click", (event) => {
 
   const urlOpenButton = target.closest<HTMLButtonElement>("[data-url-open-button]");
   if (urlOpenButton) {
-    if (urlInputPanelState.isBusy || urlOpenButton.disabled) {
+    if (
+      urlInputPanelState.isOpening ||
+      urlInputPanelState.isReading ||
+      urlOpenButton.disabled
+    ) {
       return;
     }
 
     void openDraftUrl();
+    return;
+  }
+
+  const urlReadButton = target.closest<HTMLButtonElement>("[data-url-read-button]");
+  if (urlReadButton) {
+    if (
+      urlInputPanelState.isOpening ||
+      urlInputPanelState.isReading ||
+      urlReadButton.disabled
+    ) {
+      return;
+    }
+
+    void readCurrentPage();
     return;
   }
 

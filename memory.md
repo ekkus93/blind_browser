@@ -802,3 +802,9 @@
 - Extended the URL panel in `src/confirmation-panel.ts`, `src/main.ts`, and `src/styles.css` with an `Open` button plus busy/error handling; successful opens refresh runtime state, while failures preserve the draft URL and surface the backend or transport error.
 - Added focused UI render coverage for the new button and its busy/error states in `src/confirmation-panel.test.mjs`, and marked `Open button` complete in `docs/TODO.md`.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, with `174` Rust tests and `15` UI tests passing.
+
+## 2026-03-26T03:53:45Z - GPT-5.4 - Read button wired through command resolution
+- Extended the URL panel in `src/confirmation-panel.ts`, `src/main.ts`, and `src/styles.css` with a `Read` button and distinct opening versus reading busy states so the nearby controls stay explicit without adding a bespoke narration path.
+- The frontend now resolves `"read page"` through `resolveCommand(...)`, executes the returned plan with the same request id via `runPlannerExecution(...)`, surfaces blocked planner `user_message` text directly in the panel, and refreshes runtime state after reading starts.
+- Added focused render coverage for the new read-button state in `src/confirmation-panel.test.mjs` and marked `Read button` complete in `docs/TODO.md`.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`, with `174` Rust tests and `16` UI tests passing; Vite also warns in this shell that Node `22.11.0` is below its preferred `22.12+` floor even though the build still completes.

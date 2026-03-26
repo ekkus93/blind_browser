@@ -282,6 +282,16 @@ h1 {
   box-shadow: none;
 }
 
+.url-read-button {
+  background: linear-gradient(135deg, #29583f, #1f7f5c);
+  box-shadow: 0 12px 24px rgba(31, 127, 92, 0.18);
+}
+
+.url-read-button:hover:not(:disabled),
+.url-read-button:focus-visible {
+  box-shadow: 0 16px 28px rgba(31, 127, 92, 0.24);
+}
+
 .status-panel {
   margin-top: 18px;
   padding: 22px 24px;

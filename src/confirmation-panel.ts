@@ -20,7 +20,8 @@ export interface UrlInputPanelState {
   draftValue: string;
   currentUrl: string | null;
   hasUnsubmittedChanges: boolean;
-  isBusy: boolean;
+  isOpening: boolean;
+  isReading: boolean;
   error: string | null;
 }
 
@@ -234,7 +235,8 @@ export function renderUrlInputPanel(state: UrlInputPanelState): string {
   const draftStatusCopy = state.hasUnsubmittedChanges
     ? '<p class="url-input-status" role="status">Draft URL updated. Open controls can use this value next.</p>'
     : '<p class="url-input-status" role="status">The field mirrors the current page URL until you edit it.</p>';
-  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
+  const disabledAttribute =
+    state.isOpening || state.isReading ? " disabled aria-disabled=\"true\"" : "";
   const errorCopy = state.error
     ? `<p class="url-input-error" role="alert">${escapeHtml(state.error)}</p>`
     : "";
@@ -274,7 +276,15 @@ export function renderUrlInputPanel(state: UrlInputPanelState): string {
           data-url-open-button="true"
           ${disabledAttribute}
         >
-          ${state.isBusy ? "Opening..." : "Open"}
+          ${state.isOpening ? "Opening..." : "Open"}
+        </button>
+        <button
+          type="button"
+          class="url-open-button url-read-button"
+          data-url-read-button="true"
+          ${disabledAttribute}
+        >
+          ${state.isReading ? "Reading..." : "Read"}
         </button>
       </div>
     </section>
