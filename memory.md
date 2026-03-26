@@ -866,3 +866,13 @@
 - Added a dedicated Settings UI voice selector that reuses the persisted `set_tts_voice` path instead of introducing a frontend-only voice setting.
 - The Rust runtime now exposes `tts_voice_settings` through `get_agent_state`, including the shipped KittenTTS voice list for local mode, the built-in OpenAI voice list for remote mode, and preservation of any already-configured custom voice so the UI never drops an existing setting.
 - Added Rust coverage for current-mode voice choice derivation and frontend render coverage for the new selector; validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`178` Rust tests, `29` UI tests).
+
+## 2026-03-26T08:01:55Z - GPT-5.4 - Settings provider failover panel landed
+- Added a dedicated read-only provider failover settings payload to `get_agent_state` plus a thin frontend Settings panel with disabled planner, TTS, and ASR failover toggles and explicit unavailability copy.
+- Kept the slice honest by not adding a writable toggle because the current live runtime does not yet implement automatic provider failover, even though related config schema fields still exist.
+- Added focused Rust and frontend render coverage for the new payload and panel; validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`183` Rust tests, `35` UI tests).
+
+## 2026-03-26T08:05:26Z - GPT-5.4 - setup-dev-env.sh now derives repo root dynamically
+- Replaced the hardcoded `REPO_ROOT="/home/phil/work/blind_browser"` in `setup-dev-env.sh` with the same `BASH_SOURCE[0]`-based repo-root detection pattern already used by `fix-node-version.sh`.
+- This removes the machine-specific `/home/phil` dependency so the dev setup script can be run from any checkout location without editing the file first.
+- Verified the change with `bash -n setup-dev-env.sh` and a targeted search confirming `/home/phil` no longer appears in that script.

@@ -6,6 +6,7 @@ import {
   renderConfirmationPanel,
   renderPushToTalkPanel,
   renderSettingsAsrProviderPanel,
+  renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
   renderSettingsTtsProviderPanel,
   renderSettingsTtsModelPanel,
@@ -425,6 +426,26 @@ test("renders settings planner provider as remote-only", () => {
   assert.match(html, /disabled/);
   assert.match(html, /aria-disabled="true"/);
   assert.doesNotMatch(html, /Local provider/);
+});
+
+test("renders settings provider failover as read-only unavailable controls", () => {
+  const html = renderSettingsProviderFailoverPanel({
+    plannerAvailable: false,
+    ttsAvailable: false,
+    asrAvailable: false,
+    summary: "Automatic provider failover is not currently available in the live runtime.",
+  });
+
+  assert.match(html, /Provider failover/);
+  assert.match(html, /not currently available in the live runtime/);
+  assert.match(html, /Planner failover/);
+  assert.match(html, /TTS failover/);
+  assert.match(html, /ASR failover/);
+  assert.match(html, /data-provider-failover-toggle="planner"/);
+  assert.match(html, /data-provider-failover-toggle="tts"/);
+  assert.match(html, /data-provider-failover-toggle="asr"/);
+  assert.match(html, /Unavailable/);
+  assert.match(html, /aria-disabled="true"/);
 });
 
 test("renders settings ASR provider selection for configured modes", () => {

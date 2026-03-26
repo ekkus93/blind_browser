@@ -38,7 +38,7 @@ use crate::commands::{
     StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
     SubmitActiveFormInput, ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData,
     TranscribeCommandData, TranscribeCommandInput, TtsModelOption, TtsModelSettings,
-    AsrProviderSettings, PlannerProviderSettings, TtsProviderSettings,
+    AsrProviderSettings, PlannerProviderSettings, ProviderFailoverSettings, TtsProviderSettings,
     TtsVoiceOption, TtsVoiceSettings, TypeIntoElementData,
     TypeIntoElementInput,
 };
@@ -2823,6 +2823,10 @@ impl AppCore {
         build_planner_provider_settings(&self.config)
     }
 
+    fn current_provider_failover_settings(&self) -> ProviderFailoverSettings {
+        build_provider_failover_settings(&self.config)
+    }
+
     pub fn execute_read_region(&mut self, input: ReadRegionInput) -> ToolResult<ReadRegionData> {
         self.sync_narration_playback_state();
         let region_id = input.region_id.trim().to_string();
@@ -3536,6 +3540,7 @@ impl AppCore {
             tts_provider_settings: self.current_tts_provider_settings(),
             asr_provider_settings: self.current_asr_provider_settings(),
             planner_provider_settings: self.current_planner_provider_settings(),
+            provider_failover_settings: self.current_provider_failover_settings(),
         }
     }
 
@@ -4128,6 +4133,17 @@ fn build_planner_provider_settings(config: &AppConfig) -> PlannerProviderSetting
         active_mode,
         available_modes: vec![crate::config::ProviderMode::Remote],
         summary: String::from("Planner currently uses configured remote profiles only."),
+    }
+}
+
+fn build_provider_failover_settings(_config: &AppConfig) -> ProviderFailoverSettings {
+    ProviderFailoverSettings {
+        planner_available: false,
+        tts_available: false,
+        asr_available: false,
+        summary: String::from(
+            "Automatic provider failover is not currently available in the live runtime.",
+        ),
     }
 }
 
@@ -6366,7 +6382,7 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
 mod tests {
     use super::{
         build_asr_provider_settings, build_extracted_page_model, build_find_element_query,
-        build_planner_provider_settings,
+        build_planner_provider_settings, build_provider_failover_settings,
         build_tts_provider_settings, build_tts_voice_settings, build_visible_text_excerpt,
         determine_find_element_resolution,
         execute_bounded_replanning_loop, extracted_text_metrics, filter_interactive_elements,
@@ -6401,6 +6417,21 @@ mod tests {
         assert_eq!(
             settings.summary,
             String::from("Planner currently uses configured remote profiles only.")
+        );
+    }
+
+    #[test]
+    fn build_provider_failover_settings_reports_unavailable_runtime_support() {
+        let config = AppConfig::default();
+
+        let settings = build_provider_failover_settings(&config);
+
+        assert!(!settings.planner_available);
+        assert!(!settings.tts_available);
+        assert!(!settings.asr_available);
+        assert_eq!(
+            settings.summary,
+            String::from("Automatic provider failover is not currently available in the live runtime.")
         );
     }
 

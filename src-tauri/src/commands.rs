@@ -251,6 +251,7 @@ pub struct AgentStateData {
     pub tts_provider_settings: TtsProviderSettings,
     pub asr_provider_settings: AsrProviderSettings,
     pub planner_provider_settings: PlannerProviderSettings,
+    pub provider_failover_settings: ProviderFailoverSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -315,6 +316,14 @@ pub struct AsrProviderSettings {
 pub struct PlannerProviderSettings {
     pub active_mode: ProviderMode,
     pub available_modes: Vec<ProviderMode>,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ProviderFailoverSettings {
+    pub planner_available: bool,
+    pub tts_available: bool,
+    pub asr_available: bool,
     pub summary: String,
 }
 
@@ -6071,6 +6080,12 @@ mod tests {
                         available_modes: vec![ProviderMode::Remote],
                         summary: String::from("Planner currently uses configured remote profiles only."),
                     },
+                    provider_failover_settings: ProviderFailoverSettings {
+                        planner_available: false,
+                        tts_available: false,
+                        asr_available: false,
+                        summary: String::from("Automatic provider failover is not currently available in the live runtime."),
+                    },
                 },
                 vec![String::from("agent state read")],
             )
@@ -7883,6 +7898,12 @@ mod tests {
                     available_modes: vec![ProviderMode::Remote],
                     summary: String::from("Planner currently uses configured remote profiles only."),
                 },
+                provider_failover_settings: ProviderFailoverSettings {
+                    planner_available: false,
+                    tts_available: false,
+                    asr_available: false,
+                    summary: String::from("Automatic provider failover is not currently available in the live runtime."),
+                },
             },
             safety: PlannerSafetySettings {
                 confirmation_confidence_threshold: 0.9,
@@ -9068,6 +9089,12 @@ planner_provider_settings: PlannerProviderSettings {
     available_modes: vec![ProviderMode::Remote],
     summary: String::from("Planner currently uses configured remote profiles only."),
 },
+provider_failover_settings: ProviderFailoverSettings {
+    planner_available: false,
+    tts_available: false,
+    asr_available: false,
+    summary: String::from("Automatic provider failover is not currently available in the live runtime."),
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9153,6 +9180,12 @@ planner_provider_settings: PlannerProviderSettings {
     available_modes: vec![ProviderMode::Remote],
     summary: String::from("Planner currently uses configured remote profiles only."),
 },
+provider_failover_settings: ProviderFailoverSettings {
+    planner_available: false,
+    tts_available: false,
+    asr_available: false,
+    summary: String::from("Automatic provider failover is not currently available in the live runtime."),
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9231,6 +9264,12 @@ planner_provider_settings: PlannerProviderSettings {
     available_modes: vec![ProviderMode::Remote],
     summary: String::from("Planner currently uses configured remote profiles only."),
 },
+provider_failover_settings: ProviderFailoverSettings {
+    planner_available: false,
+    tts_available: false,
+    asr_available: false,
+    summary: String::from("Automatic provider failover is not currently available in the live runtime."),
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9300,6 +9339,12 @@ planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
     available_modes: vec![ProviderMode::Remote],
     summary: String::from("Planner currently uses configured remote profiles only."),
+},
+provider_failover_settings: ProviderFailoverSettings {
+    planner_available: false,
+    tts_available: false,
+    asr_available: false,
+    summary: String::from("Automatic provider failover is not currently available in the live runtime."),
 },
         };
         let runtime_status = GetRuntimeStatusData {
@@ -9395,6 +9440,12 @@ planner_provider_settings: PlannerProviderSettings {
     available_modes: vec![ProviderMode::Remote],
     summary: String::from("Planner currently uses configured remote profiles only."),
 },
+provider_failover_settings: ProviderFailoverSettings {
+    planner_available: false,
+    tts_available: false,
+    asr_available: false,
+    summary: String::from("Automatic provider failover is not currently available in the live runtime."),
+},
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: agent_state.page_id.clone(),
@@ -9483,6 +9534,12 @@ planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
     available_modes: vec![ProviderMode::Remote],
     summary: String::from("Planner currently uses configured remote profiles only."),
+},
+provider_failover_settings: ProviderFailoverSettings {
+    planner_available: false,
+    tts_available: false,
+    asr_available: false,
+    summary: String::from("Automatic provider failover is not currently available in the live runtime."),
 },
         };
         let runtime_status = GetRuntimeStatusData {
@@ -9584,6 +9641,12 @@ planner_provider_settings: PlannerProviderSettings {
     available_modes: vec![ProviderMode::Remote],
     summary: String::from("Planner currently uses configured remote profiles only."),
 },
+provider_failover_settings: ProviderFailoverSettings {
+    planner_available: false,
+    tts_available: false,
+    asr_available: false,
+    summary: String::from("Automatic provider failover is not currently available in the live runtime."),
+},
         };
 
         let planner_output = resolve_direct_repeat_command(
@@ -9658,6 +9721,12 @@ planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
     available_modes: vec![ProviderMode::Remote],
     summary: String::from("Planner currently uses configured remote profiles only."),
+},
+provider_failover_settings: ProviderFailoverSettings {
+    planner_available: false,
+    tts_available: false,
+    asr_available: false,
+    summary: String::from("Automatic provider failover is not currently available in the live runtime."),
 },
         };
 
@@ -9739,6 +9808,12 @@ planner_provider_settings: PlannerProviderSettings {
     available_modes: vec![ProviderMode::Remote],
     summary: String::from("Planner currently uses configured remote profiles only."),
 },
+provider_failover_settings: ProviderFailoverSettings {
+    planner_available: false,
+    tts_available: false,
+    asr_available: false,
+    summary: String::from("Automatic provider failover is not currently available in the live runtime."),
+},
         };
 
         let planner_output = resolve_direct_read_title_command(
@@ -9812,6 +9887,12 @@ planner_provider_settings: PlannerProviderSettings {
     active_mode: ProviderMode::Remote,
     available_modes: vec![ProviderMode::Remote],
     summary: String::from("Planner currently uses configured remote profiles only."),
+},
+provider_failover_settings: ProviderFailoverSettings {
+    planner_available: false,
+    tts_available: false,
+    asr_available: false,
+    summary: String::from("Automatic provider failover is not currently available in the live runtime."),
 },
         };
 

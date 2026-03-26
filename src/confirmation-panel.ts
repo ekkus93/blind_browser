@@ -58,6 +58,13 @@ export interface PlannerProviderPanelState {
   summary: string;
 }
 
+export interface ProviderFailoverPanelState {
+  plannerAvailable: boolean;
+  ttsAvailable: boolean;
+  asrAvailable: boolean;
+  summary: string;
+}
+
 export interface UrlInputPanelState {
   draftValue: string;
   currentUrl: string | null;
@@ -93,6 +100,10 @@ function renderTtsVoiceOptionLabel(displayLabel: string, voiceName: string): str
 
 function renderProviderModeLabel(mode: "Local" | "Remote"): string {
   return mode === "Local" ? "Local provider" : "Remote provider";
+}
+
+function renderFailoverAvailabilityLabel(available: boolean): string {
+  return available ? "Available" : "Unavailable";
 }
 
 export function renderConfirmationPanel(state: ConfirmationUiState): string {
@@ -395,6 +406,46 @@ export function renderSettingsPlannerProviderPanel(state: PlannerProviderPanelSt
             ${optionsCopy}
           </select>
         </label>
+      </div>
+    </section>
+  `;
+}
+
+export function renderSettingsProviderFailoverPanel(state: ProviderFailoverPanelState): string {
+  const renderFailoverCard = (
+    providerKey: "planner" | "tts" | "asr",
+    providerLabel: string,
+    available: boolean,
+  ): string => `
+    <label class="settings-control-card" for="settings-provider-failover-${providerKey}">
+      <span class="settings-control-label">${escapeHtml(providerLabel)}</span>
+      <span class="settings-control-value">${escapeHtml(renderFailoverAvailabilityLabel(available))}</span>
+      <input
+        id="settings-provider-failover-${providerKey}"
+        class="settings-control-input"
+        data-provider-failover-toggle="${escapeHtml(providerKey)}"
+        type="checkbox"
+        disabled
+        aria-disabled="true"
+      />
+    </label>
+  `;
+
+  return `
+    <section class="settings-panel" aria-labelledby="settings-provider-failover-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-provider-failover-title">Provider failover</h2>
+        <p class="settings-panel-description">
+          Automatic remote-to-local provider failover is not currently available in the live runtime.
+          These toggles stay read-only until real failover support is implemented.
+        </p>
+        <p class="settings-panel-description">${escapeHtml(state.summary)}</p>
+      </div>
+      <div class="settings-grid">
+        ${renderFailoverCard("planner", "Planner failover", state.plannerAvailable)}
+        ${renderFailoverCard("tts", "TTS failover", state.ttsAvailable)}
+        ${renderFailoverCard("asr", "ASR failover", state.asrAvailable)}
       </div>
     </section>
   `;

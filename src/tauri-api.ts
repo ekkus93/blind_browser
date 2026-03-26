@@ -217,6 +217,13 @@ export interface PlannerProviderSettings {
   summary: string;
 }
 
+export interface ProviderFailoverSettings {
+  planner_available: boolean;
+  tts_available: boolean;
+  asr_available: boolean;
+  summary: string;
+}
+
 export interface ToolHistoryEntry {
   tool_name: ToolName;
   ok: boolean;
@@ -277,6 +284,7 @@ export interface AgentStateData {
   tts_provider_settings: TtsProviderSettings;
   asr_provider_settings: AsrProviderSettings;
   planner_provider_settings: PlannerProviderSettings;
+  provider_failover_settings: ProviderFailoverSettings;
   last_transcript: string | null;
   last_tool_call: LastToolCallSummary | null;
   pending_confirmation_id: string | null;

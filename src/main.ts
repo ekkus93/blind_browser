@@ -5,6 +5,7 @@ import {
   renderConfirmationPanel,
   renderPushToTalkPanel,
   renderSettingsAsrProviderPanel,
+  renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
   renderSettingsTtsProviderPanel,
   renderSettingsTtsModelPanel,
@@ -16,6 +17,7 @@ import {
   type AudioControlsPanelState,
   type AsrProviderPanelState,
   type PlannerProviderPanelState,
+  type ProviderFailoverPanelState,
   type PushToTalkPanelState,
   type StatusPanelState,
   type TtsModelPanelState,
@@ -90,6 +92,7 @@ let currentExecutionUiState = uiStore.getState();
 let pushToTalkState: PushToTalkPanelState = createInitialPushToTalkState();
 let audioControlsState: AudioControlsPanelState = createInitialAudioControlsState();
 let plannerProviderPanelState: PlannerProviderPanelState = createInitialPlannerProviderPanelState();
+let providerFailoverPanelState: ProviderFailoverPanelState = createInitialProviderFailoverPanelState();
 let asrProviderPanelState: AsrProviderPanelState = createInitialAsrProviderPanelState();
 let ttsProviderPanelState: TtsProviderPanelState = createInitialTtsProviderPanelState();
 let ttsModelPanelState: TtsModelPanelState = createInitialTtsModelPanelState();
@@ -137,6 +140,15 @@ function createInitialAsrProviderPanelState(): AsrProviderPanelState {
     availableModes: ["Local", "Remote"],
     isBusy: false,
     error: null,
+  };
+}
+
+function createInitialProviderFailoverPanelState(): ProviderFailoverPanelState {
+  return {
+    plannerAvailable: false,
+    ttsAvailable: false,
+    asrAvailable: false,
+    summary: "Automatic provider failover is not currently available in the live runtime.",
   };
 }
 
@@ -203,6 +215,7 @@ const renderApp = (
   pushToTalk: PushToTalkPanelState,
   audioControls: AudioControlsPanelState,
   plannerProviderPanel: PlannerProviderPanelState,
+  providerFailoverPanel: ProviderFailoverPanelState,
   asrProviderPanel: AsrProviderPanelState,
   ttsProviderPanel: TtsProviderPanelState,
   ttsModelPanel: TtsModelPanelState,
@@ -249,6 +262,7 @@ const renderApp = (
       ${renderStatusPanel(statusPanel)}
       ${renderAudioControlsPanel(audioControls)}
       ${renderSettingsPlannerProviderPanel(plannerProviderPanel)}
+      ${renderSettingsProviderFailoverPanel(providerFailoverPanel)}
       ${renderSettingsAsrProviderPanel(asrProviderPanel)}
       ${renderSettingsTtsProviderPanel(ttsProviderPanel)}
       ${renderSettingsTtsModelPanel(ttsModelPanel)}
@@ -266,6 +280,7 @@ function rerender() {
     pushToTalkState,
     audioControlsState,
     plannerProviderPanelState,
+    providerFailoverPanelState,
     asrProviderPanelState,
     ttsProviderPanelState,
     ttsModelPanelState,
@@ -294,6 +309,14 @@ function setAudioControlsState(nextState: Partial<AudioControlsPanelState>) {
 function setPlannerProviderPanelState(nextState: Partial<PlannerProviderPanelState>) {
   plannerProviderPanelState = {
     ...plannerProviderPanelState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setProviderFailoverPanelState(nextState: Partial<ProviderFailoverPanelState>) {
+  providerFailoverPanelState = {
+    ...providerFailoverPanelState,
     ...nextState,
   };
   rerender();
@@ -434,6 +457,12 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     activeMode: agentState.planner_provider_settings.active_mode,
     availableModes: agentState.planner_provider_settings.available_modes,
     summary: agentState.planner_provider_settings.summary,
+  });
+  setProviderFailoverPanelState({
+    plannerAvailable: agentState.provider_failover_settings.planner_available,
+    ttsAvailable: agentState.provider_failover_settings.tts_available,
+    asrAvailable: agentState.provider_failover_settings.asr_available,
+    summary: agentState.provider_failover_settings.summary,
   });
   setAsrProviderPanelState({
     activeMode: agentState.asr_provider_settings.active_mode,

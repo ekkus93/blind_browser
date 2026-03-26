@@ -317,7 +317,7 @@
 - [x] ASR provider selection
 - [ ] Remote API configuration inputs or references
 - [ ] Local model configuration inputs or references
-- [ ] Provider failover toggle where supported
+- [x] Provider failover toggle where supported
 - [ ] Secret entry UX that stores references or masked secrets safely
 - [ ] Add settings for confirmation threshold and click-without-confirmation behavior
 - [ ] Add settings for OCR thresholds

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="/home/phil/work/blind_browser"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REQUIRED_NODE_VERSION="22.12.0"
 
 echo "==> blind_browser dev environment setup"
