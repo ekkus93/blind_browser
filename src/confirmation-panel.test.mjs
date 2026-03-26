@@ -7,6 +7,7 @@ import {
   renderPushToTalkPanel,
   renderSettingsAsrProviderPanel,
   renderSettingsConfirmationPanel,
+  renderSettingsGuidancePanel,
   renderSettingsOcrThresholdPanel,
   renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
@@ -511,6 +512,22 @@ test("renders OCR threshold settings errors and disabled state while saving", ()
   assert.match(html, /The OCR thresholds could not be saved\./);
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /role="alert"/);
+});
+
+test("renders settings guidance panel for model-related errors", () => {
+  const html = renderSettingsGuidancePanel({
+    title: "Model setup needs attention",
+    message: "The current local TTS model could not be loaded. Review the TTS settings below.",
+    actions: [
+      { label: "Review TTS provider", targetId: "settings-tts-provider-control" },
+      { label: "Review TTS model", targetId: "settings-tts-model-control" },
+    ],
+  });
+
+  assert.match(html, /Model setup needs attention/);
+  assert.match(html, /could not be loaded/);
+  assert.match(html, /data-settings-target="settings-tts-provider-control"/);
+  assert.match(html, /data-settings-target="settings-tts-model-control"/);
 });
 
 test("renders settings ASR provider selection for configured modes", () => {

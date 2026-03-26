@@ -322,7 +322,7 @@
 - [x] Add settings for confirmation threshold and click-without-confirmation behavior
 - [x] Add settings for OCR thresholds
 - [ ] Add model management controls and manual download button
-- [ ] Provide an easy path to config controls from missing-model warnings/errors
+- [x] Provide an easy path to config controls from missing-model warnings/errors
 
 ### Voice Settings Control
 - [x] Add voice commands for playback volume adjustment

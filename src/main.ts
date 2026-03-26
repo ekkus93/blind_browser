@@ -6,6 +6,7 @@ import {
   renderPushToTalkPanel,
   renderSettingsAsrProviderPanel,
   renderSettingsConfirmationPanel,
+  renderSettingsGuidancePanel,
   renderSettingsOcrThresholdPanel,
   renderSettingsProviderFailoverPanel,
   renderSettingsPlannerProviderPanel,
@@ -23,6 +24,7 @@ import {
   type PlannerProviderPanelState,
   type ProviderFailoverPanelState,
   type PushToTalkPanelState,
+  type SettingsGuidancePanelState,
   type StatusPanelState,
   type TtsModelPanelState,
   type TtsProviderPanelState,
@@ -291,6 +293,7 @@ const renderApp = (
       ${renderUrlInputPanel(urlInputPanel)}
       ${renderStatusPanel(statusPanel)}
       ${renderAudioControlsPanel(audioControls)}
+      ${renderSettingsGuidancePanel(currentSettingsGuidanceState())}
       ${renderSettingsPlannerProviderPanel(plannerProviderPanel)}
       ${renderSettingsProviderFailoverPanel(providerFailoverPanel)}
       ${renderSettingsConfirmationPanel(confirmationSettingsPanel)}
@@ -482,6 +485,54 @@ function describeUrlInputFailure(error: unknown): string {
 function describePlannerBlockedMessage(defaultMessage: string, userMessage: string | null): string {
   const trimmed = userMessage?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : defaultMessage;
+}
+
+function guidanceStateForErrorMessage(message: string | null): SettingsGuidancePanelState | null {
+  const normalized = message?.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (
+    normalized.includes("local tts model path")
+    || normalized.includes("failed to load the local tts model")
+    || normalized.includes("tts local profile")
+  ) {
+    return {
+      title: "Model setup needs attention",
+      message: "The current local TTS setup is unavailable. Review the TTS provider or TTS model settings below.",
+      actions: [
+        { label: "Review TTS provider", targetId: "settings-tts-provider-control" },
+        { label: "Review TTS model", targetId: "settings-tts-model-control" },
+      ],
+    };
+  }
+
+  if (
+    normalized.includes("local asr model path")
+    || normalized.includes("failed to load the local asr model")
+    || normalized.includes("asr local profile")
+  ) {
+    return {
+      title: "Model setup needs attention",
+      message: "The current local ASR setup is unavailable. Review the ASR provider settings below.",
+      actions: [{ label: "Review ASR provider", targetId: "settings-asr-provider-control" }],
+    };
+  }
+
+  return null;
+}
+
+function currentSettingsGuidanceState(): SettingsGuidancePanelState | null {
+  return (
+    guidanceStateForErrorMessage(pushToTalkState.lastError)
+    ?? guidanceStateForErrorMessage(urlInputPanelState.error)
+    ?? guidanceStateForErrorMessage(statusPanelState.error)
+    ?? guidanceStateForErrorMessage(ttsProviderPanelState.error)
+    ?? guidanceStateForErrorMessage(ttsModelPanelState.error)
+    ?? guidanceStateForErrorMessage(ttsVoicePanelState.error)
+    ?? guidanceStateForErrorMessage(asrProviderPanelState.error)
+  );
 }
 
 function currentRegionLabelForAgentState(agentState: AgentStateData): string | null {
@@ -1299,6 +1350,30 @@ uiStore.subscribe((uiState) => {
 app.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const settingsTargetButton = target.closest<HTMLButtonElement>("[data-settings-target]");
+  if (settingsTargetButton) {
+    const targetId = settingsTargetButton.dataset.settingsTarget;
+    if (!targetId) {
+      return;
+    }
+
+    const targetElement = document.getElementById(targetId);
+    if (!targetElement) {
+      return;
+    }
+
+    targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (
+      targetElement instanceof HTMLInputElement
+      || targetElement instanceof HTMLSelectElement
+      || targetElement instanceof HTMLButtonElement
+      || targetElement instanceof HTMLTextAreaElement
+    ) {
+      targetElement.focus({ preventScroll: true });
+    }
     return;
   }
 

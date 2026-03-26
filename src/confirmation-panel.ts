@@ -80,6 +80,17 @@ export interface OcrThresholdSettingsPanelState {
   error: string | null;
 }
 
+export interface SettingsGuidancePanelAction {
+  label: string;
+  targetId: string;
+}
+
+export interface SettingsGuidancePanelState {
+  title: string;
+  message: string;
+  actions: SettingsGuidancePanelAction[];
+}
+
 export interface UrlInputPanelState {
   draftValue: string;
   currentUrl: string | null;
@@ -575,6 +586,39 @@ export function renderSettingsOcrThresholdPanel(state: OcrThresholdSettingsPanel
             ${disabledAttribute}
           />
         </label>
+      </div>
+    </section>
+  `;
+}
+
+export function renderSettingsGuidancePanel(state: SettingsGuidancePanelState | null): string {
+  if (!state) {
+    return "";
+  }
+
+  const actionsCopy = state.actions
+    .map(
+      (action) => `
+        <button
+          type="button"
+          class="url-open-button"
+          data-settings-target="${escapeHtml(action.targetId)}"
+        >
+          ${escapeHtml(action.label)}
+        </button>
+      `,
+    )
+    .join("");
+
+  return `
+    <section class="settings-panel" aria-labelledby="settings-guidance-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Guidance</p>
+        <h2 id="settings-guidance-title">${escapeHtml(state.title)}</h2>
+        <p class="settings-panel-description">${escapeHtml(state.message)}</p>
+      </div>
+      <div class="url-input-actions">
+        ${actionsCopy}
       </div>
     </section>
   `;
