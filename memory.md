@@ -174,6 +174,11 @@
 - `src/tauri-api.ts`, `src/confirmation-panel.ts`, `src/confirmation-panel.test.mjs`, and `src/main.ts` now expose a dedicated Settings selector for switching ASR between the configured local and remote providers and surfacing save errors inline.
 - `docs/TODO.md` now marks `ASR provider selection` and `ASR provider selection behavior` complete, and validation is green with `cargo clippy`, `cargo test`, `pnpm test:ui`, and `pnpm build` under the sourced Node 22.12.0 workflow.
 
+## 2026-03-26T07:42:54Z - GPT-5.4 - Planner provider settings are currently remote-only
+- `src-tauri/src/config.rs` still explicitly rejects local planner mode, local planner profiles, and planner failover, so the Settings UI cannot honestly offer a `Local`/`Remote` planner selector yet.
+- `src-tauri/src/app_core.rs`, `src-tauri/src/commands.rs`, `src/tauri-api.ts`, `src/confirmation-panel.ts`, and `src/main.ts` now expose `planner_provider_settings` through `get_agent_state` and render a read-only Settings panel that explains the active remote-only planner constraint.
+- `docs/TODO.md` now marks `Planner provider selection` complete in this remote-only/read-only form, and validation is green with `cargo clippy`, `cargo test`, `pnpm test:ui`, and `pnpm build` under the sourced Node 22.12.0 workflow.
+
 ## 2026-03-24T18:12:24Z - GPT-5.4 - Local planner and failover implemented
 - `src-tauri/src/app_core.rs` now supports local planner resolution through `llama-cpp-2`, using the configured local planner profile, model chat template, bounded token generation, and explicit extraction of the first complete JSON object before `PlannerOutput` deserialization.
 - Remote planner resolution now falls back to the configured local planner only when `providers.planner.failover_to_local = true`, and logs that failover path explicitly instead of silently changing providers.

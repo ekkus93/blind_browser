@@ -5,6 +5,7 @@ import {
   renderConfirmationPanel,
   renderPushToTalkPanel,
   renderSettingsAsrProviderPanel,
+  renderSettingsPlannerProviderPanel,
   renderSettingsTtsProviderPanel,
   renderSettingsTtsModelPanel,
   renderSettingsTtsVoicePanel,
@@ -14,6 +15,7 @@ import {
   renderUrlInputPanel,
   type AudioControlsPanelState,
   type AsrProviderPanelState,
+  type PlannerProviderPanelState,
   type PushToTalkPanelState,
   type StatusPanelState,
   type TtsModelPanelState,
@@ -87,6 +89,7 @@ const CONTINUOUS_LISTEN_CAPTURE_MS = 3_000;
 let currentExecutionUiState = uiStore.getState();
 let pushToTalkState: PushToTalkPanelState = createInitialPushToTalkState();
 let audioControlsState: AudioControlsPanelState = createInitialAudioControlsState();
+let plannerProviderPanelState: PlannerProviderPanelState = createInitialPlannerProviderPanelState();
 let asrProviderPanelState: AsrProviderPanelState = createInitialAsrProviderPanelState();
 let ttsProviderPanelState: TtsProviderPanelState = createInitialTtsProviderPanelState();
 let ttsModelPanelState: TtsModelPanelState = createInitialTtsModelPanelState();
@@ -117,6 +120,14 @@ function createInitialAudioControlsState(): AudioControlsPanelState {
     playbackSpeed: 1,
     isBusy: false,
     error: null,
+  };
+}
+
+function createInitialPlannerProviderPanelState(): PlannerProviderPanelState {
+  return {
+    activeMode: "Remote",
+    availableModes: ["Remote"],
+    summary: "Planner currently uses configured remote profiles only.",
   };
 }
 
@@ -191,6 +202,7 @@ const renderApp = (
   uiState: ExecutionUiState,
   pushToTalk: PushToTalkPanelState,
   audioControls: AudioControlsPanelState,
+  plannerProviderPanel: PlannerProviderPanelState,
   asrProviderPanel: AsrProviderPanelState,
   ttsProviderPanel: TtsProviderPanelState,
   ttsModelPanel: TtsModelPanelState,
@@ -236,6 +248,7 @@ const renderApp = (
       ${renderUrlInputPanel(urlInputPanel)}
       ${renderStatusPanel(statusPanel)}
       ${renderAudioControlsPanel(audioControls)}
+      ${renderSettingsPlannerProviderPanel(plannerProviderPanel)}
       ${renderSettingsAsrProviderPanel(asrProviderPanel)}
       ${renderSettingsTtsProviderPanel(ttsProviderPanel)}
       ${renderSettingsTtsModelPanel(ttsModelPanel)}
@@ -252,6 +265,7 @@ function rerender() {
     currentExecutionUiState,
     pushToTalkState,
     audioControlsState,
+    plannerProviderPanelState,
     asrProviderPanelState,
     ttsProviderPanelState,
     ttsModelPanelState,
@@ -272,6 +286,14 @@ function setPushToTalkState(nextState: Partial<PushToTalkPanelState>) {
 function setAudioControlsState(nextState: Partial<AudioControlsPanelState>) {
   audioControlsState = {
     ...audioControlsState,
+    ...nextState,
+  };
+  rerender();
+}
+
+function setPlannerProviderPanelState(nextState: Partial<PlannerProviderPanelState>) {
+  plannerProviderPanelState = {
+    ...plannerProviderPanelState,
     ...nextState,
   };
   rerender();
@@ -407,6 +429,11 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     playbackVolume: agentState.audio.playback_volume,
     playbackSpeed: agentState.audio.playback_speed,
     error: null,
+  });
+  setPlannerProviderPanelState({
+    activeMode: agentState.planner_provider_settings.active_mode,
+    availableModes: agentState.planner_provider_settings.available_modes,
+    summary: agentState.planner_provider_settings.summary,
   });
   setAsrProviderPanelState({
     activeMode: agentState.asr_provider_settings.active_mode,

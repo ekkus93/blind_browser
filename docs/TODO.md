@@ -312,7 +312,7 @@
 - [x] Speed control
 - [x] Volume control
 - [x] Visible/headless toggle
-- [ ] Planner provider selection
+- [x] Planner provider selection
 - [x] TTS provider selection
 - [x] ASR provider selection
 - [ ] Remote API configuration inputs or references

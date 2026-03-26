@@ -52,6 +52,12 @@ export interface AsrProviderPanelState {
   error: string | null;
 }
 
+export interface PlannerProviderPanelState {
+  activeMode: "Remote";
+  availableModes: ["Remote"] | "Remote"[];
+  summary: string;
+}
+
 export interface UrlInputPanelState {
   draftValue: string;
   currentUrl: string | null;
@@ -353,6 +359,41 @@ export function renderSettingsSpeedPanel(state: AudioControlsPanelState): string
             value="${state.playbackSpeed.toFixed(2)}"
             ${busyAttribute}
           />
+        </label>
+      </div>
+    </section>
+  `;
+}
+
+export function renderSettingsPlannerProviderPanel(state: PlannerProviderPanelState): string {
+  const optionsCopy = state.availableModes
+    .map((mode) => `<option value="${escapeHtml(mode)}" selected>${escapeHtml(renderProviderModeLabel(mode))}</option>`)
+    .join("");
+
+  return `
+    <section class="settings-panel" aria-labelledby="settings-planner-provider-title">
+      <div class="settings-panel-copy">
+        <p class="settings-panel-eyebrow">Settings</p>
+        <h2 id="settings-planner-provider-title">Planner provider selection</h2>
+        <p class="settings-panel-description">
+          The planner currently runs through configured remote profiles only. Local planner mode is
+          not available in the current runtime, so this panel reflects the active remote-only configuration.
+        </p>
+        <p class="settings-panel-description">${escapeHtml(state.summary)}</p>
+      </div>
+      <div class="settings-grid">
+        <label class="settings-control-card" for="settings-planner-provider-control">
+          <span class="settings-control-label">Planner provider</span>
+          <span class="settings-control-value">${escapeHtml(renderProviderModeLabel(state.activeMode))}</span>
+          <select
+            id="settings-planner-provider-control"
+            class="settings-control-select"
+            data-planner-provider-select="true"
+            disabled
+            aria-disabled="true"
+          >
+            ${optionsCopy}
+          </select>
         </label>
       </div>
     </section>

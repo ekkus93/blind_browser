@@ -250,6 +250,7 @@ pub struct AgentStateData {
     pub tts_voice_settings: TtsVoiceSettings,
     pub tts_provider_settings: TtsProviderSettings,
     pub asr_provider_settings: AsrProviderSettings,
+    pub planner_provider_settings: PlannerProviderSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -308,6 +309,13 @@ pub struct TtsProviderSettings {
 pub struct AsrProviderSettings {
     pub active_mode: ProviderMode,
     pub available_modes: Vec<ProviderMode>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct PlannerProviderSettings {
+    pub active_mode: ProviderMode,
+    pub available_modes: Vec<ProviderMode>,
+    pub summary: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -6058,6 +6066,11 @@ mod tests {
                         active_mode: ProviderMode::Local,
                         available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
                     },
+                    planner_provider_settings: PlannerProviderSettings {
+                        active_mode: ProviderMode::Remote,
+                        available_modes: vec![ProviderMode::Remote],
+                        summary: String::from("Planner currently uses configured remote profiles only."),
+                    },
                 },
                 vec![String::from("agent state read")],
             )
@@ -7865,6 +7878,11 @@ mod tests {
                     active_mode: ProviderMode::Local,
                     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
                 },
+                planner_provider_settings: PlannerProviderSettings {
+                    active_mode: ProviderMode::Remote,
+                    available_modes: vec![ProviderMode::Remote],
+                    summary: String::from("Planner currently uses configured remote profiles only."),
+                },
             },
             safety: PlannerSafetySettings {
                 confirmation_confidence_threshold: 0.9,
@@ -9045,6 +9063,11 @@ asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
 },
+planner_provider_settings: PlannerProviderSettings {
+    active_mode: ProviderMode::Remote,
+    available_modes: vec![ProviderMode::Remote],
+    summary: String::from("Planner currently uses configured remote profiles only."),
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9125,6 +9148,11 @@ asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
 },
+planner_provider_settings: PlannerProviderSettings {
+    active_mode: ProviderMode::Remote,
+    available_modes: vec![ProviderMode::Remote],
+    summary: String::from("Planner currently uses configured remote profiles only."),
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9198,6 +9226,11 @@ asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
 },
+planner_provider_settings: PlannerProviderSettings {
+    active_mode: ProviderMode::Remote,
+    available_modes: vec![ProviderMode::Remote],
+    summary: String::from("Planner currently uses configured remote profiles only."),
+},
         };
 
         let planner_output = resolve_direct_read_page_command(
@@ -9262,6 +9295,11 @@ asr_provider_settings: AsrProviderSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+planner_provider_settings: PlannerProviderSettings {
+    active_mode: ProviderMode::Remote,
+    available_modes: vec![ProviderMode::Remote],
+    summary: String::from("Planner currently uses configured remote profiles only."),
 },
         };
         let runtime_status = GetRuntimeStatusData {
@@ -9352,6 +9390,11 @@ asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
 },
+planner_provider_settings: PlannerProviderSettings {
+    active_mode: ProviderMode::Remote,
+    available_modes: vec![ProviderMode::Remote],
+    summary: String::from("Planner currently uses configured remote profiles only."),
+},
         };
         let runtime_status = GetRuntimeStatusData {
             page_id: agent_state.page_id.clone(),
@@ -9435,6 +9478,11 @@ asr_provider_settings: AsrProviderSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+planner_provider_settings: PlannerProviderSettings {
+    active_mode: ProviderMode::Remote,
+    available_modes: vec![ProviderMode::Remote],
+    summary: String::from("Planner currently uses configured remote profiles only."),
 },
         };
         let runtime_status = GetRuntimeStatusData {
@@ -9531,6 +9579,11 @@ asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
 },
+planner_provider_settings: PlannerProviderSettings {
+    active_mode: ProviderMode::Remote,
+    available_modes: vec![ProviderMode::Remote],
+    summary: String::from("Planner currently uses configured remote profiles only."),
+},
         };
 
         let planner_output = resolve_direct_repeat_command(
@@ -9600,6 +9653,11 @@ asr_provider_settings: AsrProviderSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+planner_provider_settings: PlannerProviderSettings {
+    active_mode: ProviderMode::Remote,
+    available_modes: vec![ProviderMode::Remote],
+    summary: String::from("Planner currently uses configured remote profiles only."),
 },
         };
 
@@ -9676,6 +9734,11 @@ asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
 },
+planner_provider_settings: PlannerProviderSettings {
+    active_mode: ProviderMode::Remote,
+    available_modes: vec![ProviderMode::Remote],
+    summary: String::from("Planner currently uses configured remote profiles only."),
+},
         };
 
         let planner_output = resolve_direct_read_title_command(
@@ -9744,6 +9807,11 @@ asr_provider_settings: AsrProviderSettings {
 asr_provider_settings: AsrProviderSettings {
     active_mode: ProviderMode::Local,
     available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+},
+planner_provider_settings: PlannerProviderSettings {
+    active_mode: ProviderMode::Remote,
+    available_modes: vec![ProviderMode::Remote],
+    summary: String::from("Planner currently uses configured remote profiles only."),
 },
         };
 

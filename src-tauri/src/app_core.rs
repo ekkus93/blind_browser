@@ -38,8 +38,8 @@ use crate::commands::{
     StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
     SubmitActiveFormInput, ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData,
     TranscribeCommandData, TranscribeCommandInput, TtsModelOption, TtsModelSettings,
-    AsrProviderSettings, TtsProviderSettings, TtsVoiceOption, TtsVoiceSettings,
-    TypeIntoElementData,
+    AsrProviderSettings, PlannerProviderSettings, TtsProviderSettings,
+    TtsVoiceOption, TtsVoiceSettings, TypeIntoElementData,
     TypeIntoElementInput,
 };
 use crate::config::{
@@ -2819,6 +2819,10 @@ impl AppCore {
         build_asr_provider_settings(&self.config)
     }
 
+    fn current_planner_provider_settings(&self) -> PlannerProviderSettings {
+        build_planner_provider_settings(&self.config)
+    }
+
     pub fn execute_read_region(&mut self, input: ReadRegionInput) -> ToolResult<ReadRegionData> {
         self.sync_narration_playback_state();
         let region_id = input.region_id.trim().to_string();
@@ -3531,6 +3535,7 @@ impl AppCore {
             tts_voice_settings: self.current_tts_voice_settings(),
             tts_provider_settings: self.current_tts_provider_settings(),
             asr_provider_settings: self.current_asr_provider_settings(),
+            planner_provider_settings: self.current_planner_provider_settings(),
         }
     }
 
@@ -4114,6 +4119,15 @@ fn build_tts_provider_settings(config: &AppConfig) -> TtsProviderSettings {
     TtsProviderSettings {
         active_mode: config.providers.tts.mode.clone(),
         available_modes,
+    }
+}
+
+fn build_planner_provider_settings(config: &AppConfig) -> PlannerProviderSettings {
+    let active_mode = config.providers.planner.mode.clone();
+    PlannerProviderSettings {
+        active_mode,
+        available_modes: vec![crate::config::ProviderMode::Remote],
+        summary: String::from("Planner currently uses configured remote profiles only."),
     }
 }
 
@@ -6352,6 +6366,7 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
 mod tests {
     use super::{
         build_asr_provider_settings, build_extracted_page_model, build_find_element_query,
+        build_planner_provider_settings,
         build_tts_provider_settings, build_tts_voice_settings, build_visible_text_excerpt,
         determine_find_element_resolution,
         execute_bounded_replanning_loop, extracted_text_metrics, filter_interactive_elements,
@@ -6375,6 +6390,20 @@ mod tests {
         ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, Rect,
         RegionSource,
     };
+    #[test]
+    fn build_planner_provider_settings_reports_remote_only_mode() {
+        let config = AppConfig::default();
+
+        let settings = build_planner_provider_settings(&config);
+
+        assert_eq!(settings.active_mode, ProviderMode::Remote);
+        assert_eq!(settings.available_modes, vec![ProviderMode::Remote]);
+        assert_eq!(
+            settings.summary,
+            String::from("Planner currently uses configured remote profiles only.")
+        );
+    }
+
     #[test]
     fn build_asr_provider_settings_returns_available_modes() {
         let config = AppConfig::default();

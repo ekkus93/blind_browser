@@ -211,6 +211,12 @@ export interface AsrProviderSettings {
   available_modes: SelectableProviderMode[];
 }
 
+export interface PlannerProviderSettings {
+  active_mode: "Remote";
+  available_modes: ["Remote"] | "Remote"[];
+  summary: string;
+}
+
 export interface ToolHistoryEntry {
   tool_name: ToolName;
   ok: boolean;
@@ -270,6 +276,7 @@ export interface AgentStateData {
   tts_voice_settings: TtsVoiceSettings;
   tts_provider_settings: TtsProviderSettings;
   asr_provider_settings: AsrProviderSettings;
+  planner_provider_settings: PlannerProviderSettings;
   last_transcript: string | null;
   last_tool_call: LastToolCallSummary | null;
   pending_confirmation_id: string | null;
