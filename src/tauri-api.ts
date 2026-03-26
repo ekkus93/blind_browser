@@ -415,6 +415,7 @@ export interface AvailableTool {
   name: ToolName;
   description: string;
   input_schema_ref: string;
+  output_schema_ref: string;
 }
 
 export interface PlannerInput {

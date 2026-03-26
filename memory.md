@@ -934,3 +934,12 @@
 ## 2026-03-26T21:29:59Z - GPT-5.4 - Validation rerun stayed green after enum cleanup
 - Re-ran the standard repo validation pass after the config/runtime enum cleanup and existing schema-contract changes without making further code changes.
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed, Rust unit/integration tests remained `202` passed, and `pnpm test:ui` remained `48` passed.
+
+## 2026-03-26T21:49:02Z - GPT-5.4 - Wave 1 tool output schemas are now exported and regression-tested
+- `src-tauri/src/commands.rs` now exposes `tool_output_schema(&ToolName)` for every registered deterministic tool, using the concrete `ToolResult<T>` envelope schema instead of only exposing input schemas.
+- `AvailableTool` now includes `output_schema_ref` alongside `input_schema_ref`, and that planner-visible contract is reflected in `docs/SPECS.md` and `src/tauri-api.ts`.
+- Added regression coverage that every registered tool exposes an output schema and that representative serialized tool results produced through `execute_planned_step` match the generated output schema; validation is green with `cargo fmt --manifest-path src-tauri/Cargo.toml --all`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`205` Rust tests, `48` UI tests).
+
+## 2026-03-26T21:53:08Z - GPT-5.4 - Validation rerun stayed green after Wave 1 output-schema work
+- Re-ran the standard validation pass after exporting per-tool output schemas and adding output-schema regression tests, without further code changes.
+- `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed, Rust tests remained `205` passed, and `pnpm test:ui` remained `48` passed.

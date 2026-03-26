@@ -1967,6 +1967,7 @@ struct AvailableTool {
   name: String,
   description: String,
   input_schema_ref: String,
+  output_schema_ref: String,
 }
 
 struct SkillSummary {

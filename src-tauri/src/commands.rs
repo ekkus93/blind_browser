@@ -204,6 +204,7 @@ pub struct AvailableTool {
     pub name: ToolName,
     pub description: String,
     pub input_schema_ref: String,
+    pub output_schema_ref: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -1464,6 +1465,7 @@ pub fn registered_tools() -> Vec<AvailableTool> {
     .into_iter()
     .map(|name| AvailableTool {
         input_schema_ref: format!("schema://tool-input/{name:?}"),
+        output_schema_ref: format!("schema://tool-output/{name:?}"),
         description: format!("Deterministic tool contract for {name:?}."),
         name,
     })
@@ -1745,6 +1747,48 @@ pub fn tool_input_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
         ToolName::GetRuntimeStatus => Some(schema_json::<GetRuntimeStatusInput>()),
         ToolName::ConfirmAction => Some(schema_json::<ConfirmActionInput>()),
         ToolName::ReportResult => Some(schema_json::<ReportResultInput>()),
+    }
+}
+
+pub fn tool_output_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
+    match tool_name {
+        ToolName::OpenUrl => Some(schema_json::<ToolResult<OpenUrlData>>()),
+        ToolName::GoBack => Some(schema_json::<ToolResult<GoBackData>>()),
+        ToolName::GoForward => Some(schema_json::<ToolResult<GoForwardData>>()),
+        ToolName::ReloadPage => Some(schema_json::<ToolResult<ReloadPageData>>()),
+        ToolName::ScrollPage => Some(schema_json::<ToolResult<ScrollPageData>>()),
+        ToolName::CaptureScreenshot => Some(schema_json::<ToolResult<CaptureScreenshotData>>()),
+        ToolName::RunOcr => Some(schema_json::<ToolResult<RunOcrData>>()),
+        ToolName::MergeOcrIntoPageModel => {
+            Some(schema_json::<ToolResult<MergeOcrIntoPageModelData>>())
+        }
+        ToolName::SetBrowserVisibility => {
+            Some(schema_json::<ToolResult<SetBrowserVisibilityData>>())
+        }
+        ToolName::GetPageSnapshot => Some(schema_json::<ToolResult<PageSnapshotData>>()),
+        ToolName::ExtractPageModel => Some(schema_json::<ToolResult<ExtractPageModelData>>()),
+        ToolName::ListInteractiveElements => {
+            Some(schema_json::<ToolResult<ListInteractiveElementsData>>())
+        }
+        ToolName::FindElement => Some(schema_json::<ToolResult<FindElementData>>()),
+        ToolName::ClickElement => Some(schema_json::<ToolResult<ClickElementData>>()),
+        ToolName::FocusElement => Some(schema_json::<ToolResult<FocusElementData>>()),
+        ToolName::TypeIntoElement => Some(schema_json::<ToolResult<TypeIntoElementData>>()),
+        ToolName::SubmitActiveForm => Some(schema_json::<ToolResult<SubmitActiveFormData>>()),
+        ToolName::ReadRegion => Some(schema_json::<ToolResult<ReadRegionData>>()),
+        ToolName::ReadNextRegion => Some(schema_json::<ToolResult<ReadNextRegionData>>()),
+        ToolName::ReadPreviousRegion => Some(schema_json::<ToolResult<ReadPreviousRegionData>>()),
+        ToolName::StopSpeaking => Some(schema_json::<ToolResult<StopSpeakingData>>()),
+        ToolName::StartListening => Some(schema_json::<ToolResult<StartListeningData>>()),
+        ToolName::StopListening => Some(schema_json::<ToolResult<StopListeningData>>()),
+        ToolName::TranscribeCommand => Some(schema_json::<ToolResult<TranscribeCommandData>>()),
+        ToolName::SetTtsVoice => Some(schema_json::<ToolResult<SetTtsVoiceData>>()),
+        ToolName::SetPlaybackVolume => Some(schema_json::<ToolResult<SetPlaybackVolumeData>>()),
+        ToolName::SetPlaybackSpeed => Some(schema_json::<ToolResult<SetPlaybackSpeedData>>()),
+        ToolName::GetAgentState => Some(schema_json::<ToolResult<AgentStateData>>()),
+        ToolName::GetRuntimeStatus => Some(schema_json::<ToolResult<GetRuntimeStatusData>>()),
+        ToolName::ConfirmAction => Some(schema_json::<ToolResult<ConfirmActionData>>()),
+        ToolName::ReportResult => Some(schema_json::<ToolResult<ReportResultData>>()),
     }
 }
 
@@ -6584,6 +6628,435 @@ mod tests {
         }
     }
 
+    fn sample_planned_step(tool_name: ToolName) -> PlannedStep {
+        match tool_name {
+            ToolName::OpenUrl => PlannedStep {
+                step_id: String::from("step-open-url"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-open-url",
+                    "timeout_ms": 1000,
+                    "url": "https://example.com/article",
+                    "wait_for_load_state": "NetworkIdle"
+                }),
+                purpose: String::from("navigate to a page"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::GoBack => PlannedStep {
+                step_id: String::from("step-go-back"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-go-back",
+                    "timeout_ms": 1000,
+                    "steps": 2,
+                    "wait_for_load_state": "Load"
+                }),
+                purpose: String::from("go back in history"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::GoForward => PlannedStep {
+                step_id: String::from("step-go-forward"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-go-forward",
+                    "timeout_ms": 1000,
+                    "steps": 1,
+                    "wait_for_load_state": "NetworkIdle"
+                }),
+                purpose: String::from("go forward in history"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::ReloadPage => PlannedStep {
+                step_id: String::from("step-reload"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-reload",
+                    "timeout_ms": 1000,
+                    "hard_reload": true,
+                    "wait_for_load_state": "Load"
+                }),
+                purpose: String::from("reload the current page"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::ScrollPage => PlannedStep {
+                step_id: String::from("step-scroll"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-scroll",
+                    "timeout_ms": 1000,
+                    "direction": "Down",
+                    "amount_px": 480.0,
+                    "target": null
+                }),
+                purpose: String::from("scroll the page"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::CaptureScreenshot => PlannedStep {
+                step_id: String::from("step-capture-screenshot"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-capture-screenshot",
+                    "timeout_ms": 1000,
+                    "full_page": false,
+                    "region_id": serde_json::Value::Null,
+                    "bbox": {
+                        "x": 10.0,
+                        "y": 20.0,
+                        "width": 300.0,
+                        "height": 120.0
+                    }
+                }),
+                purpose: String::from("capture a deterministic screenshot"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::SetBrowserVisibility => PlannedStep {
+                step_id: String::from("step-set-browser-visibility"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-visibility",
+                    "timeout_ms": 1000,
+                    "mode": "Headless"
+                }),
+                purpose: String::from("toggle browser visibility"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::GetPageSnapshot => PlannedStep {
+                step_id: String::from("step-snapshot"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-snapshot",
+                    "timeout_ms": 1000,
+                    "include_interactive_elements": true,
+                    "text_excerpt_max_chars": 120
+                }),
+                purpose: String::from("read current page snapshot"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::ExtractPageModel => PlannedStep {
+                step_id: String::from("step-extract"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-extract",
+                    "timeout_ms": 1000,
+                    "use_dom_extraction": true,
+                    "include_headings": true,
+                    "include_links": false
+                }),
+                purpose: String::from("extract a page model"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::ListInteractiveElements => PlannedStep {
+                step_id: String::from("step-list"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-list",
+                    "timeout_ms": 1000,
+                    "visible_only": true,
+                    "roles": ["Button"]
+                }),
+                purpose: String::from("list visible buttons"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::FindElement => PlannedStep {
+                step_id: String::from("step-find"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-find",
+                    "timeout_ms": 1000,
+                    "description": "continue",
+                    "text": null,
+                    "role": "Button",
+                    "color_hint": null,
+                    "nearby_text": null,
+                    "selector_hint": null,
+                    "visible_only": true,
+                    "max_candidates": 3
+                }),
+                purpose: String::from("find the continue button"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::ClickElement => PlannedStep {
+                step_id: String::from("step-click"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-click",
+                    "timeout_ms": 1000,
+                    "element_id": "button-1",
+                    "double_click": false
+                }),
+                purpose: String::from("click the resolved button"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::FocusElement => PlannedStep {
+                step_id: String::from("step-focus"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-focus",
+                    "timeout_ms": 1000,
+                    "element_id": "input-1"
+                }),
+                purpose: String::from("focus the resolved field"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::TypeIntoElement => PlannedStep {
+                step_id: String::from("step-type"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-type",
+                    "timeout_ms": 1000,
+                    "element_id": "input-1",
+                    "text": "phil@example.com",
+                    "clear_first": true,
+                    "submit_after": false
+                }),
+                purpose: String::from("type into the resolved field"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::SubmitActiveForm => PlannedStep {
+                step_id: String::from("step-submit"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-submit",
+                    "timeout_ms": 1000,
+                    "form_element_id": "form-login"
+                }),
+                purpose: String::from("submit the active form"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::ReadRegion => PlannedStep {
+                step_id: String::from("step-read-region"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-read-region",
+                    "timeout_ms": 1000,
+                    "region_id": "region-2",
+                    "interrupt_current": true
+                }),
+                purpose: String::from("read a specific region"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::ReadNextRegion => PlannedStep {
+                step_id: String::from("step-read-next"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-read-next",
+                    "timeout_ms": 1000,
+                    "interrupt_current": false
+                }),
+                purpose: String::from("read the next region"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::ReadPreviousRegion => PlannedStep {
+                step_id: String::from("step-read-previous"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-read-previous",
+                    "timeout_ms": 1000,
+                    "interrupt_current": true
+                }),
+                purpose: String::from("read the previous region"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::StopSpeaking => PlannedStep {
+                step_id: String::from("step-stop-speaking"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-stop-speaking",
+                    "timeout_ms": 1000
+                }),
+                purpose: String::from("stop current narration"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::StartListening => PlannedStep {
+                step_id: String::from("step-start-listening"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-start-listening",
+                    "timeout_ms": 1500
+                }),
+                purpose: String::from("start listening"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::StopListening => PlannedStep {
+                step_id: String::from("step-stop-listening"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-stop-listening"
+                }),
+                purpose: String::from("stop listening"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::TranscribeCommand => PlannedStep {
+                step_id: String::from("step-transcribe-command"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-transcribe-command",
+                    "timeout_ms": 2000,
+                    "max_duration_ms": 3000,
+                    "auto_stop": true
+                }),
+                purpose: String::from("transcribe a command"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::SetTtsVoice => PlannedStep {
+                step_id: String::from("step-set-tts-voice"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-set-tts-voice",
+                    "timeout_ms": 1000,
+                    "voice": "Bruno"
+                }),
+                purpose: String::from("change the TTS voice"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::SetPlaybackVolume => PlannedStep {
+                step_id: String::from("step-set-playback-volume"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-set-playback-volume",
+                    "timeout_ms": 1000,
+                    "volume": 0.4
+                }),
+                purpose: String::from("update volume"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::SetPlaybackSpeed => PlannedStep {
+                step_id: String::from("step-set-playback-speed"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-set-playback-speed",
+                    "timeout_ms": 1000,
+                    "speed": 1.2
+                }),
+                purpose: String::from("update speed"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::RunOcr => PlannedStep {
+                step_id: String::from("step-run-ocr"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-run-ocr",
+                    "timeout_ms": 1000,
+                    "image_id": "image-1",
+                    "region_id": serde_json::Value::Null,
+                    "bbox": {
+                        "x": 4.0,
+                        "y": 8.0,
+                        "width": 120.0,
+                        "height": 48.0
+                    }
+                }),
+                purpose: String::from("run OCR on a cached screenshot"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::MergeOcrIntoPageModel => PlannedStep {
+                step_id: String::from("step-merge-ocr"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-merge-ocr",
+                    "timeout_ms": 1000,
+                    "page_id": "page-1",
+                    "region_id": "region-2",
+                    "ocr_text": "Recovered readable text",
+                    "source_bbox": {
+                        "x": 10.0,
+                        "y": 12.0,
+                        "width": 200.0,
+                        "height": 80.0
+                    }
+                }),
+                purpose: String::from("merge OCR text into the runtime page model"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::GetAgentState => PlannedStep {
+                step_id: String::from("step-get-agent-state"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-agent-state",
+                    "timeout_ms": 1000,
+                    "include_last_transcript": false
+                }),
+                purpose: String::from("read agent state"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::GetRuntimeStatus => PlannedStep {
+                step_id: String::from("step-get-runtime-status"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-runtime-status",
+                    "timeout_ms": 1000,
+                    "include_provider_modes": true
+                }),
+                purpose: String::from("read runtime status"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::ConfirmAction => PlannedStep {
+                step_id: String::from("step-confirm-action"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-confirm-action",
+                    "timeout_ms": 1000,
+                    "prompt_text": "Do you want me to continue?",
+                    "reason": "The next step may submit data."
+                }),
+                purpose: String::from("request confirmation"),
+                on_success: StepTransition::RequestConfirmation,
+                on_failure: StepTransition::Replan,
+            },
+            ToolName::ReportResult => PlannedStep {
+                step_id: String::from("step-report-result"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-report-result",
+                    "timeout_ms": 1000,
+                    "status": "Success",
+                    "summary": "Opened the requested page.",
+                    "next_recommended_action": null,
+                    "user_message": "The page is ready."
+                }),
+                purpose: String::from("report completion"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
+        }
+    }
+
+    fn sample_planned_steps_for_registered_tools() -> Vec<PlannedStep> {
+        registered_tools()
+            .into_iter()
+            .map(|tool| sample_planned_step(tool.name))
+            .collect()
+    }
+
     #[test]
     fn dispatches_set_playback_volume_from_planned_step() {
         let mut executor = MockExecutor::default();
@@ -8130,6 +8603,53 @@ mod tests {
             missing.is_empty(),
             "registered tools missing input schemas: {missing:?}"
         );
+    }
+
+    #[test]
+    fn registered_tools_all_expose_output_schemas() {
+        let missing = registered_tools()
+            .into_iter()
+            .filter(|tool| tool_output_schema(&tool.name).is_none())
+            .map(|tool| tool.name)
+            .collect::<Vec<_>>();
+
+        assert!(
+            missing.is_empty(),
+            "registered tools missing output schemas: {missing:?}"
+        );
+    }
+
+    #[test]
+    fn registered_tools_include_output_schema_refs() {
+        for tool in registered_tools() {
+            assert_eq!(
+                tool.output_schema_ref,
+                format!("schema://tool-output/{:?}", tool.name)
+            );
+        }
+    }
+
+    #[test]
+    fn sample_serialized_tool_results_match_generated_tool_output_schemas() {
+        let mut executor = MockExecutor::default();
+
+        for step in sample_planned_steps_for_registered_tools() {
+            let result = execute_planned_step(&mut executor, &step);
+            let serialized =
+                serde_json::to_value(&result).expect("serialized tool result should serialize");
+            let schema = tool_output_schema(&step.tool_name).unwrap_or_else(|| {
+                panic!(
+                    "sample tool result uses tool {:?} without an output schema",
+                    step.tool_name
+                )
+            });
+            assert_json_matches_schema(&serialized, &schema).unwrap_or_else(|error| {
+                panic!(
+                    "sample serialized {:?} result should match generated output schema: {error}",
+                    step.tool_name
+                )
+            });
+        }
     }
 
     #[test]

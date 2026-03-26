@@ -107,7 +107,7 @@
 - [x] Implement `confirm_action`
 - [x] Implement `report_result`
 - [ ] Finalize input schema for all Wave 1 tools
-- [ ] Finalize output schema for all Wave 1 tools
+- [x] Finalize output schema for all Wave 1 tools
 - [ ] Finalize shared enums for Wave 1 tools
 
 ### Browser Module
