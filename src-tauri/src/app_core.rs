@@ -44,7 +44,8 @@ use crate::commands::{
     TypeIntoElementInput,
 };
 use crate::config::{
-    AppConfig, AudioSettings, ConfigError, RemotePlannerProfile, RemoteProviderKind, SecretRef,
+    resolve_secret_ref, secret_ref_reference, AppConfig, AudioSettings, ConfigError,
+    RemotePlannerProfile, RemoteProviderKind,
 };
 use crate::narration::{
     cursor_for_index, find_region_index, next_region_index, previous_region_index,
@@ -325,6 +326,39 @@ impl AppCore {
         let config =
             AppConfig::persist_asr_provider_selection_for_app(&self.app_handle, &selection)?;
         self.config = config;
+        Ok(())
+    }
+
+    pub fn set_remote_planner_api_key(
+        &mut self,
+        profile_name: &str,
+        api_key: &str,
+    ) -> Result<(), ConfigError> {
+        self.config = AppConfig::persist_remote_planner_api_key_for_app(
+            &self.app_handle,
+            profile_name,
+            api_key,
+        )?;
+        Ok(())
+    }
+
+    pub fn set_remote_tts_api_key(
+        &mut self,
+        profile_name: &str,
+        api_key: &str,
+    ) -> Result<(), ConfigError> {
+        self.config =
+            AppConfig::persist_remote_tts_api_key_for_app(&self.app_handle, profile_name, api_key)?;
+        Ok(())
+    }
+
+    pub fn set_remote_asr_api_key(
+        &mut self,
+        profile_name: &str,
+        api_key: &str,
+    ) -> Result<(), ConfigError> {
+        self.config =
+            AppConfig::persist_remote_asr_api_key_for_app(&self.app_handle, profile_name, api_key)?;
         Ok(())
     }
 
@@ -2834,15 +2868,15 @@ impl AppCore {
         build_planner_provider_settings(&self.config)
     }
 
-    fn current_remote_planner_settings(&self) -> RemotePlannerSettings {
+    pub fn current_remote_planner_settings(&self) -> RemotePlannerSettings {
         build_remote_planner_settings(&self.config)
     }
 
-    fn current_remote_tts_settings(&self) -> RemoteTtsSettings {
+    pub fn current_remote_tts_settings(&self) -> RemoteTtsSettings {
         build_remote_tts_settings(&self.config)
     }
 
-    fn current_remote_asr_settings(&self) -> RemoteAsrSettings {
+    pub fn current_remote_asr_settings(&self) -> RemoteAsrSettings {
         build_remote_asr_settings(&self.config)
     }
 
@@ -4232,14 +4266,6 @@ fn remote_provider_label(provider: &RemoteProviderKind) -> String {
     }
 }
 
-fn secret_ref_reference(secret_ref: &SecretRef) -> String {
-    match secret_ref {
-        SecretRef::FromEnv { from_env } => format!("Environment variable: {from_env}"),
-        SecretRef::FromFile { from_file } => format!("File reference: {from_file}"),
-        SecretRef::Inline { .. } => String::from("Inline secret stored in config"),
-    }
-}
-
 fn build_remote_planner_settings(config: &AppConfig) -> RemotePlannerSettings {
     let profile_name = config.providers.planner.remote_profile.clone();
     let profile = profile_name
@@ -5049,25 +5075,6 @@ fn asr_runtime_error_to_tool_error(error: &AsrRuntimeError) -> ToolError {
         ),
         details: None,
     }
-}
-
-fn resolve_secret_ref(secret_ref: &SecretRef) -> Result<String, String> {
-    match secret_ref {
-        SecretRef::FromEnv { from_env } => std::env::var(from_env)
-            .map(|value| value.trim().to_string())
-            .map_err(|error| format!("failed to read environment variable '{from_env}': {error}")),
-        SecretRef::FromFile { from_file } => fs::read_to_string(from_file)
-            .map(|value| value.trim().to_string())
-            .map_err(|error| format!("failed to read secret file '{from_file}': {error}")),
-        SecretRef::Inline { inline } => Ok(inline.trim().to_string()),
-    }
-    .and_then(|value| {
-        if value.is_empty() {
-            Err(String::from("resolved secret value was empty"))
-        } else {
-            Ok(value)
-        }
-    })
 }
 
 fn planner_system_prompt() -> &'static str {

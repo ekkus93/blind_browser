@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(test)]
+use std::sync::{Mutex, OnceLock};
 
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -41,6 +43,8 @@ pub enum ConfigError {
     Parse(#[from] toml::de::Error),
     #[error("failed to serialize config TOML: {0}")]
     Serialize(#[from] toml::ser::Error),
+    #[error("failed to access the system keyring: {0}")]
+    Keyring(String),
     #[error("config validation failed:\n{0}")]
     Validation(String),
 }
@@ -53,10 +57,17 @@ pub enum ProviderMode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct KeyringRef {
+    pub service: String,
+    pub account: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum SecretRef {
     FromEnv { from_env: String },
     FromFile { from_file: String },
+    FromKeyring { from_keyring: KeyringRef },
     Inline { inline: String },
 }
 
@@ -268,6 +279,33 @@ impl AppConfig {
         Self::persist_ocr_settings_at_path(&config_path, ocr)
     }
 
+    pub fn persist_remote_planner_api_key_for_app(
+        app_handle: &AppHandle,
+        profile_name: &str,
+        api_key: &str,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::persist_remote_api_key_at_path(&config_path, profile_name, api_key, "planner")
+    }
+
+    pub fn persist_remote_tts_api_key_for_app(
+        app_handle: &AppHandle,
+        profile_name: &str,
+        api_key: &str,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::persist_remote_api_key_at_path(&config_path, profile_name, api_key, "tts")
+    }
+
+    pub fn persist_remote_asr_api_key_for_app(
+        app_handle: &AppHandle,
+        profile_name: &str,
+        api_key: &str,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::persist_remote_api_key_at_path(&config_path, profile_name, api_key, "asr")
+    }
+
     pub fn persist_audio_settings_at_path(
         path: impl AsRef<Path>,
         audio: &AudioSettings,
@@ -349,6 +387,83 @@ impl AppConfig {
         };
 
         document.insert(String::from("ocr"), toml::Value::try_from(ocr.clone())?);
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
+                path: parent.to_path_buf(),
+                source,
+            })?;
+        }
+
+        let serialized = toml::to_string_pretty(&document)?;
+        fs::write(path, serialized).map_err(|source| ConfigError::Write {
+            path: path.to_path_buf(),
+            source,
+        })?;
+
+        Self::load_from_path(path)
+    }
+
+    pub fn persist_remote_api_key_at_path(
+        path: impl AsRef<Path>,
+        profile_name: &str,
+        api_key: &str,
+        provider_kind: &str,
+    ) -> Result<Self, ConfigError> {
+        let path = path.as_ref();
+        let normalized_profile_name = profile_name.trim();
+        if normalized_profile_name.is_empty() {
+            return Err(ConfigError::Validation(String::from(
+                "remote API key persistence requires a non-empty configured profile name",
+            )));
+        }
+
+        let normalized_api_key = api_key.trim();
+        if normalized_api_key.is_empty() {
+            return Err(ConfigError::Validation(String::from(
+                "remote API key persistence requires a non-empty API key value",
+            )));
+        }
+
+        let keyring_ref = keyring_ref_for_remote_api_key(provider_kind, normalized_profile_name);
+        set_keyring_secret(
+            &keyring_ref.service,
+            &keyring_ref.account,
+            normalized_api_key,
+        )
+        .map_err(ConfigError::Keyring)?;
+
+        let mut document = if path.exists() {
+            load_document_table_from_path(path)?
+        } else {
+            load_document_table_from_str(Self::default_template())?
+        };
+
+        let remote_profiles_value = document
+            .entry(String::from("remote_profiles"))
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        let Some(remote_profiles_table) = remote_profiles_value.as_table_mut() else {
+            return Err(ConfigError::Validation(String::from(
+                "remote_profiles must remain a TOML table",
+            )));
+        };
+
+        let Some(profile_value) = remote_profiles_table.get_mut(normalized_profile_name) else {
+            return Err(ConfigError::Validation(format!(
+                "remote_profiles.{normalized_profile_name} is not configured"
+            )));
+        };
+        let Some(profile_table) = profile_value.as_table_mut() else {
+            return Err(ConfigError::Validation(format!(
+                "remote_profiles.{normalized_profile_name} must remain a TOML table"
+            )));
+        };
+        profile_table.insert(
+            String::from("api_key"),
+            toml::Value::try_from(SecretRef::FromKeyring {
+                from_keyring: keyring_ref,
+            })?,
+        );
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
@@ -521,6 +636,98 @@ impl AppConfig {
             speech_feedback: raw.speech_feedback,
         })
     }
+}
+
+pub fn keyring_ref_for_remote_api_key(provider_kind: &str, profile_name: &str) -> KeyringRef {
+    KeyringRef {
+        service: String::from("blind_browser"),
+        account: format!("remote_{provider_kind}:{profile_name}:api_key"),
+    }
+}
+
+pub fn secret_ref_reference(secret_ref: &SecretRef) -> String {
+    match secret_ref {
+        SecretRef::FromEnv { from_env } => format!("Environment variable: {from_env}"),
+        SecretRef::FromFile { from_file } => format!("File reference: {from_file}"),
+        SecretRef::FromKeyring { from_keyring } => {
+            format!(
+                "OS keyring entry: {} / {}",
+                from_keyring.service, from_keyring.account
+            )
+        }
+        SecretRef::Inline { .. } => String::from("Inline secret stored in config"),
+    }
+}
+
+pub fn resolve_secret_ref(secret_ref: &SecretRef) -> Result<String, String> {
+    match secret_ref {
+        SecretRef::FromEnv { from_env } => std::env::var(from_env)
+            .map(|value| value.trim().to_string())
+            .map_err(|error| format!("failed to read environment variable '{from_env}': {error}")),
+        SecretRef::FromFile { from_file } => fs::read_to_string(from_file)
+            .map(|value| value.trim().to_string())
+            .map_err(|error| format!("failed to read secret file '{from_file}': {error}")),
+        SecretRef::FromKeyring { from_keyring } => {
+            get_keyring_secret(&from_keyring.service, &from_keyring.account)
+        }
+        SecretRef::Inline { inline } => Ok(inline.trim().to_string()),
+    }
+    .and_then(|value| {
+        if value.is_empty() {
+            Err(String::from("resolved secret value was empty"))
+        } else {
+            Ok(value)
+        }
+    })
+}
+
+#[cfg(not(test))]
+fn set_keyring_secret(service: &str, account: &str, secret: &str) -> Result<(), String> {
+    let entry = keyring::Entry::new(service, account)
+        .map_err(|error| format!("failed to open keyring entry '{service}/{account}': {error}"))?;
+    entry
+        .set_password(secret)
+        .map_err(|error| format!("failed to store keyring secret '{service}/{account}': {error}"))
+}
+
+#[cfg(not(test))]
+fn get_keyring_secret(service: &str, account: &str) -> Result<String, String> {
+    let entry = keyring::Entry::new(service, account)
+        .map_err(|error| format!("failed to open keyring entry '{service}/{account}': {error}"))?;
+    entry
+        .get_password()
+        .map_err(|error| format!("failed to read keyring secret '{service}/{account}': {error}"))
+}
+
+#[cfg(test)]
+fn set_keyring_secret(service: &str, account: &str, secret: &str) -> Result<(), String> {
+    let store = test_keyring_store();
+    let mut store = store
+        .lock()
+        .map_err(|_| String::from("failed to acquire the in-memory test keyring lock"))?;
+    store.insert(
+        (String::from(service), String::from(account)),
+        String::from(secret),
+    );
+    Ok(())
+}
+
+#[cfg(test)]
+fn get_keyring_secret(service: &str, account: &str) -> Result<String, String> {
+    let store = test_keyring_store();
+    let store = store
+        .lock()
+        .map_err(|_| String::from("failed to acquire the in-memory test keyring lock"))?;
+    store
+        .get(&(String::from(service), String::from(account)))
+        .cloned()
+        .ok_or_else(|| format!("failed to read keyring secret '{service}/{account}': no entry"))
+}
+
+#[cfg(test)]
+fn test_keyring_store() -> &'static Mutex<BTreeMap<(String, String), String>> {
+    static STORE: OnceLock<Mutex<BTreeMap<(String, String), String>>> = OnceLock::new();
+    STORE.get_or_init(|| Mutex::new(BTreeMap::new()))
 }
 
 fn load_document_table_from_path(path: &Path) -> Result<toml::Table, ConfigError> {
@@ -844,8 +1051,8 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        AppConfig, AudioSettings, ConfigError, ProviderMode, ProviderSelection, RemoteProviderKind,
-        SafetySettings,
+        keyring_ref_for_remote_api_key, resolve_secret_ref, AppConfig, AudioSettings, ConfigError,
+        KeyringRef, ProviderMode, ProviderSelection, RemoteProviderKind, SafetySettings, SecretRef,
     };
     use crate::ocr::OcrSettings;
 
@@ -1222,6 +1429,70 @@ threads = 4
 
         if let Some(parent) = path.parent() {
             let _ = std::fs::remove_dir_all(parent);
+        }
+    }
+
+    #[test]
+    fn persists_remote_planner_api_key_to_keyring_reference_and_reloads_it() {
+        let path = test_config_path("persist_remote_planner_api_key");
+
+        let persisted = AppConfig::persist_remote_api_key_at_path(
+            &path,
+            "openai-default",
+            "super-secret",
+            "planner",
+        )
+        .expect("remote planner API key should persist successfully");
+        let reloaded = AppConfig::load_from_path(&path).expect("persisted config should reload");
+
+        let expected_keyring_ref = keyring_ref_for_remote_api_key("planner", "openai-default");
+
+        let expected_secret_ref = SecretRef::FromKeyring {
+            from_keyring: KeyringRef {
+                service: expected_keyring_ref.service.clone(),
+                account: expected_keyring_ref.account.clone(),
+            },
+        };
+
+        assert_eq!(
+            persisted
+                .remote_planner_profiles
+                .get("openai-default")
+                .expect("planner profile should remain present")
+                .api_key,
+            expected_secret_ref
+        );
+        assert_eq!(
+            reloaded
+                .remote_planner_profiles
+                .get("openai-default")
+                .expect("planner profile should reload")
+                .api_key,
+            expected_secret_ref
+        );
+        assert_eq!(
+            resolve_secret_ref(&expected_secret_ref).expect("keyring secret should resolve"),
+            "super-secret"
+        );
+
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::remove_dir_all(parent);
+        }
+    }
+
+    #[test]
+    fn rejects_empty_remote_api_key_persistence_input() {
+        let path = test_config_path("reject_empty_remote_api_key");
+
+        let error =
+            AppConfig::persist_remote_api_key_at_path(&path, "openai-default", "   ", "planner")
+                .expect_err("empty API key should be rejected");
+
+        match error {
+            ConfigError::Validation(message) => {
+                assert!(message.contains("non-empty API key value"));
+            }
+            other => panic!("expected validation error, got {other}"),
         }
     }
 }

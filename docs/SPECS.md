@@ -279,6 +279,7 @@ Secrets should be referenced, not embedded directly in the primary config, whene
 ```rust
 enum SecretRef {
   FromEnv { from_env: String },
+  FromKeyring { from_keyring: { service: String, account: String } },
   FromFile { from_file: String },
   Inline { inline: String },
 }
@@ -287,12 +288,14 @@ enum SecretRef {
 Recommended precedence for secrets:
 
 1. environment variable reference
-2. file reference
-3. inline secret only as a last resort
+2. OS keyring reference
+3. file reference
+4. inline secret only as a last resort
 
 ### Secret Handling Rules
 
 - The main config should prefer `from_env` for API keys.
+- `from_keyring` is acceptable for UI-entered secrets when the app stores only a keyring reference in TOML.
 - `from_file` is acceptable for local deployments where environment management is inconvenient.
 - `inline` secrets should be supported only for development or explicit user choice.
 - Secrets must never be written to logs.

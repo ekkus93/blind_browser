@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use schemars::JsonSchema;
@@ -6,7 +5,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::audio_io::RuntimeAudioState;
-use crate::config::{AppConfig, ProviderMode, RemoteProviderKind, RemoteTtsProfile, SecretRef};
+use crate::config::{
+    resolve_secret_ref, AppConfig, ProviderMode, RemoteProviderKind, RemoteTtsProfile,
+};
 
 #[cfg(feature = "local-tts")]
 use kitten_tts::model::KittenTTS;
@@ -397,25 +398,6 @@ fn parse_openai_speech_response_format(
             audio_format: audio_format.trim().to_string(),
         }),
     }
-}
-
-fn resolve_secret_ref(secret_ref: &SecretRef) -> Result<String, String> {
-    match secret_ref {
-        SecretRef::FromEnv { from_env } => std::env::var(from_env)
-            .map(|value| value.trim().to_string())
-            .map_err(|error| format!("failed to read environment variable '{from_env}': {error}")),
-        SecretRef::FromFile { from_file } => fs::read_to_string(from_file)
-            .map(|value| value.trim().to_string())
-            .map_err(|error| format!("failed to read secret file '{from_file}': {error}")),
-        SecretRef::Inline { inline } => Ok(inline.trim().to_string()),
-    }
-    .and_then(|value| {
-        if value.is_empty() {
-            Err(String::from("resolved secret value was empty"))
-        } else {
-            Ok(value)
-        }
-    })
 }
 
 fn normalized_model_path(model_path: &str) -> Result<PathBuf, TtsRuntimeError> {

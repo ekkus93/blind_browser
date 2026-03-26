@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -12,7 +11,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::config::{
-    AppConfig, LocalAsrProfile, ProviderMode, RemoteAsrProfile, RemoteProviderKind, SecretRef,
+    resolve_secret_ref, AppConfig, LocalAsrProfile, ProviderMode, RemoteAsrProfile,
+    RemoteProviderKind,
 };
 
 #[cfg(feature = "audio")]
@@ -594,25 +594,6 @@ fn normalized_optional_string(value: Option<&str>) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
-}
-
-fn resolve_secret_ref(secret_ref: &SecretRef) -> Result<String, String> {
-    match secret_ref {
-        SecretRef::FromEnv { from_env } => std::env::var(from_env)
-            .map(|value| value.trim().to_string())
-            .map_err(|error| format!("failed to read environment variable '{from_env}': {error}")),
-        SecretRef::FromFile { from_file } => fs::read_to_string(from_file)
-            .map(|value| value.trim().to_string())
-            .map_err(|error| format!("failed to read secret file '{from_file}': {error}")),
-        SecretRef::Inline { inline } => Ok(inline.trim().to_string()),
-    }
-    .and_then(|value| {
-        if value.is_empty() {
-            Err(String::from("resolved secret value was empty"))
-        } else {
-            Ok(value)
-        }
-    })
 }
 
 fn encode_wav_pcm16(samples: &[f32], sample_rate: u32, channels: u16) -> Result<Vec<u8>, String> {

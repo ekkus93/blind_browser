@@ -448,13 +448,18 @@ test("renders remote planner API reference details", () => {
     temperatureMilli: 200,
     maxOutputTokens: 1024,
     timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    error: null,
   });
 
   assert.match(html, /Remote planner API reference/);
-  assert.match(html, /Secret values stay masked/i);
+  assert.match(html, /stored in the OS keyring/i);
   assert.match(html, /openai-default/);
   assert.match(html, /OPENAI_API_KEY/);
   assert.match(html, /1024/);
+  assert.match(html, /data-remote-api-key-input="planner"/);
+  assert.match(html, /data-remote-api-key-save="planner"/);
 });
 
 test("renders settings provider failover as read-only unavailable controls", () => {
@@ -613,6 +618,9 @@ test("renders remote ASR API reference details", () => {
     language: "en",
     temperatureMilli: 0,
     timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    error: null,
   });
 
   assert.match(html, /Remote ASR API reference/);
@@ -620,6 +628,8 @@ test("renders remote ASR API reference details", () => {
   assert.match(html, /openai-transcribe-default/);
   assert.match(html, /OPENAI_API_KEY/);
   assert.match(html, /gpt-4o-mini-transcribe/);
+  assert.match(html, /data-remote-api-key-input="asr"/);
+  assert.match(html, /Save API key/);
 });
 
 test("renders settings TTS provider selection for configured modes", () => {
@@ -698,6 +708,9 @@ test("renders remote TTS API reference details", () => {
     voice: "alloy",
     audioFormat: "wav",
     timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    error: null,
   });
 
   assert.match(html, /Remote TTS API reference/);
@@ -705,6 +718,30 @@ test("renders remote TTS API reference details", () => {
   assert.match(html, /openai-tts-default/);
   assert.match(html, /OPENAI_API_KEY/);
   assert.match(html, /alloy/);
+  assert.match(html, /data-remote-api-key-input="tts"/);
+  assert.match(html, /OS keyring/i);
+});
+
+test("renders remote planner API key save errors and disabled state while saving", () => {
+  const html = renderSettingsRemotePlannerPanel({
+    profileName: "openai-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-5.4-mini",
+    apiKeyReference: "OS keyring entry: blind_browser \/ remote_planner:openai-default:api_key",
+    organizationReference: null,
+    project: null,
+    temperatureMilli: 200,
+    maxOutputTokens: 1024,
+    timeoutMs: 30000,
+    apiKeyDraft: "secret-value",
+    isSavingApiKey: true,
+    error: "The remote planner API key could not be saved.",
+  });
+
+  assert.match(html, /The remote planner API key could not be saved\./);
+  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /role="alert"/);
 });
 
 test("renders settings TTS model errors and disabled state while saving", () => {

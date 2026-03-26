@@ -55,6 +55,9 @@ import {
   openUrl,
   resolveCommand,
   setAllowClickWithoutConfirmation,
+  setRemoteAsrApiKey,
+  setRemotePlannerApiKey,
+  setRemoteTtsApiKey,
   setBrowserVisibility,
   setAsrProviderSelection,
   setConfirmationThreshold,
@@ -172,6 +175,9 @@ function createInitialRemotePlannerPanelState(): RemotePlannerPanelState {
     temperatureMilli: null,
     maxOutputTokens: null,
     timeoutMs: null,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    error: null,
   };
 }
 
@@ -207,6 +213,9 @@ function createInitialRemoteAsrPanelState(): RemoteAsrPanelState {
     language: null,
     temperatureMilli: null,
     timeoutMs: null,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    error: null,
   };
 }
 
@@ -270,6 +279,9 @@ function createInitialRemoteTtsPanelState(): RemoteTtsPanelState {
     voice: null,
     audioFormat: null,
     timeoutMs: null,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    error: null,
   };
 }
 
@@ -661,6 +673,52 @@ function guidanceStateForErrorMessage(message: string | null): SettingsGuidanceP
     };
   }
 
+  if (
+    normalized.includes("planner api key")
+    || normalized.includes("planner_secret_unavailable")
+    || normalized.includes("remote planner secret")
+    || normalized.includes("keyring secret")
+  ) {
+    return {
+      title: "Remote planner secret needs attention",
+      message: "The current remote planner secret is unavailable. Review the planner API reference and save a replacement key below.",
+      actions: [
+        { label: "Review planner API reference", targetId: "settings-remote-planner-title" },
+        { label: "Enter planner API key", targetId: "settings-remote-planner-api-key-input" },
+      ],
+    };
+  }
+
+  if (
+    normalized.includes("tts api key")
+    || normalized.includes("tts_secret_unavailable")
+    || normalized.includes("remote tts secret")
+  ) {
+    return {
+      title: "Remote TTS secret needs attention",
+      message: "The current remote TTS secret is unavailable. Review the remote TTS profile and save a replacement key below.",
+      actions: [
+        { label: "Review remote TTS profile", targetId: "settings-remote-tts-title" },
+        { label: "Enter remote TTS API key", targetId: "settings-remote-tts-api-key-input" },
+      ],
+    };
+  }
+
+  if (
+    normalized.includes("asr api key")
+    || normalized.includes("asr_secret_unavailable")
+    || normalized.includes("remote asr secret")
+  ) {
+    return {
+      title: "Remote ASR secret needs attention",
+      message: "The current remote ASR secret is unavailable. Review the remote ASR profile and save a replacement key below.",
+      actions: [
+        { label: "Review remote ASR profile", targetId: "settings-remote-asr-title" },
+        { label: "Enter remote ASR API key", targetId: "settings-remote-asr-api-key-input" },
+      ],
+    };
+  }
+
   return null;
 }
 
@@ -673,6 +731,9 @@ function currentSettingsGuidanceState(): SettingsGuidancePanelState | null {
     ?? guidanceStateForErrorMessage(ttsModelPanelState.error)
     ?? guidanceStateForErrorMessage(ttsVoicePanelState.error)
     ?? guidanceStateForErrorMessage(asrProviderPanelState.error)
+    ?? guidanceStateForErrorMessage(remotePlannerPanelState.error)
+    ?? guidanceStateForErrorMessage(remoteTtsPanelState.error)
+    ?? guidanceStateForErrorMessage(remoteAsrPanelState.error)
   );
 }
 
@@ -1303,6 +1364,135 @@ async function persistOcrThresholds(nextCharThreshold: number, nextRegionThresho
   }
 }
 
+async function persistRemotePlannerApiKey() {
+  const profileName = remotePlannerPanelState.profileName;
+  const apiKey = remotePlannerPanelState.apiKeyDraft.trim();
+  if (!profileName) {
+    setRemotePlannerPanelState({
+      error: "No remote planner profile is configured for secure API key entry.",
+    });
+    return;
+  }
+  if (apiKey.length === 0) {
+    setRemotePlannerPanelState({
+      error: "Enter a remote planner API key before saving.",
+    });
+    return;
+  }
+
+  setRemotePlannerPanelState({
+    isSavingApiKey: true,
+    error: null,
+  });
+
+  try {
+    const result = await setRemotePlannerApiKey({
+      requestId: createRequestId("remote-planner-api-key"),
+      profileName,
+      apiKey,
+    });
+    setRemotePlannerPanelState({
+      profileName: result.profile_name,
+      apiKeyReference: result.api_key_reference,
+      apiKeyDraft: "",
+      isSavingApiKey: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setRemotePlannerPanelState({
+      isSavingApiKey: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function persistRemoteTtsApiKey() {
+  const profileName = remoteTtsPanelState.profileName;
+  const apiKey = remoteTtsPanelState.apiKeyDraft.trim();
+  if (!profileName) {
+    setRemoteTtsPanelState({
+      error: "No remote TTS profile is configured for secure API key entry.",
+    });
+    return;
+  }
+  if (apiKey.length === 0) {
+    setRemoteTtsPanelState({
+      error: "Enter a remote TTS API key before saving.",
+    });
+    return;
+  }
+
+  setRemoteTtsPanelState({
+    isSavingApiKey: true,
+    error: null,
+  });
+
+  try {
+    const result = await setRemoteTtsApiKey({
+      requestId: createRequestId("remote-tts-api-key"),
+      profileName,
+      apiKey,
+    });
+    setRemoteTtsPanelState({
+      profileName: result.profile_name,
+      apiKeyReference: result.api_key_reference,
+      apiKeyDraft: "",
+      isSavingApiKey: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setRemoteTtsPanelState({
+      isSavingApiKey: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function persistRemoteAsrApiKey() {
+  const profileName = remoteAsrPanelState.profileName;
+  const apiKey = remoteAsrPanelState.apiKeyDraft.trim();
+  if (!profileName) {
+    setRemoteAsrPanelState({
+      error: "No remote ASR profile is configured for secure API key entry.",
+    });
+    return;
+  }
+  if (apiKey.length === 0) {
+    setRemoteAsrPanelState({
+      error: "Enter a remote ASR API key before saving.",
+    });
+    return;
+  }
+
+  setRemoteAsrPanelState({
+    isSavingApiKey: true,
+    error: null,
+  });
+
+  try {
+    const result = await setRemoteAsrApiKey({
+      requestId: createRequestId("remote-asr-api-key"),
+      profileName,
+      apiKey,
+    });
+    setRemoteAsrPanelState({
+      profileName: result.profile_name,
+      apiKeyReference: result.api_key_reference,
+      apiKeyDraft: "",
+      isSavingApiKey: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setRemoteAsrPanelState({
+      isSavingApiKey: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
 async function openDraftUrl() {
   if (isUrlInputActionBusy()) {
     return;
@@ -1570,6 +1760,27 @@ app.addEventListener("click", (event) => {
     return;
   }
 
+  const remoteApiKeySaveButton = target.closest<HTMLButtonElement>("[data-remote-api-key-save]");
+  if (remoteApiKeySaveButton) {
+    if (remoteApiKeySaveButton.disabled) {
+      return;
+    }
+
+    const kind = remoteApiKeySaveButton.dataset.remoteApiKeySave;
+    if (kind === "planner") {
+      void persistRemotePlannerApiKey();
+      return;
+    }
+    if (kind === "tts") {
+      void persistRemoteTtsApiKey();
+      return;
+    }
+    if (kind === "asr") {
+      void persistRemoteAsrApiKey();
+      return;
+    }
+  }
+
   const visibilityButton = target.closest<HTMLButtonElement>("[data-browser-visibility-mode]");
   if (visibilityButton) {
     if (statusPanelState.isUpdatingVisibility || visibilityButton.disabled) {
@@ -1723,6 +1934,30 @@ app.addEventListener("input", (event) => {
   if (target.dataset.ocrThresholdControl === "region") {
     setOcrThresholdSettingsPanelState({
       sparseTextRegionThreshold: Number.parseInt(target.value, 10),
+      error: null,
+    });
+    return;
+  }
+
+  if (target.dataset.remoteApiKeyInput === "planner") {
+    setRemotePlannerPanelState({
+      apiKeyDraft: target.value,
+      error: null,
+    });
+    return;
+  }
+
+  if (target.dataset.remoteApiKeyInput === "tts") {
+    setRemoteTtsPanelState({
+      apiKeyDraft: target.value,
+      error: null,
+    });
+    return;
+  }
+
+  if (target.dataset.remoteApiKeyInput === "asr") {
+    setRemoteAsrPanelState({
+      apiKeyDraft: target.value,
       error: null,
     });
     return;

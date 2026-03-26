@@ -348,6 +348,12 @@ struct SetOcrThresholdsData {
     changed: bool,
 }
 
+#[derive(serde::Serialize)]
+struct SetRemoteApiKeyData {
+    profile_name: String,
+    api_key_reference: String,
+}
+
 #[tauri::command]
 fn set_allow_click_without_confirmation(
     request_id: String,
@@ -405,6 +411,152 @@ fn set_ocr_thresholds(
         sparse_text_char_threshold,
         sparse_text_region_threshold,
         changed,
+    })
+}
+
+#[tauri::command]
+fn set_remote_planner_api_key(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    profile_name: String,
+    api_key: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<SetRemoteApiKeyData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let profile_name = profile_name.trim().to_string();
+    let api_key = api_key.trim().to_string();
+    if profile_name.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_planner_profile"),
+            message: String::from(
+                "Remote planner API key entry requires a configured profile name.",
+            ),
+            retryable: false,
+            details: None,
+        });
+    }
+    if api_key.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_planner_api_key"),
+            message: String::from("Remote planner API key entry requires a non-empty API key."),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    app_core
+        .set_remote_planner_api_key(&profile_name, &api_key)
+        .map_err(|error| ToolError {
+            code: String::from("remote_planner_api_key_persist_failed"),
+            message: format!("Failed to persist the requested remote planner API key: {error}"),
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(SetRemoteApiKeyData {
+        profile_name: profile_name.clone(),
+        api_key_reference: app_core
+            .current_remote_planner_settings()
+            .api_key_reference
+            .unwrap_or_default(),
+    })
+}
+
+#[tauri::command]
+fn set_remote_tts_api_key(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    profile_name: String,
+    api_key: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<SetRemoteApiKeyData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let profile_name = profile_name.trim().to_string();
+    let api_key = api_key.trim().to_string();
+    if profile_name.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_tts_profile"),
+            message: String::from("Remote TTS API key entry requires a configured profile name."),
+            retryable: false,
+            details: None,
+        });
+    }
+    if api_key.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_tts_api_key"),
+            message: String::from("Remote TTS API key entry requires a non-empty API key."),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    app_core
+        .set_remote_tts_api_key(&profile_name, &api_key)
+        .map_err(|error| ToolError {
+            code: String::from("remote_tts_api_key_persist_failed"),
+            message: format!("Failed to persist the requested remote TTS API key: {error}"),
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(SetRemoteApiKeyData {
+        profile_name: profile_name.clone(),
+        api_key_reference: app_core
+            .current_remote_tts_settings()
+            .api_key_reference
+            .unwrap_or_default(),
+    })
+}
+
+#[tauri::command]
+fn set_remote_asr_api_key(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    profile_name: String,
+    api_key: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<SetRemoteApiKeyData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let profile_name = profile_name.trim().to_string();
+    let api_key = api_key.trim().to_string();
+    if profile_name.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_asr_profile"),
+            message: String::from("Remote ASR API key entry requires a configured profile name."),
+            retryable: false,
+            details: None,
+        });
+    }
+    if api_key.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_asr_api_key"),
+            message: String::from("Remote ASR API key entry requires a non-empty API key."),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    app_core
+        .set_remote_asr_api_key(&profile_name, &api_key)
+        .map_err(|error| ToolError {
+            code: String::from("remote_asr_api_key_persist_failed"),
+            message: format!("Failed to persist the requested remote ASR API key: {error}"),
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(SetRemoteApiKeyData {
+        profile_name: profile_name.clone(),
+        api_key_reference: app_core
+            .current_remote_asr_settings()
+            .api_key_reference
+            .unwrap_or_default(),
     })
 }
 
@@ -472,6 +624,9 @@ pub fn run() {
             set_confirmation_threshold,
             set_allow_click_without_confirmation,
             set_ocr_thresholds,
+            set_remote_planner_api_key,
+            set_remote_tts_api_key,
+            set_remote_asr_api_key,
             set_tts_provider_selection,
             set_asr_provider_selection,
             set_tts_model_selection

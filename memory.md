@@ -901,3 +901,8 @@
 - Extended `get_agent_state` with read-only remote planner, remote TTS, and remote ASR settings payloads so the frontend can show the configured active remote profile details without exposing raw secrets.
 - Added dedicated Settings panels for the remote planner/TTS/ASR profiles, including masked secret-reference sources such as environment-variable and file references instead of inline secret values.
 - Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`192` Rust tests, `45` UI tests).
+
+## 2026-03-26T18:22:40Z - GPT-5.4 - Settings now support keyring-backed remote API key entry
+- Extended `SecretRef` with `from_keyring` support, centralized secret resolution/reference formatting, and added config persistence helpers that store UI-entered remote API keys in the OS keyring while writing only a keyring reference back to `config.toml`.
+- Added Tauri commands and frontend settings controls for secure API key entry on the remote planner, remote TTS, and remote ASR panels, plus guidance that points users back to those controls when remote-secret errors surface.
+- Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`194` Rust tests, `46` UI tests).

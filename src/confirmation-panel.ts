@@ -87,6 +87,9 @@ export interface RemotePlannerPanelState {
   temperatureMilli: number | null;
   maxOutputTokens: number | null;
   timeoutMs: number | null;
+  apiKeyDraft: string;
+  isSavingApiKey: boolean;
+  error: string | null;
 }
 
 export interface RemoteTtsPanelState {
@@ -100,6 +103,9 @@ export interface RemoteTtsPanelState {
   voice: string | null;
   audioFormat: string | null;
   timeoutMs: number | null;
+  apiKeyDraft: string;
+  isSavingApiKey: boolean;
+  error: string | null;
 }
 
 export interface RemoteAsrPanelState {
@@ -113,6 +119,9 @@ export interface RemoteAsrPanelState {
   language: string | null;
   temperatureMilli: number | null;
   timeoutMs: number | null;
+  apiKeyDraft: string;
+  isSavingApiKey: boolean;
+  error: string | null;
 }
 
 export interface ProviderFailoverPanelState {
@@ -203,6 +212,49 @@ function renderReadOnlySettingValue(value: string | number | null): string {
   }
 
   return escapeHtml(`${value}`);
+}
+
+function renderSecretEntryCard(
+  kind: "planner" | "tts" | "asr",
+  profileName: string | null,
+  apiKeyDraft: string,
+  isSavingApiKey: boolean,
+): string {
+  const disabledAttribute = isSavingApiKey ? " disabled aria-disabled=\"true\"" : "";
+  const saveDisabledAttribute =
+    isSavingApiKey || profileName === null || apiKeyDraft.trim().length === 0
+      ? " disabled aria-disabled=\"true\""
+      : "";
+
+  return `
+    <div class="settings-control-card settings-secret-entry-card">
+      <span class="settings-control-label">Secure API key entry</span>
+      <span class="settings-control-value">Store in OS keyring</span>
+      <input
+        id="settings-remote-${kind}-api-key-input"
+        class="settings-control-select"
+        data-remote-api-key-input="${escapeHtml(kind)}"
+        type="password"
+        value="${escapeHtml(apiKeyDraft)}"
+        placeholder="Enter a replacement API key"
+        autocomplete="off"
+        spellcheck="false"
+        ${disabledAttribute}
+      />
+      <button
+        type="button"
+        class="settings-control-button"
+        data-remote-api-key-save="${escapeHtml(kind)}"
+        ${saveDisabledAttribute}
+      >
+        Save API key
+      </button>
+      <p class="settings-panel-description">
+        Saving stores the secret in the OS keyring and updates the config to keep only a masked
+        keyring reference.
+      </p>
+    </div>
+  `;
 }
 
 export function renderConfirmationPanel(state: ConfirmationUiState): string {
@@ -511,6 +563,10 @@ export function renderSettingsPlannerProviderPanel(state: PlannerProviderPanelSt
 }
 
 export function renderSettingsRemotePlannerPanel(state: RemotePlannerPanelState): string {
+  const errorCopy = state.error
+    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+
   return `
     <section class="settings-panel" aria-labelledby="settings-remote-planner-title">
       <div class="settings-panel-copy">
@@ -518,8 +574,9 @@ export function renderSettingsRemotePlannerPanel(state: RemotePlannerPanelState)
         <h2 id="settings-remote-planner-title">Remote planner API reference</h2>
         <p class="settings-panel-description">
           Review the configured remote planner profile and API references. Secret values stay masked
-          here; edit the app config directly to change those references.
+          here, and replacement API keys are stored in the OS keyring instead of the config file.
         </p>
+        ${errorCopy}
       </div>
       <div class="settings-grid">
         <div class="settings-control-card">
@@ -562,6 +619,7 @@ export function renderSettingsRemotePlannerPanel(state: RemotePlannerPanelState)
           <span class="settings-control-label">Timeout (ms)</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.timeoutMs)}</span>
         </div>
+        ${renderSecretEntryCard("planner", state.profileName, state.apiKeyDraft, state.isSavingApiKey)}
       </div>
     </section>
   `;
@@ -829,6 +887,10 @@ export function renderSettingsLocalTtsModelPanel(state: LocalTtsModelPanelState)
 }
 
 export function renderSettingsRemoteTtsPanel(state: RemoteTtsPanelState): string {
+  const errorCopy = state.error
+    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+
   return `
     <section class="settings-panel" aria-labelledby="settings-remote-tts-title">
       <div class="settings-panel-copy">
@@ -836,8 +898,10 @@ export function renderSettingsRemoteTtsPanel(state: RemoteTtsPanelState): string
         <h2 id="settings-remote-tts-title">Remote TTS API reference</h2>
         <p class="settings-panel-description">
           Review the configured remote TTS profile that will be used whenever TTS runs in remote
-          mode. Secret values stay masked here; edit the app config directly to change them.
+          mode. Secret values stay masked here, and replacement API keys are stored in the OS
+          keyring instead of the config file.
         </p>
+        ${errorCopy}
       </div>
       <div class="settings-grid">
         <div class="settings-control-card">
@@ -880,6 +944,7 @@ export function renderSettingsRemoteTtsPanel(state: RemoteTtsPanelState): string
           <span class="settings-control-label">Timeout (ms)</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.timeoutMs)}</span>
         </div>
+        ${renderSecretEntryCard("tts", state.profileName, state.apiKeyDraft, state.isSavingApiKey)}
       </div>
     </section>
   `;
@@ -968,6 +1033,10 @@ export function renderSettingsLocalAsrModelPanel(state: LocalAsrModelPanelState)
 }
 
 export function renderSettingsRemoteAsrPanel(state: RemoteAsrPanelState): string {
+  const errorCopy = state.error
+    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
+    : "";
+
   return `
     <section class="settings-panel" aria-labelledby="settings-remote-asr-title">
       <div class="settings-panel-copy">
@@ -975,8 +1044,10 @@ export function renderSettingsRemoteAsrPanel(state: RemoteAsrPanelState): string
         <h2 id="settings-remote-asr-title">Remote ASR API reference</h2>
         <p class="settings-panel-description">
           Review the configured remote ASR profile that will be used whenever ASR runs in remote
-          mode. Secret values stay masked here; edit the app config directly to change them.
+          mode. Secret values stay masked here, and replacement API keys are stored in the OS
+          keyring instead of the config file.
         </p>
+        ${errorCopy}
       </div>
       <div class="settings-grid">
         <div class="settings-control-card">
@@ -1019,6 +1090,7 @@ export function renderSettingsRemoteAsrPanel(state: RemoteAsrPanelState): string
           <span class="settings-control-label">Timeout (ms)</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.timeoutMs)}</span>
         </div>
+        ${renderSecretEntryCard("asr", state.profileName, state.apiKeyDraft, state.isSavingApiKey)}
       </div>
     </section>
   `;

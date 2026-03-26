@@ -640,6 +640,35 @@ h1 {
   opacity: 0.6;
 }
 
+.settings-control-button {
+  width: fit-content;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #29583f, #347f55);
+  color: #f6f2eb;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.settings-control-button:hover:not(:disabled),
+.settings-control-button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(41, 88, 63, 0.2);
+}
+
+.settings-control-button:disabled {
+  cursor: progress;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+.settings-secret-entry-card {
+  gap: 12px;
+}
+
 .settings-control-input:disabled {
   cursor: progress;
   opacity: 0.6;

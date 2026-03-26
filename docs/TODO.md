@@ -318,7 +318,7 @@
 - [x] Remote API configuration inputs or references
 - [x] Local model configuration inputs or references
 - [x] Provider failover toggle where supported
-- [ ] Secret entry UX that stores references or masked secrets safely
+- [x] Secret entry UX that stores references or masked secrets safely
 - [x] Add settings for confirmation threshold and click-without-confirmation behavior
 - [x] Add settings for OCR thresholds
 - [ ] Add model management controls and manual download button

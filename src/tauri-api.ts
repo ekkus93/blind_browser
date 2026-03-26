@@ -274,6 +274,11 @@ export interface RemoteAsrSettings {
   timeout_ms: number | null;
 }
 
+export interface SetRemoteApiKeyData {
+  profile_name: string;
+  api_key_reference: string;
+}
+
 export interface ProviderFailoverSettings {
   planner_available: boolean;
   tts_available: boolean;
@@ -684,6 +689,48 @@ export async function setOcrThresholds(input: {
     timeoutMs: input.timeoutMs,
     sparseTextCharThreshold: input.sparseTextCharThreshold,
     sparseTextRegionThreshold: input.sparseTextRegionThreshold,
+  });
+}
+
+export async function setRemotePlannerApiKey(input: {
+  requestId: string;
+  timeoutMs?: number;
+  profileName: string;
+  apiKey: string;
+}): Promise<SetRemoteApiKeyData> {
+  return invoke<SetRemoteApiKeyData>("set_remote_planner_api_key", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    profileName: input.profileName,
+    apiKey: input.apiKey,
+  });
+}
+
+export async function setRemoteTtsApiKey(input: {
+  requestId: string;
+  timeoutMs?: number;
+  profileName: string;
+  apiKey: string;
+}): Promise<SetRemoteApiKeyData> {
+  return invoke<SetRemoteApiKeyData>("set_remote_tts_api_key", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    profileName: input.profileName,
+    apiKey: input.apiKey,
+  });
+}
+
+export async function setRemoteAsrApiKey(input: {
+  requestId: string;
+  timeoutMs?: number;
+  profileName: string;
+  apiKey: string;
+}): Promise<SetRemoteApiKeyData> {
+  return invoke<SetRemoteApiKeyData>("set_remote_asr_api_key", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    profileName: input.profileName,
+    apiKey: input.apiKey,
   });
 }
 
