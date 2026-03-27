@@ -128,10 +128,10 @@
 - [x] Validate dom_smoothie output quality against target page model
 - [x] Add provisional acceptance checks for weak DOM extraction using configurable sparse-text thresholds
 - [x] Parse HTML → article
-- [ ] Extract:
+- [x] Extract:
   - [x] title
   - [x] paragraphs
-  - headings
+  - [x] headings
 - [x] Return structured data
 
 ### Page Model

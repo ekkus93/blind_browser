@@ -1143,7 +1143,7 @@ Validation notes:
 
 Behavior notes:
 - When `use_dom_extraction` is `true`, runtime extraction first reads live page HTML and runs `dom_smoothie` article parsing into a structured article model with explicit title and paragraph blocks before converting that structured output into the current `PageModel`.
-- The structured extractor output currently distinguishes title and paragraph content; heading-specific blocks are reserved for follow-up work and are not yet emitted from the live DOM path.
+- The structured extractor output now distinguishes title, paragraph, and heading blocks from the extracted article HTML before converting them into ordered `PageModel` regions.
 - Runtime extraction still reuses the live DOM extractor for interactive-element metadata, which is then attached to the converted `PageModel`.
 - If `dom_smoothie` extraction or live HTML retrieval fails, `extract_page_model` falls back explicitly to the live Chromium DOM model and surfaces that fallback in tool observations instead of failing silently.
 - When `use_dom_extraction` is `true`, `extract_page_model` triggers deterministic OCR fallback when `ocr.trigger_on_no_extractable_text` is enabled and live DOM extraction yields either no readable region text or text that remains below the configured sparse-text thresholds.

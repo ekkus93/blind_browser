@@ -105,7 +105,10 @@ pub fn extract_structured_article_from_html(
         let url = normalize_optional_text(article.url.as_deref())
             .or_else(|| normalize_optional_text(document_url));
         let mut blocks =
-            build_article_blocks_from_text(article.text_content.as_ref(), title.as_deref());
+            build_article_blocks_from_html(article.content.as_ref(), title.as_deref());
+        if blocks.is_empty() {
+            blocks = build_article_blocks_from_text(article.text_content.as_ref(), title.as_deref());
+        }
 
         if blocks.is_empty() {
             return Err(ExtractorError::NoReadableContent);
@@ -189,6 +192,96 @@ fn build_article_blocks_from_text(
     blocks
 }
 
+fn build_article_blocks_from_html(
+    html: &str,
+    title: Option<&str>,
+) -> Vec<ExtractedArticleBlock> {
+    let mut blocks = Vec::new();
+    let lowercase_html = html.to_ascii_lowercase();
+    let mut search_index = 0usize;
+
+    while let Some(relative_open) = lowercase_html[search_index..].find('<') {
+        let open_index = search_index + relative_open;
+        let Some(relative_tag_end) = lowercase_html[open_index..].find('>') else {
+            break;
+        };
+        let tag_end = open_index + relative_tag_end;
+        let tag_body = &lowercase_html[open_index + 1..tag_end];
+        let trimmed_tag = tag_body.trim_start();
+        if trimmed_tag.starts_with('/') {
+            search_index = tag_end + 1;
+            continue;
+        }
+
+        let tag_name_end = trimmed_tag
+            .find(|character: char| character.is_whitespace() || character == '/')
+            .unwrap_or(trimmed_tag.len());
+        let tag_name = &trimmed_tag[..tag_name_end];
+        let kind = match tag_name {
+            "p" => Some(ExtractedArticleBlockKind::Paragraph),
+            "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => Some(ExtractedArticleBlockKind::Heading),
+            _ => None,
+        };
+        let Some(kind) = kind else {
+            search_index = tag_end + 1;
+            continue;
+        };
+
+        let closing_tag = format!("</{tag_name}>");
+        let content_start = tag_end + 1;
+        let Some(relative_close_index) = lowercase_html[content_start..].find(&closing_tag) else {
+            search_index = tag_end + 1;
+            continue;
+        };
+        let close_index = content_start + relative_close_index;
+        let inner_html = &html[content_start..close_index];
+        let text = normalize_block_text(strip_html_tags(inner_html));
+        search_index = close_index + closing_tag.len();
+
+        let Some(text) = text else {
+            continue;
+        };
+        if title.is_some_and(|title| text.eq_ignore_ascii_case(title.trim())) {
+            continue;
+        }
+
+        let next_index = blocks.len() + 1;
+        blocks.push(ExtractedArticleBlock {
+            block_id: format!("dom-block-{next_index}"),
+            kind,
+            text,
+        });
+    }
+
+    blocks
+}
+
+fn strip_html_tags(html: &str) -> String {
+    let mut text = String::with_capacity(html.len());
+    let mut in_tag = false;
+
+    for character in html.chars() {
+        match character {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => text.push(character),
+            _ => {}
+        }
+    }
+
+    text
+}
+
+fn normalize_block_text(text: String) -> Option<String> {
+    let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let trimmed = normalized.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
 fn normalize_optional_text(value: Option<&str>) -> Option<String> {
     value
         .map(str::trim)
@@ -232,6 +325,44 @@ mod tests {
         assert!(blocks
             .iter()
             .all(|block| block.kind == ExtractedArticleBlockKind::Paragraph));
+    }
+
+    #[test]
+    fn build_article_blocks_from_html_extracts_headings_and_paragraphs_in_order() {
+        let blocks = build_article_blocks_from_html(
+            r#"
+                <article>
+                    <h2>Section one</h2>
+                    <p>First paragraph.</p>
+                    <div><p>Second <strong>paragraph</strong>.</p></div>
+                    <h3>Details</h3>
+                    <p>Third paragraph.</p>
+                </article>
+            "#,
+            None,
+        );
+
+        assert_eq!(blocks.len(), 5);
+        assert_eq!(blocks[0].kind, ExtractedArticleBlockKind::Heading);
+        assert_eq!(blocks[0].text, "Section one");
+        assert_eq!(blocks[1].kind, ExtractedArticleBlockKind::Paragraph);
+        assert_eq!(blocks[1].text, "First paragraph.");
+        assert_eq!(blocks[2].text, "Second paragraph.");
+        assert_eq!(blocks[3].kind, ExtractedArticleBlockKind::Heading);
+        assert_eq!(blocks[3].text, "Details");
+        assert_eq!(blocks[4].text, "Third paragraph.");
+    }
+
+    #[test]
+    fn build_article_blocks_from_html_skips_duplicate_title_heading() {
+        let blocks = build_article_blocks_from_html(
+            r#"<article><h1>Example article</h1><p>Body copy.</p></article>"#,
+            Some("Example article"),
+        );
+
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks[0].kind, ExtractedArticleBlockKind::Paragraph);
+        assert_eq!(blocks[0].text, "Body copy.");
     }
 
     #[test]
@@ -393,5 +524,41 @@ mod tests {
                     ExtractedArticleBlockKind::Title | ExtractedArticleBlockKind::Paragraph
                 )
             }));
+    }
+
+    #[cfg(feature = "browser")]
+    #[test]
+    fn extract_structured_article_from_html_emits_heading_blocks() {
+        let html = r#"
+            <html>
+                <head><title>Example article</title></head>
+                <body>
+                    <main>
+                        <article>
+                            <h1>Example article</h1>
+                            <h2>Section one</h2>
+                            <p>First paragraph.</p>
+                            <h3>Details</h3>
+                            <p>Second paragraph.</p>
+                        </article>
+                    </main>
+                </body>
+            </html>
+        "#;
+
+        let article = extract_structured_article_from_html(
+            html,
+            Some("https://example.com/article"),
+            Vec::new(),
+        )
+        .expect("dom_smoothie extraction should succeed");
+
+        let heading_text = article
+            .blocks
+            .iter()
+            .filter(|block| block.kind == ExtractedArticleBlockKind::Heading)
+            .map(|block| block.text.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(heading_text, vec!["Section one", "Details"]);
     }
 }
