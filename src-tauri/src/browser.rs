@@ -781,6 +781,65 @@ impl BrowserController {
         }
     }
 
+    /// Switch the browser to a different visibility mode at runtime.
+    ///
+    /// When a live session exists the current page URL is captured, the
+    /// session is torn down, and a fresh session is launched with the updated
+    /// config. If a page URL was captured the new session immediately navigates
+    /// back to it, preserving the user's place. The returned value is the URL
+    /// that was restored, if any.
+    ///
+    /// When no session is active, only the stored config is updated; the next
+    /// call to any browser method will launch a session in the new mode.
+    pub fn switch_visibility(
+        &mut self,
+        mode: BrowserVisibilityMode,
+    ) -> Result<Option<String>, BrowserError> {
+        #[cfg(feature = "browser")]
+        {
+            self.config.visibility = mode;
+
+            // Capture the active page URL before dropping the session.
+            let prior_url = self
+                .session
+                .as_ref()
+                .and_then(|session| session.page.clone())
+                .and_then(|page| {
+                    tauri::async_runtime::block_on(async {
+                        page.url()
+                            .await
+                            .ok()
+                            .flatten()
+                            .filter(|url| url != "about:blank" && !url.is_empty())
+                    })
+                });
+
+            // Drop the old session so the next ensure_session() relaunches
+            // with the updated BrowserSessionConfig.
+            self.session = None;
+
+            // If there was an active page, relaunch and restore it.
+            if let Some(ref url) = prior_url {
+                let user_agent = self.config.user_agent.clone();
+                let session = self.ensure_session()?;
+                let page = session.ensure_page(user_agent.as_deref())?;
+                tauri::async_runtime::block_on(async {
+                    page.goto(url)
+                        .await
+                        .map_err(|error| BrowserError::Navigate(error.to_string()))
+                })?;
+            }
+
+            Ok(prior_url)
+        }
+
+        #[cfg(not(feature = "browser"))]
+        {
+            let _ = mode;
+            Err(BrowserError::FeatureDisabled)
+        }
+    }
+
     #[cfg(feature = "browser")]
     fn ensure_session(&mut self) -> Result<&mut LiveBrowserSession, BrowserError> {
         if self.session.is_none() {

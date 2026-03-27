@@ -61,11 +61,12 @@ use reqwest::blocking::Client;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
-const DEFAULT_FIND_ELEMENT_MAX_CANDIDATES: usize = 3;
+const DEFAULT_FIND_ELEMENT_MAX_CANDIDATES: usize =
+    crate::commands::DEFAULT_FIND_ELEMENT_MAX_CANDIDATES;
 const MAX_FIND_ELEMENT_CANDIDATES: usize = 5;
 const FIND_ELEMENT_AMBIGUITY_MARGIN_BPS: u16 = 800;
-const MAX_HISTORY_STEPS: u8 = 5;
-const MAX_SCROLL_AMOUNT_PX: f32 = 4_000.0;
+const MAX_HISTORY_STEPS: u8 = crate::commands::MAX_HISTORY_STEPS;
+const MAX_SCROLL_AMOUNT_PX: f32 = crate::commands::MAX_SCROLL_AMOUNT_PX;
 const MAX_COMMAND_REPLAN_CYCLES: usize = 1;
 const MAX_DIRECT_FIELD_CANDIDATE_NAMES: usize = 2;
 
@@ -2929,19 +2930,60 @@ impl AppCore {
         &mut self,
         input: SetBrowserVisibilityInput,
     ) -> ToolResult<SetBrowserVisibilityData> {
-        let changed = self.state.browser_visibility != input.mode;
-        self.set_browser_visibility(input.mode);
+        if self.state.browser_visibility == input.mode {
+            return ToolResult::success(
+                ToolName::SetBrowserVisibility,
+                input.request_id,
+                SetBrowserVisibilityData {
+                    mode: self.state.browser_visibility,
+                    changed: false,
+                    supported: true,
+                },
+                vec![String::from(
+                    "Browser visibility mode is already set to the requested value.",
+                )],
+            );
+        }
 
-        ToolResult::success(
-            ToolName::SetBrowserVisibility,
-            input.request_id,
-            SetBrowserVisibilityData {
-                mode: self.state.browser_visibility,
-                changed,
-                supported: true,
-            },
-            vec![String::from("Updated the browser visibility mode.")],
-        )
+        match self.browser.switch_visibility(input.mode) {
+            Ok(restored_url) => {
+                self.state.browser_visibility = input.mode;
+                if restored_url.is_some() {
+                    // The page model is stale after relaunch; clear it so the
+                    // planner knows it must re-extract before relying on any
+                    // stored element references.
+                    self.state.current_page = None;
+                }
+                ToolResult::success(
+                    ToolName::SetBrowserVisibility,
+                    input.request_id,
+                    SetBrowserVisibilityData {
+                        mode: self.state.browser_visibility,
+                        changed: true,
+                        supported: true,
+                    },
+                    vec![String::from("Browser visibility mode was updated.")],
+                )
+            }
+            Err(BrowserError::FeatureDisabled) => ToolResult::success(
+                ToolName::SetBrowserVisibility,
+                input.request_id,
+                SetBrowserVisibilityData {
+                    mode: self.state.browser_visibility,
+                    changed: false,
+                    supported: false,
+                },
+                vec![String::from(
+                    "Browser visibility switching is not supported in this build.",
+                )],
+            ),
+            Err(error) => self.browser_tool_failure(
+                ToolName::SetBrowserVisibility,
+                input.request_id,
+                String::from("Browser could not be relaunched with the requested visibility mode."),
+                error,
+            ),
+        }
     }
 
     fn current_tts_model_settings(&self) -> TtsModelSettings {

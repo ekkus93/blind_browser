@@ -106,7 +106,7 @@
 - [x] Implement `get_runtime_status`
 - [x] Implement `confirm_action`
 - [x] Implement `report_result`
-- [ ] Finalize input schema for all Wave 1 tools
+- [x] Finalize input schema for all Wave 1 tools
 - [x] Finalize output schema for all Wave 1 tools
 - [x] Finalize shared enums for Wave 1 tools
 
@@ -118,7 +118,7 @@
 - [x] Implement go_forward()
 - [x] Implement reload_page()
 - [x] Track browser history state and expose can-go-back/can-go-forward signals
-- [ ] Implement runtime browser visibility switching when supported
+- [x] Implement runtime browser visibility switching when supported
 - [ ] Implement get_html()
 - [ ] Implement screenshot_png()
 - [ ] Implement eval_js()

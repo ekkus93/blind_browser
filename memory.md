@@ -962,3 +962,14 @@
 ## 2026-03-26T22:41:19Z - GPT-5.4 - Validation rerun stayed green after screenshot cleanup
 - Re-ran the standard lint and unit-test pass after the recent contract cleanup work without making further code changes.
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed, Rust tests remained `205` passed, and `pnpm test:ui` remained `48` passed.
+
+## 2026-03-26T22:56:24Z - GPT-5.4 - Wave 1 input schemas are now finalized
+- `src-tauri/src/commands.rs` now centralizes the remaining planner-visible Wave 1 input limits and enforces them during planner validation: `open_url` must be absolute, `go_back`/`go_forward` steps must stay within the supported `1..=5` range, `scroll_page` requires either `amount_px` or `target` with a finite positive amount, and `find_element.max_candidates` is capped at the shared default of `3`.
+- `src-tauri/src/app_core.rs` now reuses the same history-step, scroll-amount, and find-candidate constants as the contract layer so runtime behavior and planner validation stay aligned without hidden fallback drift.
+- Added six new commands-layer regression tests for the finalized invalid-input cases, marked `Finalize input schema for all Wave 1 tools` complete in `docs/TODO.md`, and revalidated with `cargo fmt --manifest-path src-tauri/Cargo.toml --all`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`211` Rust tests, `48` UI tests).
+
+## 2026-03-27T08:03:57Z - claude-sonnet-4.6 - Runtime browser visibility switching implemented
+- `src-tauri/src/browser.rs`: Added `BrowserController::switch_visibility(mode)` — updates `BrowserSessionConfig.visibility`, captures current page URL if an active session exists, drops the session, relaunches with updated config, and navigates back to the captured URL. Returns `Ok(Option<String>)` (restored URL if any). Under `#[cfg(not(feature = "browser"))]` returns `Err(BrowserError::FeatureDisabled)`.
+- `src-tauri/src/app_core.rs`: Replaced stub `execute_set_browser_visibility` with a real implementation: returns early with `changed: false` if already in requested mode; calls `browser.switch_visibility`; on success updates state visibility and clears stale `current_page` if a relaunch happened; on `FeatureDisabled` returns `supported: false` without failure; on other errors returns a `browser_tool_failure`.
+- `docs/TODO.md`: Marked `Implement runtime browser visibility switching when supported` complete.
+- Validation: `cargo fmt`, `cargo clippy --all-targets --all-features -- -D warnings` (clean), `cargo test --all-features` (211 passed), `pnpm test:ui` (48 passed), `pnpm build` (clean).
