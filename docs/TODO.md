@@ -39,7 +39,7 @@
 - [x] Add chromiumoxide
 - [x] Add leptess (OCR)
 - [x] Add cpal + rodio (audio)
-- [ ] Integrate kitten_tts_rs
+- [x] Integrate kitten_tts_rs
 - [x] Add whisper backend bindings
 - [x] Add OpenAI API client support for command resolution
 - [x] Add Ollama API client support for command resolution
@@ -362,8 +362,8 @@
   - playback speed
   - active TTS voice
   - pending confirmation state
-- [ ] Re-read effective speech settings before each new utterance
-- [ ] Apply changed speech settings on the next utterance, not mid-utterance
+- [x] Re-read effective speech settings before each new utterance
+- [x] Apply changed speech settings on the next utterance, not mid-utterance
 
 ### Event Flow
 - [ ] UI → app_core → modules

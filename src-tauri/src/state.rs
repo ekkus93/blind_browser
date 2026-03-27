@@ -182,7 +182,7 @@ mod tests {
         ExecutionTrace, IntentName, PendingPlanExecutionState, SerializedToolResult, ToolError,
         ToolName,
     };
-    use crate::config::AppConfig;
+    use crate::config::{AppConfig, AudioSettings};
 
     #[test]
     fn stores_pending_execution_from_awaiting_confirmation_outcome() {
@@ -410,5 +410,59 @@ mod tests {
                 .and_then(|region| region.bbox.clone()),
             None
         );
+    }
+
+    #[test]
+    fn apply_audio_settings_refreshes_tts_voice_and_speed_mid_session() {
+        let config = AppConfig::default();
+        let mut state = AppState::from_config(&config);
+
+        // Simulate mid-session settings change.
+        let updated = AudioSettings {
+            default_tts_voice: String::from("Luna"),
+            playback_speed: 1.75,
+            ..config.audio.clone()
+        };
+        state.apply_audio_settings(&updated);
+
+        // The new voice and speed must be visible before the next synthesis call.
+        assert_eq!(state.audio.tts_voice.as_deref(), Some("Luna"));
+        assert!((state.audio.playback_speed - 1.75).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn apply_audio_settings_does_not_disturb_narration_or_speaking_state() {
+        let config = AppConfig::default();
+        let mut state = AppState::from_config(&config);
+
+        // Put the session into an active-narration state.
+        state.start_speaking_region(String::from("region-42"));
+
+        let updated = AudioSettings {
+            default_tts_voice: String::from("Bella"),
+            ..config.audio.clone()
+        };
+        state.apply_audio_settings(&updated);
+
+        // Audio settings update must not interrupt the active narration cursor.
+        assert!(state.speaking);
+        assert_eq!(state.speaking_region_id.as_deref(), Some("region-42"));
+        // But the new voice must now be in effect for the next synthesis call.
+        assert_eq!(state.audio.tts_voice.as_deref(), Some("Bella"));
+    }
+
+    #[test]
+    fn apply_audio_settings_reflects_muted_when_volume_is_zero() {
+        let config = AppConfig::default();
+        let mut state = AppState::from_config(&config);
+
+        let silenced = AudioSettings {
+            playback_volume: 0.0,
+            ..config.audio.clone()
+        };
+        state.apply_audio_settings(&silenced);
+
+        assert!(state.audio.muted);
+        assert!((state.audio.playback_volume).abs() < f32::EPSILON);
     }
 }

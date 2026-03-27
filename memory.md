@@ -973,3 +973,23 @@
 - `src-tauri/src/app_core.rs`: Replaced stub `execute_set_browser_visibility` with a real implementation: returns early with `changed: false` if already in requested mode; calls `browser.switch_visibility`; on success updates state visibility and clears stale `current_page` if a relaunch happened; on `FeatureDisabled` returns `supported: false` without failure; on other errors returns a `browser_tool_failure`.
 - `docs/TODO.md`: Marked `Implement runtime browser visibility switching when supported` complete.
 - Validation: `cargo fmt`, `cargo clippy --all-targets --all-features -- -D warnings` (clean), `cargo test --all-features` (211 passed), `pnpm test:ui` (48 passed), `pnpm build` (clean).
+
+## 2026-03-27T10:06:29Z - claude-sonnet-4.6 - kitten_tts_rs integration finalized
+- `kitten_tts_rs` was already wired in `tts.rs` (model loading, synthesis, caching). The remaining work was fixing feature-gating bugs.
+- Fixed: `parse_openai_speech_response_format`, `resolved_remote_voice`, `is_openai_builtin_voice` were not gated behind `#[cfg(feature = "remote-openai")]`, causing `--features local-tts` (without `remote-openai`) to fail to compile.
+- Fixed: Removed the now-dead `#[cfg(not(feature = "remote-openai"))]` stub for `synthesize_with_openai_remote`; `synthesize_remote` now handles the feature-absent path directly.
+- Fixed: Top-level imports for `resolve_secret_ref`, `RemoteTtsAudioFormat`, `RemoteTtsProfile` gated behind `#[cfg(feature = "remote-openai")]`.
+- Added 3 new unit tests: `normalized_model_path_rejects_missing_path`, `resolved_voice_uses_default_when_runtime_voice_is_empty`, `resolved_voice_uses_default_when_runtime_voice_is_none`.
+- `docs/TODO.md`: Marked `Integrate kitten_tts_rs` complete.
+- Validation: cargo fmt, clippy (clean, no warnings), cargo test --all-features (214 passed), cargo check --features local-tts (clean standalone), pnpm test:ui (48 passed), pnpm build (clean).
+
+## 2026-03-27T11:20:09Z - Claude Sonnet 4.6 - Speech settings re-read tests
+
+### Speech Settings Re-Read Verification
+- Confirmed existing implementation is correct: `synthesize_narration` takes `&self.state.audio` fresh on every call; `update_audio_settings → apply_audio_settings` keeps `state.audio` in sync; voice/speed are synthesis-time so inherently "next utterance only".
+- Added 3 new tests to `src-tauri/src/state.rs`:
+  - `apply_audio_settings_refreshes_tts_voice_and_speed_mid_session` — verifies that voice and speed updates are visible in `state.audio` before next synthesis call.
+  - `apply_audio_settings_does_not_disturb_narration_or_speaking_state` — verifies that `speaking`, `speaking_region_id` are untouched after audio settings change.
+  - `apply_audio_settings_reflects_muted_when_volume_is_zero` — verifies that zero volume sets `muted = true`.
+- Total Rust tests: 217 passed (was 214 after tts.rs slice; also committed tts.rs kitten_tts_rs slice).
+- Marked "Re-read effective speech settings before each new utterance" and "Apply changed speech settings on the next utterance" done in docs/TODO.md.

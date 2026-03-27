@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::audio_io::RuntimeAudioState;
-use crate::config::{
-    resolve_secret_ref, AppConfig, ProviderMode, RemoteProviderKind, RemoteTtsAudioFormat,
-    RemoteTtsProfile,
-};
+use crate::config::{AppConfig, ProviderMode};
+
+#[cfg(feature = "remote-openai")]
+use crate::config::{resolve_secret_ref, RemoteTtsAudioFormat, RemoteTtsProfile};
 
 #[cfg(feature = "local-tts")]
 use kitten_tts::model::KittenTTS;
@@ -138,27 +138,40 @@ impl TtsController {
         runtime_audio: &RuntimeAudioState,
         text: &str,
     ) -> Result<SynthesizedSpeech, TtsRuntimeError> {
-        let profile_name = config
-            .providers
-            .tts
-            .remote_profile
-            .as_ref()
-            .ok_or(TtsRuntimeError::MissingRemoteProfile)?;
-        let profile = config
-            .remote_tts_profiles
-            .get(profile_name)
-            .ok_or_else(|| TtsRuntimeError::MissingRemoteProfileDefinition {
-                profile_name: profile_name.clone(),
-            })?;
+        #[cfg(feature = "remote-openai")]
+        {
+            use crate::config::RemoteProviderKind;
 
-        match &profile.provider {
-            RemoteProviderKind::OpenAi => {
-                self.synthesize_with_openai_remote(profile, runtime_audio, text)
+            let profile_name = config
+                .providers
+                .tts
+                .remote_profile
+                .as_ref()
+                .ok_or(TtsRuntimeError::MissingRemoteProfile)?;
+            let profile = config
+                .remote_tts_profiles
+                .get(profile_name)
+                .ok_or_else(|| TtsRuntimeError::MissingRemoteProfileDefinition {
+                    profile_name: profile_name.clone(),
+                })?;
+
+            match &profile.provider {
+                RemoteProviderKind::OpenAi => {
+                    self.synthesize_with_openai_remote(profile, runtime_audio, text)
+                }
+                other => Err(TtsRuntimeError::UnsupportedRemoteProvider {
+                    profile_name: profile_name.clone(),
+                    provider: format!("{other:?}"),
+                }),
             }
-            other => Err(TtsRuntimeError::UnsupportedRemoteProvider {
-                profile_name: profile_name.clone(),
-                provider: format!("{other:?}"),
-            }),
+        }
+
+        #[cfg(not(feature = "remote-openai"))]
+        {
+            let _ = config;
+            let _ = runtime_audio;
+            let _ = text;
+            Err(TtsRuntimeError::RemoteTtsFeatureUnavailable)
         }
     }
 
@@ -229,16 +242,6 @@ impl TtsController {
                 reason: String::from("received an unexpected non-WAV audio response format"),
             }),
         }
-    }
-
-    #[cfg(not(feature = "remote-openai"))]
-    fn synthesize_with_openai_remote(
-        &mut self,
-        _profile: &RemoteTtsProfile,
-        _runtime_audio: &RuntimeAudioState,
-        _text: &str,
-    ) -> Result<SynthesizedSpeech, TtsRuntimeError> {
-        Err(TtsRuntimeError::RemoteTtsFeatureUnavailable)
     }
 
     fn synthesize_local(
@@ -349,6 +352,7 @@ fn resolved_voice(runtime_audio: &RuntimeAudioState, default_voice: &str) -> Str
         .unwrap_or_else(|| default_voice.to_string())
 }
 
+#[cfg(feature = "remote-openai")]
 fn resolved_remote_voice(
     runtime_audio: &RuntimeAudioState,
     profile: &RemoteTtsProfile,
@@ -370,6 +374,7 @@ fn resolved_remote_voice(
     })
 }
 
+#[cfg(feature = "remote-openai")]
 fn is_openai_builtin_voice(voice: &str) -> bool {
     let normalized = voice.trim().to_ascii_lowercase();
     OPENAI_TTS_VOICES
@@ -377,6 +382,7 @@ fn is_openai_builtin_voice(voice: &str) -> bool {
         .any(|candidate| *candidate == normalized)
 }
 
+#[cfg(feature = "remote-openai")]
 fn parse_openai_speech_response_format(
     audio_format: RemoteTtsAudioFormat,
 ) -> async_openai::types::audio::SpeechResponseFormat {
@@ -520,14 +526,15 @@ struct CachedLocalTtsModel {
 #[cfg(test)]
 mod tests {
     use super::{
-        decode_wav_samples, normalized_model_path, parse_openai_speech_response_format,
-        resolved_remote_voice, resolved_voice, KITTEN_TTS_SAMPLE_RATE,
+        decode_wav_samples, normalized_model_path, resolved_voice, KITTEN_TTS_SAMPLE_RATE,
     };
     use crate::audio_io::RuntimeAudioState;
-    use crate::config::{
-        LocalTtsBackend, LocalTtsProfile, RemoteProviderKind, RemoteTtsAudioFormat,
-        RemoteTtsProfile, SecretRef,
-    };
+    use crate::config::{LocalTtsBackend, LocalTtsProfile};
+
+    #[cfg(feature = "remote-openai")]
+    use super::{parse_openai_speech_response_format, resolved_remote_voice};
+    #[cfg(feature = "remote-openai")]
+    use crate::config::{RemoteProviderKind, RemoteTtsAudioFormat, RemoteTtsProfile, SecretRef};
 
     #[test]
     fn resolved_voice_prefers_runtime_voice_over_profile_default() {
@@ -539,6 +546,7 @@ mod tests {
         assert_eq!(resolved_voice(&runtime_audio, "Bruno"), "Rosie");
     }
 
+    #[cfg(feature = "remote-openai")]
     #[test]
     fn resolved_remote_voice_falls_back_to_profile_voice_for_local_only_defaults() {
         let runtime_audio = RuntimeAudioState {
@@ -565,6 +573,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "remote-openai")]
     #[test]
     fn parse_openai_speech_response_format_returns_wav() {
         assert_eq!(
@@ -593,6 +602,36 @@ mod tests {
     fn normalized_model_path_rejects_empty_values() {
         let error = normalized_model_path("   ").expect_err("empty paths should fail");
         assert_eq!(error.to_string(), "local tts model path must not be empty");
+    }
+
+    #[test]
+    fn normalized_model_path_rejects_missing_path() {
+        let error = normalized_model_path("/tmp/definitely-does-not-exist-blind-browser-tts")
+            .expect_err("missing path should fail");
+        assert!(
+            error.to_string().contains("does not exist"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn resolved_voice_uses_default_when_runtime_voice_is_empty() {
+        let runtime_audio = RuntimeAudioState {
+            tts_voice: Some(String::from("   ")),
+            ..RuntimeAudioState::default()
+        };
+
+        assert_eq!(resolved_voice(&runtime_audio, "Bruno"), "Bruno");
+    }
+
+    #[test]
+    fn resolved_voice_uses_default_when_runtime_voice_is_none() {
+        let runtime_audio = RuntimeAudioState {
+            tts_voice: None,
+            ..RuntimeAudioState::default()
+        };
+
+        assert_eq!(resolved_voice(&runtime_audio, "Luna"), "Luna");
     }
 
     #[test]
