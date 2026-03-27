@@ -1005,3 +1005,10 @@
 - `src-tauri/src/app_core.rs` now exposes `execute_get_html`, requiring an active page id, refreshing runtime metadata, and returning `{ page_id, url, title, html, html_length }`.
 - `src-tauri/src/commands.rs` now registers `ToolName::GetHtml`, its input/output schemas, planner validation, dispatcher wiring, parser name mapping, non-side-effect classification, and regression tests.
 - Updated `docs/SPECS.md` and `docs/TODO.md`, and validation is green with 218 Rust tests passed, 48 UI tests passed, and `pnpm build` succeeding.
+
+## 2026-03-27T19:40:49Z - GPT-5.4 - eval_js tool implemented
+- Added a deterministic `eval_js` tool as a bounded JavaScript **expression** evaluator rather than a free-form statement runner.
+- `src-tauri/src/browser.rs` now evaluates a supplied expression with Chromium, requires the result to serialize as `serde_json::Value`, and refreshes URL/title/history metadata after evaluation.
+- `src-tauri/src/app_core.rs` now exposes `execute_eval_js`, returning `{ page_id, url, title, result }` and refreshing runtime browser metadata without silently re-extracting the page model.
+- `src-tauri/src/commands.rs` now registers `ToolName::EvalJs`, adds schema/dispatch/parse wiring, rejects blank expressions, and includes regression coverage for dispatch plus validation.
+- Updated `docs/SPECS.md` and `docs/TODO.md`; full validation is green with 220 Rust tests passed, 48 UI tests passed, and `pnpm build` succeeding.

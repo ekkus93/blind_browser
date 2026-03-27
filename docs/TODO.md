@@ -121,7 +121,7 @@
 - [x] Implement runtime browser visibility switching when supported
 - [x] Implement get_html()
 - [ ] Implement screenshot_png()
-- [ ] Implement eval_js()
+- [x] Implement eval_js()
 
 ### Extractor Module
 - [ ] Integrate dom_smoothie

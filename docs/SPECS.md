@@ -1100,6 +1100,20 @@ struct GetHtmlInput {
 }
 ```
 
+#### `eval_js`
+
+```rust
+struct EvalJsInput {
+  request_id: String,
+  timeout_ms: Option<u64>,
+  expression: String,
+}
+```
+
+Validation notes:
+- `expression` must be non-empty.
+- `expression` should evaluate to a JSON-serializable result; DOM nodes, cyclic objects, and `undefined` are rejected explicitly instead of being silently coerced.
+
 #### `get_page_snapshot`
 
 ```rust
@@ -1555,6 +1569,17 @@ struct GetHtmlData {
   title: Option<String>,
   html: String,
   html_length: usize,
+}
+```
+
+#### `eval_js`
+
+```rust
+struct EvalJsData {
+  page_id: String,
+  url: String,
+  title: Option<String>,
+  result: serde_json::Value,
 }
 ```
 

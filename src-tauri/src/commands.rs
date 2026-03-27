@@ -20,6 +20,7 @@ pub enum ToolName {
     GoForward,
     ReloadPage,
     GetHtml,
+    EvalJs,
     ScrollPage,
     CaptureScreenshot,
     SetBrowserVisibility,
@@ -121,6 +122,7 @@ pub trait DeterministicToolExecutor {
     fn execute_go_forward(&mut self, input: GoForwardInput) -> ToolResult<GoForwardData>;
     fn execute_reload_page(&mut self, input: ReloadPageInput) -> ToolResult<ReloadPageData>;
     fn execute_get_html(&mut self, input: GetHtmlInput) -> ToolResult<GetHtmlData>;
+    fn execute_eval_js(&mut self, input: EvalJsInput) -> ToolResult<EvalJsData>;
     fn execute_scroll_page(&mut self, input: ScrollPageInput) -> ToolResult<ScrollPageData>;
     fn execute_capture_screenshot(
         &mut self,
@@ -915,6 +917,21 @@ pub struct GetHtmlData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct EvalJsInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+    pub expression: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct EvalJsData {
+    pub page_id: String,
+    pub url: String,
+    pub title: Option<String>,
+    pub result: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct ScrollPageInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
@@ -1324,6 +1341,11 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
                 executor.execute_get_html(input)
             })
         }
+        ToolName::EvalJs => {
+            execute_serialized_tool(step, ToolName::EvalJs, executor, |executor, input| {
+                executor.execute_eval_js(input)
+            })
+        }
         ToolName::ScrollPage => {
             execute_serialized_tool(step, ToolName::ScrollPage, executor, |executor, input| {
                 executor.execute_scroll_page(input)
@@ -1563,6 +1585,7 @@ pub fn registered_tools() -> Vec<AvailableTool> {
         GoForward,
         ReloadPage,
         GetHtml,
+        EvalJs,
         ScrollPage,
         CaptureScreenshot,
         SetBrowserVisibility,
@@ -1850,6 +1873,7 @@ pub fn tool_input_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
         ToolName::GoForward => Some(schema_json::<GoForwardInput>()),
         ToolName::ReloadPage => Some(schema_json::<ReloadPageInput>()),
         ToolName::GetHtml => Some(schema_json::<GetHtmlInput>()),
+        ToolName::EvalJs => Some(schema_json::<EvalJsInput>()),
         ToolName::ScrollPage => Some(schema_json::<ScrollPageInput>()),
         ToolName::CaptureScreenshot => Some(schema_json::<CaptureScreenshotInput>()),
         ToolName::RunOcr => Some(schema_json::<RunOcrInput>()),
@@ -1887,6 +1911,7 @@ pub fn tool_output_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
         ToolName::GoForward => Some(schema_json::<ToolResult<GoForwardData>>()),
         ToolName::ReloadPage => Some(schema_json::<ToolResult<ReloadPageData>>()),
         ToolName::GetHtml => Some(schema_json::<ToolResult<GetHtmlData>>()),
+        ToolName::EvalJs => Some(schema_json::<ToolResult<EvalJsData>>()),
         ToolName::ScrollPage => Some(schema_json::<ToolResult<ScrollPageData>>()),
         ToolName::CaptureScreenshot => Some(schema_json::<ToolResult<CaptureScreenshotData>>()),
         ToolName::RunOcr => Some(schema_json::<ToolResult<RunOcrData>>()),
@@ -2391,6 +2416,7 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
         ToolName::GoForward => validate_go_forward_input(&deserialize_tool_arguments(step)?),
         ToolName::ReloadPage => validate_tool_arguments::<ReloadPageInput>(step),
         ToolName::GetHtml => validate_tool_arguments::<GetHtmlInput>(step),
+        ToolName::EvalJs => validate_eval_js_input(&deserialize_tool_arguments(step)?),
         ToolName::ScrollPage => validate_scroll_page_input(&deserialize_tool_arguments(step)?),
         ToolName::CaptureScreenshot => {
             let input = deserialize_tool_arguments::<CaptureScreenshotInput>(step)?;
@@ -2499,6 +2525,18 @@ fn validate_go_back_input(input: &GoBackInput) -> Result<(), ToolError> {
 
 fn validate_go_forward_input(input: &GoForwardInput) -> Result<(), ToolError> {
     validate_history_steps("go_forward", input.steps)
+}
+
+fn validate_eval_js_input(input: &EvalJsInput) -> Result<(), ToolError> {
+    let trimmed = input.expression.trim();
+    if trimmed.is_empty() {
+        return Err(invalid_planner_output(
+            "eval_js requires a non-empty expression",
+            None,
+        ));
+    }
+
+    Ok(())
 }
 
 fn validate_history_steps(tool_name: &str, steps: Option<u8>) -> Result<(), ToolError> {
@@ -3334,6 +3372,7 @@ fn parse_tool_name_value(value: &str) -> Result<ToolName, String> {
         "go_forward" => Ok(ToolName::GoForward),
         "reload_page" => Ok(ToolName::ReloadPage),
         "get_html" => Ok(ToolName::GetHtml),
+        "eval_js" => Ok(ToolName::EvalJs),
         "scroll_page" => Ok(ToolName::ScrollPage),
         "capture_screenshot" => Ok(ToolName::CaptureScreenshot),
         "set_browser_visibility" => Ok(ToolName::SetBrowserVisibility),
@@ -6053,6 +6092,7 @@ mod tests {
         last_go_forward_request: Option<GoForwardInput>,
         last_reload_request: Option<ReloadPageInput>,
         last_get_html_request: Option<GetHtmlInput>,
+        last_eval_js_request: Option<EvalJsInput>,
         last_scroll_request: Option<ScrollPageInput>,
         last_capture_screenshot_request: Option<CaptureScreenshotInput>,
         last_run_ocr_request: Option<RunOcrInput>,
@@ -6184,6 +6224,26 @@ mod tests {
                     html_length,
                 },
                 vec![String::from("read the current page HTML")],
+            )
+        }
+
+        fn execute_eval_js(&mut self, input: EvalJsInput) -> ToolResult<EvalJsData> {
+            self.last_eval_js_request = Some(input.clone());
+            ToolResult::success(
+                ToolName::EvalJs,
+                input.request_id,
+                EvalJsData {
+                    page_id: String::from("page-1"),
+                    url: String::from("https://example.com/article"),
+                    title: Some(String::from("Example article")),
+                    result: serde_json::json!({
+                        "headline": "Example article",
+                        "regionCount": 3
+                    }),
+                },
+                vec![String::from(
+                    "evaluated the requested JavaScript expression",
+                )],
             )
         }
 
@@ -6937,6 +6997,18 @@ mod tests {
                 on_success: StepTransition::Complete,
                 on_failure: StepTransition::Replan,
             },
+            ToolName::EvalJs => PlannedStep {
+                step_id: String::from("step-eval-js"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-eval-js",
+                    "timeout_ms": 1000,
+                    "expression": "({ headline: document.title, regionCount: document.querySelectorAll('main, article, section').length })"
+                }),
+                purpose: String::from("evaluate a bounded JavaScript expression"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
             ToolName::ScrollPage => PlannedStep {
                 step_id: String::from("step-scroll"),
                 tool_name,
@@ -7508,6 +7580,45 @@ mod tests {
             .get("html")
             .and_then(serde_json::Value::as_str)
             .is_some_and(|html| html.contains("<main>Example article</main>")));
+    }
+
+    #[test]
+    fn dispatches_eval_js_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-eval-js"),
+            tool_name: ToolName::EvalJs,
+            arguments: serde_json::json!({
+                "request_id": "req-eval-js",
+                "timeout_ms": 1000,
+                "expression": "({ headline: document.title, regionCount: document.querySelectorAll('main, article, section').length })"
+            }),
+            purpose: String::from("evaluate a bounded JavaScript expression"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_eval_js_request
+                .as_ref()
+                .map(|input| input.request_id.as_str()),
+            Some("req-eval-js")
+        );
+        let data = result.data.expect("eval_js should serialize");
+        assert_eq!(
+            data.get("page_id"),
+            Some(&serde_json::Value::String(String::from("page-1")))
+        );
+        assert_eq!(
+            data.get("result")
+                .and_then(|value| value.get("regionCount"))
+                .and_then(serde_json::Value::as_u64),
+            Some(3)
+        );
     }
 
     #[test]
@@ -9772,6 +9883,27 @@ mod tests {
         )
         .expect_err("validation should reject blank open_url values");
         assert!(error.message.contains("open_url requires a non-empty url"));
+    }
+
+    #[test]
+    fn validate_eval_js_input_rejects_blank_expression() {
+        let step = PlannedStep {
+            step_id: String::from("step-eval-js"),
+            tool_name: ToolName::EvalJs,
+            arguments: serde_json::json!({
+                "request_id": "req-eval-js",
+                "expression": "   "
+            }),
+            purpose: String::from("evaluate a bounded JavaScript expression"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let error = validate_planned_step_arguments(&step)
+            .expect_err("validation should reject blank eval_js expressions");
+        assert!(error
+            .message
+            .contains("eval_js requires a non-empty expression"));
     }
 
     #[test]

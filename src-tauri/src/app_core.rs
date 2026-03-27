@@ -22,25 +22,25 @@ use crate::commands::{
     validate_planner_output, AgentStateData, AsrProviderSettings, CaptureScreenshotData,
     CaptureScreenshotInput, ClickElementData, ClickElementInput, ConfirmActionData,
     ConfirmActionInput, ConfirmActionResolution, ConfirmationSettings, DeterministicToolExecutor,
-    ExecutionOutcome, ExecutionTrace, ExtractPageModelData, ExtractPageModelInput, FindElementData,
-    FindElementInput, FocusElementData, FocusElementInput, GetAgentStateInput, GetHtmlData,
-    GetHtmlInput, GetPageSnapshotInput, GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData,
-    GoBackInput, GoForwardData, GoForwardInput, IntentName, IntentSummary,
-    ListInteractiveElementsData, ListInteractiveElementsInput, LocalAsrModelSettings,
-    LocalTtsModelSettings, MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput,
-    OcrThresholdSettings, OpenUrlData, OpenUrlInput, PageSnapshotData, PlannedStep, PlannerInput,
-    PlannerOutput, PlannerProviderSettings, PlannerStatus, PlannerToolHistoryEntry,
-    ProviderFailoverSettings, ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput,
-    ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData, ReadRegionInput,
-    ReloadPageData, ReloadPageInput, RemoteAsrSettings, RemotePlannerSettings, RemoteTtsSettings,
-    ReportResultData, ReportResultInput, ReportStatus, RunOcrData, RunOcrInput, ScrollPageData,
-    ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
-    SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
-    SetTtsVoiceInput, StartListeningData, StartListeningInput, StepTransition, StopListeningData,
-    StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
-    SubmitActiveFormInput, ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData,
-    TranscribeCommandData, TranscribeCommandInput, TtsModelOption, TtsModelSettings,
-    TtsProviderSettings, TtsVoiceOption, TtsVoiceSettings, TypeIntoElementData,
+    EvalJsData, EvalJsInput, ExecutionOutcome, ExecutionTrace, ExtractPageModelData,
+    ExtractPageModelInput, FindElementData, FindElementInput, FocusElementData, FocusElementInput,
+    GetAgentStateInput, GetHtmlData, GetHtmlInput, GetPageSnapshotInput, GetRuntimeStatusData,
+    GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData, GoForwardInput, IntentName,
+    IntentSummary, ListInteractiveElementsData, ListInteractiveElementsInput,
+    LocalAsrModelSettings, LocalTtsModelSettings, MergeOcrIntoPageModelData,
+    MergeOcrIntoPageModelInput, OcrThresholdSettings, OpenUrlData, OpenUrlInput, PageSnapshotData,
+    PlannedStep, PlannerInput, PlannerOutput, PlannerProviderSettings, PlannerStatus,
+    PlannerToolHistoryEntry, ProviderFailoverSettings, ProviderSelectionStatus, ReadNextRegionData,
+    ReadNextRegionInput, ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData,
+    ReadRegionInput, ReloadPageData, ReloadPageInput, RemoteAsrSettings, RemotePlannerSettings,
+    RemoteTtsSettings, ReportResultData, ReportResultInput, ReportStatus, RunOcrData, RunOcrInput,
+    ScrollPageData, ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput,
+    SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
+    SetTtsVoiceData, SetTtsVoiceInput, StartListeningData, StartListeningInput, StepTransition,
+    StopListeningData, StopListeningInput, StopSpeakingData, StopSpeakingInput,
+    SubmitActiveFormData, SubmitActiveFormInput, ToolError, ToolName, ToolResult,
+    TranscribeAndExecuteCommandData, TranscribeCommandData, TranscribeCommandInput, TtsModelOption,
+    TtsModelSettings, TtsProviderSettings, TtsVoiceOption, TtsVoiceSettings, TypeIntoElementData,
     TypeIntoElementInput,
 };
 use crate::config::{
@@ -788,6 +788,54 @@ impl AppCore {
                 String::from("Read the live browser document HTML from the current active page."),
                 String::from(
                     "Runtime page metadata was refreshed from the live browser without altering the current page model.",
+                ),
+            ],
+        )
+    }
+
+    pub fn execute_eval_js(&mut self, input: EvalJsInput) -> ToolResult<EvalJsData> {
+        let Some(page_id) = self.state.current_page_id.clone() else {
+            return Self::browser_runtime_missing_page(ToolName::EvalJs, input.request_id);
+        };
+
+        let browser_eval = match self
+            .browser
+            .eval_js(input.expression.trim(), input.timeout_ms)
+        {
+            Ok(browser_eval) => browser_eval,
+            Err(error) => {
+                return self.browser_tool_failure(
+                    ToolName::EvalJs,
+                    input.request_id,
+                    String::from(
+                        "Live browser JavaScript evaluation did not complete successfully.",
+                    ),
+                    error,
+                )
+            }
+        };
+
+        if let Some(current_page) = self.state.current_page.as_mut() {
+            current_page.url = Some(browser_eval.url.clone());
+            current_page.title = browser_eval.title.clone();
+        }
+        self.state.browser_history = browser_eval.history.clone();
+
+        ToolResult::success(
+            ToolName::EvalJs,
+            input.request_id,
+            EvalJsData {
+                page_id,
+                url: browser_eval.url,
+                title: browser_eval.title,
+                result: browser_eval.result,
+            },
+            vec![
+                String::from(
+                    "Evaluated the requested JavaScript expression against the live browser page.",
+                ),
+                String::from(
+                    "Runtime page metadata was refreshed from the live browser, but page-model regions were not automatically re-extracted.",
                 ),
             ],
         )
@@ -5030,6 +5078,10 @@ impl DeterministicToolExecutor for AppCore {
         AppCore::execute_get_html(self, input)
     }
 
+    fn execute_eval_js(&mut self, input: EvalJsInput) -> ToolResult<EvalJsData> {
+        AppCore::execute_eval_js(self, input)
+    }
+
     fn execute_scroll_page(&mut self, input: ScrollPageInput) -> ToolResult<ScrollPageData> {
         AppCore::execute_scroll_page(self, input)
     }
@@ -7044,6 +7096,7 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
         BrowserError::Submit(_) => "browser_submit_failed",
         BrowserError::History(_) => "browser_history_failed",
         BrowserError::Reload(_) => "browser_reload_failed",
+        BrowserError::Eval(_) => "browser_eval_failed",
         BrowserError::Scroll(_) => "browser_scroll_failed",
         BrowserError::Screenshot(_) => "browser_screenshot_failed",
     };
@@ -7059,6 +7112,7 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
                 | BrowserError::Inspect(_)
                 | BrowserError::History(_)
                 | BrowserError::Reload(_)
+                | BrowserError::Eval(_)
                 | BrowserError::Scroll(_)
                 | BrowserError::Screenshot(_)
         ),

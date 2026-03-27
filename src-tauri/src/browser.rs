@@ -125,6 +125,14 @@ pub struct BrowserHtmlState {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct BrowserEvalState {
+    pub url: String,
+    pub title: Option<String>,
+    pub history: crate::state::BrowserHistoryState,
+    pub result: serde_json::Value,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct BrowserScrollState {
     pub previous_scroll_y: f32,
     pub current_scroll_y: f32,
@@ -174,6 +182,8 @@ pub enum BrowserError {
     History(String),
     #[error("failed to reload the active page: {0}")]
     Reload(String),
+    #[error("failed to evaluate the requested JavaScript expression: {0}")]
+    Eval(String),
     #[error("failed to scroll the active page: {0}")]
     Scroll(String),
     #[error("failed to capture the screenshot: {0}")]
@@ -781,6 +791,45 @@ impl BrowserController {
 
         #[cfg(not(feature = "browser"))]
         {
+            let _ = timeout_ms;
+            Err(BrowserError::FeatureDisabled)
+        }
+    }
+
+    pub fn eval_js(
+        &mut self,
+        expression: &str,
+        timeout_ms: Option<u64>,
+    ) -> Result<BrowserEvalState, BrowserError> {
+        #[cfg(feature = "browser")]
+        {
+            let page = self
+                .ensure_session()?
+                .page
+                .clone()
+                .ok_or(BrowserError::NoActivePage)?;
+
+            let result = tauri::async_runtime::block_on(async {
+                page.evaluate_expression(expression)
+                    .await
+                    .map_err(|error| BrowserError::Eval(error.to_string()))?
+                    .into_value::<serde_json::Value>()
+                    .map_err(|error| BrowserError::Eval(error.to_string()))
+            })?;
+            wait_for_page_settle(timeout_ms);
+            let page_state = tauri::async_runtime::block_on(snapshot_page_state(&page))?;
+
+            Ok(BrowserEvalState {
+                url: page_state.url,
+                title: page_state.title,
+                history: page_state.history,
+                result,
+            })
+        }
+
+        #[cfg(not(feature = "browser"))]
+        {
+            let _ = expression;
             let _ = timeout_ms;
             Err(BrowserError::FeatureDisabled)
         }
