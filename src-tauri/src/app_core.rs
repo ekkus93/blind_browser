@@ -7644,6 +7644,65 @@ mod tests {
     }
 
     #[test]
+    fn build_extracted_page_model_preserves_region_order_and_sources() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![
+                PageRegion {
+                    region_id: String::from("dom-region-title"),
+                    label: Some(String::from("Title")),
+                    text: String::from("Example"),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("dom-region-1"),
+                    label: None,
+                    text: String::from("First paragraph."),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("ocr-region-1"),
+                    label: None,
+                    text: String::from("Recovered OCR text."),
+                    bbox: None,
+                    source: RegionSource::Ocr,
+                },
+            ],
+            interactive_elements: Vec::new(),
+        };
+        let input = ExtractPageModelInput {
+            request_id: String::from("req-extract"),
+            timeout_ms: None,
+            use_dom_extraction: true,
+            include_headings: true,
+            include_links: true,
+        };
+
+        let extracted = build_extracted_page_model(&page, &input);
+
+        let ordered_region_ids = extracted
+            .regions
+            .iter()
+            .map(|region| region.region_id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            ordered_region_ids,
+            vec!["dom-region-title", "dom-region-1", "ocr-region-1"]
+        );
+        assert_eq!(
+            extracted
+                .regions
+                .iter()
+                .map(|region| region.source.clone())
+                .collect::<Vec<_>>(),
+            vec![RegionSource::Dom, RegionSource::Dom, RegionSource::Ocr]
+        );
+    }
+
+    #[test]
     fn infer_extraction_source_detects_merged_models() {
         let page = PageModel {
             title: Some(String::from("Example")),

@@ -1021,3 +1021,8 @@
 ## 2026-03-27T20:33:14Z - GPT-5.4 - User wants explicit fallback explanations
 - The user is especially concerned when I mention fallback code and wants a clear explanation of what the fallback does, why it exists, and whether it is explicit versus silent.
 - When discussing resilience paths in this repo, I should call out whether the behavior is primary-path-only, explicit fallback, or hidden fallback, and why that distinction matters.
+
+## 2026-03-27T21:47:27Z - GPT-5.4 - dom_smoothie quality validation added
+- Added extractor regression coverage that validates the current `dom_smoothie` contract against the target `PageModel`: title metadata is preserved without duplicate title regions, readable body text remains in order, interactive elements are preserved, and extracted regions stay DOM-sourced.
+- Added app-core regression coverage that `build_extracted_page_model(...)` preserves region ordering and per-region source values when shaping the runtime page model.
+- Marked `Validate dom_smoothie output quality against target page model` complete in `docs/TODO.md` and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` plus `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (`226` Rust tests passing).

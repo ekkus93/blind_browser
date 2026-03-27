@@ -165,6 +165,26 @@ mod tests {
         assert_eq!(regions[1].text, "Second paragraph.");
     }
 
+    #[test]
+    fn build_regions_from_article_text_preserves_paragraph_order() {
+        let regions = build_regions_from_article_text(
+            "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.",
+            None,
+        );
+
+        let ordered_text = regions
+            .iter()
+            .map(|region| region.text.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            ordered_text,
+            vec!["First paragraph.", "Second paragraph.", "Third paragraph."]
+        );
+        assert!(regions
+            .iter()
+            .all(|region| region.source == RegionSource::Dom));
+    }
+
     #[cfg(feature = "browser")]
     #[test]
     fn extract_page_model_from_html_uses_dom_smoothie_article_content() {
@@ -197,5 +217,85 @@ mod tests {
             .regions
             .iter()
             .any(|region| region.text.contains("First paragraph")));
+    }
+
+    #[cfg(feature = "browser")]
+    #[test]
+    fn extract_page_model_from_html_builds_target_page_model_shape() {
+        let html = r#"
+            <html>
+                <head><title>Example article</title></head>
+                <body>
+                    <main>
+                        <article>
+                            <h1>Example article</h1>
+                            <p>First paragraph.</p>
+                            <p>Second paragraph.</p>
+                        </article>
+                    </main>
+                </body>
+            </html>
+        "#;
+        let interactive_elements = vec![InteractiveElement {
+            element_id: String::from("link-1"),
+            dom_locator: Some(String::from("#link-1")),
+            role: crate::page_model::ElementRole::Link,
+            tag_name: String::from("a"),
+            text: Some(String::from("Read more")),
+            accessible_name: Some(String::from("Read more")),
+            placeholder: None,
+            href: Some(String::from("https://example.com/more")),
+            value: None,
+            bbox: None,
+            visible: true,
+            enabled: true,
+            attributes: std::collections::BTreeMap::new(),
+        }];
+
+        let page_model = extract_page_model_from_html(
+            html,
+            Some("https://example.com/article"),
+            interactive_elements.clone(),
+        )
+        .expect("dom_smoothie extraction should succeed");
+
+        assert_eq!(page_model.title.as_deref(), Some("Example article"));
+        assert_eq!(
+            page_model.url.as_deref(),
+            Some("https://example.com/article")
+        );
+        assert_eq!(page_model.interactive_elements, interactive_elements);
+
+        assert!(!page_model.regions.is_empty());
+        let title_regions = page_model
+            .regions
+            .iter()
+            .filter(|region| region.text == "Example article")
+            .collect::<Vec<_>>();
+        assert!(title_regions.len() <= 1);
+        if let Some(title_region) = title_regions.first() {
+            assert_eq!(title_region.label.as_deref(), Some("Title"));
+            assert_eq!(title_region.source, RegionSource::Dom);
+        }
+
+        let body_region_text = page_model
+            .regions
+            .iter()
+            .filter(|region| region.text != "Example article")
+            .map(|region| region.text.as_str())
+            .collect::<Vec<_>>();
+        assert!(!body_region_text.is_empty());
+        let combined_body_text = body_region_text.join("\n");
+        let first_index = combined_body_text
+            .find("First paragraph.")
+            .expect("first paragraph should be present");
+        let second_index = combined_body_text
+            .find("Second paragraph.")
+            .expect("second paragraph should be present");
+        assert!(first_index < second_index);
+        assert!(page_model
+            .regions
+            .iter()
+            .all(|region| region.source == RegionSource::Dom));
     }
 }
