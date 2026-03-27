@@ -993,3 +993,8 @@
   - `apply_audio_settings_reflects_muted_when_volume_is_zero` — verifies that zero volume sets `muted = true`.
 - Total Rust tests: 217 passed (was 214 after tts.rs slice; also committed tts.rs kitten_tts_rs slice).
 - Marked "Re-read effective speech settings before each new utterance" and "Apply changed speech settings on the next utterance" done in docs/TODO.md.
+
+## 2026-03-27T11:28:54Z - GPT-5.4 - Validation after TTS and speech-settings slices
+- Re-ran the standard validation pass after committing the TTS feature-gating fixes and speech-settings tests.
+- Validation is green: `cargo fmt --manifest-path src-tauri/Cargo.toml --all`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui` all pass.
+- Current counts remain 217 Rust tests passed and 48 UI tests passed, and the git worktree was clean immediately after validation.
