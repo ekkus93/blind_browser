@@ -1026,3 +1026,8 @@
 - Added extractor regression coverage that validates the current `dom_smoothie` contract against the target `PageModel`: title metadata is preserved without duplicate title regions, readable body text remains in order, interactive elements are preserved, and extracted regions stay DOM-sourced.
 - Added app-core regression coverage that `build_extracted_page_model(...)` preserves region ordering and per-region source values when shaping the runtime page model.
 - Marked `Validate dom_smoothie output quality against target page model` complete in `docs/TODO.md` and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` plus `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (`226` Rust tests passing).
+
+## 2026-03-27T23:09:54Z - GPT-5.4 - Structured extractor output landed
+- `src-tauri/src/extractor.rs` now returns an intermediate structured article model with explicit block kinds (`Title`, `Paragraph`, `Heading`) before converting that structure into the current `PageModel`.
+- `src-tauri/src/app_core.rs` now consumes the structured extractor output at the boundary and converts it into `PageModel`, keeping interactive-element attachment and explicit dom_smoothie fallback behavior unchanged.
+- Updated `docs/TODO.md` and `docs/SPECS.md` to reflect that structured title/paragraph extraction and deterministic extractor-output → page-model conversion are now implemented, and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`227` Rust tests and `48` UI tests passing).

@@ -129,15 +129,15 @@
 - [x] Add provisional acceptance checks for weak DOM extraction using configurable sparse-text thresholds
 - [x] Parse HTML → article
 - [ ] Extract:
-  - title
-  - paragraphs
+  - [x] title
+  - [x] paragraphs
   - headings
-- [ ] Return structured data
+- [x] Return structured data
 
 ### Page Model
 - [ ] Define structs
-- [ ] Convert extractor output → PageModel
-- [ ] Maintain region ordering
+- [x] Convert extractor output → PageModel
+- [x] Maintain region ordering
 
 ---
 

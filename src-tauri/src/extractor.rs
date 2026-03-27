@@ -31,11 +31,60 @@ pub enum ExtractorError {
     NoReadableContent,
 }
 
-pub fn extract_page_model_from_html(
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub enum ExtractedArticleBlockKind {
+    Title,
+    Paragraph,
+    Heading,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct ExtractedArticleBlock {
+    pub block_id: String,
+    pub kind: ExtractedArticleBlockKind,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct ExtractedArticle {
+    pub title: Option<String>,
+    pub url: Option<String>,
+    pub blocks: Vec<ExtractedArticleBlock>,
+    pub interactive_elements: Vec<InteractiveElement>,
+}
+
+impl ExtractedArticle {
+    pub fn into_page_model(self) -> PageModel {
+        let regions = self
+            .blocks
+            .into_iter()
+            .map(|block| PageRegion {
+                region_id: block.block_id,
+                label: match block.kind {
+                    ExtractedArticleBlockKind::Title => Some(String::from("Title")),
+                    ExtractedArticleBlockKind::Paragraph => None,
+                    ExtractedArticleBlockKind::Heading => Some(String::from("Heading")),
+                },
+                text: block.text,
+                bbox: None,
+                source: RegionSource::Dom,
+            })
+            .collect();
+
+        PageModel {
+            title: self.title,
+            url: self.url,
+            regions,
+            interactive_elements: self.interactive_elements,
+        }
+    }
+}
+
+pub fn extract_structured_article_from_html(
     html: &str,
     document_url: Option<&str>,
     interactive_elements: Vec<InteractiveElement>,
-) -> Result<PageModel, ExtractorError> {
+) -> Result<ExtractedArticle, ExtractorError> {
     #[cfg(feature = "browser")]
     {
         use dom_smoothie::{CandidateSelectMode, Config, Readability};
@@ -55,35 +104,33 @@ pub fn extract_page_model_from_html(
         let title = normalize_optional_text(Some(article.title.as_str()));
         let url = normalize_optional_text(article.url.as_deref())
             .or_else(|| normalize_optional_text(document_url));
-        let mut regions =
-            build_regions_from_article_text(article.text_content.as_ref(), title.as_deref());
+        let mut blocks =
+            build_article_blocks_from_text(article.text_content.as_ref(), title.as_deref());
 
-        if regions.is_empty() {
+        if blocks.is_empty() {
             return Err(ExtractorError::NoReadableContent);
         }
 
         if let Some(title_text) = title.as_deref() {
-            let duplicates_title = regions
+            let duplicates_title = blocks
                 .first()
-                .is_some_and(|region| region.text.trim().eq_ignore_ascii_case(title_text.trim()));
+                .is_some_and(|block| block.text.trim().eq_ignore_ascii_case(title_text.trim()));
             if !duplicates_title {
-                regions.insert(
+                blocks.insert(
                     0,
-                    PageRegion {
-                        region_id: String::from("dom-region-title"),
-                        label: Some(String::from("Title")),
+                    ExtractedArticleBlock {
+                        block_id: String::from("dom-block-title"),
+                        kind: ExtractedArticleBlockKind::Title,
                         text: title_text.to_string(),
-                        bbox: None,
-                        source: RegionSource::Dom,
                     },
                 );
             }
         }
 
-        Ok(PageModel {
+        Ok(ExtractedArticle {
             title,
             url,
-            regions,
+            blocks,
             interactive_elements,
         })
     }
@@ -97,11 +144,14 @@ pub fn extract_page_model_from_html(
     }
 }
 
-fn build_regions_from_article_text(text: &str, title: Option<&str>) -> Vec<PageRegion> {
-    let mut regions = Vec::new();
+fn build_article_blocks_from_text(
+    text: &str,
+    title: Option<&str>,
+) -> Vec<ExtractedArticleBlock> {
+    let mut blocks = Vec::new();
     let mut current = Vec::<String>::new();
 
-    let flush = |regions: &mut Vec<PageRegion>, current: &mut Vec<String>| {
+    let flush = |blocks: &mut Vec<ExtractedArticleBlock>, current: &mut Vec<String>| {
         let paragraph = current
             .iter()
             .map(|line| line.trim())
@@ -117,28 +167,26 @@ fn build_regions_from_article_text(text: &str, title: Option<&str>) -> Vec<PageR
             return;
         }
 
-        let next_index = regions.len() + 1;
-        regions.push(PageRegion {
-            region_id: format!("dom-region-{next_index}"),
-            label: None,
+        let next_index = blocks.len() + 1;
+        blocks.push(ExtractedArticleBlock {
+            block_id: format!("dom-block-{next_index}"),
+            kind: ExtractedArticleBlockKind::Paragraph,
             text: trimmed.to_string(),
-            bbox: None,
-            source: RegionSource::Dom,
         });
     };
 
     for line in text.lines() {
         let trimmed = line.trim();
         if trimmed.is_empty() {
-            flush(&mut regions, &mut current);
+            flush(&mut blocks, &mut current);
             continue;
         }
 
         current.push(trimmed.to_string());
     }
-    flush(&mut regions, &mut current);
+    flush(&mut blocks, &mut current);
 
-    regions
+    blocks
 }
 
 fn normalize_optional_text(value: Option<&str>) -> Option<String> {
@@ -153,41 +201,82 @@ mod tests {
     use super::*;
 
     #[test]
-    fn build_regions_from_article_text_splits_paragraphs_and_skips_title() {
-        let regions = build_regions_from_article_text(
+    fn build_article_blocks_from_text_splits_paragraphs_and_skips_title() {
+        let blocks = build_article_blocks_from_text(
             "Example article\n\nFirst paragraph.\nStill first.\n\nSecond paragraph.",
             Some("Example article"),
         );
 
-        assert_eq!(regions.len(), 2);
-        assert_eq!(regions[0].region_id, "dom-region-1");
-        assert_eq!(regions[0].text, "First paragraph. Still first.");
-        assert_eq!(regions[1].text, "Second paragraph.");
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(blocks[0].block_id, "dom-block-1");
+        assert_eq!(blocks[0].kind, ExtractedArticleBlockKind::Paragraph);
+        assert_eq!(blocks[0].text, "First paragraph. Still first.");
+        assert_eq!(blocks[1].text, "Second paragraph.");
     }
 
     #[test]
-    fn build_regions_from_article_text_preserves_paragraph_order() {
-        let regions = build_regions_from_article_text(
+    fn build_article_blocks_from_text_preserves_paragraph_order() {
+        let blocks = build_article_blocks_from_text(
             "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.",
             None,
         );
 
-        let ordered_text = regions
+        let ordered_text = blocks
             .iter()
-            .map(|region| region.text.as_str())
+            .map(|block| block.text.as_str())
             .collect::<Vec<_>>();
         assert_eq!(
             ordered_text,
             vec!["First paragraph.", "Second paragraph.", "Third paragraph."]
         );
-        assert!(regions
+        assert!(blocks
+            .iter()
+            .all(|block| block.kind == ExtractedArticleBlockKind::Paragraph));
+    }
+
+    #[test]
+    fn extracted_article_into_page_model_preserves_block_order() {
+        let article = ExtractedArticle {
+            title: Some(String::from("Example article")),
+            url: Some(String::from("https://example.com/article")),
+            blocks: vec![
+                ExtractedArticleBlock {
+                    block_id: String::from("dom-block-title"),
+                    kind: ExtractedArticleBlockKind::Title,
+                    text: String::from("Example article"),
+                },
+                ExtractedArticleBlock {
+                    block_id: String::from("dom-block-1"),
+                    kind: ExtractedArticleBlockKind::Paragraph,
+                    text: String::from("First paragraph."),
+                },
+                ExtractedArticleBlock {
+                    block_id: String::from("dom-block-2"),
+                    kind: ExtractedArticleBlockKind::Heading,
+                    text: String::from("Section heading"),
+                },
+            ],
+            interactive_elements: Vec::new(),
+        };
+
+        let page_model = article.into_page_model();
+
+        assert_eq!(page_model.regions.len(), 3);
+        assert_eq!(page_model.regions[0].region_id, "dom-block-title");
+        assert_eq!(page_model.regions[0].label.as_deref(), Some("Title"));
+        assert_eq!(page_model.regions[1].region_id, "dom-block-1");
+        assert_eq!(page_model.regions[1].label, None);
+        assert_eq!(page_model.regions[2].region_id, "dom-block-2");
+        assert_eq!(page_model.regions[2].label.as_deref(), Some("Heading"));
+        assert!(page_model
+            .regions
             .iter()
             .all(|region| region.source == RegionSource::Dom));
     }
 
     #[cfg(feature = "browser")]
     #[test]
-    fn extract_page_model_from_html_uses_dom_smoothie_article_content() {
+    fn extract_structured_article_from_html_uses_dom_smoothie_article_content() {
         let html = r#"
             <html>
                 <head><title>Example article</title></head>
@@ -203,25 +292,28 @@ mod tests {
             </html>
         "#;
 
-        let page_model =
-            extract_page_model_from_html(html, Some("https://example.com/article"), Vec::new())
-                .expect("dom_smoothie extraction should succeed");
+        let article = extract_structured_article_from_html(
+            html,
+            Some("https://example.com/article"),
+            Vec::new(),
+        )
+        .expect("dom_smoothie extraction should succeed");
 
-        assert_eq!(page_model.title.as_deref(), Some("Example article"));
+        assert_eq!(article.title.as_deref(), Some("Example article"));
         assert_eq!(
-            page_model.url.as_deref(),
+            article.url.as_deref(),
             Some("https://example.com/article")
         );
-        assert!(!page_model.regions.is_empty());
-        assert!(page_model
-            .regions
+        assert!(!article.blocks.is_empty());
+        assert!(article
+            .blocks
             .iter()
-            .any(|region| region.text.contains("First paragraph")));
+            .any(|block| block.text.contains("First paragraph")));
     }
 
     #[cfg(feature = "browser")]
     #[test]
-    fn extract_page_model_from_html_builds_target_page_model_shape() {
+    fn extract_structured_article_from_html_builds_target_page_model_shape() {
         let html = r#"
             <html>
                 <head><title>Example article</title></head>
@@ -252,40 +344,39 @@ mod tests {
             attributes: std::collections::BTreeMap::new(),
         }];
 
-        let page_model = extract_page_model_from_html(
+        let article = extract_structured_article_from_html(
             html,
             Some("https://example.com/article"),
             interactive_elements.clone(),
         )
         .expect("dom_smoothie extraction should succeed");
 
-        assert_eq!(page_model.title.as_deref(), Some("Example article"));
+        assert_eq!(article.title.as_deref(), Some("Example article"));
         assert_eq!(
-            page_model.url.as_deref(),
+            article.url.as_deref(),
             Some("https://example.com/article")
         );
-        assert_eq!(page_model.interactive_elements, interactive_elements);
+        assert_eq!(article.interactive_elements, interactive_elements);
 
-        assert!(!page_model.regions.is_empty());
-        let title_regions = page_model
-            .regions
+        assert!(!article.blocks.is_empty());
+        let title_blocks = article
+            .blocks
             .iter()
-            .filter(|region| region.text == "Example article")
+            .filter(|block| block.text == "Example article")
             .collect::<Vec<_>>();
-        assert!(title_regions.len() <= 1);
-        if let Some(title_region) = title_regions.first() {
-            assert_eq!(title_region.label.as_deref(), Some("Title"));
-            assert_eq!(title_region.source, RegionSource::Dom);
+        assert!(title_blocks.len() <= 1);
+        if let Some(title_block) = title_blocks.first() {
+            assert_eq!(title_block.kind, ExtractedArticleBlockKind::Title);
         }
 
-        let body_region_text = page_model
-            .regions
+        let body_block_text = article
+            .blocks
             .iter()
-            .filter(|region| region.text != "Example article")
-            .map(|region| region.text.as_str())
+            .filter(|block| block.text != "Example article")
+            .map(|block| block.text.as_str())
             .collect::<Vec<_>>();
-        assert!(!body_region_text.is_empty());
-        let combined_body_text = body_region_text.join("\n");
+        assert!(!body_block_text.is_empty());
+        let combined_body_text = body_block_text.join("\n");
         let first_index = combined_body_text
             .find("First paragraph.")
             .expect("first paragraph should be present");
@@ -293,9 +384,14 @@ mod tests {
             .find("Second paragraph.")
             .expect("second paragraph should be present");
         assert!(first_index < second_index);
-        assert!(page_model
-            .regions
+        assert!(article
+            .blocks
             .iter()
-            .all(|region| region.source == RegionSource::Dom));
+            .all(|block| {
+                matches!(
+                    block.kind,
+                    ExtractedArticleBlockKind::Title | ExtractedArticleBlockKind::Paragraph
+                )
+            }));
     }
 }

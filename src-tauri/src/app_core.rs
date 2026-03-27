@@ -48,7 +48,7 @@ use crate::config::{
     LocalAsrProfile, LocalTtsProfile, ModelManagementSettings, RemotePlannerProfile,
     RemoteProviderKind,
 };
-use crate::extractor::extract_page_model_from_html;
+use crate::extractor::extract_structured_article_from_html;
 use crate::narration::{
     cursor_for_index, find_region_index, next_region_index, previous_region_index,
     spoken_text_for_region,
@@ -1605,14 +1605,14 @@ impl AppCore {
             };
 
             let extracted_page_model = match self.browser.get_html(input.timeout_ms) {
-                Ok(browser_html) => match extract_page_model_from_html(
+                Ok(browser_html) => match extract_structured_article_from_html(
                     &browser_html.html,
                     browser_page_model.url.as_deref(),
                     browser_page_model.interactive_elements.clone(),
                 ) {
-                    Ok(extracted_page_model) => {
+                    Ok(extracted_article) => {
                         used_dom_smoothie = true;
-                        extracted_page_model
+                        extracted_article.into_page_model()
                     }
                     Err(error) => {
                         dom_smoothie_fallback_reason = Some(error.to_string());
