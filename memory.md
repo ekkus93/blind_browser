@@ -1012,3 +1012,12 @@
 - `src-tauri/src/app_core.rs` now exposes `execute_eval_js`, returning `{ page_id, url, title, result }` and refreshing runtime browser metadata without silently re-extracting the page model.
 - `src-tauri/src/commands.rs` now registers `ToolName::EvalJs`, adds schema/dispatch/parse wiring, rejects blank expressions, and includes regression coverage for dispatch plus validation.
 - Updated `docs/SPECS.md` and `docs/TODO.md`; full validation is green with 220 Rust tests passed, 48 UI tests passed, and `pnpm build` succeeding.
+
+## 2026-03-27T20:30:19Z - GPT-5.4 - dom_smoothie extraction path landed
+- `src-tauri/src/extractor.rs` now wraps `dom_smoothie` to parse live HTML into readable article regions, splitting article text into ordered paragraph-style `PageRegion`s and avoiding duplicate title text.
+- `src-tauri/src/app_core.rs` now treats live `get_html()` + `dom_smoothie` as the primary readable-text extraction path while still reusing the existing browser DOM extraction for interactive elements and as an explicit surfaced fallback.
+- Updated `docs/SPECS.md` and `docs/TODO.md` to reflect the new extraction flow, and revalidated with `cargo fmt --manifest-path src-tauri/Cargo.toml --all`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`223` Rust tests and `48` UI tests passing).
+
+## 2026-03-27T20:33:14Z - GPT-5.4 - User wants explicit fallback explanations
+- The user is especially concerned when I mention fallback code and wants a clear explanation of what the fallback does, why it exists, and whether it is explicit versus silent.
+- When discussing resilience paths in this repo, I should call out whether the behavior is primary-path-only, explicit fallback, or hidden fallback, and why that distinction matters.

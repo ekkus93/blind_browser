@@ -48,6 +48,7 @@ use crate::config::{
     LocalAsrProfile, LocalTtsProfile, ModelManagementSettings, RemotePlannerProfile,
     RemoteProviderKind,
 };
+use crate::extractor::extract_page_model_from_html;
 use crate::narration::{
     cursor_for_index, find_region_index, next_region_index, previous_region_index,
     spoken_text_for_region,
@@ -1586,8 +1587,10 @@ impl AppCore {
             );
         };
 
+        let mut used_dom_smoothie = false;
+        let mut dom_smoothie_fallback_reason: Option<String> = None;
         let base_page_model = if input.use_dom_extraction {
-            let extracted_page_model = match self.browser.extract_page_model() {
+            let browser_page_model = match self.browser.extract_page_model() {
                 Ok(extracted_page_model) => extracted_page_model,
                 Err(error) => {
                     return self.browser_tool_failure(
@@ -1600,6 +1603,30 @@ impl AppCore {
                     )
                 }
             };
+
+            let extracted_page_model = match self.browser.get_html(input.timeout_ms) {
+                Ok(browser_html) => match extract_page_model_from_html(
+                    &browser_html.html,
+                    browser_page_model.url.as_deref(),
+                    browser_page_model.interactive_elements.clone(),
+                ) {
+                    Ok(extracted_page_model) => {
+                        used_dom_smoothie = true;
+                        extracted_page_model
+                    }
+                    Err(error) => {
+                        dom_smoothie_fallback_reason = Some(error.to_string());
+                        tracing::warn!(error = %error, "dom_smoothie extraction fell back to browser DOM model");
+                        browser_page_model
+                    }
+                },
+                Err(error) => {
+                    dom_smoothie_fallback_reason = Some(error.to_string());
+                    tracing::warn!(error = %error, "HTML retrieval failed during dom_smoothie extraction; falling back to browser DOM model");
+                    browser_page_model
+                }
+            };
+
             self.state.current_page = Some(extracted_page_model.clone());
             extracted_page_model
         } else {
@@ -1625,9 +1652,22 @@ impl AppCore {
         };
 
         let mut observations = if input.use_dom_extraction {
-            vec![String::from(
-                "Built a deterministic page model from the live Chromium DOM and persisted it into runtime state.",
-            )]
+            if used_dom_smoothie {
+                vec![String::from(
+                    "Built a deterministic page model from live HTML using dom_smoothie and persisted it into runtime state.",
+                )]
+            } else {
+                let mut observations = vec![String::from(
+                    "dom_smoothie extraction fell back to the live Chromium DOM model.",
+                )];
+                if let Some(reason) = dom_smoothie_fallback_reason.as_deref() {
+                    observations.push(format!("dom_smoothie fallback reason: {reason}"));
+                }
+                observations.push(String::from(
+                    "Built a deterministic page model from the live Chromium DOM and persisted it into runtime state.",
+                ));
+                observations
+            }
         } else {
             vec![String::from(
                 "Built a deterministic page model from the current runtime page state.",
@@ -1845,8 +1885,11 @@ impl AppCore {
             .iter()
             .filter(|region| !region.text.trim().is_empty())
             .count();
-        let extraction_source =
-            infer_extraction_source(&runtime_page_model, input.use_dom_extraction);
+        let extraction_source = infer_extraction_source(
+            &runtime_page_model,
+            input.use_dom_extraction,
+            used_dom_smoothie,
+        );
 
         ToolResult::success(
             ToolName::ExtractPageModel,
@@ -7059,8 +7102,11 @@ fn tokenize_search_text(value: &str) -> Vec<String> {
         .collect()
 }
 
-fn infer_extraction_source(page: &PageModel, use_dom_extraction: bool) -> ExtractionSource {
-    let _ = use_dom_extraction;
+fn infer_extraction_source(
+    page: &PageModel,
+    use_dom_extraction: bool,
+    used_dom_smoothie: bool,
+) -> ExtractionSource {
     let has_ocr = page
         .regions
         .iter()
@@ -7074,6 +7120,8 @@ fn infer_extraction_source(page: &PageModel, use_dom_extraction: bool) -> Extrac
         ExtractionSource::Merged
     } else if has_ocr {
         ExtractionSource::Ocr
+    } else if use_dom_extraction && used_dom_smoothie {
+        ExtractionSource::DomSmoothie
     } else {
         ExtractionSource::DomFallback
     }
@@ -7620,7 +7668,7 @@ mod tests {
         };
 
         assert_eq!(
-            infer_extraction_source(&page, true),
+            infer_extraction_source(&page, true, false),
             ExtractionSource::Merged
         );
     }
@@ -7641,8 +7689,33 @@ mod tests {
         };
 
         assert_eq!(
-            infer_extraction_source(&page, true),
+            infer_extraction_source(&page, true, false),
             ExtractionSource::Merged
+        );
+    }
+
+    #[test]
+    fn infer_extraction_source_reports_dom_smoothie_when_dom_only() {
+        let page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![PageRegion {
+                region_id: String::from("dom-region"),
+                label: None,
+                text: String::from("Readable text"),
+                bbox: None,
+                source: RegionSource::Dom,
+            }],
+            interactive_elements: Vec::new(),
+        };
+
+        assert_eq!(
+            infer_extraction_source(&page, true, true),
+            ExtractionSource::DomSmoothie
+        );
+        assert_eq!(
+            infer_extraction_source(&page, true, false),
+            ExtractionSource::DomFallback
         );
     }
 

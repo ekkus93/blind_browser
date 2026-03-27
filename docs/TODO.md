@@ -124,10 +124,10 @@
 - [x] Implement eval_js()
 
 ### Extractor Module
-- [ ] Integrate dom_smoothie
+- [x] Integrate dom_smoothie
 - [ ] Validate dom_smoothie output quality against target page model
-- [ ] Add provisional acceptance checks for weak DOM extraction using configurable sparse-text thresholds
-- [ ] Parse HTML → article
+- [x] Add provisional acceptance checks for weak DOM extraction using configurable sparse-text thresholds
+- [x] Parse HTML → article
 - [ ] Extract:
   - title
   - paragraphs

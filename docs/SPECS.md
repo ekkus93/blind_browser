@@ -1142,6 +1142,8 @@ Validation notes:
 - When `include_links` is `false`, link-role entries are omitted from `page_model.interactive_elements`.
 
 Behavior notes:
+- When `use_dom_extraction` is `true`, runtime extraction first reads live page HTML and runs `dom_smoothie` article parsing to build readable text regions, while still reusing the live DOM extractor for interactive-element metadata.
+- If `dom_smoothie` extraction or live HTML retrieval fails, `extract_page_model` falls back explicitly to the live Chromium DOM model and surfaces that fallback in tool observations instead of failing silently.
 - When `use_dom_extraction` is `true`, `extract_page_model` triggers deterministic OCR fallback when `ocr.trigger_on_no_extractable_text` is enabled and live DOM extraction yields either no readable region text or text that remains below the configured sparse-text thresholds.
 - By default, sparse-text fallback treats DOM extraction as weak when it yields `200` readable characters or fewer than `2` readable regions.
 - Sparse-text fallback uses `ocr.sparse_text_char_threshold` as a maximum readable-character threshold and `ocr.sparse_text_region_threshold` as a minimum readable-region threshold, so those defaults remain configurable.
