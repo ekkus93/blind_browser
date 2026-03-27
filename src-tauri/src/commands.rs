@@ -19,6 +19,7 @@ pub enum ToolName {
     GoBack,
     GoForward,
     ReloadPage,
+    GetHtml,
     ScrollPage,
     CaptureScreenshot,
     SetBrowserVisibility,
@@ -119,6 +120,7 @@ pub trait DeterministicToolExecutor {
     fn execute_go_back(&mut self, input: GoBackInput) -> ToolResult<GoBackData>;
     fn execute_go_forward(&mut self, input: GoForwardInput) -> ToolResult<GoForwardData>;
     fn execute_reload_page(&mut self, input: ReloadPageInput) -> ToolResult<ReloadPageData>;
+    fn execute_get_html(&mut self, input: GetHtmlInput) -> ToolResult<GetHtmlData>;
     fn execute_scroll_page(&mut self, input: ScrollPageInput) -> ToolResult<ScrollPageData>;
     fn execute_capture_screenshot(
         &mut self,
@@ -898,6 +900,21 @@ pub struct ReloadPageData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct GetHtmlInput {
+    pub request_id: String,
+    pub timeout_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct GetHtmlData {
+    pub page_id: String,
+    pub url: String,
+    pub title: Option<String>,
+    pub html: String,
+    pub html_length: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct ScrollPageInput {
     pub request_id: String,
     pub timeout_ms: Option<u64>,
@@ -1302,6 +1319,11 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
                 executor.execute_reload_page(input)
             })
         }
+        ToolName::GetHtml => {
+            execute_serialized_tool(step, ToolName::GetHtml, executor, |executor, input| {
+                executor.execute_get_html(input)
+            })
+        }
         ToolName::ScrollPage => {
             execute_serialized_tool(step, ToolName::ScrollPage, executor, |executor, input| {
                 executor.execute_scroll_page(input)
@@ -1540,6 +1562,7 @@ pub fn registered_tools() -> Vec<AvailableTool> {
         GoBack,
         GoForward,
         ReloadPage,
+        GetHtml,
         ScrollPage,
         CaptureScreenshot,
         SetBrowserVisibility,
@@ -1826,6 +1849,7 @@ pub fn tool_input_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
         ToolName::GoBack => Some(schema_json::<GoBackInput>()),
         ToolName::GoForward => Some(schema_json::<GoForwardInput>()),
         ToolName::ReloadPage => Some(schema_json::<ReloadPageInput>()),
+        ToolName::GetHtml => Some(schema_json::<GetHtmlInput>()),
         ToolName::ScrollPage => Some(schema_json::<ScrollPageInput>()),
         ToolName::CaptureScreenshot => Some(schema_json::<CaptureScreenshotInput>()),
         ToolName::RunOcr => Some(schema_json::<RunOcrInput>()),
@@ -1862,6 +1886,7 @@ pub fn tool_output_schema(tool_name: &ToolName) -> Option<serde_json::Value> {
         ToolName::GoBack => Some(schema_json::<ToolResult<GoBackData>>()),
         ToolName::GoForward => Some(schema_json::<ToolResult<GoForwardData>>()),
         ToolName::ReloadPage => Some(schema_json::<ToolResult<ReloadPageData>>()),
+        ToolName::GetHtml => Some(schema_json::<ToolResult<GetHtmlData>>()),
         ToolName::ScrollPage => Some(schema_json::<ToolResult<ScrollPageData>>()),
         ToolName::CaptureScreenshot => Some(schema_json::<ToolResult<CaptureScreenshotData>>()),
         ToolName::RunOcr => Some(schema_json::<ToolResult<RunOcrData>>()),
@@ -2324,6 +2349,7 @@ fn is_plannable_tool(tool_name: &ToolName) -> bool {
             | ToolName::GoBack
             | ToolName::GoForward
             | ToolName::ReloadPage
+            | ToolName::GetHtml
             | ToolName::ScrollPage
             | ToolName::CaptureScreenshot
             | ToolName::RunOcr
@@ -2364,6 +2390,7 @@ fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> 
         ToolName::GoBack => validate_go_back_input(&deserialize_tool_arguments(step)?),
         ToolName::GoForward => validate_go_forward_input(&deserialize_tool_arguments(step)?),
         ToolName::ReloadPage => validate_tool_arguments::<ReloadPageInput>(step),
+        ToolName::GetHtml => validate_tool_arguments::<GetHtmlInput>(step),
         ToolName::ScrollPage => validate_scroll_page_input(&deserialize_tool_arguments(step)?),
         ToolName::CaptureScreenshot => {
             let input = deserialize_tool_arguments::<CaptureScreenshotInput>(step)?;
@@ -3306,6 +3333,7 @@ fn parse_tool_name_value(value: &str) -> Result<ToolName, String> {
         "go_back" => Ok(ToolName::GoBack),
         "go_forward" => Ok(ToolName::GoForward),
         "reload_page" => Ok(ToolName::ReloadPage),
+        "get_html" => Ok(ToolName::GetHtml),
         "scroll_page" => Ok(ToolName::ScrollPage),
         "capture_screenshot" => Ok(ToolName::CaptureScreenshot),
         "set_browser_visibility" => Ok(ToolName::SetBrowserVisibility),
@@ -5937,6 +5965,7 @@ fn is_side_effecting_tool(tool_name: &ToolName) -> bool {
     !matches!(
         tool_name,
         ToolName::CaptureScreenshot
+            | ToolName::GetHtml
             | ToolName::GetPageSnapshot
             | ToolName::ExtractPageModel
             | ToolName::ListInteractiveElements
@@ -6023,6 +6052,7 @@ mod tests {
         last_go_back_request: Option<GoBackInput>,
         last_go_forward_request: Option<GoForwardInput>,
         last_reload_request: Option<ReloadPageInput>,
+        last_get_html_request: Option<GetHtmlInput>,
         last_scroll_request: Option<ScrollPageInput>,
         last_capture_screenshot_request: Option<CaptureScreenshotInput>,
         last_run_ocr_request: Option<RunOcrInput>,
@@ -6136,6 +6166,24 @@ mod tests {
                     },
                 },
                 vec![String::from("reloaded the page")],
+            )
+        }
+
+        fn execute_get_html(&mut self, input: GetHtmlInput) -> ToolResult<GetHtmlData> {
+            self.last_get_html_request = Some(input.clone());
+            let html = String::from("<html><body><main>Example article</main></body></html>");
+            let html_length = html.len();
+            ToolResult::success(
+                ToolName::GetHtml,
+                input.request_id,
+                GetHtmlData {
+                    page_id: String::from("page-1"),
+                    url: String::from("https://example.com/article"),
+                    title: Some(String::from("Example article")),
+                    html,
+                    html_length,
+                },
+                vec![String::from("read the current page HTML")],
             )
         }
 
@@ -6878,6 +6926,17 @@ mod tests {
                 on_success: StepTransition::Complete,
                 on_failure: StepTransition::Replan,
             },
+            ToolName::GetHtml => PlannedStep {
+                step_id: String::from("step-get-html"),
+                tool_name,
+                arguments: serde_json::json!({
+                    "request_id": "req-get-html",
+                    "timeout_ms": 1000
+                }),
+                purpose: String::from("read current page HTML"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            },
             ToolName::ScrollPage => PlannedStep {
                 step_id: String::from("step-scroll"),
                 tool_name,
@@ -7409,6 +7468,46 @@ mod tests {
                 .map(|input| input.mode),
             Some(ReloadMode::Hard)
         );
+    }
+
+    #[test]
+    fn dispatches_get_html_from_planned_step() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-get-html"),
+            tool_name: ToolName::GetHtml,
+            arguments: serde_json::json!({
+                "request_id": "req-get-html",
+                "timeout_ms": 1000
+            }),
+            purpose: String::from("read current page HTML"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+
+        assert!(result.ok);
+        assert_eq!(
+            executor
+                .last_get_html_request
+                .as_ref()
+                .map(|input| input.request_id.as_str()),
+            Some("req-get-html")
+        );
+        let data = result.data.expect("get_html should serialize");
+        assert_eq!(
+            data.get("page_id"),
+            Some(&serde_json::Value::String(String::from("page-1")))
+        );
+        assert_eq!(
+            data.get("html_length").and_then(serde_json::Value::as_u64),
+            Some(54)
+        );
+        assert!(data
+            .get("html")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|html| html.contains("<main>Example article</main>")));
     }
 
     #[test]
@@ -8673,6 +8772,9 @@ mod tests {
         assert!(available_tools
             .iter()
             .any(|tool| tool.name == ToolName::CaptureScreenshot));
+        assert!(available_tools
+            .iter()
+            .any(|tool| tool.name == ToolName::GetHtml));
         assert!(available_tools
             .iter()
             .any(|tool| tool.name == ToolName::RunOcr));

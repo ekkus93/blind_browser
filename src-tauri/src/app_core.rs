@@ -23,18 +23,18 @@ use crate::commands::{
     CaptureScreenshotInput, ClickElementData, ClickElementInput, ConfirmActionData,
     ConfirmActionInput, ConfirmActionResolution, ConfirmationSettings, DeterministicToolExecutor,
     ExecutionOutcome, ExecutionTrace, ExtractPageModelData, ExtractPageModelInput, FindElementData,
-    FindElementInput, FocusElementData, FocusElementInput, GetAgentStateInput,
-    GetPageSnapshotInput, GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput,
-    GoForwardData, GoForwardInput, IntentName, IntentSummary, ListInteractiveElementsData,
-    ListInteractiveElementsInput, LocalAsrModelSettings, LocalTtsModelSettings,
-    MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput, OcrThresholdSettings, OpenUrlData,
-    OpenUrlInput, PageSnapshotData, PlannedStep, PlannerInput, PlannerOutput,
-    PlannerProviderSettings, PlannerStatus, PlannerToolHistoryEntry, ProviderFailoverSettings,
-    ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
-    ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
-    RemoteAsrSettings, RemotePlannerSettings, RemoteTtsSettings, ReportResultData,
-    ReportResultInput, ReportStatus, RunOcrData, RunOcrInput, ScrollPageData, ScrollPageInput,
-    SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
+    FindElementInput, FocusElementData, FocusElementInput, GetAgentStateInput, GetHtmlData,
+    GetHtmlInput, GetPageSnapshotInput, GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData,
+    GoBackInput, GoForwardData, GoForwardInput, IntentName, IntentSummary,
+    ListInteractiveElementsData, ListInteractiveElementsInput, LocalAsrModelSettings,
+    LocalTtsModelSettings, MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput,
+    OcrThresholdSettings, OpenUrlData, OpenUrlInput, PageSnapshotData, PlannedStep, PlannerInput,
+    PlannerOutput, PlannerProviderSettings, PlannerStatus, PlannerToolHistoryEntry,
+    ProviderFailoverSettings, ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput,
+    ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData, ReadRegionInput,
+    ReloadPageData, ReloadPageInput, RemoteAsrSettings, RemotePlannerSettings, RemoteTtsSettings,
+    ReportResultData, ReportResultInput, ReportStatus, RunOcrData, RunOcrInput, ScrollPageData,
+    ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
     SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
     SetTtsVoiceInput, StartListeningData, StartListeningInput, StepTransition, StopListeningData,
     StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
@@ -747,6 +747,49 @@ impl AppCore {
                 history: browser_page.history,
             },
             observations,
+        )
+    }
+
+    pub fn execute_get_html(&mut self, input: GetHtmlInput) -> ToolResult<GetHtmlData> {
+        let Some(page_id) = self.state.current_page_id.clone() else {
+            return Self::browser_runtime_missing_page(ToolName::GetHtml, input.request_id);
+        };
+
+        let browser_html = match self.browser.get_html(input.timeout_ms) {
+            Ok(browser_html) => browser_html,
+            Err(error) => {
+                return self.browser_tool_failure(
+                    ToolName::GetHtml,
+                    input.request_id,
+                    String::from("Live browser HTML retrieval did not complete successfully."),
+                    error,
+                )
+            }
+        };
+
+        if let Some(current_page) = self.state.current_page.as_mut() {
+            current_page.url = Some(browser_html.url.clone());
+            current_page.title = browser_html.title.clone();
+        }
+        self.state.browser_history = browser_html.history.clone();
+
+        let html_length = browser_html.html.len();
+        ToolResult::success(
+            ToolName::GetHtml,
+            input.request_id,
+            GetHtmlData {
+                page_id,
+                url: browser_html.url,
+                title: browser_html.title,
+                html: browser_html.html,
+                html_length,
+            },
+            vec![
+                String::from("Read the live browser document HTML from the current active page."),
+                String::from(
+                    "Runtime page metadata was refreshed from the live browser without altering the current page model.",
+                ),
+            ],
         )
     }
 
@@ -4981,6 +5024,10 @@ impl DeterministicToolExecutor for AppCore {
 
     fn execute_reload_page(&mut self, input: ReloadPageInput) -> ToolResult<ReloadPageData> {
         AppCore::execute_reload_page(self, input)
+    }
+
+    fn execute_get_html(&mut self, input: GetHtmlInput) -> ToolResult<GetHtmlData> {
+        AppCore::execute_get_html(self, input)
     }
 
     fn execute_scroll_page(&mut self, input: ScrollPageInput) -> ToolResult<ScrollPageData> {

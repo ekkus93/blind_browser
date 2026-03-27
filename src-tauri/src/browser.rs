@@ -116,6 +116,14 @@ pub struct BrowserNavigationState {
     pub history: crate::state::BrowserHistoryState,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BrowserHtmlState {
+    pub url: String,
+    pub title: Option<String>,
+    pub history: crate::state::BrowserHistoryState,
+    pub html: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct BrowserScrollState {
     pub previous_scroll_y: f32,
@@ -731,6 +739,48 @@ impl BrowserController {
         {
             let _ = hard_reload;
             let _ = load_state;
+            let _ = timeout_ms;
+            Err(BrowserError::FeatureDisabled)
+        }
+    }
+
+    pub fn get_html(&mut self, timeout_ms: Option<u64>) -> Result<BrowserHtmlState, BrowserError> {
+        #[cfg(feature = "browser")]
+        {
+            let page = self
+                .ensure_session()?
+                .page
+                .clone()
+                .ok_or(BrowserError::NoActivePage)?;
+
+            wait_for_page_settle(timeout_ms);
+            tauri::async_runtime::block_on(async {
+                let html = page
+                    .evaluate(
+                        "document.documentElement ? document.documentElement.outerHTML : null",
+                    )
+                    .await
+                    .map_err(|error| BrowserError::Inspect(error.to_string()))?
+                    .into_value::<Option<String>>()
+                    .map_err(|error| BrowserError::Inspect(error.to_string()))?
+                    .ok_or_else(|| {
+                        BrowserError::Inspect(String::from(
+                            "document has no root html element to serialize",
+                        ))
+                    })?;
+                let page_state = snapshot_page_state(&page).await?;
+
+                Ok(BrowserHtmlState {
+                    url: page_state.url,
+                    title: page_state.title,
+                    history: page_state.history,
+                    html,
+                })
+            })
+        }
+
+        #[cfg(not(feature = "browser"))]
+        {
             let _ = timeout_ms;
             Err(BrowserError::FeatureDisabled)
         }

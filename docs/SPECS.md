@@ -1091,6 +1091,15 @@ struct ReloadPageInput {
 Routing notes:
 - Spoken navigation commands such as `back`, `go back`, `forward`, `go forward`, `reload`, and `refresh page` should resolve directly to the corresponding bounded navigation tools instead of relying on free-form planner action text.
 
+#### `get_html`
+
+```rust
+struct GetHtmlInput {
+  request_id: String,
+  timeout_ms: Option<u64>,
+}
+```
+
 #### `get_page_snapshot`
 
 ```rust
@@ -1534,6 +1543,18 @@ struct PageSnapshotData {
   viewport_width: f32,
   viewport_height: f32,
   document_height: f32,
+}
+```
+
+#### `get_html`
+
+```rust
+struct GetHtmlData {
+  page_id: String,
+  url: String,
+  title: Option<String>,
+  html: String,
+  html_length: usize,
 }
 ```
 

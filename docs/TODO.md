@@ -119,7 +119,7 @@
 - [x] Implement reload_page()
 - [x] Track browser history state and expose can-go-back/can-go-forward signals
 - [x] Implement runtime browser visibility switching when supported
-- [ ] Implement get_html()
+- [x] Implement get_html()
 - [ ] Implement screenshot_png()
 - [ ] Implement eval_js()
 

@@ -998,3 +998,10 @@
 - Re-ran the standard validation pass after committing the TTS feature-gating fixes and speech-settings tests.
 - Validation is green: `cargo fmt --manifest-path src-tauri/Cargo.toml --all`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui` all pass.
 - Current counts remain 217 Rust tests passed and 48 UI tests passed, and the git worktree was clean immediately after validation.
+
+## 2026-03-27T11:44:12Z - GPT-5.4 - get_html tool implemented
+- Added a new deterministic `get_html` tool across the planner-visible contract, app runtime, and browser backend.
+- `src-tauri/src/browser.rs` now reads `document.documentElement.outerHTML` from the live Chromium page and returns refreshed URL/title/history metadata alongside the HTML payload.
+- `src-tauri/src/app_core.rs` now exposes `execute_get_html`, requiring an active page id, refreshing runtime metadata, and returning `{ page_id, url, title, html, html_length }`.
+- `src-tauri/src/commands.rs` now registers `ToolName::GetHtml`, its input/output schemas, planner validation, dispatcher wiring, parser name mapping, non-side-effect classification, and regression tests.
+- Updated `docs/SPECS.md` and `docs/TODO.md`, and validation is green with 218 Rust tests passed, 48 UI tests passed, and `pnpm build` succeeding.
