@@ -1501,6 +1501,9 @@ pub struct ElementSearchResult {
 
 const MAX_SELECTED_PLANNER_SKILLS: usize = 3;
 const MAX_INITIAL_PLAN_STEPS: usize = 5;
+pub(crate) const MAX_HISTORY_STEPS: u8 = 5;
+pub(crate) const MAX_SCROLL_AMOUNT_PX: f32 = 4_000.0;
+pub(crate) const DEFAULT_FIND_ELEMENT_MAX_CANDIDATES: usize = 3;
 const BUNDLED_SKILLS_MARKDOWN: &str = include_str!("../../docs/SKILLS.md");
 const DEFAULT_VOLUME_STEP: f32 = 0.10;
 const SMALL_VOLUME_STEP: f32 = 0.05;
@@ -2358,10 +2361,10 @@ fn schema_json<T: JsonSchema>() -> serde_json::Value {
 fn validate_planned_step_arguments(step: &PlannedStep) -> Result<(), ToolError> {
     match step.tool_name {
         ToolName::OpenUrl => validate_open_url_input(&deserialize_tool_arguments(step)?),
-        ToolName::GoBack => validate_tool_arguments::<GoBackInput>(step),
-        ToolName::GoForward => validate_tool_arguments::<GoForwardInput>(step),
+        ToolName::GoBack => validate_go_back_input(&deserialize_tool_arguments(step)?),
+        ToolName::GoForward => validate_go_forward_input(&deserialize_tool_arguments(step)?),
         ToolName::ReloadPage => validate_tool_arguments::<ReloadPageInput>(step),
-        ToolName::ScrollPage => validate_tool_arguments::<ScrollPageInput>(step),
+        ToolName::ScrollPage => validate_scroll_page_input(&deserialize_tool_arguments(step)?),
         ToolName::CaptureScreenshot => {
             let input = deserialize_tool_arguments::<CaptureScreenshotInput>(step)?;
             validate_capture_screenshot_input(&input)
@@ -2431,11 +2434,90 @@ fn deserialize_tool_arguments<T: serde::de::DeserializeOwned>(
 }
 
 fn validate_open_url_input(input: &OpenUrlInput) -> Result<(), ToolError> {
-    if input.url.trim().is_empty() {
+    let trimmed = input.url.trim();
+    if trimmed.is_empty() {
         return Err(invalid_planner_output(
             "open_url requires a non-empty url",
             None,
         ));
+    }
+
+    let Some(separator_index) = trimmed.find(':') else {
+        return Err(invalid_planner_output(
+            "open_url requires an absolute URL with a scheme",
+            Some(serde_json::json!({ "url": trimmed })),
+        ));
+    };
+
+    let scheme = &trimmed[..separator_index];
+    let remainder = &trimmed[separator_index + 1..];
+    let valid_scheme = scheme.chars().enumerate().all(|(index, ch)| match index {
+        0 => ch.is_ascii_alphabetic(),
+        _ => ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-' | '.'),
+    });
+
+    if !valid_scheme || remainder.is_empty() {
+        return Err(invalid_planner_output(
+            "open_url requires an absolute URL with a valid scheme",
+            Some(serde_json::json!({ "url": trimmed })),
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_go_back_input(input: &GoBackInput) -> Result<(), ToolError> {
+    validate_history_steps("go_back", input.steps)
+}
+
+fn validate_go_forward_input(input: &GoForwardInput) -> Result<(), ToolError> {
+    validate_history_steps("go_forward", input.steps)
+}
+
+fn validate_history_steps(tool_name: &str, steps: Option<u8>) -> Result<(), ToolError> {
+    if matches!(steps, Some(0)) {
+        return Err(invalid_planner_output(
+            format!("{tool_name} steps must be greater than 0 when provided"),
+            None,
+        ));
+    }
+
+    if let Some(steps) = steps {
+        if steps > MAX_HISTORY_STEPS {
+            return Err(invalid_planner_output(
+                format!(
+                    "{tool_name} steps must be less than or equal to {MAX_HISTORY_STEPS} when provided"
+                ),
+                Some(serde_json::json!({ "steps": steps })),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_scroll_page_input(input: &ScrollPageInput) -> Result<(), ToolError> {
+    if input.amount_px.is_none() && input.target.is_none() {
+        return Err(invalid_planner_output(
+            "scroll_page requires amount_px or target to be provided",
+            None,
+        ));
+    }
+
+    if let Some(amount_px) = input.amount_px {
+        if !amount_px.is_finite() {
+            return Err(invalid_planner_output(
+                "scroll_page amount_px must be a finite number when provided",
+                None,
+            ));
+        }
+
+        if amount_px <= 0.0 {
+            return Err(invalid_planner_output(
+                "scroll_page amount_px must be greater than 0 when provided",
+                Some(serde_json::json!({ "amount_px": amount_px })),
+            ));
+        }
     }
 
     Ok(())
@@ -2582,6 +2664,17 @@ fn validate_find_element_input(input: &FindElementInput) -> Result<(), ToolError
             "find_element max_candidates must be greater than 0 when provided",
             None,
         ));
+    }
+
+    if let Some(max_candidates) = input.max_candidates {
+        if max_candidates > DEFAULT_FIND_ELEMENT_MAX_CANDIDATES {
+            return Err(invalid_planner_output(
+                format!(
+                    "find_element max_candidates must be less than or equal to {DEFAULT_FIND_ELEMENT_MAX_CANDIDATES} when provided"
+                ),
+                Some(serde_json::json!({ "max_candidates": max_candidates })),
+            ));
+        }
     }
 
     Ok(())
@@ -9580,6 +9673,208 @@ mod tests {
     }
 
     #[test]
+    fn validate_planner_output_rejects_open_url_with_relative_url() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::OpenUrl,
+                goal: String::from("open a page"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("open_url_direct")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-open-url"),
+                tool_name: ToolName::OpenUrl,
+                arguments: serde_json::json!({
+                    "request_id": "req-open-url",
+                    "url": "/relative/path",
+                    "wait_for_load_state": "Load"
+                }),
+                purpose: String::from("open a page"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("open_url_direct")],
+        )
+        .expect_err("validation should reject relative open_url values");
+        assert!(error
+            .message
+            .contains("open_url requires an absolute URL with a scheme"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_go_back_with_too_many_steps() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::GoBack,
+                goal: String::from("go back"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("go_back")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-go-back"),
+                tool_name: ToolName::GoBack,
+                arguments: serde_json::json!({
+                    "request_id": "req-go-back",
+                    "steps": MAX_HISTORY_STEPS + 1,
+                    "wait_for_load_state": "Load"
+                }),
+                purpose: String::from("go back"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("go_back")],
+        )
+        .expect_err("validation should reject go_back steps above the supported maximum");
+        assert!(error
+            .message
+            .contains("go_back steps must be less than or equal to"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_go_forward_with_zero_steps() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::GoForward,
+                goal: String::from("go forward"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("go_forward")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-go-forward"),
+                tool_name: ToolName::GoForward,
+                arguments: serde_json::json!({
+                    "request_id": "req-go-forward",
+                    "steps": 0,
+                    "wait_for_load_state": "Load"
+                }),
+                purpose: String::from("go forward"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("go_forward")],
+        )
+        .expect_err("validation should reject go_forward steps below the supported minimum");
+        assert!(error
+            .message
+            .contains("go_forward steps must be greater than 0"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_scroll_page_without_amount_or_target() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::ReadNext,
+                goal: String::from("scroll the page"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("scroll_page")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-scroll"),
+                tool_name: ToolName::ScrollPage,
+                arguments: serde_json::json!({
+                    "request_id": "req-scroll",
+                    "direction": "Down",
+                    "amount_px": serde_json::Value::Null,
+                    "target": serde_json::Value::Null
+                }),
+                purpose: String::from("scroll the page"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("scroll_page")],
+        )
+        .expect_err("validation should reject scroll_page requests without amount or target");
+        assert!(error
+            .message
+            .contains("scroll_page requires amount_px or target to be provided"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_scroll_page_with_non_positive_amount() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::ReadNext,
+                goal: String::from("scroll the page"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("scroll_page")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-scroll"),
+                tool_name: ToolName::ScrollPage,
+                arguments: serde_json::json!({
+                    "request_id": "req-scroll",
+                    "direction": "Down",
+                    "amount_px": 0.0,
+                    "target": serde_json::Value::Null
+                }),
+                purpose: String::from("scroll the page"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("scroll_page")],
+        )
+        .expect_err("validation should reject non-positive scroll amounts");
+        assert!(error
+            .message
+            .contains("scroll_page amount_px must be greater than 0"));
+    }
+
+    #[test]
     fn validate_planner_output_rejects_find_element_with_blank_description() {
         let available_tools = planner_available_tools();
         let planner_output = PlannerOutput {
@@ -9669,6 +9964,52 @@ mod tests {
         assert!(error
             .message
             .contains("find_element max_candidates must be greater than 0"));
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_find_element_with_too_many_max_candidates() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::FindElement,
+                goal: String::from("find an element"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("find_element")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-find-element"),
+                tool_name: ToolName::FindElement,
+                arguments: serde_json::json!({
+                    "request_id": "req-find-element",
+                    "description": "search field",
+                    "text": null,
+                    "role": null,
+                    "color_hint": null,
+                    "nearby_text": null,
+                    "selector_hint": null,
+                    "visibility_filter": "VisibleOnly",
+                    "max_candidates": DEFAULT_FIND_ELEMENT_MAX_CANDIDATES + 1
+                }),
+                purpose: String::from("find an element"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("find_element")],
+        )
+        .expect_err("validation should reject max_candidates above the supported maximum");
+        assert!(error
+            .message
+            .contains("find_element max_candidates must be less than or equal to"));
     }
 
     #[test]

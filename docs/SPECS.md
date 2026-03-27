@@ -1061,7 +1061,7 @@ struct GoBackInput {
 ```
 
 Validation notes:
-- `steps` defaults to `1` and should be clamped to a small upper bound.
+- `steps` defaults to `1` and must be between `1` and `5` when provided.
 
 #### `go_forward`
 
@@ -1075,7 +1075,7 @@ struct GoForwardInput {
 ```
 
 Validation notes:
-- `steps` defaults to `1` and should be clamped to a small upper bound.
+- `steps` defaults to `1` and must be between `1` and `5` when provided.
 
 #### `reload_page`
 
@@ -1155,7 +1155,7 @@ struct FindElementInput {
 
 Validation notes:
 - At least one of `description`, `text`, `role`, `color_hint`, `nearby_text`, or `selector_hint` must be meaningfully populated.
-- `max_candidates` should be clamped to a small upper bound.
+- `max_candidates` must be between `1` and `3` when provided.
 
 #### `click_element`
 
@@ -1217,6 +1217,7 @@ Validation notes:
 - `direction` is constrained by `ScrollDirection`.
 - `target` is constrained by `ScrollTarget`.
 - At least one of `amount_px` or `target` should be present.
+- `amount_px`, when provided, must be a finite value greater than `0`.
 
 #### `set_browser_visibility`
 
