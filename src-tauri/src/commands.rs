@@ -1027,6 +1027,12 @@ pub(crate) struct FillFieldCommand {
     pub text: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum FillFieldCorrectionCommand {
+    AlternateField,
+    ReplaceValue { text: String },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct ReadNextRegionInput {
     pub request_id: String,
@@ -4771,6 +4777,37 @@ pub(crate) fn parse_direct_fill_field_command(transcript: &str) -> Option<FillFi
         description: parse_fill_field_description_only(&collapsed),
         text: None,
     })
+}
+
+pub(crate) fn parse_fill_field_correction_command(
+    transcript: &str,
+) -> Option<FillFieldCorrectionCommand> {
+    let normalized = normalize_transcript_for_routing(transcript);
+    if normalized.is_empty() || !is_fill_input_phrase(&normalized) {
+        return None;
+    }
+
+    if normalized.contains("the other field") {
+        return Some(FillFieldCorrectionCommand::AlternateField);
+    }
+
+    let collapsed = collapse_transcript_whitespace(transcript);
+    if collapsed.is_empty() {
+        return None;
+    }
+
+    let lowered = collapsed.to_ascii_lowercase();
+    for prefix in ["put ", "type ", "enter "] {
+        let suffix = " there instead";
+        if lowered.starts_with(prefix) && lowered.ends_with(suffix) {
+            let end_index = collapsed.len().saturating_sub(suffix.len());
+            let value = collapsed.get(prefix.len()..end_index)?.trim();
+            let text = normalize_fill_value(value)?;
+            return Some(FillFieldCorrectionCommand::ReplaceValue { text });
+        }
+    }
+
+    None
 }
 
 pub(crate) fn parse_direct_fill_and_submit_command(transcript: &str) -> Option<FillFieldCommand> {
@@ -11025,6 +11062,27 @@ mod tests {
             parse_direct_fill_field_command("focus the email field"),
             None
         );
+    }
+
+    #[test]
+    fn parse_fill_field_correction_command_extracts_follow_up_corrections() {
+        assert_eq!(
+            parse_fill_field_correction_command("no, the other field"),
+            Some(FillFieldCorrectionCommand::AlternateField)
+        );
+        assert_eq!(
+            parse_fill_field_correction_command("put Seattle there instead"),
+            Some(FillFieldCorrectionCommand::ReplaceValue {
+                text: String::from("Seattle")
+            })
+        );
+        assert_eq!(
+            parse_fill_field_correction_command("type \"hello world\" there instead"),
+            Some(FillFieldCorrectionCommand::ReplaceValue {
+                text: String::from("hello world")
+            })
+        );
+        assert_eq!(parse_fill_field_correction_command("read page"), None);
     }
 
     #[test]

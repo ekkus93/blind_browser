@@ -436,16 +436,16 @@
 - [x] Browser visibility changes are reflected in runtime status and UI state
 - [x] Listening start/stop/transcribe tools update runtime state correctly
 - [x] Deterministic audio-setting tools persist and report the updated values
-- [ ] Planner requests confirmation before risky execution
+- [x] Planner requests confirmation before risky execution
 - [x] Queued confirmation flows resume at the stored follow-up step after explicit user approval
 - [x] Rejected or timed-out confirmation flows clear pending state and replan without executing the queued side-effecting step
-- [ ] Submit actions always require confirmation
-- [ ] Click actions may proceed without confirmation when configured
-- [ ] Fill-field workflows resolve the intended input and write the requested value
-- [ ] Fill-and-submit workflows require confirmation before form submission
-- [ ] Ambiguous element matches ask the user to clarify instead of silently choosing one
-- [ ] Mixed commands such as fill-and-submit are decomposed into safe bounded plans
-- [ ] Follow-up corrections such as `no, the other field` reuse recent context when available
+- [x] Submit actions always require confirmation
+- [x] Click actions may proceed without confirmation when configured
+- [x] Fill-field workflows resolve the intended input and write the requested value
+- [x] Fill-and-submit workflows require confirmation before form submission
+- [x] Ambiguous element matches ask the user to clarify instead of silently choosing one
+- [x] Mixed commands such as fill-and-submit are decomposed into safe bounded plans
+- [x] Follow-up corrections such as `no, the other field` reuse recent context when available
 - [ ] Replanning after tool failure or ambiguous result
 - [ ] LLM unavailable with no local provider → report command interpretation unavailable
 - [ ] Remote TTS selected → speech output succeeds

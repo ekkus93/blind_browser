@@ -1064,3 +1064,39 @@
 - `src-tauri/src/commands.rs` test coverage now keeps mocked browser-history state across `go_back`, `go_forward`, `reload_page`, `get_runtime_status`, and `get_agent_state`, so follow-up state reads reflect updated back/forward availability and history indices.
 - The new regression case covers back→runtime-status, forward→runtime-status, and reload→agent-state to prove the reported browser history state stays aligned with deterministic navigation-tool results.
 - Revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo fmt --manifest-path src-tauri/Cargo.toml --all && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`.
+
+## 2026-03-28T09:21:36Z - GPT-5.4 - Reconciled stale risky-confirmation TODO
+- `docs/TODO.md`'s `Planner requests confirmation before risky execution` item was stale: existing tests already cover the risky-confirmation path via `returns_awaiting_confirmation_when_transition_requests_it`, `aborts_needs_confirmation_plan_before_side_effecting_step`, the queued/timed-out confirmation flow tests, and confirmation-gated submit/fill planning coverage.
+- This slice only required auditing the current confirmation behavior and marking the TODO item done so the checklist matches the already-landed confirmation safeguards.
+
+## 2026-03-28T09:34:52Z - GPT-5.4 - Reconciled stale submit-confirmation TODO
+- `docs/TODO.md`'s `Submit actions always require confirmation` item was stale: existing planner validation tests already reject `SubmitForm` plans that omit `NeedsConfirmation` or the `confirm_action` gate, and direct submit / fill-and-submit command resolution already builds confirmation-gated plans.
+- This slice only required auditing the current submit-confirmation coverage and marking the TODO item done so the checklist matches the already-enforced submit safety behavior.
+
+## 2026-03-28T09:43:39Z - GPT-5.4 - Reconciled stale click-confirmation TODO
+- `docs/TODO.md`'s `Click actions may proceed without confirmation when configured` item was stale: the specs already document this behavior, planner examples already include both `click_element_ready` and `click_element_with_confirmation`, and the serialized example tests cover both the ready and confirmation-gated click paths.
+- This slice only required auditing the current click-confirmation coverage and marking the TODO item done so the checklist matches the already-landed ordinary-click safety behavior.
+
+## 2026-03-28T09:56:05Z - GPT-5.4 - Reconciled stale fill-field workflow TODO
+- `docs/TODO.md`'s `Fill-field workflows resolve the intended input and write the requested value` item was stale: existing tests already cover direct fill-field parsing, missing-value follow-up handling, and the confirmation-free focus→type plan that targets the matched field and carries the requested text value.
+- This slice only required auditing the current fill-field workflow coverage and marking the TODO item done so the checklist matches the already-landed fill-field behavior.
+
+## 2026-03-28T10:00:32Z - GPT-5.4 - Reconciled stale fill-and-submit confirmation TODO
+- `docs/TODO.md`'s `Fill-and-submit workflows require confirmation before form submission` item was stale: existing tests already cover direct fill-and-submit parsing, missing-value follow-up handling, and the confirmation-gated plan that uses `NeedsConfirmation` with `confirm_action` before `SubmitActiveForm`.
+- This slice only required auditing the current fill-and-submit confirmation coverage and marking the TODO item done so the checklist matches the already-enforced guarded submit behavior.
+
+## 2026-03-28T10:02:45Z - GPT-5.4 - Reconciled stale ambiguity-clarification TODO
+- `docs/TODO.md`'s `Ambiguous element matches ask the user to clarify instead of silently choosing one` item was stale: existing tests already cover ambiguous focus-field and submit-form matches returning `NeedsFollowUp` clarification/reporting flows instead of silently selecting one candidate.
+- This slice only required auditing the current ambiguity-handling coverage and marking the TODO item done so the checklist matches the already-landed clarification behavior.
+
+## 2026-03-28T10:05:48Z - GPT-5.4 - Reconciled stale mixed-command bounded-plan TODO
+- `docs/TODO.md`'s `Mixed commands such as fill-and-submit are decomposed into safe bounded plans` item was stale: `resolve_direct_fill_and_submit_command_builds_confirmation_gated_plan` already verifies a bounded four-step plan of `ConfirmAction`, `FocusElement`, `TypeIntoElement`, and `SubmitActiveForm`, and `resolve_direct_fill_and_submit_command_reports_missing_value` covers the follow-up path when the requested text is omitted.
+- This slice only required auditing the current mixed-command planner coverage and marking the TODO item done so the checklist matches the existing bounded-plan behavior.
+
+## 2026-03-28T11:30:40Z - GPT-5.4 - Added recent field-context follow-up corrections
+- Follow-up fill corrections now reuse recent deterministic field context in `src-tauri/src/app_core.rs`: phrases like `no, the other field` can switch to a stored alternate candidate when a recent field-resolution context exists, and `put Seattle there instead` can reuse the recent field target without submitting.
+- The command parser gained explicit `parse_fill_field_correction_command(...)` coverage in `src-tauri/src/commands.rs`, and new app-core regression tests now pin the replacement-text, alternate-field, and no-context follow-up behaviors. Full validation passed afterward: `cargo clippy`, `cargo test` (241 Rust tests), `pnpm test:ui` (49 passes), and `pnpm build`.
+
+## 2026-03-28T11:45:33Z - GPT-5.4 - Revalidated lint and unit test baseline
+- Reran the requested validation subset after the recent follow-up context slice: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
+- The baseline stayed green with 241 Rust tests passing and 49 UI tests passing, so the current worktree is still clean from a lint/unit-test perspective before the next TODO slice.
