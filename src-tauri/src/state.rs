@@ -334,6 +334,42 @@ mod tests {
     }
 
     #[test]
+    fn set_listening_updates_runtime_listening_state() {
+        let mut state = AppState::default();
+
+        assert!(!state.listening.is_listening);
+        assert!(state.listening.push_to_talk_enabled);
+
+        state.set_listening(true);
+        assert!(state.listening.is_listening);
+        assert!(state.listening.push_to_talk_enabled);
+
+        state.set_listening(false);
+        assert!(!state.listening.is_listening);
+        assert!(state.listening.push_to_talk_enabled);
+    }
+
+    #[test]
+    fn record_transcript_trims_text_and_clears_empty_values() {
+        let mut state = AppState::default();
+
+        state.record_transcript(Some(String::from("  read the next section  ")));
+        assert_eq!(
+            state.last_transcript.as_deref(),
+            Some("read the next section")
+        );
+
+        state.record_transcript(Some(String::from("   ")));
+        assert!(state.last_transcript.is_none());
+
+        state.record_transcript(Some(String::from("\n\nplay the title\t")));
+        assert_eq!(state.last_transcript.as_deref(), Some("play the title"));
+
+        state.record_transcript(None);
+        assert!(state.last_transcript.is_none());
+    }
+
+    #[test]
     fn from_config_hydrates_persisted_audio_settings() {
         let config = AppConfig::load_from_str(
             &AppConfig::default_template()

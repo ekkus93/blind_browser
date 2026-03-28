@@ -411,9 +411,9 @@
 - [ ] Secret reference resolution and masking behavior
 - [x] Audio settings persistence and validation
 - [ ] Browser history state serialization and boundary behavior
-- [ ] Runtime status schema serialization and provider-mode reporting
-- [ ] Deterministic listening state transitions and one-shot transcription tool behavior
-- [ ] Deterministic browser visibility and audio-setting tool clamping behavior
+- [x] Runtime status schema serialization and provider-mode reporting
+- [x] Deterministic listening state transitions and one-shot transcription tool behavior
+- [x] Deterministic browser visibility and audio-setting tool clamping behavior
 - [x] Voice command parsing for playback volume and playback speed
 - [x] Volume normalization from percent, decimal, and relative phrases
 - [x] Playback speed normalization from multiplier, percent, and relative phrases

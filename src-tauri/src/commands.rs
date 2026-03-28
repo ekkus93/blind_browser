@@ -6143,7 +6143,6 @@ mod tests {
     use super::*;
     use crate::page_model::RegionRole;
 
-    #[derive(Default)]
     struct MockExecutor {
         last_open_url: Option<String>,
         last_go_back_request: Option<GoBackInput>,
@@ -6176,6 +6175,50 @@ mod tests {
         last_visibility: Option<BrowserVisibilityMode>,
         last_confirmation_prompt: Option<String>,
         last_report_result: Option<ReportResultData>,
+        audio: RuntimeAudioState,
+        browser_visibility: BrowserVisibilityMode,
+        browser_visibility_switch_supported: bool,
+    }
+
+    impl Default for MockExecutor {
+        fn default() -> Self {
+            Self {
+                last_open_url: None,
+                last_go_back_request: None,
+                last_go_forward_request: None,
+                last_reload_request: None,
+                last_get_html_request: None,
+                last_eval_js_request: None,
+                last_scroll_request: None,
+                last_capture_screenshot_request: None,
+                last_run_ocr_request: None,
+                last_merge_ocr_request: None,
+                last_read_region_request: None,
+                last_read_next_region_request: None,
+                last_read_previous_region_request: None,
+                last_stop_speaking_request: None,
+                last_start_listening_request: None,
+                last_stop_listening_request: None,
+                last_transcribe_command_request: None,
+                last_snapshot_request: None,
+                last_list_request: None,
+                last_find_request: None,
+                last_click_request: None,
+                last_focus_request: None,
+                last_type_request: None,
+                last_submit_request: None,
+                last_extract_request: None,
+                last_voice: None,
+                last_volume: None,
+                last_speed: None,
+                last_visibility: None,
+                last_confirmation_prompt: None,
+                last_report_result: None,
+                audio: RuntimeAudioState::default(),
+                browser_visibility: BrowserVisibilityMode::Visible,
+                browser_visibility_switch_supported: true,
+            }
+        }
     }
 
     impl MockExecutor {
@@ -6248,8 +6291,7 @@ mod tests {
         }
 
         fn current_browser_visibility(&self) -> BrowserVisibilityMode {
-            self.last_visibility
-                .unwrap_or(BrowserVisibilityMode::Visible)
+            self.browser_visibility
         }
     }
 
@@ -7181,16 +7223,31 @@ mod tests {
             &mut self,
             input: SetPlaybackVolumeInput,
         ) -> ToolResult<SetPlaybackVolumeData> {
+            let clamped_volume = input
+                .volume
+                .clamp(crate::config::MIN_PLAYBACK_VOLUME, crate::config::MAX_PLAYBACK_VOLUME);
+            let changed = (self.audio.playback_volume - clamped_volume).abs() > f32::EPSILON;
             self.last_volume = Some(input.volume);
+            self.audio.playback_volume = clamped_volume;
+            self.audio.muted = clamped_volume == 0.0;
+            let mut observations = vec![
+                String::from("Updated the playback volume setting."),
+                String::from("New narration requests will use the updated playback volume."),
+            ];
+            if (input.volume - clamped_volume).abs() > f32::EPSILON {
+                observations.push(String::from(
+                    "Requested playback volume was clamped to the supported range.",
+                ));
+            }
             ToolResult::success(
                 ToolName::SetPlaybackVolume,
                 input.request_id,
                 SetPlaybackVolumeData {
-                    playback_volume: input.volume,
-                    muted: input.volume == 0.0,
-                    changed: true,
+                    playback_volume: self.audio.playback_volume,
+                    muted: self.audio.muted,
+                    changed,
                 },
-                vec![String::from("volume updated")],
+                observations,
             )
         }
 
@@ -7198,15 +7255,29 @@ mod tests {
             &mut self,
             input: SetPlaybackSpeedInput,
         ) -> ToolResult<SetPlaybackSpeedData> {
+            let clamped_speed = input
+                .speed
+                .clamp(crate::config::MIN_PLAYBACK_SPEED, crate::config::MAX_PLAYBACK_SPEED);
+            let changed = (self.audio.playback_speed - clamped_speed).abs() > f32::EPSILON;
             self.last_speed = Some(input.speed);
+            self.audio.playback_speed = clamped_speed;
+            let mut observations = vec![
+                String::from("Updated the playback speed setting."),
+                String::from("New narration requests will use the updated native TTS speed."),
+            ];
+            if (input.speed - clamped_speed).abs() > f32::EPSILON {
+                observations.push(String::from(
+                    "Requested playback speed was clamped to the supported range.",
+                ));
+            }
             ToolResult::success(
                 ToolName::SetPlaybackSpeed,
                 input.request_id,
                 SetPlaybackSpeedData {
-                    playback_speed: input.speed,
-                    changed: true,
+                    playback_speed: self.audio.playback_speed,
+                    changed,
                 },
-                vec![String::from("speed updated")],
+                observations,
             )
         }
 
@@ -7215,15 +7286,44 @@ mod tests {
             input: SetBrowserVisibilityInput,
         ) -> ToolResult<SetBrowserVisibilityData> {
             self.last_visibility = Some(input.mode);
+            if self.browser_visibility == input.mode {
+                return ToolResult::success(
+                    ToolName::SetBrowserVisibility,
+                    input.request_id,
+                    SetBrowserVisibilityData {
+                        mode: self.browser_visibility,
+                        changed: false,
+                        supported: true,
+                    },
+                    vec![String::from(
+                        "Browser visibility mode is already set to the requested value.",
+                    )],
+                );
+            }
+            if !self.browser_visibility_switch_supported {
+                return ToolResult::success(
+                    ToolName::SetBrowserVisibility,
+                    input.request_id,
+                    SetBrowserVisibilityData {
+                        mode: self.browser_visibility,
+                        changed: false,
+                        supported: false,
+                    },
+                    vec![String::from(
+                        "Browser visibility switching is not supported in this build.",
+                    )],
+                );
+            }
+            self.browser_visibility = input.mode;
             ToolResult::success(
                 ToolName::SetBrowserVisibility,
                 input.request_id,
                 SetBrowserVisibilityData {
-                    mode: input.mode,
+                    mode: self.browser_visibility,
                     changed: true,
                     supported: true,
                 },
-                vec![String::from("visibility updated")],
+                vec![String::from("Browser visibility mode was updated.")],
             )
         }
 
@@ -7243,7 +7343,7 @@ mod tests {
                     narration_cursor: Some(NarrationCursor::default()),
                     speaking: false,
                     listening_state: self.current_listening_state(),
-                    audio: RuntimeAudioState::default(),
+                    audio: self.audio.clone(),
                     last_transcript: if input.include_last_transcript {
                         self.current_last_transcript()
                     } else {
@@ -7379,7 +7479,7 @@ mod tests {
                     browser_history: self.current_browser_history(),
                     listening_state: self.current_listening_state(),
                     speaking: false,
-                    audio: RuntimeAudioState::default(),
+                    audio: self.audio.clone(),
                     pending_confirmation_id: None,
                     pending_plan_execution: None,
                     provider_modes: if input.include_provider_modes {
@@ -8874,6 +8974,254 @@ mod tests {
         assert!(result.ok);
         let data = result.data.expect("runtime status should serialize");
         assert!(data.get("provider_modes").is_some());
+    }
+
+    #[test]
+    fn set_playback_volume_clamps_requested_value_and_updates_readback() {
+        let mut executor = MockExecutor::default();
+
+        let result = executor.execute_set_playback_volume(SetPlaybackVolumeInput {
+            request_id: String::from("req-volume-clamp"),
+            timeout_ms: Some(1_000),
+            volume: -0.25,
+        });
+
+        assert!(result.ok);
+        assert_eq!(
+            result.observations,
+            vec![
+                String::from("Updated the playback volume setting."),
+                String::from("New narration requests will use the updated playback volume."),
+                String::from("Requested playback volume was clamped to the supported range."),
+            ]
+        );
+        assert_eq!(
+            result.data.expect("volume tool should return data"),
+            SetPlaybackVolumeData {
+                playback_volume: 0.0,
+                muted: true,
+                changed: true,
+            }
+        );
+        assert_eq!(executor.last_volume, Some(-0.25));
+
+        let state = executor.execute_get_agent_state(GetAgentStateInput {
+            request_id: String::from("req-agent-state"),
+            timeout_ms: Some(1_000),
+            include_last_transcript: false,
+        });
+        assert!(state.ok);
+        let state_data = state.data.expect("agent state should return data");
+        assert_eq!(state_data.audio.playback_volume, 0.0);
+        assert!(state_data.audio.muted);
+    }
+
+    #[test]
+    fn set_playback_speed_clamps_requested_value_and_updates_readback() {
+        let mut executor = MockExecutor::default();
+
+        let result = executor.execute_set_playback_speed(SetPlaybackSpeedInput {
+            request_id: String::from("req-speed-clamp"),
+            timeout_ms: Some(1_000),
+            speed: 9.0,
+        });
+
+        assert!(result.ok);
+        assert_eq!(
+            result.observations,
+            vec![
+                String::from("Updated the playback speed setting."),
+                String::from("New narration requests will use the updated native TTS speed."),
+                String::from("Requested playback speed was clamped to the supported range."),
+            ]
+        );
+        assert_eq!(
+            result.data.expect("speed tool should return data"),
+            SetPlaybackSpeedData {
+                playback_speed: crate::config::MAX_PLAYBACK_SPEED,
+                changed: true,
+            }
+        );
+        assert_eq!(executor.last_speed, Some(9.0));
+
+        let status = executor.execute_get_runtime_status(GetRuntimeStatusInput {
+            request_id: String::from("req-runtime-status"),
+            timeout_ms: Some(1_000),
+            include_provider_modes: false,
+        });
+        assert!(status.ok);
+        let status_data = status.data.expect("runtime status should return data");
+        assert_eq!(
+            status_data.audio.playback_speed,
+            crate::config::MAX_PLAYBACK_SPEED
+        );
+    }
+
+    #[test]
+    fn set_browser_visibility_reports_no_change_when_mode_is_already_active() {
+        let mut executor = MockExecutor {
+            browser_visibility: BrowserVisibilityMode::Headless,
+            ..Default::default()
+        };
+
+        let result = executor.execute_set_browser_visibility(SetBrowserVisibilityInput {
+            request_id: String::from("req-visibility-noop"),
+            timeout_ms: Some(1_000),
+            mode: BrowserVisibilityMode::Headless,
+        });
+
+        assert!(result.ok);
+        assert_eq!(
+            result.data.expect("visibility tool should return data"),
+            SetBrowserVisibilityData {
+                mode: BrowserVisibilityMode::Headless,
+                changed: false,
+                supported: true,
+            }
+        );
+        assert_eq!(
+            result.observations,
+            vec![String::from(
+                "Browser visibility mode is already set to the requested value.",
+            )]
+        );
+        assert_eq!(
+            executor.current_browser_visibility(),
+            BrowserVisibilityMode::Headless
+        );
+    }
+
+    #[test]
+    fn set_browser_visibility_reports_unsupported_when_switching_is_disabled() {
+        let mut executor = MockExecutor {
+            browser_visibility_switch_supported: false,
+            ..Default::default()
+        };
+
+        let result = executor.execute_set_browser_visibility(SetBrowserVisibilityInput {
+            request_id: String::from("req-visibility-unsupported"),
+            timeout_ms: Some(1_000),
+            mode: BrowserVisibilityMode::Headless,
+        });
+
+        assert!(result.ok);
+        assert_eq!(
+            result
+                .data
+                .expect("unsupported visibility tool should return data"),
+            SetBrowserVisibilityData {
+                mode: BrowserVisibilityMode::Visible,
+                changed: false,
+                supported: false,
+            }
+        );
+        assert_eq!(
+            result.observations,
+            vec![String::from(
+                "Browser visibility switching is not supported in this build.",
+            )]
+        );
+
+        let state = executor.execute_get_agent_state(GetAgentStateInput {
+            request_id: String::from("req-visibility-state"),
+            timeout_ms: Some(1_000),
+            include_last_transcript: false,
+        });
+        assert!(state.ok);
+        let state_data = state.data.expect("agent state should return data");
+        assert_eq!(state_data.browser_visibility, BrowserVisibilityMode::Visible);
+    }
+
+    #[test]
+    fn provider_selection_status_round_trips_with_snake_case_modes() {
+        let status = ProviderSelectionStatus {
+            planner_mode: ProviderMode::Remote,
+            tts_mode: ProviderMode::Local,
+            asr_mode: ProviderMode::Local,
+        };
+
+        let serialized =
+            serde_json::to_value(&status).expect("provider selection status should serialize");
+        assert_eq!(
+            serialized,
+            serde_json::json!({
+                "planner_mode": "remote",
+                "tts_mode": "local",
+                "asr_mode": "local"
+            })
+        );
+
+        let round_tripped: ProviderSelectionStatus = serde_json::from_value(serialized)
+            .expect("provider selection status should deserialize");
+        assert_eq!(round_tripped, status);
+    }
+
+    #[test]
+    fn get_runtime_status_result_matches_schema_with_provider_modes() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-runtime-schema"),
+            tool_name: ToolName::GetRuntimeStatus,
+            arguments: serde_json::json!({
+                "request_id": "req-runtime-schema",
+                "timeout_ms": 1000,
+                "include_provider_modes": true
+            }),
+            purpose: String::from("read runtime status with provider modes"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+        assert!(result.ok);
+
+        let serialized =
+            serde_json::to_value(&result).expect("runtime status tool result should serialize");
+        let schema = tool_output_schema(&ToolName::GetRuntimeStatus)
+            .expect("get_runtime_status should expose an output schema");
+        assert_json_matches_schema(&serialized, &schema)
+            .expect("serialized get_runtime_status result should match its output schema");
+
+        let provider_modes = serialized
+            .get("data")
+            .and_then(|data| data.get("provider_modes"))
+            .expect("provider_modes should be present when requested");
+        assert_eq!(
+            provider_modes,
+            &serde_json::json!({
+                "planner_mode": "remote",
+                "tts_mode": "local",
+                "asr_mode": "local"
+            })
+        );
+    }
+
+    #[test]
+    fn get_runtime_status_reports_null_provider_modes_when_not_requested() {
+        let mut executor = MockExecutor::default();
+        let step = PlannedStep {
+            step_id: String::from("step-runtime-no-provider-modes"),
+            tool_name: ToolName::GetRuntimeStatus,
+            arguments: serde_json::json!({
+                "request_id": "req-runtime-no-provider-modes",
+                "timeout_ms": 1000,
+                "include_provider_modes": false
+            }),
+            purpose: String::from("read runtime status without provider modes"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let result = execute_planned_step(&mut executor, &step);
+        assert!(result.ok);
+
+        let serialized =
+            serde_json::to_value(&result).expect("runtime status tool result should serialize");
+        let provider_modes = serialized
+            .get("data")
+            .and_then(|data| data.get("provider_modes"))
+            .expect("provider_modes field should still be present in serialized output");
+        assert_eq!(provider_modes, &serde_json::Value::Null);
     }
 
     #[test]

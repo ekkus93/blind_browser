@@ -1143,3 +1143,18 @@
 - `src-tauri/src/commands.rs` now uses closed enums for the remaining runtime/settings payload fields whose valid sets were already known: local TTS and ASR backends, remote provider labels, and remote TTS audio format are no longer exposed as free-form strings in `AgentStateData`/`GetRuntimeStatusData`.
 - `src-tauri/src/app_core.rs` now builds those enum-backed payloads directly from config instead of stringifying them, and `src/tauri-api.ts` mirrors the narrowed frontend contract with literal union types for those fields.
 - Revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`; Rust tests stayed green and UI tests remained `49` passed.
+
+## 2026-03-28T18:43:56Z - GPT-5.4 - Runtime status schema coverage now pins provider-mode JSON contracts
+- `src-tauri/src/commands.rs` now regression-tests `ProviderSelectionStatus` JSON round-tripping with the shipped snake_case `ProviderMode` encoding and verifies that serialized `GetRuntimeStatus` results match the generated output schema when provider modes are requested.
+- The runtime-status test coverage also now asserts the exact serialized provider-mode values (`remote`/`local`) and the `null` contract for `provider_modes` when `include_provider_modes` is false, closing the remaining unit-test gap without changing runtime behavior.
+- Revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`; UI tests remained `49` passed and the full Rust suite stayed green.
+
+## 2026-03-28T19:15:03Z - GPT-5.4 - Listening/transcription coverage now spans command flow and AppState mutations
+- `src-tauri/src/state.rs` now unit-tests `AppState::set_listening` and `AppState::record_transcript`, covering deterministic listening toggles plus transcript trimming and empty-value clearing at the state layer.
+- Combined with the existing `commands.rs` tests for `StartListening`, `StopListening`, and `TranscribeCommand` follow-up reads, the test suite now covers both deterministic listening state transitions and one-shot transcription behavior without changing runtime logic.
+- Revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`; UI tests remained `49` passed and the full Rust suite stayed green.
+
+## 2026-03-28T20:08:08Z - GPT-5.4 - Browser-visibility and audio-clamping test coverage landed
+- `src-tauri/src/commands.rs` now makes the test-only `MockExecutor` mirror the real deterministic tool behavior for playback-volume clamping, playback-speed clamping, and browser-visibility no-op/unsupported responses instead of only echoing requested values.
+- Added focused regression tests that pin clamped playback results plus `get_agent_state` / `get_runtime_status` readbacks, and browser-visibility responses for already-active and unsupported-switch cases, closing the remaining Phase 8 TODO without changing runtime behavior.
+- Full validation passed afterward with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`; Rust tests are now `258` passing and UI tests remain `49` passing.
