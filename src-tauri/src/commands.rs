@@ -6420,11 +6420,13 @@ mod tests {
                 fixture.agent_state.audio.playback_speed,
                 active_skill_names,
             ),
-            PlannerSkillFixtureResolver::NavigationReadback => resolve_direct_navigation_readback_command(
-                fixture.transcript,
-                fixture.name,
-                active_skill_names,
-            ),
+            PlannerSkillFixtureResolver::NavigationReadback => {
+                resolve_direct_navigation_readback_command(
+                    fixture.transcript,
+                    fixture.name,
+                    active_skill_names,
+                )
+            }
             PlannerSkillFixtureResolver::ReadPage => resolve_direct_read_page_command(
                 fixture.transcript,
                 fixture.name,
@@ -6506,12 +6508,7 @@ mod tests {
             &available_tools,
             &selection.active_skill_names,
         )
-        .unwrap_or_else(|error| {
-            panic!(
-                "fixture {} should validate, got {error:?}",
-                fixture.name
-            )
-        });
+        .unwrap_or_else(|error| panic!("fixture {} should validate, got {error:?}", fixture.name));
 
         let mut executor = MockExecutor::default();
         let outcome =
@@ -9753,51 +9750,20 @@ mod tests {
     fn build_planner_skill_selection_selects_expected_bundled_skills_for_representative_tasks() {
         let available_tools = planner_available_tools();
         let cases = [
-            (
-                "open github dot com slash features",
-                "open_url",
-            ),
-            (
-                "please go back to the previous page",
-                "go_back",
-            ),
-            (
-                "read this page",
-                "read_page",
-            ),
-            (
-                "what page am i on",
-                "get_current_url",
-            ),
-            (
-                "continue reading",
-                "read_next",
-            ),
-            (
-                "are you listening",
-                "announce_state",
-            ),
-            (
-                "start listening",
-                "start_listening",
-            ),
-            (
-                "what's the playback speed",
-                "get_playback_speed",
-            ),
-            (
-                "change the voice to Bruno",
-                "set_tts_voice",
-            ),
-            (
-                "show the browser window",
-                "toggle_browser_visibility",
-            ),
+            ("open github dot com slash features", "open_url"),
+            ("please go back to the previous page", "go_back"),
+            ("read this page", "read_page"),
+            ("what page am i on", "get_current_url"),
+            ("continue reading", "read_next"),
+            ("are you listening", "announce_state"),
+            ("start listening", "start_listening"),
+            ("what's the playback speed", "get_playback_speed"),
+            ("change the voice to Bruno", "set_tts_voice"),
+            ("show the browser window", "toggle_browser_visibility"),
         ];
 
         for (transcript, expected_skill_name) in cases {
-            let selection =
-                build_planner_skill_selection(None, None, transcript, &available_tools);
+            let selection = build_planner_skill_selection(None, None, transcript, &available_tools);
             let ranked_skill_names = selection
                 .relevant_skill_summaries
                 .iter()

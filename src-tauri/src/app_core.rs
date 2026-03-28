@@ -7637,6 +7637,253 @@ mod tests {
         ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, Rect, RegionRole,
         RegionSource,
     };
+
+    fn fixture_page(interactive_elements: Vec<InteractiveElement>) -> PageModel {
+        PageModel {
+            title: Some(String::from("Example form")),
+            url: Some(String::from("https://example.com/form")),
+            regions: Vec::new(),
+            interactive_elements,
+        }
+    }
+
+    fn fixture_field(
+        element_id: &str,
+        dom_locator: &str,
+        accessible_name: &str,
+        placeholder: &str,
+    ) -> InteractiveElement {
+        InteractiveElement {
+            element_id: String::from(element_id),
+            dom_locator: Some(String::from(dom_locator)),
+            role: ElementRole::Input,
+            tag_name: String::from("input"),
+            text: None,
+            accessible_name: Some(String::from(accessible_name)),
+            placeholder: Some(String::from(placeholder)),
+            href: None,
+            value: None,
+            bbox: None,
+            visible: true,
+            enabled: true,
+            attributes: std::collections::BTreeMap::new(),
+        }
+    }
+
+    fn fixture_form(
+        element_id: &str,
+        dom_locator: &str,
+        accessible_name: &str,
+    ) -> InteractiveElement {
+        InteractiveElement {
+            element_id: String::from(element_id),
+            dom_locator: Some(String::from(dom_locator)),
+            role: ElementRole::Form,
+            tag_name: String::from("form"),
+            text: Some(String::from(accessible_name)),
+            accessible_name: Some(String::from(accessible_name)),
+            placeholder: None,
+            href: None,
+            value: None,
+            bbox: None,
+            visible: true,
+            enabled: true,
+            attributes: std::collections::BTreeMap::new(),
+        }
+    }
+
+    fn planner_tool_sequence(planner_output: &PlannerOutput) -> Vec<ToolName> {
+        planner_output
+            .steps
+            .iter()
+            .map(|step| step.tool_name.clone())
+            .collect()
+    }
+
+    #[derive(Clone, Copy)]
+    enum AppCorePlannerFixtureKind {
+        FocusField,
+        FillField,
+        FillAndSubmit,
+        FollowUpCorrection,
+        SubmitForm,
+    }
+
+    struct AppCorePlannerFixture {
+        name: &'static str,
+        kind: AppCorePlannerFixtureKind,
+        transcript: &'static str,
+        current_page_id: Option<&'static str>,
+        page: Option<PageModel>,
+        active_skills: Vec<&'static str>,
+        recent_context: Option<RecentFieldContext>,
+        confirmation_threshold: f32,
+        expected_intent: IntentName,
+        expected_status: PlannerStatus,
+        expected_selected_skills: Vec<&'static str>,
+        expected_tool_sequence: Vec<ToolName>,
+        expected_focus_element_id: Option<&'static str>,
+        expected_typed_text: Option<&'static str>,
+        expected_next_active_element_id: Option<&'static str>,
+        expected_next_pending_text: Option<&'static str>,
+    }
+
+    fn resolve_app_core_planner_fixture(
+        fixture: &AppCorePlannerFixture,
+    ) -> (PlannerOutput, Option<RecentFieldContext>) {
+        match fixture.kind {
+            AppCorePlannerFixtureKind::FocusField => (
+                resolve_direct_focus_field_command(
+                    fixture.transcript,
+                    fixture.name,
+                    fixture.page.as_ref(),
+                    &fixture
+                        .active_skills
+                        .iter()
+                        .map(|skill| String::from(*skill))
+                        .collect::<Vec<_>>(),
+                    fixture.confirmation_threshold,
+                )
+                .unwrap_or_else(|| panic!("fixture {} should resolve", fixture.name)),
+                None,
+            ),
+            AppCorePlannerFixtureKind::FillField => (
+                resolve_direct_fill_field_command(
+                    fixture.transcript,
+                    fixture.name,
+                    fixture.page.as_ref(),
+                    &fixture
+                        .active_skills
+                        .iter()
+                        .map(|skill| String::from(*skill))
+                        .collect::<Vec<_>>(),
+                    fixture.confirmation_threshold,
+                )
+                .unwrap_or_else(|| panic!("fixture {} should resolve", fixture.name)),
+                None,
+            ),
+            AppCorePlannerFixtureKind::FillAndSubmit => (
+                resolve_direct_fill_and_submit_command(
+                    fixture.transcript,
+                    fixture.name,
+                    fixture.page.as_ref(),
+                    &fixture
+                        .active_skills
+                        .iter()
+                        .map(|skill| String::from(*skill))
+                        .collect::<Vec<_>>(),
+                    fixture.confirmation_threshold,
+                )
+                .unwrap_or_else(|| panic!("fixture {} should resolve", fixture.name)),
+                None,
+            ),
+            AppCorePlannerFixtureKind::FollowUpCorrection => {
+                resolve_recent_fill_correction_command(
+                    fixture.transcript,
+                    fixture.name,
+                    fixture.current_page_id,
+                    fixture.page.as_ref(),
+                    &fixture
+                        .active_skills
+                        .iter()
+                        .map(|skill| String::from(*skill))
+                        .collect::<Vec<_>>(),
+                    fixture.recent_context.as_ref(),
+                )
+                .unwrap_or_else(|| panic!("fixture {} should resolve", fixture.name))
+            }
+            AppCorePlannerFixtureKind::SubmitForm => (
+                resolve_direct_submit_form_command(
+                    fixture.transcript,
+                    fixture.name,
+                    fixture.page.as_ref(),
+                    &fixture
+                        .active_skills
+                        .iter()
+                        .map(|skill| String::from(*skill))
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap_or_else(|| panic!("fixture {} should resolve", fixture.name)),
+                None,
+            ),
+        }
+    }
+
+    fn assert_app_core_planner_fixture(fixture: AppCorePlannerFixture) {
+        let (planner_output, next_context) = resolve_app_core_planner_fixture(&fixture);
+        let expected_selected_skills = fixture
+            .expected_selected_skills
+            .iter()
+            .map(|skill| String::from(*skill))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            planner_output.intent.name, fixture.expected_intent,
+            "fixture {} resolved unexpected intent",
+            fixture.name
+        );
+        assert_eq!(
+            planner_output.status, fixture.expected_status,
+            "fixture {} resolved unexpected planner status",
+            fixture.name
+        );
+        assert_eq!(
+            planner_output.selected_skills, expected_selected_skills,
+            "fixture {} selected unexpected skills",
+            fixture.name
+        );
+        assert_eq!(
+            planner_tool_sequence(&planner_output),
+            fixture.expected_tool_sequence,
+            "fixture {} produced unexpected tool sequence",
+            fixture.name
+        );
+
+        if let Some(expected_focus_element_id) = fixture.expected_focus_element_id {
+            let focus_step = planner_output
+                .steps
+                .iter()
+                .find(|step| step.tool_name == ToolName::FocusElement)
+                .unwrap_or_else(|| panic!("fixture {} should include a focus step", fixture.name));
+            assert_eq!(
+                focus_step.arguments.get("element_id"),
+                Some(&serde_json::json!(expected_focus_element_id)),
+                "fixture {} focused the wrong element",
+                fixture.name
+            );
+        }
+
+        if let Some(expected_typed_text) = fixture.expected_typed_text {
+            let type_step = planner_output
+                .steps
+                .iter()
+                .find(|step| step.tool_name == ToolName::TypeIntoElement)
+                .unwrap_or_else(|| panic!("fixture {} should include a type step", fixture.name));
+            assert_eq!(
+                type_step.arguments.get("text"),
+                Some(&serde_json::json!(expected_typed_text)),
+                "fixture {} typed unexpected text",
+                fixture.name
+            );
+        }
+
+        assert_eq!(
+            next_context
+                .as_ref()
+                .and_then(|context| context.active_element_id.as_deref()),
+            fixture.expected_next_active_element_id,
+            "fixture {} produced unexpected next active element",
+            fixture.name
+        );
+        assert_eq!(
+            next_context
+                .as_ref()
+                .and_then(|context| context.pending_text.as_deref()),
+            fixture.expected_next_pending_text,
+            "fixture {} produced unexpected next pending text",
+            fixture.name
+        );
+    }
     #[test]
     fn build_planner_provider_settings_reports_remote_only_mode() {
         let config = AppConfig::default();
@@ -9382,6 +9629,266 @@ mod tests {
             planner_output.steps[0].arguments.get("status"),
             Some(&serde_json::json!(ReportStatus::NeedsFollowUp))
         );
+    }
+
+    #[test]
+    fn app_core_form_regression_fixtures_cover_ambiguous_fill_submit_and_follow_up_cases() {
+        let fixtures = vec![
+            AppCorePlannerFixture {
+                name: "ambiguous-focus-field",
+                kind: AppCorePlannerFixtureKind::FocusField,
+                transcript: "focus the email field",
+                current_page_id: None,
+                page: Some(fixture_page(vec![
+                    fixture_field("input-email", "#email", "Email", "Email address"),
+                    fixture_field(
+                        "input-email-confirm",
+                        "#email-confirm",
+                        "Email confirmation",
+                        "Confirm email",
+                    ),
+                ])),
+                active_skills: vec!["focus_field"],
+                recent_context: None,
+                confirmation_threshold: 0.95,
+                expected_intent: IntentName::FillInput,
+                expected_status: PlannerStatus::Ready,
+                expected_selected_skills: vec!["focus_field"],
+                expected_tool_sequence: vec![ToolName::ReportResult],
+                expected_focus_element_id: None,
+                expected_typed_text: None,
+                expected_next_active_element_id: None,
+                expected_next_pending_text: None,
+            },
+            AppCorePlannerFixture {
+                name: "fill-field-success",
+                kind: AppCorePlannerFixtureKind::FillField,
+                transcript: "fill the email field with phil@example.com",
+                current_page_id: None,
+                page: Some(fixture_page(vec![
+                    fixture_field("input-email", "#email", "Email", "Email address"),
+                    fixture_field("input-password", "#password", "Password", "Password"),
+                ])),
+                active_skills: vec!["fill_field_by_label"],
+                recent_context: None,
+                confirmation_threshold: 0.9,
+                expected_intent: IntentName::FillInput,
+                expected_status: PlannerStatus::Ready,
+                expected_selected_skills: vec!["fill_field_by_label"],
+                expected_tool_sequence: vec![ToolName::FocusElement, ToolName::TypeIntoElement],
+                expected_focus_element_id: Some("input-email"),
+                expected_typed_text: Some("phil@example.com"),
+                expected_next_active_element_id: None,
+                expected_next_pending_text: None,
+            },
+            AppCorePlannerFixture {
+                name: "fill-and-submit-confirmation",
+                kind: AppCorePlannerFixtureKind::FillAndSubmit,
+                transcript: "fill the email field with phil@example.com and then submit",
+                current_page_id: None,
+                page: Some(fixture_page(vec![fixture_field(
+                    "input-email",
+                    "#email",
+                    "Email",
+                    "Email address",
+                )])),
+                active_skills: vec!["fill_and_submit_form"],
+                recent_context: None,
+                confirmation_threshold: 0.9,
+                expected_intent: IntentName::SubmitForm,
+                expected_status: PlannerStatus::NeedsConfirmation,
+                expected_selected_skills: vec!["fill_and_submit_form"],
+                expected_tool_sequence: vec![
+                    ToolName::ConfirmAction,
+                    ToolName::FocusElement,
+                    ToolName::TypeIntoElement,
+                    ToolName::SubmitActiveForm,
+                ],
+                expected_focus_element_id: Some("input-email"),
+                expected_typed_text: Some("phil@example.com"),
+                expected_next_active_element_id: None,
+                expected_next_pending_text: None,
+            },
+            AppCorePlannerFixture {
+                name: "follow-up-replacement",
+                kind: AppCorePlannerFixtureKind::FollowUpCorrection,
+                transcript: "put Seattle there instead",
+                current_page_id: Some("page-1"),
+                page: Some(fixture_page(vec![InteractiveElement {
+                    element_id: String::from("input-city"),
+                    dom_locator: Some(String::from("#city")),
+                    role: ElementRole::Input,
+                    tag_name: String::from("input"),
+                    text: None,
+                    accessible_name: Some(String::from("City")),
+                    placeholder: Some(String::from("City")),
+                    href: None,
+                    value: Some(String::from("Portland")),
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                }])),
+                active_skills: vec!["fill_field_by_label"],
+                recent_context: Some(RecentFieldContext {
+                    page_id: String::from("page-1"),
+                    target_description: Some(String::from("city")),
+                    active_element_id: Some(String::from("input-city")),
+                    candidate_element_ids: vec![String::from("input-city")],
+                    pending_text: Some(String::from("Portland")),
+                    submit_after: false,
+                }),
+                confirmation_threshold: 0.9,
+                expected_intent: IntentName::FillInput,
+                expected_status: PlannerStatus::Ready,
+                expected_selected_skills: vec!["fill_field_by_label"],
+                expected_tool_sequence: vec![ToolName::FocusElement, ToolName::TypeIntoElement],
+                expected_focus_element_id: Some("input-city"),
+                expected_typed_text: Some("Seattle"),
+                expected_next_active_element_id: Some("input-city"),
+                expected_next_pending_text: Some("Seattle"),
+            },
+            AppCorePlannerFixture {
+                name: "follow-up-other-field",
+                kind: AppCorePlannerFixtureKind::FollowUpCorrection,
+                transcript: "no, the other field",
+                current_page_id: Some("page-1"),
+                page: Some(fixture_page(vec![
+                    fixture_field("input-email", "#email", "Email", "Email"),
+                    fixture_field(
+                        "input-billing-email",
+                        "#billing-email",
+                        "Billing email",
+                        "Billing email",
+                    ),
+                ])),
+                active_skills: vec!["fill_and_submit_form"],
+                recent_context: Some(RecentFieldContext {
+                    page_id: String::from("page-1"),
+                    target_description: Some(String::from("email")),
+                    active_element_id: Some(String::from("input-email")),
+                    candidate_element_ids: vec![
+                        String::from("input-email"),
+                        String::from("input-billing-email"),
+                    ],
+                    pending_text: Some(String::from("phil@example.com")),
+                    submit_after: true,
+                }),
+                confirmation_threshold: 0.9,
+                expected_intent: IntentName::SubmitForm,
+                expected_status: PlannerStatus::NeedsConfirmation,
+                expected_selected_skills: vec!["fill_and_submit_form"],
+                expected_tool_sequence: vec![
+                    ToolName::ConfirmAction,
+                    ToolName::FocusElement,
+                    ToolName::TypeIntoElement,
+                    ToolName::SubmitActiveForm,
+                ],
+                expected_focus_element_id: Some("input-billing-email"),
+                expected_typed_text: Some("phil@example.com"),
+                expected_next_active_element_id: Some("input-billing-email"),
+                expected_next_pending_text: Some("phil@example.com"),
+            },
+            AppCorePlannerFixture {
+                name: "ambiguous-submit-form",
+                kind: AppCorePlannerFixtureKind::SubmitForm,
+                transcript: "submit form",
+                current_page_id: None,
+                page: Some(fixture_page(vec![
+                    fixture_form("form-shipping", "#shipping-form", "Shipping"),
+                    fixture_form("form-billing", "#billing-form", "Billing"),
+                ])),
+                active_skills: vec!["submit_form"],
+                recent_context: None,
+                confirmation_threshold: 0.9,
+                expected_intent: IntentName::SubmitForm,
+                expected_status: PlannerStatus::Ready,
+                expected_selected_skills: vec!["submit_form"],
+                expected_tool_sequence: vec![ToolName::ReportResult],
+                expected_focus_element_id: None,
+                expected_typed_text: None,
+                expected_next_active_element_id: None,
+                expected_next_pending_text: None,
+            },
+        ];
+
+        for fixture in fixtures {
+            assert_app_core_planner_fixture(fixture);
+        }
+    }
+
+    #[test]
+    fn ambiguous_click_regression_fixtures_pin_confirmation_threshold_behavior() {
+        struct AmbiguousClickFixture {
+            name: &'static str,
+            candidates: Vec<crate::commands::ElementCandidate>,
+            confirmation_threshold: f32,
+            expected_element_id: Option<&'static str>,
+            expected_confidence: Option<f32>,
+            expected_requires_confirmation: bool,
+        }
+
+        let fixtures = vec![
+            AmbiguousClickFixture {
+                name: "close-candidates-trigger-follow-up",
+                candidates: vec![
+                    crate::commands::ElementCandidate {
+                        element_id: String::from("button-1"),
+                        confidence_bps: 8_900,
+                        matched_on: vec![String::from("description")],
+                        rationale_codes: vec![String::from("accessible_name_exact")],
+                    },
+                    crate::commands::ElementCandidate {
+                        element_id: String::from("button-2"),
+                        confidence_bps: 8_400,
+                        matched_on: vec![String::from("description")],
+                        rationale_codes: vec![String::from("accessible_name_exact")],
+                    },
+                ],
+                confirmation_threshold: 0.9,
+                expected_element_id: None,
+                expected_confidence: Some(0.89),
+                expected_requires_confirmation: true,
+            },
+            AmbiguousClickFixture {
+                name: "threshold-crossing-allows-direct-click",
+                candidates: vec![crate::commands::ElementCandidate {
+                    element_id: String::from("link-help"),
+                    confidence_bps: 8_800,
+                    matched_on: vec![String::from("accessible_name")],
+                    rationale_codes: vec![String::from("accessible_name_exact")],
+                }],
+                confirmation_threshold: 0.85,
+                expected_element_id: Some("link-help"),
+                expected_confidence: Some(0.88),
+                expected_requires_confirmation: false,
+            },
+        ];
+
+        for fixture in fixtures {
+            let (chosen_element_id, chosen_confidence, requires_confirmation) =
+                determine_find_element_resolution(
+                    &fixture.candidates,
+                    fixture.confirmation_threshold,
+                );
+
+            assert_eq!(
+                chosen_element_id.as_deref(),
+                fixture.expected_element_id,
+                "fixture {} chose the wrong element",
+                fixture.name
+            );
+            assert_eq!(
+                chosen_confidence, fixture.expected_confidence,
+                "fixture {} produced unexpected confidence",
+                fixture.name
+            );
+            assert_eq!(
+                requires_confirmation, fixture.expected_requires_confirmation,
+                "fixture {} produced unexpected confirmation behavior",
+                fixture.name
+            );
+        }
     }
 
     #[test]
