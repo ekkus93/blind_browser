@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
+#[cfg(feature = "remote-openai")]
+use std::time::Duration;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -186,26 +188,15 @@ impl TtsController {
         runtime_audio: &RuntimeAudioState,
         text: &str,
     ) -> Result<SynthesizedSpeech, TtsRuntimeError> {
-        use async_openai::types::audio::{
-            CreateSpeechRequestArgs, SpeechModel, SpeechResponseFormat, Voice,
-        };
-        use async_openai::{config::OpenAIConfig, Client};
+        let client = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_millis(profile.timeout_ms.max(1)))
+            .build()
+            .map_err(|error| TtsRuntimeError::RemoteRequestBuildFailed {
+                reason: error.to_string(),
+            })?;
 
         let api_key = resolve_secret_ref(&profile.api_key)
             .map_err(|reason| TtsRuntimeError::RemoteSecretUnavailable { reason })?;
-
-        let mut openai_config = OpenAIConfig::new()
-            .with_api_base(profile.base_url.clone())
-            .with_api_key(api_key);
-        if let Some(organization) = profile.organization.as_ref() {
-            openai_config = openai_config.with_org_id(
-                resolve_secret_ref(organization)
-                    .map_err(|reason| TtsRuntimeError::RemoteSecretUnavailable { reason })?,
-            );
-        }
-        if let Some(project) = profile.project.as_ref() {
-            openai_config = openai_config.with_project_id(project.clone());
-        }
 
         let voice = resolved_remote_voice(runtime_audio, profile)?;
         let cache_key = CachedSpeechKey {
@@ -221,31 +212,47 @@ impl TtsController {
         if let Some(cached) = self.cached_speech(&cache_key) {
             return Ok(cached);
         }
-        let response_format = parse_openai_speech_response_format(profile.audio_format.clone());
-        let request = CreateSpeechRequestArgs::default()
-            .input(text.to_string())
-            .model(SpeechModel::Other(profile.model.clone()))
-            .voice(Voice::Other(voice.clone()))
-            .response_format(response_format)
-            .speed(
-                runtime_audio
+        let response_format = openai_speech_response_format_value(profile.audio_format.clone());
+        let endpoint = format!("{}/audio/speech", profile.base_url.trim_end_matches('/'));
+        let mut request = client
+            .post(endpoint)
+            .bearer_auth(api_key)
+            .json(&serde_json::json!({
+                "model": profile.model,
+                "input": text,
+                "voice": voice,
+                "response_format": response_format,
+                "speed": runtime_audio
                     .playback_speed
                     .clamp(OPENAI_REMOTE_TTS_MIN_SPEED, OPENAI_REMOTE_TTS_MAX_SPEED),
-            )
-            .build()
-            .map_err(|error| TtsRuntimeError::RemoteRequestBuildFailed {
-                reason: error.to_string(),
-            })?;
+            }));
+        if let Some(organization) = profile.organization.as_ref() {
+            request = request.header(
+                "OpenAI-Organization",
+                resolve_secret_ref(organization)
+                    .map_err(|reason| TtsRuntimeError::RemoteSecretUnavailable { reason })?,
+            );
+        }
+        if let Some(project) = profile.project.as_ref() {
+            request = request.header("OpenAI-Project", project);
+        }
 
-        let client = Client::with_config(openai_config);
-        let response = futures::executor::block_on(client.audio().speech().create(request))
+        let response = request
+            .send()
+            .and_then(reqwest::blocking::Response::error_for_status)
             .map_err(|error| TtsRuntimeError::RemoteRequestFailed {
                 reason: error.to_string(),
             })?;
+        let response_bytes =
+            response
+                .bytes()
+                .map_err(|error| TtsRuntimeError::RemoteRequestFailed {
+                    reason: error.to_string(),
+                })?;
 
-        match response_format {
-            SpeechResponseFormat::Wav => {
-                let decoded = decode_wav_samples(response.bytes.as_ref())
+        match profile.audio_format {
+            RemoteTtsAudioFormat::Wav => {
+                let decoded = decode_wav_samples(response_bytes.as_ref())
                     .map_err(|reason| TtsRuntimeError::RemoteResponseDecodeFailed { reason })?;
                 let speech = SynthesizedSpeech {
                     provider: TtsProviderKind::Remote,
@@ -257,9 +264,6 @@ impl TtsController {
                 self.store_cached_speech(cache_key, speech.clone());
                 Ok(speech)
             }
-            _ => Err(TtsRuntimeError::RemoteResponseDecodeFailed {
-                reason: String::from("received an unexpected non-WAV audio response format"),
-            }),
         }
     }
 
@@ -448,13 +452,9 @@ fn is_openai_builtin_voice(voice: &str) -> bool {
 }
 
 #[cfg(feature = "remote-openai")]
-fn parse_openai_speech_response_format(
-    audio_format: RemoteTtsAudioFormat,
-) -> async_openai::types::audio::SpeechResponseFormat {
-    use async_openai::types::audio::SpeechResponseFormat;
-
+fn openai_speech_response_format_value(audio_format: RemoteTtsAudioFormat) -> &'static str {
     match audio_format {
-        RemoteTtsAudioFormat::Wav => SpeechResponseFormat::Wav,
+        RemoteTtsAudioFormat::Wav => "wav",
     }
 }
 
@@ -605,18 +605,139 @@ struct CachedSynthesizedSpeech {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    #[cfg(feature = "remote-openai")]
+    use std::io::{Read, Write};
+    #[cfg(feature = "remote-openai")]
+    use std::net::TcpListener;
+    use std::path::PathBuf;
+    #[cfg(feature = "remote-openai")]
+    use std::thread;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use super::{
         decode_wav_samples, normalized_model_path, resolved_voice, CachedSpeechKey,
         SynthesizedSpeech, TtsController, TtsProviderKind, KITTEN_TTS_CHANNELS,
         KITTEN_TTS_SAMPLE_RATE, SYNTHESIZED_SPEECH_CACHE_LIMIT,
     };
     use crate::audio_io::RuntimeAudioState;
-    use crate::config::{LocalTtsBackend, LocalTtsProfile};
+    use crate::config::{AppConfig, LocalTtsBackend, LocalTtsProfile, ProviderMode};
 
     #[cfg(feature = "remote-openai")]
-    use super::{parse_openai_speech_response_format, resolved_remote_voice};
+    use super::{openai_speech_response_format_value, resolved_remote_voice};
     #[cfg(feature = "remote-openai")]
     use crate::config::{RemoteProviderKind, RemoteTtsAudioFormat, RemoteTtsProfile, SecretRef};
+
+    fn test_wav_bytes() -> Vec<u8> {
+        vec![
+            b'R', b'I', b'F', b'F', 40, 0, 0, 0, b'W', b'A', b'V', b'E', b'f', b'm', b't', b' ',
+            16, 0, 0, 0, 1, 0, 1, 0, 0x80, 0x3E, 0, 0, 0, 0x7D, 0, 0, 2, 0, 16, 0, b'd', b'a',
+            b't', b'a', 4, 0, 0, 0, 0, 0, 0xFF, 0x7F,
+        ]
+    }
+
+    fn unique_test_path(label: &str) -> PathBuf {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "blind-browser-{label}-{}-{timestamp}",
+            std::process::id()
+        ))
+    }
+
+    #[cfg(feature = "remote-openai")]
+    fn spawn_remote_tts_test_server(response_body: Vec<u8>) -> (String, thread::JoinHandle<()>) {
+        let listener =
+            TcpListener::bind("127.0.0.1:0").expect("test server should bind an ephemeral port");
+        let address = listener
+            .local_addr()
+            .expect("test server should expose its bound address");
+        let base_url = format!("http://{address}/v1");
+
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener
+                .accept()
+                .expect("test server should accept one request");
+
+            let mut request = Vec::new();
+            let mut header_end = None;
+            loop {
+                let mut buffer = [0_u8; 1024];
+                let bytes_read = stream
+                    .read(&mut buffer)
+                    .expect("test server should read request bytes");
+                if bytes_read == 0 {
+                    break;
+                }
+                request.extend_from_slice(&buffer[..bytes_read]);
+                if let Some(position) = request.windows(4).position(|window| window == b"\r\n\r\n")
+                {
+                    header_end = Some(position + 4);
+                    break;
+                }
+            }
+
+            let header_end = header_end.expect("request should include headers");
+            let headers = String::from_utf8_lossy(&request[..header_end]).into_owned();
+            assert!(
+                headers.starts_with("POST /v1/audio/speech HTTP/1.1\r\n"),
+                "unexpected request line: {headers}"
+            );
+            assert!(
+                headers.contains("authorization: Bearer blind-browser-test-key")
+                    || headers.contains("Authorization: Bearer blind-browser-test-key"),
+                "expected bearer auth header in request: {headers}"
+            );
+
+            let content_length = headers
+                .lines()
+                .find_map(|line| {
+                    let (name, value) = line.split_once(':')?;
+                    name.trim()
+                        .eq_ignore_ascii_case("content-length")
+                        .then(|| value.trim().parse::<usize>().ok())
+                        .flatten()
+                })
+                .expect("request should include a content-length header");
+
+            while request.len() < header_end + content_length {
+                let mut buffer = [0_u8; 1024];
+                let bytes_read = stream
+                    .read(&mut buffer)
+                    .expect("test server should read request body bytes");
+                if bytes_read == 0 {
+                    break;
+                }
+                request.extend_from_slice(&buffer[..bytes_read]);
+            }
+
+            let body = String::from_utf8_lossy(&request[header_end..]).into_owned();
+            assert!(
+                body.contains("\"input\":\"Hello remote world\""),
+                "unexpected body: {body}"
+            );
+            assert!(
+                body.contains("\"voice\":\"alloy\""),
+                "unexpected body: {body}"
+            );
+
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: audio/wav\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                response_body.len()
+            );
+            stream
+                .write_all(response.as_bytes())
+                .expect("test server should write response headers");
+            stream
+                .write_all(&response_body)
+                .expect("test server should write response body");
+            stream.flush().expect("test server should flush response");
+        });
+
+        (base_url, handle)
+    }
 
     #[test]
     fn resolved_voice_prefers_runtime_voice_over_profile_default() {
@@ -657,27 +778,62 @@ mod tests {
 
     #[cfg(feature = "remote-openai")]
     #[test]
-    fn parse_openai_speech_response_format_returns_wav() {
+    fn openai_speech_response_format_value_returns_wav() {
         assert_eq!(
-            parse_openai_speech_response_format(RemoteTtsAudioFormat::Wav),
-            async_openai::types::audio::SpeechResponseFormat::Wav
+            openai_speech_response_format_value(RemoteTtsAudioFormat::Wav),
+            "wav"
         );
     }
 
     #[test]
     fn decode_wav_samples_parses_pcm16_mono_audio() {
-        let bytes = [
-            b'R', b'I', b'F', b'F', 40, 0, 0, 0, b'W', b'A', b'V', b'E', b'f', b'm', b't', b' ',
-            16, 0, 0, 0, 1, 0, 1, 0, 0x80, 0x3E, 0, 0, 0, 0x7D, 0, 0, 2, 0, 16, 0, b'd', b'a',
-            b't', b'a', 4, 0, 0, 0, 0, 0, 0xFF, 0x7F,
-        ];
-
-        let decoded = decode_wav_samples(&bytes).expect("wav bytes should decode");
+        let decoded = decode_wav_samples(&test_wav_bytes()).expect("wav bytes should decode");
         assert_eq!(decoded.channels, 1);
         assert_eq!(decoded.sample_rate, 16_000);
         assert_eq!(decoded.samples.len(), 2);
         assert!((decoded.samples[0] - 0.0).abs() < 0.0001);
         assert!(decoded.samples[1] > 0.99);
+    }
+
+    #[cfg(feature = "remote-openai")]
+    #[test]
+    fn synthesize_narration_returns_remote_audio_when_remote_tts_is_selected() {
+        let secret_path = unique_test_path("remote-tts-secret");
+        fs::write(&secret_path, "blind-browser-test-key\n")
+            .expect("test should write a temporary secret file");
+
+        let (base_url, server) = spawn_remote_tts_test_server(test_wav_bytes());
+
+        let mut config = AppConfig::default();
+        config.providers.tts.mode = ProviderMode::Remote;
+        config.providers.tts.remote_profile = Some(String::from("openai-tts-default"));
+        let profile = config
+            .remote_tts_profiles
+            .get_mut("openai-tts-default")
+            .expect("default config should include the remote tts profile");
+        profile.base_url = base_url;
+        profile.api_key = SecretRef::FromFile {
+            from_file: secret_path.display().to_string(),
+        };
+        profile.voice = String::from("alloy");
+
+        let runtime_audio = RuntimeAudioState::default();
+        let mut controller = TtsController::new();
+
+        let speech = controller
+            .synthesize_narration(&config, &runtime_audio, "Hello remote world")
+            .expect("remote synthesis should succeed");
+
+        assert_eq!(speech.provider, TtsProviderKind::Remote);
+        assert_eq!(speech.voice, "alloy");
+        assert_eq!(speech.sample_rate, 16_000);
+        assert_eq!(speech.channels, 1);
+        assert_eq!(speech.samples.len(), 2);
+        assert!((speech.samples[0] - 0.0).abs() < 0.0001);
+        assert!(speech.samples[1] > 0.99);
+
+        server.join().expect("test server should exit cleanly");
+        fs::remove_file(secret_path).expect("test should clean up the temporary secret file");
     }
 
     #[test]

@@ -448,7 +448,7 @@
 - [x] Follow-up corrections such as `no, the other field` reuse recent context when available
 - [x] Replanning after tool failure or ambiguous result
 - [x] LLM unavailable with no local provider → report command interpretation unavailable
-- [ ] Remote TTS selected → speech output succeeds
+- [x] Remote TTS selected → speech output succeeds
 - [x] Remote ASR selected → transcript is returned
 - [x] Playback volume and speed changes persist across app restart
 - [x] Voice command changes to playback volume and speed persist across app restart

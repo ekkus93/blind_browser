@@ -1108,3 +1108,7 @@
 ## 2026-03-28T12:23:09Z - GPT-5.4 - Planner-unavailable voice feedback clarified
 - Planner resolution failures in `src-tauri/src/app_core.rs` now consistently say `Command interpretation is unavailable because ...`, so push-to-talk and hands-free command errors surface the unavailable-interpreter state directly instead of only raw backend wording.
 - `src/main.ts` now also maps missing remote planner profiles into settings guidance, and `docs/TODO.md` marks `LLM unavailable with no local provider → report command interpretation unavailable` complete. Full validation passed afterward: `cargo clippy`, `cargo test`, `pnpm test:ui`, and `pnpm build`.
+
+## 2026-03-28T12:56:58Z - GPT-5.4 - Remote TTS synthesis path now has working regression coverage
+- `src-tauri/src/tts.rs` now exercises the real remote TTS success path with a localhost OpenAI-compatible test server, proving that `ProviderMode::Remote` narration returns decoded `SynthesizedSpeech` instead of only unit-testing helpers.
+- While landing that coverage, I fixed a real runtime issue in the remote TTS implementation by switching the OpenAI speech request to the existing synchronous `reqwest::blocking` client, which matches the app’s synchronous runtime model and avoids the missing-Tokio-reactor failure from the previous `async-openai` path. Full validation passed afterward: `cargo clippy`, `cargo test` (243 Rust tests), `pnpm test:ui` (49 passes), and `pnpm build`.
