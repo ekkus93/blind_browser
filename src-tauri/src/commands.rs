@@ -6233,6 +6233,308 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Copy)]
+    enum PlannerSkillFixtureResolver {
+        Audio,
+        NavigationReadback,
+        ReadPage,
+        StatusQuery,
+    }
+
+    struct PlannerSkillFixture {
+        name: &'static str,
+        transcript: &'static str,
+        resolver: PlannerSkillFixtureResolver,
+        agent_state: AgentStateData,
+        page_model: Option<PageModel>,
+        expected_intent: IntentName,
+        expected_selected_skills: Vec<&'static str>,
+        expected_tool_sequence: Vec<ToolName>,
+    }
+
+    fn fixture_agent_state() -> AgentStateData {
+        AgentStateData {
+            page_id: Some(String::from("page-1")),
+            url: Some(String::from("https://example.com/article")),
+            title: Some(String::from("Example article")),
+            browser_visibility: BrowserVisibilityMode::Visible,
+            browser_history: BrowserHistoryState {
+                can_go_back: true,
+                can_go_forward: false,
+                current_entry_index: Some(1),
+                entry_count: 2,
+            },
+            narration_cursor: Some(NarrationCursor {
+                current_region_id: Some(String::from("region-1")),
+                current_index: Some(0),
+                total_regions: 2,
+            }),
+            speaking: false,
+            listening_state: ListeningState::default(),
+            audio: RuntimeAudioState::default(),
+            last_transcript: None,
+            last_tool_call: None,
+            pending_confirmation_id: None,
+            pending_plan_execution: None,
+            tts_model_settings: TtsModelSettings {
+                mode: ProviderMode::Local,
+                active_profile: Some(String::from("kitten-default")),
+                available_profiles: vec![TtsModelOption {
+                    profile_name: String::from("kitten-default"),
+                    model_label: String::from("default"),
+                }],
+            },
+            local_tts_model_settings: LocalTtsModelSettings {
+                profile_name: Some(String::from("kitten-default")),
+                backend: Some(String::from("kitten_tts_rs")),
+                model_id: Some(String::from("default")),
+                model_path: Some(String::from("/path/to/kitten/model")),
+                default_voice: Some(String::from("Bruno")),
+                sample_rate: Some(24_000),
+            },
+            tts_voice_settings: TtsVoiceSettings {
+                mode: ProviderMode::Local,
+                active_voice: Some(String::from("Bruno")),
+                available_voices: vec![
+                    TtsVoiceOption {
+                        voice_name: String::from("Bella"),
+                        display_label: String::from("Bella"),
+                    },
+                    TtsVoiceOption {
+                        voice_name: String::from("Bruno"),
+                        display_label: String::from("Bruno"),
+                    },
+                ],
+            },
+            tts_provider_settings: TtsProviderSettings {
+                active_mode: ProviderMode::Local,
+                available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+            },
+            asr_provider_settings: AsrProviderSettings {
+                active_mode: ProviderMode::Local,
+                available_modes: vec![ProviderMode::Local, ProviderMode::Remote],
+            },
+            local_asr_model_settings: LocalAsrModelSettings {
+                profile_name: Some(String::from("whisper-default")),
+                backend: Some(String::from("whisper")),
+                model_id: Some(String::from("tiny")),
+                model_path: Some(String::from("/path/to/whisper/model")),
+                language: Some(String::from("en")),
+                threads: Some(4),
+            },
+            planner_provider_settings: PlannerProviderSettings {
+                active_mode: ProviderMode::Remote,
+                available_modes: vec![ProviderMode::Remote],
+                summary: String::from("Planner currently uses configured remote profiles only."),
+            },
+            remote_planner_settings: RemotePlannerSettings {
+                profile_name: Some(String::from("openai-default")),
+                provider: Some(String::from("OpenAI")),
+                base_url: Some(String::from("https://api.openai.com/v1")),
+                model: Some(String::from("gpt-5.4-mini")),
+                api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
+                organization_reference: None,
+                project: None,
+                temperature_milli: Some(200),
+                max_output_tokens: Some(1024),
+                timeout_ms: Some(30_000),
+            },
+            remote_tts_settings: RemoteTtsSettings {
+                profile_name: Some(String::from("openai-tts-default")),
+                provider: Some(String::from("OpenAI")),
+                base_url: Some(String::from("https://api.openai.com/v1")),
+                model: Some(String::from("gpt-4o-mini-tts")),
+                api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
+                organization_reference: None,
+                project: None,
+                voice: Some(String::from("alloy")),
+                audio_format: Some(String::from("wav")),
+                timeout_ms: Some(30_000),
+            },
+            remote_asr_settings: RemoteAsrSettings {
+                profile_name: Some(String::from("openai-transcribe-default")),
+                provider: Some(String::from("OpenAI")),
+                base_url: Some(String::from("https://api.openai.com/v1")),
+                model: Some(String::from("gpt-4o-mini-transcribe")),
+                api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
+                organization_reference: None,
+                project: None,
+                language: Some(String::from("en")),
+                temperature_milli: Some(0),
+                timeout_ms: Some(30_000),
+            },
+            provider_failover_settings: ProviderFailoverSettings {
+                planner_available: false,
+                tts_available: false,
+                asr_available: false,
+                summary: String::from(
+                    "Automatic provider failover is not currently available in the live runtime.",
+                ),
+            },
+            confirmation_settings: ConfirmationSettings {
+                confirmation_confidence_threshold: 0.9,
+                allow_click_without_confirmation: true,
+                always_confirm_submit: true,
+            },
+            ocr_threshold_settings: OcrThresholdSettings {
+                sparse_text_char_threshold: 200,
+                sparse_text_region_threshold: 2,
+            },
+        }
+    }
+
+    fn fixture_runtime_status(agent_state: &AgentStateData) -> GetRuntimeStatusData {
+        GetRuntimeStatusData {
+            page_id: agent_state.page_id.clone(),
+            url: agent_state.url.clone(),
+            title: agent_state.title.clone(),
+            browser_visibility: agent_state.browser_visibility,
+            browser_history: agent_state.browser_history.clone(),
+            listening_state: agent_state.listening_state.clone(),
+            speaking: agent_state.speaking,
+            audio: agent_state.audio.clone(),
+            pending_confirmation_id: agent_state.pending_confirmation_id.clone(),
+            pending_plan_execution: agent_state.pending_plan_execution.clone(),
+            provider_modes: None,
+        }
+    }
+
+    fn fixture_page_model_without_regions() -> PageModel {
+        PageModel {
+            title: Some(String::from("Example article")),
+            url: Some(String::from("https://example.com/article")),
+            regions: Vec::new(),
+            interactive_elements: Vec::new(),
+        }
+    }
+
+    fn resolve_planner_skill_fixture(
+        fixture: &PlannerSkillFixture,
+        active_skill_names: &[String],
+    ) -> Option<PlannerOutput> {
+        match fixture.resolver {
+            PlannerSkillFixtureResolver::Audio => resolve_direct_audio_command(
+                fixture.transcript,
+                fixture.name,
+                fixture.agent_state.audio.playback_volume,
+                fixture.agent_state.audio.playback_speed,
+                active_skill_names,
+            ),
+            PlannerSkillFixtureResolver::NavigationReadback => resolve_direct_navigation_readback_command(
+                fixture.transcript,
+                fixture.name,
+                active_skill_names,
+            ),
+            PlannerSkillFixtureResolver::ReadPage => resolve_direct_read_page_command(
+                fixture.transcript,
+                fixture.name,
+                fixture.page_model.as_ref(),
+                &fixture.agent_state,
+                active_skill_names,
+            ),
+            PlannerSkillFixtureResolver::StatusQuery => resolve_direct_status_query_command(
+                fixture.transcript,
+                fixture.name,
+                &fixture.agent_state,
+                &fixture_runtime_status(&fixture.agent_state),
+                active_skill_names,
+            ),
+        }
+    }
+
+    fn assert_planner_skill_fixture(fixture: PlannerSkillFixture) {
+        let available_tools = planner_available_tools();
+        let selection =
+            build_planner_skill_selection(None, None, fixture.transcript, &available_tools);
+        let expected_selected_skills = fixture
+            .expected_selected_skills
+            .iter()
+            .map(|skill| String::from(*skill))
+            .collect::<Vec<_>>();
+        let relevant_skill_names = selection
+            .relevant_skill_summaries
+            .iter()
+            .map(|summary| summary.name.clone())
+            .collect::<Vec<_>>();
+
+        for expected_skill in &expected_selected_skills {
+            assert!(
+                selection
+                    .active_skill_names
+                    .iter()
+                    .any(|active_name| active_name == expected_skill),
+                "fixture {} should have active skill {expected_skill}",
+                fixture.name
+            );
+            assert!(
+                relevant_skill_names
+                    .iter()
+                    .any(|skill_name| skill_name == expected_skill),
+                "fixture {} should rank skill {expected_skill}; got {:?}",
+                fixture.name,
+                relevant_skill_names
+            );
+        }
+
+        let planner_output = resolve_planner_skill_fixture(&fixture, &selection.active_skill_names)
+            .unwrap_or_else(|| panic!("fixture {} should resolve directly", fixture.name));
+
+        assert_eq!(
+            planner_output.intent.name, fixture.expected_intent,
+            "fixture {} resolved unexpected intent",
+            fixture.name
+        );
+        assert_eq!(
+            planner_output.selected_skills, expected_selected_skills,
+            "fixture {} selected unexpected skills",
+            fixture.name
+        );
+
+        let planned_tool_sequence = planner_output
+            .steps
+            .iter()
+            .map(|step| step.tool_name.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            planned_tool_sequence, fixture.expected_tool_sequence,
+            "fixture {} planned unexpected tool sequence",
+            fixture.name
+        );
+
+        validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &selection.active_skill_names,
+        )
+        .unwrap_or_else(|error| {
+            panic!(
+                "fixture {} should validate, got {error:?}",
+                fixture.name
+            )
+        });
+
+        let mut executor = MockExecutor::default();
+        let outcome =
+            execute_planner_output(&mut executor, String::from(fixture.name), &planner_output);
+        let trace = match outcome {
+            ExecutionOutcome::Complete { trace } => trace,
+            other => panic!(
+                "fixture {} should execute to completion, got {other:?}",
+                fixture.name
+            ),
+        };
+        let executed_tool_sequence = trace
+            .tool_results
+            .iter()
+            .map(|result| result.tool_name.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            executed_tool_sequence, fixture.expected_tool_sequence,
+            "fixture {} executed unexpected tool sequence",
+            fixture.name
+        );
+    }
+
     impl DeterministicToolExecutor for MockExecutor {
         fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData> {
             self.last_open_url = Some(input.url.clone());
@@ -10863,6 +11165,56 @@ mod tests {
             infer_intent_hint("what s the play back spead"),
             IntentName::GetPlaybackSpeed
         );
+    }
+
+    #[test]
+    fn planner_skill_regression_fixtures_cover_representative_direct_command_flows() {
+        let fixtures = vec![
+            PlannerSkillFixture {
+                name: "fixture-set-volume",
+                transcript: "set volume to 70 percent",
+                resolver: PlannerSkillFixtureResolver::Audio,
+                agent_state: fixture_agent_state(),
+                page_model: None,
+                expected_intent: IntentName::SetPlaybackVolume,
+                expected_selected_skills: vec!["set_volume"],
+                expected_tool_sequence: vec![ToolName::SetPlaybackVolume, ToolName::ReportResult],
+            },
+            PlannerSkillFixture {
+                name: "fixture-go-back",
+                transcript: "back",
+                resolver: PlannerSkillFixtureResolver::NavigationReadback,
+                agent_state: fixture_agent_state(),
+                page_model: None,
+                expected_intent: IntentName::GoBack,
+                expected_selected_skills: vec!["go_back"],
+                expected_tool_sequence: vec![ToolName::GoBack],
+            },
+            PlannerSkillFixture {
+                name: "fixture-read-page-extract",
+                transcript: "read page",
+                resolver: PlannerSkillFixtureResolver::ReadPage,
+                agent_state: fixture_agent_state(),
+                page_model: Some(fixture_page_model_without_regions()),
+                expected_intent: IntentName::ReadPage,
+                expected_selected_skills: vec!["read_page"],
+                expected_tool_sequence: vec![ToolName::ExtractPageModel, ToolName::ReadNextRegion],
+            },
+            PlannerSkillFixture {
+                name: "fixture-current-url",
+                transcript: "what page am i on",
+                resolver: PlannerSkillFixtureResolver::StatusQuery,
+                agent_state: fixture_agent_state(),
+                page_model: None,
+                expected_intent: IntentName::GetCurrentUrl,
+                expected_selected_skills: vec!["get_current_url"],
+                expected_tool_sequence: vec![ToolName::GetAgentState, ToolName::ReportResult],
+            },
+        ];
+
+        for fixture in fixtures {
+            assert_planner_skill_fixture(fixture);
+        }
     }
 
     #[test]

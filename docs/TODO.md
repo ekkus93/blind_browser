@@ -455,7 +455,7 @@
 - [x] Changed speech settings apply on the next utterance only
 
 ### Agentic Tests
-- [ ] Add planner-skill regression fixtures with browser state, transcript, expected selected skills, and expected tool sequence
+- [x] Add planner-skill regression fixtures with browser state, transcript, expected selected skills, and expected tool sequence
 - [ ] Assert that the correct bundled skills were selected for representative tasks
 - [ ] Add fixtures for ambiguous clicks, form filling, fill-and-submit, and follow-up corrections
 - [ ] Build a growing corpus of in-the-wild problematic pages for agentic regression coverage
