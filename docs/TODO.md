@@ -32,7 +32,7 @@
 - [x] Define SKILL.md frontmatter schema and validation rules
 - [x] Define planner input/output schema and validation rules
 - [x] Define per-tool input schemas and argument validation constraints
-- [ ] Replace open-ended schema strings with closed enums where the valid set is known
+- [x] Replace open-ended schema strings with closed enums where the valid set is known
 
 ### Dependencies
 - [x] Add dom_smoothie

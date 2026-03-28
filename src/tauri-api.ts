@@ -4,6 +4,10 @@ export type ProviderMode = "Local" | "Remote" | "Disabled";
 export type SelectableProviderMode = Exclude<ProviderMode, "Disabled">;
 
 export type BrowserVisibilityMode = "Visible" | "Headless";
+export type RemoteProviderLabel = "OpenAI" | "Ollama";
+export type LocalTtsBackend = "kitten_tts_rs";
+export type LocalAsrBackend = "whisper";
+export type RemoteTtsAudioFormat = "wav";
 
 export type ToolName =
   | "OpenUrl"
@@ -192,7 +196,7 @@ export interface TtsModelSettings {
 
 export interface LocalTtsModelSettings {
   profile_name: string | null;
-  backend: string | null;
+  backend: LocalTtsBackend | null;
   model_id: string | null;
   model_path: string | null;
   default_voice: string | null;
@@ -222,7 +226,7 @@ export interface AsrProviderSettings {
 
 export interface LocalAsrModelSettings {
   profile_name: string | null;
-  backend: string | null;
+  backend: LocalAsrBackend | null;
   model_id: string | null;
   model_path: string | null;
   language: string | null;
@@ -262,7 +266,7 @@ export interface PlannerProviderSettings {
 
 export interface RemotePlannerSettings {
   profile_name: string | null;
-  provider: string | null;
+  provider: RemoteProviderLabel | null;
   base_url: string | null;
   model: string | null;
   api_key_reference: string | null;
@@ -275,20 +279,20 @@ export interface RemotePlannerSettings {
 
 export interface RemoteTtsSettings {
   profile_name: string | null;
-  provider: string | null;
+  provider: RemoteProviderLabel | null;
   base_url: string | null;
   model: string | null;
   api_key_reference: string | null;
   organization_reference: string | null;
   project: string | null;
   voice: string | null;
-  audio_format: string | null;
+  audio_format: RemoteTtsAudioFormat | null;
   timeout_ms: number | null;
 }
 
 export interface RemoteAsrSettings {
   profile_name: string | null;
-  provider: string | null;
+  provider: RemoteProviderLabel | null;
   base_url: string | null;
   model: string | null;
   api_key_reference: string | null;

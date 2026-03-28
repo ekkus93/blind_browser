@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::audio_io::RuntimeAudioState;
 use crate::browser::{BrowserVisibilityMode, LoadState, ScrollDirection, ScrollTarget};
-use crate::config::{ProviderMode, MAX_PLAYBACK_SPEED, MAX_PLAYBACK_VOLUME, MIN_PLAYBACK_SPEED};
+use crate::config::{
+    LocalAsrBackend, LocalTtsBackend, ProviderMode, RemoteTtsAudioFormat, MAX_PLAYBACK_SPEED,
+    MAX_PLAYBACK_VOLUME, MIN_PLAYBACK_SPEED,
+};
 use crate::narration::NarrationCursor;
 use crate::page_model::{ExtractionSource, InteractiveElement, PageModel, Rect};
 use crate::state::{BrowserHistoryState, ListeningState};
@@ -286,6 +289,23 @@ pub struct ProviderSelectionStatus {
     pub asr_mode: ProviderMode,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub enum RemoteProviderLabel {
+    #[serde(rename = "OpenAI")]
+    OpenAi,
+    #[serde(rename = "Ollama")]
+    Ollama,
+}
+
+impl From<&crate::config::RemoteProviderKind> for RemoteProviderLabel {
+    fn from(value: &crate::config::RemoteProviderKind) -> Self {
+        match value {
+            crate::config::RemoteProviderKind::OpenAi => Self::OpenAi,
+            crate::config::RemoteProviderKind::Ollama => Self::Ollama,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct TtsModelOption {
     pub profile_name: String,
@@ -302,7 +322,7 @@ pub struct TtsModelSettings {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct LocalTtsModelSettings {
     pub profile_name: Option<String>,
-    pub backend: Option<String>,
+    pub backend: Option<LocalTtsBackend>,
     pub model_id: Option<String>,
     pub model_path: Option<String>,
     pub default_voice: Option<String>,
@@ -337,7 +357,7 @@ pub struct AsrProviderSettings {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct LocalAsrModelSettings {
     pub profile_name: Option<String>,
-    pub backend: Option<String>,
+    pub backend: Option<LocalAsrBackend>,
     pub model_id: Option<String>,
     pub model_path: Option<String>,
     pub language: Option<String>,
@@ -354,7 +374,7 @@ pub struct PlannerProviderSettings {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct RemotePlannerSettings {
     pub profile_name: Option<String>,
-    pub provider: Option<String>,
+    pub provider: Option<RemoteProviderLabel>,
     pub base_url: Option<String>,
     pub model: Option<String>,
     pub api_key_reference: Option<String>,
@@ -368,21 +388,21 @@ pub struct RemotePlannerSettings {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct RemoteTtsSettings {
     pub profile_name: Option<String>,
-    pub provider: Option<String>,
+    pub provider: Option<RemoteProviderLabel>,
     pub base_url: Option<String>,
     pub model: Option<String>,
     pub api_key_reference: Option<String>,
     pub organization_reference: Option<String>,
     pub project: Option<String>,
     pub voice: Option<String>,
-    pub audio_format: Option<String>,
+    pub audio_format: Option<RemoteTtsAudioFormat>,
     pub timeout_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct RemoteAsrSettings {
     pub profile_name: Option<String>,
-    pub provider: Option<String>,
+    pub provider: Option<RemoteProviderLabel>,
     pub base_url: Option<String>,
     pub model: Option<String>,
     pub api_key_reference: Option<String>,
@@ -6286,7 +6306,7 @@ mod tests {
             },
             local_tts_model_settings: LocalTtsModelSettings {
                 profile_name: Some(String::from("kitten-default")),
-                backend: Some(String::from("kitten_tts_rs")),
+                backend: Some(LocalTtsBackend::KittenTtsRs),
                 model_id: Some(String::from("default")),
                 model_path: Some(String::from("/path/to/kitten/model")),
                 default_voice: Some(String::from("Bruno")),
@@ -6316,7 +6336,7 @@ mod tests {
             },
             local_asr_model_settings: LocalAsrModelSettings {
                 profile_name: Some(String::from("whisper-default")),
-                backend: Some(String::from("whisper")),
+                backend: Some(LocalAsrBackend::Whisper),
                 model_id: Some(String::from("tiny")),
                 model_path: Some(String::from("/path/to/whisper/model")),
                 language: Some(String::from("en")),
@@ -6329,7 +6349,7 @@ mod tests {
             },
             remote_planner_settings: RemotePlannerSettings {
                 profile_name: Some(String::from("openai-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-5.4-mini")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -6341,19 +6361,19 @@ mod tests {
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-tts")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                 organization_reference: None,
                 project: None,
                 voice: Some(String::from("alloy")),
-                audio_format: Some(String::from("wav")),
+                audio_format: Some(RemoteTtsAudioFormat::Wav),
                 timeout_ms: Some(30_000),
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: Some(String::from("openai-transcribe-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-transcribe")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -7247,7 +7267,7 @@ mod tests {
                     },
                     local_tts_model_settings: LocalTtsModelSettings {
                         profile_name: Some(String::from("kitten-default")),
-                        backend: Some(String::from("kitten_tts_rs")),
+                        backend: Some(LocalTtsBackend::KittenTtsRs),
                         model_id: Some(String::from("default")),
                         model_path: Some(String::from("/path/to/kitten/model")),
                         default_voice: Some(String::from("Bruno")),
@@ -7277,7 +7297,7 @@ mod tests {
                     },
                     local_asr_model_settings: LocalAsrModelSettings {
                         profile_name: Some(String::from("whisper-default")),
-                        backend: Some(String::from("whisper")),
+                        backend: Some(LocalAsrBackend::Whisper),
                         model_id: Some(String::from("tiny")),
                         model_path: Some(String::from("/path/to/whisper/model")),
                         language: Some(String::from("en")),
@@ -7290,7 +7310,7 @@ mod tests {
                     },
                     remote_planner_settings: RemotePlannerSettings {
                         profile_name: Some(String::from("openai-default")),
-                        provider: Some(String::from("OpenAI")),
+                        provider: Some(RemoteProviderLabel::OpenAi),
                         base_url: Some(String::from("https://api.openai.com/v1")),
                         model: Some(String::from("gpt-5.4-mini")),
                         api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -7302,19 +7322,19 @@ mod tests {
                     },
                     remote_tts_settings: RemoteTtsSettings {
                         profile_name: Some(String::from("openai-tts-default")),
-                        provider: Some(String::from("OpenAI")),
+                        provider: Some(RemoteProviderLabel::OpenAi),
                         base_url: Some(String::from("https://api.openai.com/v1")),
                         model: Some(String::from("gpt-4o-mini-tts")),
                         api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                         organization_reference: None,
                         project: None,
                         voice: Some(String::from("alloy")),
-                        audio_format: Some(String::from("wav")),
+                        audio_format: Some(RemoteTtsAudioFormat::Wav),
                         timeout_ms: Some(30_000),
                     },
                     remote_asr_settings: RemoteAsrSettings {
                         profile_name: Some(String::from("openai-transcribe-default")),
-                        provider: Some(String::from("OpenAI")),
+                        provider: Some(RemoteProviderLabel::OpenAi),
                         base_url: Some(String::from("https://api.openai.com/v1")),
                         model: Some(String::from("gpt-4o-mini-transcribe")),
                         api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -10023,6 +10043,14 @@ mod tests {
         );
         assert_eq!(serde_json::json!(ScreenshotScope::Viewport), "Viewport");
         assert_eq!(serde_json::json!(ScreenshotScope::FullPage), "FullPage");
+        assert_eq!(serde_json::json!(RemoteProviderLabel::OpenAi), "OpenAI");
+        assert_eq!(serde_json::json!(RemoteProviderLabel::Ollama), "Ollama");
+        assert_eq!(
+            serde_json::json!(LocalTtsBackend::KittenTtsRs),
+            "kitten_tts_rs"
+        );
+        assert_eq!(serde_json::json!(LocalAsrBackend::Whisper), "whisper");
+        assert_eq!(serde_json::json!(RemoteTtsAudioFormat::Wav), "wav");
         assert_eq!(
             serde_json::json!(crate::page_model::ElementRole::Landmark),
             "Landmark"
@@ -10184,7 +10212,7 @@ mod tests {
                 },
                 local_tts_model_settings: LocalTtsModelSettings {
                     profile_name: Some(String::from("kitten-default")),
-                    backend: Some(String::from("kitten_tts_rs")),
+                    backend: Some(LocalTtsBackend::KittenTtsRs),
                     model_id: Some(String::from("default")),
                     model_path: Some(String::from("/path/to/kitten/model")),
                     default_voice: Some(String::from("Bruno")),
@@ -10214,7 +10242,7 @@ mod tests {
                 },
                 local_asr_model_settings: LocalAsrModelSettings {
                     profile_name: Some(String::from("whisper-default")),
-                    backend: Some(String::from("whisper")),
+                    backend: Some(LocalAsrBackend::Whisper),
                     model_id: Some(String::from("tiny")),
                     model_path: Some(String::from("/path/to/whisper/model")),
                     language: Some(String::from("en")),
@@ -10227,7 +10255,7 @@ mod tests {
                 },
                 remote_planner_settings: RemotePlannerSettings {
                     profile_name: Some(String::from("openai-default")),
-                    provider: Some(String::from("OpenAI")),
+                    provider: Some(RemoteProviderLabel::OpenAi),
                     base_url: Some(String::from("https://api.openai.com/v1")),
                     model: Some(String::from("gpt-5.4-mini")),
                     api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -10239,19 +10267,19 @@ mod tests {
                 },
                 remote_tts_settings: RemoteTtsSettings {
                     profile_name: Some(String::from("openai-tts-default")),
-                    provider: Some(String::from("OpenAI")),
+                    provider: Some(RemoteProviderLabel::OpenAi),
                     base_url: Some(String::from("https://api.openai.com/v1")),
                     model: Some(String::from("gpt-4o-mini-tts")),
                     api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                     organization_reference: None,
                     project: None,
                     voice: Some(String::from("alloy")),
-                    audio_format: Some(String::from("wav")),
+                    audio_format: Some(RemoteTtsAudioFormat::Wav),
                     timeout_ms: Some(30_000),
                 },
                 remote_asr_settings: RemoteAsrSettings {
                     profile_name: Some(String::from("openai-transcribe-default")),
-                    provider: Some(String::from("OpenAI")),
+                    provider: Some(RemoteProviderLabel::OpenAi),
                     base_url: Some(String::from("https://api.openai.com/v1")),
                     model: Some(String::from("gpt-4o-mini-transcribe")),
                     api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12056,7 +12084,7 @@ mod tests {
             },
             local_tts_model_settings: LocalTtsModelSettings {
                 profile_name: Some(String::from("kitten-default")),
-                backend: Some(String::from("kitten_tts_rs")),
+                backend: Some(LocalTtsBackend::KittenTtsRs),
                 model_id: Some(String::from("default")),
                 model_path: Some(String::from("/path/to/kitten/model")),
                 default_voice: Some(String::from("Bruno")),
@@ -12086,7 +12114,7 @@ mod tests {
             },
             local_asr_model_settings: LocalAsrModelSettings {
                 profile_name: Some(String::from("whisper-default")),
-                backend: Some(String::from("whisper")),
+                backend: Some(LocalAsrBackend::Whisper),
                 model_id: Some(String::from("tiny")),
                 model_path: Some(String::from("/path/to/whisper/model")),
                 language: Some(String::from("en")),
@@ -12099,7 +12127,7 @@ mod tests {
             },
             remote_planner_settings: RemotePlannerSettings {
                 profile_name: Some(String::from("openai-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-5.4-mini")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12111,19 +12139,19 @@ mod tests {
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-tts")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                 organization_reference: None,
                 project: None,
                 voice: Some(String::from("alloy")),
-                audio_format: Some(String::from("wav")),
+                audio_format: Some(RemoteTtsAudioFormat::Wav),
                 timeout_ms: Some(30_000),
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: Some(String::from("openai-transcribe-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-transcribe")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12210,7 +12238,7 @@ mod tests {
             },
             local_tts_model_settings: LocalTtsModelSettings {
                 profile_name: Some(String::from("kitten-default")),
-                backend: Some(String::from("kitten_tts_rs")),
+                backend: Some(LocalTtsBackend::KittenTtsRs),
                 model_id: Some(String::from("default")),
                 model_path: Some(String::from("/path/to/kitten/model")),
                 default_voice: Some(String::from("Bruno")),
@@ -12240,7 +12268,7 @@ mod tests {
             },
             local_asr_model_settings: LocalAsrModelSettings {
                 profile_name: Some(String::from("whisper-default")),
-                backend: Some(String::from("whisper")),
+                backend: Some(LocalAsrBackend::Whisper),
                 model_id: Some(String::from("tiny")),
                 model_path: Some(String::from("/path/to/whisper/model")),
                 language: Some(String::from("en")),
@@ -12253,7 +12281,7 @@ mod tests {
             },
             remote_planner_settings: RemotePlannerSettings {
                 profile_name: Some(String::from("openai-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-5.4-mini")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12265,19 +12293,19 @@ mod tests {
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-tts")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                 organization_reference: None,
                 project: None,
                 voice: Some(String::from("alloy")),
-                audio_format: Some(String::from("wav")),
+                audio_format: Some(RemoteTtsAudioFormat::Wav),
                 timeout_ms: Some(30_000),
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: Some(String::from("openai-transcribe-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-transcribe")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12357,7 +12385,7 @@ mod tests {
             },
             local_tts_model_settings: LocalTtsModelSettings {
                 profile_name: Some(String::from("kitten-default")),
-                backend: Some(String::from("kitten_tts_rs")),
+                backend: Some(LocalTtsBackend::KittenTtsRs),
                 model_id: Some(String::from("default")),
                 model_path: Some(String::from("/path/to/kitten/model")),
                 default_voice: Some(String::from("Bruno")),
@@ -12387,7 +12415,7 @@ mod tests {
             },
             local_asr_model_settings: LocalAsrModelSettings {
                 profile_name: Some(String::from("whisper-default")),
-                backend: Some(String::from("whisper")),
+                backend: Some(LocalAsrBackend::Whisper),
                 model_id: Some(String::from("tiny")),
                 model_path: Some(String::from("/path/to/whisper/model")),
                 language: Some(String::from("en")),
@@ -12400,7 +12428,7 @@ mod tests {
             },
             remote_planner_settings: RemotePlannerSettings {
                 profile_name: Some(String::from("openai-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-5.4-mini")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12412,19 +12440,19 @@ mod tests {
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-tts")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                 organization_reference: None,
                 project: None,
                 voice: Some(String::from("alloy")),
-                audio_format: Some(String::from("wav")),
+                audio_format: Some(RemoteTtsAudioFormat::Wav),
                 timeout_ms: Some(30_000),
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: Some(String::from("openai-transcribe-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-transcribe")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12496,7 +12524,7 @@ mod tests {
             },
             local_tts_model_settings: LocalTtsModelSettings {
                 profile_name: Some(String::from("kitten-default")),
-                backend: Some(String::from("kitten_tts_rs")),
+                backend: Some(LocalTtsBackend::KittenTtsRs),
                 model_id: Some(String::from("default")),
                 model_path: Some(String::from("/path/to/kitten/model")),
                 default_voice: Some(String::from("Bruno")),
@@ -12526,7 +12554,7 @@ mod tests {
             },
             local_asr_model_settings: LocalAsrModelSettings {
                 profile_name: Some(String::from("whisper-default")),
-                backend: Some(String::from("whisper")),
+                backend: Some(LocalAsrBackend::Whisper),
                 model_id: Some(String::from("tiny")),
                 model_path: Some(String::from("/path/to/whisper/model")),
                 language: Some(String::from("en")),
@@ -12539,7 +12567,7 @@ mod tests {
             },
             remote_planner_settings: RemotePlannerSettings {
                 profile_name: Some(String::from("openai-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-5.4-mini")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12551,19 +12579,19 @@ mod tests {
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-tts")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                 organization_reference: None,
                 project: None,
                 voice: Some(String::from("alloy")),
-                audio_format: Some(String::from("wav")),
+                audio_format: Some(RemoteTtsAudioFormat::Wav),
                 timeout_ms: Some(30_000),
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: Some(String::from("openai-transcribe-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-transcribe")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12659,7 +12687,7 @@ mod tests {
             },
             local_tts_model_settings: LocalTtsModelSettings {
                 profile_name: Some(String::from("kitten-default")),
-                backend: Some(String::from("kitten_tts_rs")),
+                backend: Some(LocalTtsBackend::KittenTtsRs),
                 model_id: Some(String::from("default")),
                 model_path: Some(String::from("/path/to/kitten/model")),
                 default_voice: Some(String::from("Bruno")),
@@ -12689,7 +12717,7 @@ mod tests {
             },
             local_asr_model_settings: LocalAsrModelSettings {
                 profile_name: Some(String::from("whisper-default")),
-                backend: Some(String::from("whisper")),
+                backend: Some(LocalAsrBackend::Whisper),
                 model_id: Some(String::from("tiny")),
                 model_path: Some(String::from("/path/to/whisper/model")),
                 language: Some(String::from("en")),
@@ -12702,7 +12730,7 @@ mod tests {
             },
             remote_planner_settings: RemotePlannerSettings {
                 profile_name: Some(String::from("openai-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-5.4-mini")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12714,19 +12742,19 @@ mod tests {
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-tts")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                 organization_reference: None,
                 project: None,
                 voice: Some(String::from("alloy")),
-                audio_format: Some(String::from("wav")),
+                audio_format: Some(RemoteTtsAudioFormat::Wav),
                 timeout_ms: Some(30_000),
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: Some(String::from("openai-transcribe-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-transcribe")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12817,7 +12845,7 @@ mod tests {
             },
             local_tts_model_settings: LocalTtsModelSettings {
                 profile_name: Some(String::from("kitten-default")),
-                backend: Some(String::from("kitten_tts_rs")),
+                backend: Some(LocalTtsBackend::KittenTtsRs),
                 model_id: Some(String::from("default")),
                 model_path: Some(String::from("/path/to/kitten/model")),
                 default_voice: Some(String::from("Bruno")),
@@ -12847,7 +12875,7 @@ mod tests {
             },
             local_asr_model_settings: LocalAsrModelSettings {
                 profile_name: Some(String::from("whisper-default")),
-                backend: Some(String::from("whisper")),
+                backend: Some(LocalAsrBackend::Whisper),
                 model_id: Some(String::from("tiny")),
                 model_path: Some(String::from("/path/to/whisper/model")),
                 language: Some(String::from("en")),
@@ -12860,7 +12888,7 @@ mod tests {
             },
             remote_planner_settings: RemotePlannerSettings {
                 profile_name: Some(String::from("openai-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-5.4-mini")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12872,19 +12900,19 @@ mod tests {
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-tts")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                 organization_reference: None,
                 project: None,
                 voice: Some(String::from("alloy")),
-                audio_format: Some(String::from("wav")),
+                audio_format: Some(RemoteTtsAudioFormat::Wav),
                 timeout_ms: Some(30_000),
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: Some(String::from("openai-transcribe-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-transcribe")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -12986,7 +13014,7 @@ mod tests {
             },
             local_tts_model_settings: LocalTtsModelSettings {
                 profile_name: Some(String::from("kitten-default")),
-                backend: Some(String::from("kitten_tts_rs")),
+                backend: Some(LocalTtsBackend::KittenTtsRs),
                 model_id: Some(String::from("default")),
                 model_path: Some(String::from("/path/to/kitten/model")),
                 default_voice: Some(String::from("Bruno")),
@@ -13016,7 +13044,7 @@ mod tests {
             },
             local_asr_model_settings: LocalAsrModelSettings {
                 profile_name: Some(String::from("whisper-default")),
-                backend: Some(String::from("whisper")),
+                backend: Some(LocalAsrBackend::Whisper),
                 model_id: Some(String::from("tiny")),
                 model_path: Some(String::from("/path/to/whisper/model")),
                 language: Some(String::from("en")),
@@ -13029,7 +13057,7 @@ mod tests {
             },
             remote_planner_settings: RemotePlannerSettings {
                 profile_name: Some(String::from("openai-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-5.4-mini")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -13041,19 +13069,19 @@ mod tests {
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-tts")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                 organization_reference: None,
                 project: None,
                 voice: Some(String::from("alloy")),
-                audio_format: Some(String::from("wav")),
+                audio_format: Some(RemoteTtsAudioFormat::Wav),
                 timeout_ms: Some(30_000),
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: Some(String::from("openai-transcribe-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-transcribe")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -13130,7 +13158,7 @@ mod tests {
             },
             local_tts_model_settings: LocalTtsModelSettings {
                 profile_name: Some(String::from("kitten-default")),
-                backend: Some(String::from("kitten_tts_rs")),
+                backend: Some(LocalTtsBackend::KittenTtsRs),
                 model_id: Some(String::from("default")),
                 model_path: Some(String::from("/path/to/kitten/model")),
                 default_voice: Some(String::from("Bruno")),
@@ -13160,7 +13188,7 @@ mod tests {
             },
             local_asr_model_settings: LocalAsrModelSettings {
                 profile_name: Some(String::from("whisper-default")),
-                backend: Some(String::from("whisper")),
+                backend: Some(LocalAsrBackend::Whisper),
                 model_id: Some(String::from("tiny")),
                 model_path: Some(String::from("/path/to/whisper/model")),
                 language: Some(String::from("en")),
@@ -13173,7 +13201,7 @@ mod tests {
             },
             remote_planner_settings: RemotePlannerSettings {
                 profile_name: Some(String::from("openai-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-5.4-mini")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -13185,19 +13213,19 @@ mod tests {
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-tts")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                 organization_reference: None,
                 project: None,
                 voice: Some(String::from("alloy")),
-                audio_format: Some(String::from("wav")),
+                audio_format: Some(RemoteTtsAudioFormat::Wav),
                 timeout_ms: Some(30_000),
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: Some(String::from("openai-transcribe-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-transcribe")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -13279,7 +13307,7 @@ mod tests {
             },
             local_tts_model_settings: LocalTtsModelSettings {
                 profile_name: Some(String::from("kitten-default")),
-                backend: Some(String::from("kitten_tts_rs")),
+                backend: Some(LocalTtsBackend::KittenTtsRs),
                 model_id: Some(String::from("default")),
                 model_path: Some(String::from("/path/to/kitten/model")),
                 default_voice: Some(String::from("Bruno")),
@@ -13309,7 +13337,7 @@ mod tests {
             },
             local_asr_model_settings: LocalAsrModelSettings {
                 profile_name: Some(String::from("whisper-default")),
-                backend: Some(String::from("whisper")),
+                backend: Some(LocalAsrBackend::Whisper),
                 model_id: Some(String::from("tiny")),
                 model_path: Some(String::from("/path/to/whisper/model")),
                 language: Some(String::from("en")),
@@ -13322,7 +13350,7 @@ mod tests {
             },
             remote_planner_settings: RemotePlannerSettings {
                 profile_name: Some(String::from("openai-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-5.4-mini")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -13334,19 +13362,19 @@ mod tests {
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-tts")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                 organization_reference: None,
                 project: None,
                 voice: Some(String::from("alloy")),
-                audio_format: Some(String::from("wav")),
+                audio_format: Some(RemoteTtsAudioFormat::Wav),
                 timeout_ms: Some(30_000),
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: Some(String::from("openai-transcribe-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-transcribe")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -13422,7 +13450,7 @@ mod tests {
             },
             local_tts_model_settings: LocalTtsModelSettings {
                 profile_name: Some(String::from("kitten-default")),
-                backend: Some(String::from("kitten_tts_rs")),
+                backend: Some(LocalTtsBackend::KittenTtsRs),
                 model_id: Some(String::from("default")),
                 model_path: Some(String::from("/path/to/kitten/model")),
                 default_voice: Some(String::from("Bruno")),
@@ -13452,7 +13480,7 @@ mod tests {
             },
             local_asr_model_settings: LocalAsrModelSettings {
                 profile_name: Some(String::from("whisper-default")),
-                backend: Some(String::from("whisper")),
+                backend: Some(LocalAsrBackend::Whisper),
                 model_id: Some(String::from("tiny")),
                 model_path: Some(String::from("/path/to/whisper/model")),
                 language: Some(String::from("en")),
@@ -13465,7 +13493,7 @@ mod tests {
             },
             remote_planner_settings: RemotePlannerSettings {
                 profile_name: Some(String::from("openai-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-5.4-mini")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
@@ -13477,19 +13505,19 @@ mod tests {
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-tts")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
                 organization_reference: None,
                 project: None,
                 voice: Some(String::from("alloy")),
-                audio_format: Some(String::from("wav")),
+                audio_format: Some(RemoteTtsAudioFormat::Wav),
                 timeout_ms: Some(30_000),
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: Some(String::from("openai-transcribe-default")),
-                provider: Some(String::from("OpenAI")),
+                provider: Some(RemoteProviderLabel::OpenAi),
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-4o-mini-transcribe")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),

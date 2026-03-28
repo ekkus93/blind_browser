@@ -34,9 +34,9 @@ use crate::commands::{
     PlannerProviderSettings, PlannerStatus, PlannerToolHistoryEntry, ProviderFailoverSettings,
     ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
     ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
-    RemoteAsrSettings, RemotePlannerSettings, RemoteTtsSettings, ReportResultData,
-    ReportResultInput, ReportStatus, RunOcrData, RunOcrInput, ScrollPageData, ScrollPageInput,
-    SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
+    RemoteAsrSettings, RemotePlannerSettings, RemoteProviderLabel, RemoteTtsSettings,
+    ReportResultData, ReportResultInput, ReportStatus, RunOcrData, RunOcrInput, ScrollPageData,
+    ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
     SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
     SetTtsVoiceInput, StartListeningData, StartListeningInput, StepTransition, StopListeningData,
     StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
@@ -4636,7 +4636,7 @@ fn build_local_tts_model_settings(config: &AppConfig) -> LocalTtsModelSettings {
 
     LocalTtsModelSettings {
         profile_name,
-        backend: profile.map(|configured_profile| configured_profile.backend.to_string()),
+        backend: profile.map(|configured_profile| configured_profile.backend.clone()),
         model_id: profile.map(|configured_profile| configured_profile.model_id.clone()),
         model_path: profile.map(|configured_profile| configured_profile.model_path.clone()),
         default_voice: profile.map(|configured_profile| configured_profile.default_voice.clone()),
@@ -4685,10 +4685,10 @@ fn build_planner_provider_settings(config: &AppConfig) -> PlannerProviderSetting
     }
 }
 
-fn remote_provider_label(provider: &RemoteProviderKind) -> String {
+fn remote_provider_label(provider: &RemoteProviderKind) -> RemoteProviderLabel {
     match provider {
-        RemoteProviderKind::OpenAi => String::from("OpenAI"),
-        RemoteProviderKind::Ollama => String::from("Ollama"),
+        RemoteProviderKind::OpenAi => RemoteProviderLabel::OpenAi,
+        RemoteProviderKind::Ollama => RemoteProviderLabel::Ollama,
     }
 }
 
@@ -4735,7 +4735,7 @@ fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings {
             .map(secret_ref_reference),
         project: profile.and_then(|configured_profile| configured_profile.project.clone()),
         voice: profile.map(|configured_profile| configured_profile.voice.clone()),
-        audio_format: profile.map(|configured_profile| configured_profile.audio_format.to_string()),
+        audio_format: profile.map(|configured_profile| configured_profile.audio_format.clone()),
         timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
     }
 }
@@ -4830,7 +4830,7 @@ fn build_local_asr_model_settings(config: &AppConfig) -> LocalAsrModelSettings {
 
     LocalAsrModelSettings {
         profile_name,
-        backend: profile.map(|configured_profile| configured_profile.backend.to_string()),
+        backend: profile.map(|configured_profile| configured_profile.backend.clone()),
         model_id: profile.map(|configured_profile| configured_profile.model_id.clone()),
         model_path: profile.map(|configured_profile| configured_profile.model_path.clone()),
         language: profile.and_then(|configured_profile| configured_profile.language.clone()),
@@ -8023,7 +8023,7 @@ mod tests {
         let settings = build_remote_planner_settings(&config);
 
         assert_eq!(settings.profile_name.as_deref(), Some("openai-default"));
-        assert_eq!(settings.provider.as_deref(), Some("OpenAI"));
+        assert_eq!(settings.provider, Some(crate::commands::RemoteProviderLabel::OpenAi));
         assert_eq!(
             settings.base_url.as_deref(),
             Some("https://api.openai.com/v1")
@@ -8047,7 +8047,7 @@ mod tests {
         let settings = build_remote_tts_settings(&config);
 
         assert_eq!(settings.profile_name.as_deref(), Some("openai-tts-default"));
-        assert_eq!(settings.provider.as_deref(), Some("OpenAI"));
+        assert_eq!(settings.provider, Some(crate::commands::RemoteProviderLabel::OpenAi));
         assert_eq!(
             settings.base_url.as_deref(),
             Some("https://api.openai.com/v1")
@@ -8060,7 +8060,10 @@ mod tests {
         assert_eq!(settings.organization_reference, None);
         assert_eq!(settings.project, None);
         assert_eq!(settings.voice.as_deref(), Some("alloy"));
-        assert_eq!(settings.audio_format.as_deref(), Some("wav"));
+        assert_eq!(
+            settings.audio_format,
+            Some(crate::config::RemoteTtsAudioFormat::Wav)
+        );
         assert_eq!(settings.timeout_ms, Some(30_000));
     }
 
@@ -8074,7 +8077,7 @@ mod tests {
             settings.profile_name.as_deref(),
             Some("openai-transcribe-default")
         );
-        assert_eq!(settings.provider.as_deref(), Some("OpenAI"));
+        assert_eq!(settings.provider, Some(crate::commands::RemoteProviderLabel::OpenAi));
         assert_eq!(
             settings.base_url.as_deref(),
             Some("https://api.openai.com/v1")
@@ -8126,7 +8129,10 @@ mod tests {
         let settings = build_local_tts_model_settings(&config);
 
         assert_eq!(settings.profile_name.as_deref(), Some("kitten-default"));
-        assert_eq!(settings.backend.as_deref(), Some("kitten_tts_rs"));
+        assert_eq!(
+            settings.backend,
+            Some(crate::config::LocalTtsBackend::KittenTtsRs)
+        );
         assert_eq!(settings.model_id.as_deref(), Some("default"));
         assert_eq!(
             settings.model_path.as_deref(),
@@ -8143,7 +8149,10 @@ mod tests {
         let settings = build_local_asr_model_settings(&config);
 
         assert_eq!(settings.profile_name.as_deref(), Some("whisper-default"));
-        assert_eq!(settings.backend.as_deref(), Some("whisper"));
+        assert_eq!(
+            settings.backend,
+            Some(crate::config::LocalAsrBackend::Whisper)
+        );
         assert_eq!(settings.model_id.as_deref(), Some("tiny"));
         assert_eq!(
             settings.model_path.as_deref(),
