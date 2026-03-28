@@ -452,7 +452,7 @@
 - [x] Remote ASR selected → transcript is returned
 - [x] Playback volume and speed changes persist across app restart
 - [x] Voice command changes to playback volume and speed persist across app restart
-- [ ] Changed speech settings apply on the next utterance only
+- [x] Changed speech settings apply on the next utterance only
 
 ### Agentic Tests
 - [ ] Add planner-skill regression fixtures with browser state, transcript, expected selected skills, and expected tool sequence

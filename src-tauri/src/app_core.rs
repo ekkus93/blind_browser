@@ -3100,8 +3100,10 @@ impl AppCore {
 
         match self.set_playback_volume(clamped_volume) {
             Ok(()) => {
-                self.playback.set_volume(self.state.audio.playback_volume);
                 let mut observations = vec![String::from("Updated the playback volume setting.")];
+                observations.push(String::from(
+                    "New narration requests will use the updated playback volume.",
+                ));
                 if (requested_volume - clamped_volume).abs() > f32::EPSILON {
                     observations.push(String::from(
                         "Requested playback volume was clamped to the supported range.",

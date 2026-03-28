@@ -421,25 +421,26 @@ mod tests {
     }
 
     #[test]
-    fn apply_audio_settings_refreshes_tts_voice_and_speed_mid_session() {
+    fn apply_audio_settings_refreshes_next_utterance_speech_settings_mid_session() {
         let config = AppConfig::default();
         let mut state = AppState::from_config(&config);
 
         // Simulate mid-session settings change.
         let updated = AudioSettings {
+            playback_volume: 0.35,
             default_tts_voice: String::from("Luna"),
             playback_speed: 1.75,
-            ..config.audio.clone()
         };
         state.apply_audio_settings(&updated);
 
-        // The new voice and speed must be visible before the next synthesis call.
+        // The new speech settings must be visible before the next synthesis call.
+        assert!((state.audio.playback_volume - 0.35).abs() < f32::EPSILON);
         assert_eq!(state.audio.tts_voice.as_deref(), Some("Luna"));
         assert!((state.audio.playback_speed - 1.75).abs() < f32::EPSILON);
     }
 
     #[test]
-    fn apply_audio_settings_does_not_disturb_narration_or_speaking_state() {
+    fn apply_audio_settings_leave_active_narration_running_until_the_next_utterance() {
         let config = AppConfig::default();
         let mut state = AppState::from_config(&config);
 
@@ -447,15 +448,17 @@ mod tests {
         state.start_speaking_region(String::from("region-42"));
 
         let updated = AudioSettings {
+            playback_volume: 0.2,
+            playback_speed: 1.5,
             default_tts_voice: String::from("Bella"),
-            ..config.audio.clone()
         };
         state.apply_audio_settings(&updated);
 
-        // Audio settings update must not interrupt the active narration cursor.
+        // The current utterance keeps running, but the next one will use the new settings.
         assert!(state.speaking);
         assert_eq!(state.speaking_region_id.as_deref(), Some("region-42"));
-        // But the new voice must now be in effect for the next synthesis call.
+        assert!((state.audio.playback_volume - 0.2).abs() < f32::EPSILON);
+        assert!((state.audio.playback_speed - 1.5).abs() < f32::EPSILON);
         assert_eq!(state.audio.tts_voice.as_deref(), Some("Bella"));
     }
 

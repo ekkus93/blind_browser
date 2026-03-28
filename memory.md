@@ -1112,3 +1112,7 @@
 ## 2026-03-28T12:56:58Z - GPT-5.4 - Remote TTS synthesis path now has working regression coverage
 - `src-tauri/src/tts.rs` now exercises the real remote TTS success path with a localhost OpenAI-compatible test server, proving that `ProviderMode::Remote` narration returns decoded `SynthesizedSpeech` instead of only unit-testing helpers.
 - While landing that coverage, I fixed a real runtime issue in the remote TTS implementation by switching the OpenAI speech request to the existing synchronous `reqwest::blocking` client, which matches the app’s synchronous runtime model and avoids the missing-Tokio-reactor failure from the previous `async-openai` path. Full validation passed afterward: `cargo clippy`, `cargo test` (243 Rust tests), `pnpm test:ui` (49 passes), and `pnpm build`.
+
+## 2026-03-28T14:30:29Z - GPT-5.4 - Speech-setting changes now wait until the next utterance
+- `src-tauri/src/app_core.rs` no longer pushes playback-volume changes into the currently active player, so the current utterance keeps its existing settings while the next narration request uses the updated persisted volume, matching the spec’s next-utterance-only rule.
+- `src-tauri/src/state.rs` now pins that mid-session audio updates refresh volume, voice, and speed for the next synthesis call without disturbing active narration state, and `docs/TODO.md` marks `Changed speech settings apply on the next utterance only` complete. Full validation passed afterward: `cargo clippy`, `cargo test` (243 Rust tests), `pnpm test:ui` (49 passes), and `pnpm build`.
