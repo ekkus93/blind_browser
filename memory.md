@@ -1045,3 +1045,12 @@
 ## 2026-03-28T06:24:11Z - GPT-5.4 - TTS cache slice ready to land
 - The synthesized-speech cache slice remained the only local change after validation, touching `src-tauri/src/tts.rs`, `docs/TODO.md`, `docs/SPECS.md`, and `memory.md`.
 - The worktree matched the completed and validated TTS cache implementation, so the next operational step is committing and pushing the slice directly to `master`.
+
+## 2026-03-28T06:27:20Z - GPT-5.4 - Cleaned stale browser TODO items
+- `docs/TODO.md` had stale unchecked browser-module items for visible Chromium launch, headless toggle, `open_url()`, and `screenshot_png()` even though the codebase already supports visible/headless browser modes, `open_url`, and `capture_screenshot`.
+- The cleanup marked the implemented items done and renamed the screenshot line to match the current deterministic tool name `capture_screenshot`, so the TODO list better reflects the actual shipped browser capabilities.
+
+## 2026-03-28T06:33:55Z - GPT-5.4 - Added browser visibility state coverage
+- `src-tauri/src/commands.rs` test coverage now keeps mocked browser visibility state across `set_browser_visibility`, `get_runtime_status`, and `get_agent_state`, so the command-layer tests verify that follow-up state reads report the updated mode.
+- `src/confirmation-panel.ts` now exposes a pure `statusPanelStateFromAgentState(...)` helper that maps the runtime agent snapshot into the UI status-panel state, and `src/main.ts` uses that helper instead of duplicating the mapping inline.
+- Revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo fmt --manifest-path src-tauri/Cargo.toml --all && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`.

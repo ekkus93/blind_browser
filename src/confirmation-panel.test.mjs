@@ -23,6 +23,7 @@ import {
   renderSettingsSpeedPanel,
   renderSettingsVolumePanel,
   renderStatusPanel,
+  statusPanelStateFromAgentState,
   renderUrlInputPanel,
 } from "./confirmation-panel.ts";
 
@@ -896,6 +897,35 @@ test("renders runtime status details from agent state", () => {
   assert.match(html, /data-browser-visibility-mode="Headless"/);
   assert.match(html, /Back: Available\./);
   assert.match(html, /Forward: Unavailable\./);
+});
+
+test("maps agent state browser visibility into status panel state", () => {
+  const statusState = statusPanelStateFromAgentState({
+    title: null,
+    url: "https://example.com/docs",
+    narration_cursor: { node_index: 2 },
+    last_transcript: "go headless",
+    listening_state: { is_listening: true },
+    speaking: false,
+    browser_visibility: "Headless",
+    browser_history: {
+      can_go_back: true,
+      can_go_forward: false,
+    },
+  });
+
+  assert.deepEqual(statusState, {
+    pageTitle: "https://example.com/docs",
+    currentRegionLabel: "Region 3",
+    lastTranscript: "go headless",
+    listening: true,
+    speaking: false,
+    browserVisibility: "Headless",
+    canGoBack: true,
+    canGoForward: false,
+    isUpdatingVisibility: false,
+    error: null,
+  });
 });
 
 test("renders status panel fallbacks and errors when runtime sync fails", () => {

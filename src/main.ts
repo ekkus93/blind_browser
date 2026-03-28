@@ -22,6 +22,7 @@ import {
   renderSettingsSpeedPanel,
   renderSettingsVolumePanel,
   renderStatusPanel,
+  statusPanelStateFromAgentState,
   renderUrlInputPanel,
   type AudioControlsPanelState,
   type AsrProviderPanelState,
@@ -776,14 +777,6 @@ function currentSettingsGuidanceState(): SettingsGuidancePanelState | null {
   );
 }
 
-function currentRegionLabelForAgentState(agentState: AgentStateData): string | null {
-  if (!agentState.narration_cursor) {
-    return null;
-  }
-
-  return `Region ${agentState.narration_cursor.node_index + 1}`;
-}
-
 function applyAgentStateToPanels(agentState: AgentStateData) {
   setPushToTalkState({
     enabled: agentState.listening_state.push_to_talk_enabled,
@@ -903,17 +896,7 @@ function applyAgentStateToPanels(agentState: AgentStateData) {
     isBusy: false,
     error: null,
   });
-  setStatusPanelState({
-    pageTitle: agentState.title ?? agentState.url,
-    currentRegionLabel: currentRegionLabelForAgentState(agentState),
-    lastTranscript: agentState.last_transcript,
-    listening: agentState.listening_state.is_listening,
-    speaking: agentState.speaking,
-    browserVisibility: agentState.browser_visibility,
-    canGoBack: agentState.browser_history.can_go_back,
-    canGoForward: agentState.browser_history.can_go_forward,
-    error: null,
-  });
+  setStatusPanelState(statusPanelStateFromAgentState(agentState));
   setUrlInputPanelState({
     currentUrl: agentState.url,
     draftValue: urlInputPanelState.hasUnsubmittedChanges ? urlInputPanelState.draftValue : (agentState.url ?? ""),

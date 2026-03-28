@@ -198,6 +198,24 @@ export interface StatusPanelState {
   error: string | null;
 }
 
+export interface StatusPanelAgentStateLike {
+  title: string | null;
+  url: string | null;
+  narration_cursor: {
+    node_index: number;
+  } | null;
+  last_transcript: string | null;
+  listening_state: {
+    is_listening: boolean;
+  };
+  speaking: boolean;
+  browser_visibility: "Visible" | "Headless";
+  browser_history: {
+    can_go_back: boolean;
+    can_go_forward: boolean;
+  };
+}
+
 function renderTtsModelOptionLabel(profileName: string, modelLabel: string): string {
   return `${modelLabel} (${profileName})`;
 }
@@ -232,6 +250,25 @@ function renderReadOnlySettingValue(value: string | number | null): string {
 
 function renderModelAvailabilityLabel(available: boolean): string {
   return available ? "Downloaded" : "Missing";
+}
+
+export function statusPanelStateFromAgentState(
+  agentState: StatusPanelAgentStateLike,
+): StatusPanelState {
+  return {
+    pageTitle: agentState.title ?? agentState.url,
+    currentRegionLabel: agentState.narration_cursor
+      ? `Region ${agentState.narration_cursor.node_index + 1}`
+      : null,
+    lastTranscript: agentState.last_transcript,
+    listening: agentState.listening_state.is_listening,
+    speaking: agentState.speaking,
+    browserVisibility: agentState.browser_visibility,
+    canGoBack: agentState.browser_history.can_go_back,
+    canGoForward: agentState.browser_history.can_go_forward,
+    isUpdatingVisibility: false,
+    error: null,
+  };
 }
 
 function renderSecretEntryCard(

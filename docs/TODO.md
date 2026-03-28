@@ -111,16 +111,16 @@
 - [x] Finalize shared enums for Wave 1 tools
 
 ### Browser Module
-- [ ] Launch Chromium browser (visible mode)
-- [ ] Add headless toggle
-- [ ] Implement open_url()
+- [x] Launch Chromium browser (visible mode)
+- [x] Add headless toggle
+- [x] Implement open_url()
 - [x] Implement go_back()
 - [x] Implement go_forward()
 - [x] Implement reload_page()
 - [x] Track browser history state and expose can-go-back/can-go-forward signals
 - [x] Implement runtime browser visibility switching when supported
 - [x] Implement get_html()
-- [ ] Implement screenshot_png()
+- [x] Implement capture_screenshot()
 - [x] Implement eval_js()
 
 ### Extractor Module
@@ -433,7 +433,7 @@
 - [ ] ASR → command → action
 - [x] Planner output → deterministic tool execution
 - [ ] Back/forward/reload tools update browser history state correctly
-- [ ] Browser visibility changes are reflected in runtime status and UI state
+- [x] Browser visibility changes are reflected in runtime status and UI state
 - [ ] Listening start/stop/transcribe tools update runtime state correctly
 - [x] Deterministic audio-setting tools persist and report the updated values
 - [ ] Planner requests confirmation before risky execution

@@ -6121,6 +6121,13 @@ mod tests {
         last_report_result: Option<ReportResultData>,
     }
 
+    impl MockExecutor {
+        fn current_browser_visibility(&self) -> BrowserVisibilityMode {
+            self.last_visibility
+                .unwrap_or(BrowserVisibilityMode::Visible)
+        }
+    }
+
     impl DeterministicToolExecutor for MockExecutor {
         fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData> {
             self.last_open_url = Some(input.url.clone());
@@ -6736,7 +6743,7 @@ mod tests {
                     page_id: None,
                     url: Some(String::from("https://example.com")),
                     title: Some(String::from("Example")),
-                    browser_visibility: BrowserVisibilityMode::Visible,
+                    browser_visibility: self.current_browser_visibility(),
                     browser_history: BrowserHistoryState::default(),
                     narration_cursor: Some(NarrationCursor::default()),
                     speaking: false,
@@ -6873,7 +6880,7 @@ mod tests {
                     page_id: None,
                     url: Some(String::from("https://example.com")),
                     title: Some(String::from("Example")),
-                    browser_visibility: BrowserVisibilityMode::Visible,
+                    browser_visibility: self.current_browser_visibility(),
                     browser_history: BrowserHistoryState::default(),
                     listening_state: ListeningState::default(),
                     speaking: false,
@@ -8372,6 +8379,73 @@ mod tests {
         assert!(result.ok);
         let data = result.data.expect("runtime status should serialize");
         assert!(data.get("provider_modes").is_some());
+    }
+
+    #[test]
+    fn browser_visibility_changes_are_reflected_in_following_state_reads() {
+        let mut executor = MockExecutor::default();
+        let set_visibility_step = PlannedStep {
+            step_id: String::from("step-visibility"),
+            tool_name: ToolName::SetBrowserVisibility,
+            arguments: serde_json::json!({
+                "request_id": "req-visibility",
+                "timeout_ms": 1000,
+                "mode": "Headless"
+            }),
+            purpose: String::from("toggle browser visibility"),
+            on_success: StepTransition::NextStep {
+                step_id: String::from("step-runtime"),
+            },
+            on_failure: StepTransition::Replan,
+        };
+        let runtime_status_step = PlannedStep {
+            step_id: String::from("step-runtime"),
+            tool_name: ToolName::GetRuntimeStatus,
+            arguments: serde_json::json!({
+                "request_id": "req-runtime",
+                "timeout_ms": 1000,
+                "include_provider_modes": false
+            }),
+            purpose: String::from("read runtime status"),
+            on_success: StepTransition::NextStep {
+                step_id: String::from("step-agent"),
+            },
+            on_failure: StepTransition::Replan,
+        };
+        let agent_state_step = PlannedStep {
+            step_id: String::from("step-agent"),
+            tool_name: ToolName::GetAgentState,
+            arguments: serde_json::json!({
+                "request_id": "req-agent",
+                "timeout_ms": 1000,
+                "include_last_transcript": true
+            }),
+            purpose: String::from("read agent state"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let set_visibility_result = execute_planned_step(&mut executor, &set_visibility_step);
+        let runtime_status_result = execute_planned_step(&mut executor, &runtime_status_step);
+        let agent_state_result = execute_planned_step(&mut executor, &agent_state_step);
+
+        assert!(set_visibility_result.ok);
+        assert!(runtime_status_result.ok);
+        assert!(agent_state_result.ok);
+        assert_eq!(
+            runtime_status_result
+                .data
+                .as_ref()
+                .and_then(|data| data.get("browser_visibility")),
+            Some(&serde_json::json!("Headless"))
+        );
+        assert_eq!(
+            agent_state_result
+                .data
+                .as_ref()
+                .and_then(|data| data.get("browser_visibility")),
+            Some(&serde_json::json!("Headless"))
+        );
     }
 
     #[test]
