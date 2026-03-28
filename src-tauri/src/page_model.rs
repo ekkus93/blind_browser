@@ -32,6 +32,16 @@ pub enum RegionSource {
     Mixed,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default)]
+pub enum RegionRole {
+    Title,
+    Heading,
+    Paragraph,
+    Section,
+    #[default]
+    Other,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ExtractionSource {
     DomSmoothie,
@@ -60,6 +70,8 @@ pub struct InteractiveElement {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct PageRegion {
     pub region_id: String,
+    #[serde(default)]
+    pub role: RegionRole,
     pub label: Option<String>,
     pub text: String,
     #[serde(default)]

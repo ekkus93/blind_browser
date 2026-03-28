@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::page_model::PageRegion;
+use crate::page_model::{PageRegion, RegionRole};
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default)]
 pub struct NarrationCursor {
@@ -53,10 +53,17 @@ pub fn spoken_text_for_region(region: &PageRegion) -> String {
         .label
         .as_deref()
         .map(str::trim)
-        .filter(|label| !label.is_empty());
+        .filter(|label| !label.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| match region.role {
+            RegionRole::Title => Some(String::from("Title")),
+            RegionRole::Heading => Some(String::from("Heading")),
+            RegionRole::Section => Some(String::from("Section")),
+            RegionRole::Paragraph | RegionRole::Other => None,
+        });
     let text = region.text.trim();
 
-    match (label, text.is_empty()) {
+    match (label.as_deref(), text.is_empty()) {
         (Some(label), true) => label.to_string(),
         (Some(label), false) if !text.starts_with(label) => format!("{label}. {text}"),
         _ => text.to_string(),
@@ -70,12 +77,13 @@ mod tests {
         spoken_text_for_region,
     };
     use crate::narration::NarrationCursor;
-    use crate::page_model::{PageRegion, RegionSource};
+    use crate::page_model::{PageRegion, RegionRole, RegionSource};
 
     fn sample_regions() -> Vec<PageRegion> {
         vec![
             PageRegion {
                 region_id: String::from("region-1"),
+                role: RegionRole::Title,
                 label: Some(String::from("Title")),
                 text: String::from("Page title"),
                 bbox: None,
@@ -83,6 +91,7 @@ mod tests {
             },
             PageRegion {
                 region_id: String::from("region-2"),
+                role: RegionRole::Paragraph,
                 label: Some(String::from("Body")),
                 text: String::from("Body text"),
                 bbox: None,
@@ -90,6 +99,7 @@ mod tests {
             },
             PageRegion {
                 region_id: String::from("region-3"),
+                role: RegionRole::Section,
                 label: Some(String::from("Footer")),
                 text: String::from("Footer text"),
                 bbox: None,
@@ -140,6 +150,7 @@ mod tests {
     fn spoken_text_for_region_prefixes_label_when_needed() {
         let region = PageRegion {
             region_id: String::from("region-1"),
+            role: RegionRole::Heading,
             label: Some(String::from("Heading")),
             text: String::from("Welcome to the page"),
             bbox: None,
@@ -156,6 +167,7 @@ mod tests {
     fn spoken_text_for_region_avoids_repeating_existing_label_prefix() {
         let region = PageRegion {
             region_id: String::from("region-1"),
+            role: RegionRole::Heading,
             label: Some(String::from("Heading")),
             text: String::from("Heading one overview"),
             bbox: None,
@@ -163,5 +175,22 @@ mod tests {
         };
 
         assert_eq!(spoken_text_for_region(&region), "Heading one overview");
+    }
+
+    #[test]
+    fn spoken_text_for_region_falls_back_to_structured_role_when_label_missing() {
+        let region = PageRegion {
+            region_id: String::from("region-1"),
+            role: RegionRole::Heading,
+            label: None,
+            text: String::from("Welcome to the page"),
+            bbox: None,
+            source: RegionSource::Dom,
+        };
+
+        assert_eq!(
+            spoken_text_for_region(&region),
+            "Heading. Welcome to the page"
+        );
     }
 }

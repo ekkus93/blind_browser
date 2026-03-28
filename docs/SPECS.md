@@ -727,9 +727,10 @@ struct PageModel {
 }
 
 struct PageRegion {
-    id: String,
-  role: RegionRole,
-    text: Option<String>,
+    region_id: String,
+    role: RegionRole,
+    label: Option<String>,
+    text: String,
     bbox: Option<Rect>,
     source: RegionSource,
 }
@@ -854,6 +855,7 @@ struct InteractiveElement {
 
 struct PageRegion {
   region_id: String,
+  role: RegionRole,
   label: Option<String>,
   text: String,
   bbox: Option<Rect>,
@@ -1000,6 +1002,14 @@ enum RegionSource {
   Dom,
   Ocr,
   Mixed,
+}
+
+enum RegionRole {
+  Title,
+  Heading,
+  Paragraph,
+  Section,
+  Other,
 }
 
 enum ExtractionSource {

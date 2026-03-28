@@ -407,6 +407,14 @@ mod tests {
                 .current_page
                 .as_ref()
                 .and_then(|page| page.regions.first())
+                .map(|region| region.role.clone()),
+            Some(crate::page_model::RegionRole::Other)
+        );
+        assert_eq!(
+            state
+                .current_page
+                .as_ref()
+                .and_then(|page| page.regions.first())
                 .and_then(|region| region.bbox.clone()),
             None
         );

@@ -6084,6 +6084,7 @@ fn current_timestamp_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::page_model::RegionRole;
 
     #[derive(Default)]
     struct MockExecutor {
@@ -10992,6 +10993,7 @@ mod tests {
             regions: vec![
                 crate::page_model::PageRegion {
                     region_id: String::from("region-1"),
+                    role: RegionRole::Section,
                     label: Some(String::from("Main")),
                     text: String::from("Welcome to the article."),
                     bbox: None,
@@ -10999,6 +11001,7 @@ mod tests {
                 },
                 crate::page_model::PageRegion {
                     region_id: String::from("region-2"),
+                    role: RegionRole::Section,
                     label: Some(String::from("Details")),
                     text: String::from("More details."),
                     bbox: None,

@@ -1031,3 +1031,8 @@
 - `src-tauri/src/extractor.rs` now returns an intermediate structured article model with explicit block kinds (`Title`, `Paragraph`, `Heading`) before converting that structure into the current `PageModel`.
 - `src-tauri/src/app_core.rs` now consumes the structured extractor output at the boundary and converts it into `PageModel`, keeping interactive-element attachment and explicit dom_smoothie fallback behavior unchanged.
 - Updated `docs/TODO.md` and `docs/SPECS.md` to reflect that structured title/paragraph extraction and deterministic extractor-output → page-model conversion are now implemented, and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` (`227` Rust tests and `48` UI tests passing).
+
+## 2026-03-28T03:40:43Z - GPT-5.4 - Page model roles are now structured
+- `src-tauri/src/page_model.rs` now gives `PageRegion` a structured `RegionRole` enum (`Title`, `Heading`, `Paragraph`, `Section`, `Other`) with serde defaulting so older saved state still deserializes.
+- The known producers and consumers now populate and use that role: structured extractor output, live browser DOM extraction, narration prefixing, OCR region appends, and the affected regression tests.
+- Revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo fmt --manifest-path src-tauri/Cargo.toml --all && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`.

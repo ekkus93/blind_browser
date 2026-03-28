@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::page_model::{InteractiveElement, PageModel, PageRegion, RegionSource};
+use crate::page_model::{InteractiveElement, PageModel, PageRegion, RegionRole, RegionSource};
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct ExtractionPolicy {
@@ -60,6 +60,11 @@ impl ExtractedArticle {
             .into_iter()
             .map(|block| PageRegion {
                 region_id: block.block_id,
+                role: match block.kind {
+                    ExtractedArticleBlockKind::Title => RegionRole::Title,
+                    ExtractedArticleBlockKind::Paragraph => RegionRole::Paragraph,
+                    ExtractedArticleBlockKind::Heading => RegionRole::Heading,
+                },
                 label: match block.kind {
                     ExtractedArticleBlockKind::Title => Some(String::from("Title")),
                     ExtractedArticleBlockKind::Paragraph => None,
@@ -104,10 +109,10 @@ pub fn extract_structured_article_from_html(
         let title = normalize_optional_text(Some(article.title.as_str()));
         let url = normalize_optional_text(article.url.as_deref())
             .or_else(|| normalize_optional_text(document_url));
-        let mut blocks =
-            build_article_blocks_from_html(article.content.as_ref(), title.as_deref());
+        let mut blocks = build_article_blocks_from_html(article.content.as_ref(), title.as_deref());
         if blocks.is_empty() {
-            blocks = build_article_blocks_from_text(article.text_content.as_ref(), title.as_deref());
+            blocks =
+                build_article_blocks_from_text(article.text_content.as_ref(), title.as_deref());
         }
 
         if blocks.is_empty() {
@@ -147,10 +152,7 @@ pub fn extract_structured_article_from_html(
     }
 }
 
-fn build_article_blocks_from_text(
-    text: &str,
-    title: Option<&str>,
-) -> Vec<ExtractedArticleBlock> {
+fn build_article_blocks_from_text(text: &str, title: Option<&str>) -> Vec<ExtractedArticleBlock> {
     let mut blocks = Vec::new();
     let mut current = Vec::<String>::new();
 
@@ -192,10 +194,7 @@ fn build_article_blocks_from_text(
     blocks
 }
 
-fn build_article_blocks_from_html(
-    html: &str,
-    title: Option<&str>,
-) -> Vec<ExtractedArticleBlock> {
+fn build_article_blocks_from_html(html: &str, title: Option<&str>) -> Vec<ExtractedArticleBlock> {
     let mut blocks = Vec::new();
     let lowercase_html = html.to_ascii_lowercase();
     let mut search_index = 0usize;
@@ -394,10 +393,13 @@ mod tests {
 
         assert_eq!(page_model.regions.len(), 3);
         assert_eq!(page_model.regions[0].region_id, "dom-block-title");
+        assert_eq!(page_model.regions[0].role, RegionRole::Title);
         assert_eq!(page_model.regions[0].label.as_deref(), Some("Title"));
         assert_eq!(page_model.regions[1].region_id, "dom-block-1");
+        assert_eq!(page_model.regions[1].role, RegionRole::Paragraph);
         assert_eq!(page_model.regions[1].label, None);
         assert_eq!(page_model.regions[2].region_id, "dom-block-2");
+        assert_eq!(page_model.regions[2].role, RegionRole::Heading);
         assert_eq!(page_model.regions[2].label.as_deref(), Some("Heading"));
         assert!(page_model
             .regions
@@ -431,10 +433,7 @@ mod tests {
         .expect("dom_smoothie extraction should succeed");
 
         assert_eq!(article.title.as_deref(), Some("Example article"));
-        assert_eq!(
-            article.url.as_deref(),
-            Some("https://example.com/article")
-        );
+        assert_eq!(article.url.as_deref(), Some("https://example.com/article"));
         assert!(!article.blocks.is_empty());
         assert!(article
             .blocks
@@ -483,10 +482,7 @@ mod tests {
         .expect("dom_smoothie extraction should succeed");
 
         assert_eq!(article.title.as_deref(), Some("Example article"));
-        assert_eq!(
-            article.url.as_deref(),
-            Some("https://example.com/article")
-        );
+        assert_eq!(article.url.as_deref(), Some("https://example.com/article"));
         assert_eq!(article.interactive_elements, interactive_elements);
 
         assert!(!article.blocks.is_empty());
@@ -515,15 +511,12 @@ mod tests {
             .find("Second paragraph.")
             .expect("second paragraph should be present");
         assert!(first_index < second_index);
-        assert!(article
-            .blocks
-            .iter()
-            .all(|block| {
-                matches!(
-                    block.kind,
-                    ExtractedArticleBlockKind::Title | ExtractedArticleBlockKind::Paragraph
-                )
-            }));
+        assert!(article.blocks.iter().all(|block| {
+            matches!(
+                block.kind,
+                ExtractedArticleBlockKind::Title | ExtractedArticleBlockKind::Paragraph
+            )
+        }));
     }
 
     #[cfg(feature = "browser")]

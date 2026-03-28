@@ -55,7 +55,7 @@ use crate::narration::{
 };
 use crate::ocr::{OcrController, OcrRuntimeError, OcrSettings};
 use crate::page_model::PageRegion;
-use crate::page_model::{ElementRole, ExtractionSource, PageModel, Rect, RegionSource};
+use crate::page_model::{ElementRole, ExtractionSource, PageModel, Rect, RegionRole, RegionSource};
 use crate::state::AppState;
 use crate::tts::{TtsController, TtsRuntimeError, KITTEN_TTS_VOICES, OPENAI_TTS_VOICES};
 use reqwest::blocking::Client;
@@ -5344,6 +5344,7 @@ fn merge_ocr_text_into_page_model(
         let region_id = next_region_id;
         page.regions.push(PageRegion {
             region_id: region_id.clone(),
+            role: RegionRole::Other,
             label: None,
             text: normalized_text.to_string(),
             bbox: source_bbox,
@@ -7195,7 +7196,7 @@ mod tests {
     use crate::config::{AppConfig, ProviderMode};
     use crate::ocr::OcrSettings;
     use crate::page_model::{
-        ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, Rect,
+        ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, Rect, RegionRole,
         RegionSource,
     };
     #[test]
@@ -7474,6 +7475,7 @@ mod tests {
             regions: vec![
                 PageRegion {
                     region_id: String::from("region-1"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from("First paragraph"),
                     bbox: None,
@@ -7481,6 +7483,7 @@ mod tests {
                 },
                 PageRegion {
                     region_id: String::from("region-2"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from("Second paragraph"),
                     bbox: None,
@@ -7504,6 +7507,7 @@ mod tests {
     fn region_bbox_by_id_returns_region_geometry_when_available() {
         let regions = vec![PageRegion {
             region_id: String::from("region-1"),
+            role: RegionRole::Section,
             label: Some(String::from("Main")),
             text: String::from("Text"),
             bbox: Some(Rect {
@@ -7651,6 +7655,7 @@ mod tests {
             regions: vec![
                 PageRegion {
                     region_id: String::from("dom-region-title"),
+                    role: RegionRole::Title,
                     label: Some(String::from("Title")),
                     text: String::from("Example"),
                     bbox: None,
@@ -7658,6 +7663,7 @@ mod tests {
                 },
                 PageRegion {
                     region_id: String::from("dom-region-1"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from("First paragraph."),
                     bbox: None,
@@ -7665,6 +7671,7 @@ mod tests {
                 },
                 PageRegion {
                     region_id: String::from("ocr-region-1"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from("Recovered OCR text."),
                     bbox: None,
@@ -7710,6 +7717,7 @@ mod tests {
             regions: vec![
                 PageRegion {
                     region_id: String::from("dom-region"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from("DOM text"),
                     bbox: None,
@@ -7717,6 +7725,7 @@ mod tests {
                 },
                 PageRegion {
                     region_id: String::from("ocr-region"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from("OCR text"),
                     bbox: None,
@@ -7739,6 +7748,7 @@ mod tests {
             url: Some(String::from("https://example.com")),
             regions: vec![PageRegion {
                 region_id: String::from("mixed-region"),
+                role: RegionRole::Other,
                 label: None,
                 text: String::from("DOM text\n\nOCR text"),
                 bbox: None,
@@ -7760,6 +7770,7 @@ mod tests {
             url: Some(String::from("https://example.com")),
             regions: vec![PageRegion {
                 region_id: String::from("dom-region"),
+                role: RegionRole::Other,
                 label: None,
                 text: String::from("Readable text"),
                 bbox: None,
@@ -7785,6 +7796,7 @@ mod tests {
             url: Some(String::from("https://example.com")),
             regions: vec![PageRegion {
                 region_id: String::from("region-1"),
+                role: RegionRole::Other,
                 label: None,
                 text: String::from("   "),
                 bbox: None,
@@ -7808,6 +7820,7 @@ mod tests {
             regions: vec![
                 PageRegion {
                     region_id: String::from("region-1"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from("  Visible DOM text  "),
                     bbox: None,
@@ -7815,6 +7828,7 @@ mod tests {
                 },
                 PageRegion {
                     region_id: String::from("region-2"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from(" "),
                     bbox: None,
@@ -7834,6 +7848,7 @@ mod tests {
             url: Some(String::from("https://example.com")),
             regions: vec![PageRegion {
                 region_id: String::from("region-1"),
+                role: RegionRole::Other,
                 label: None,
                 text: String::from("Short text"),
                 bbox: None,
@@ -7859,6 +7874,7 @@ mod tests {
             url: Some(String::from("https://example.com")),
             regions: vec![PageRegion {
                 region_id: String::from("region-1"),
+                role: RegionRole::Other,
                 label: None,
                 text: String::from("This region has enough text to pass the char threshold alone."),
                 bbox: None,
@@ -7885,6 +7901,7 @@ mod tests {
             regions: vec![
                 PageRegion {
                     region_id: String::from("region-1"),
+                    role: RegionRole::Other,
                     label: None,
                     text: "a".repeat(100),
                     bbox: None,
@@ -7892,6 +7909,7 @@ mod tests {
                 },
                 PageRegion {
                     region_id: String::from("region-2"),
+                    role: RegionRole::Other,
                     label: None,
                     text: "b".repeat(100),
                     bbox: None,
@@ -7915,6 +7933,7 @@ mod tests {
             url: Some(String::from("https://example.com")),
             regions: vec![PageRegion {
                 region_id: String::from("region-1"),
+                role: RegionRole::Other,
                 label: None,
                 text: "a".repeat(201),
                 bbox: None,
@@ -7938,6 +7957,7 @@ mod tests {
             regions: vec![
                 PageRegion {
                     region_id: String::from("region-1"),
+                    role: RegionRole::Other,
                     label: None,
                     text: "a".repeat(101),
                     bbox: None,
@@ -7945,6 +7965,7 @@ mod tests {
                 },
                 PageRegion {
                     region_id: String::from("region-2"),
+                    role: RegionRole::Other,
                     label: None,
                     text: "b".repeat(100),
                     bbox: None,
@@ -7969,6 +7990,7 @@ mod tests {
             regions: vec![
                 PageRegion {
                     region_id: String::from("region-1"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from(
                         "This first region contains comfortably more than twenty characters.",
@@ -7978,6 +8000,7 @@ mod tests {
                 },
                 PageRegion {
                     region_id: String::from("region-2"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from("This second region also contains enough text."),
                     bbox: None,
@@ -8004,6 +8027,7 @@ mod tests {
             url: Some(String::from("https://example.com")),
             regions: vec![PageRegion {
                 region_id: String::from("region-1"),
+                role: RegionRole::Other,
                 label: None,
                 text: String::new(),
                 bbox: None,
@@ -8036,6 +8060,7 @@ mod tests {
             regions: vec![
                 PageRegion {
                     region_id: String::from("region-1"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from("Readable text"),
                     bbox: Some(Rect {
@@ -8048,6 +8073,7 @@ mod tests {
                 },
                 PageRegion {
                     region_id: String::from("region-2"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from("Readable but no bbox"),
                     bbox: None,
@@ -8055,6 +8081,7 @@ mod tests {
                 },
                 PageRegion {
                     region_id: String::from("region-3"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from(""),
                     bbox: Some(Rect {
@@ -8067,6 +8094,7 @@ mod tests {
                 },
                 PageRegion {
                     region_id: String::from("region-4"),
+                    role: RegionRole::Other,
                     label: None,
                     text: String::from("Readable but invalid bbox"),
                     bbox: Some(Rect {
@@ -8094,6 +8122,7 @@ mod tests {
             url: Some(String::from("https://example.com")),
             regions: vec![PageRegion {
                 region_id: String::from("region-1"),
+                role: RegionRole::Other,
                 label: None,
                 text: String::from("Readable text"),
                 bbox: Some(Rect {
@@ -8133,6 +8162,7 @@ mod tests {
             url: Some(String::from("https://example.com")),
             regions: vec![PageRegion {
                 region_id: String::from("region-1"),
+                role: RegionRole::Section,
                 label: Some(String::from("Main")),
                 text: String::from("DOM summary"),
                 bbox: None,
@@ -8179,6 +8209,7 @@ mod tests {
             url: Some(String::from("https://example.com")),
             regions: vec![PageRegion {
                 region_id: String::from("region-1"),
+                role: RegionRole::Section,
                 label: Some(String::from("Main")),
                 text: String::from("DOM summary"),
                 bbox: Some(Rect {

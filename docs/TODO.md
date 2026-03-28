@@ -135,7 +135,7 @@
 - [x] Return structured data
 
 ### Page Model
-- [ ] Define structs
+- [x] Define structs
 - [x] Convert extractor output → PageModel
 - [x] Maintain region ordering
 

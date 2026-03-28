@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::page_model::{
-    ElementRole, InteractiveElement, PageModel, PageRegion, Rect, RegionSource,
+    ElementRole, InteractiveElement, PageModel, PageRegion, Rect, RegionRole, RegionSource,
 };
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -1307,6 +1307,7 @@ struct LiveNavigationHistorySnapshot {
 #[derive(Debug, Deserialize)]
 struct LiveExtractedRegion {
     region_id: String,
+    role: String,
     label: Option<String>,
     text: String,
     bbox: Option<Rect>,
@@ -1518,6 +1519,22 @@ async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError>
         const regionCandidates = Array.from(document.querySelectorAll('main, article, section, nav, aside, p, li, blockquote, pre, h1, h2, h3, h4, h5, h6'));
         const seenTexts = new Set();
         const regions = [];
+        const regionRoleFor = (node) => {
+            if (!(node instanceof Element)) {
+                return 'Other';
+            }
+            const tagName = node.tagName.toLowerCase();
+            if (tagName === 'h1' || tagName === 'h2' || tagName === 'h3' || tagName === 'h4' || tagName === 'h5' || tagName === 'h6') {
+                return 'Heading';
+            }
+            if (tagName === 'p' || tagName === 'li' || tagName === 'blockquote' || tagName === 'pre') {
+                return 'Paragraph';
+            }
+            if (tagName === 'main' || tagName === 'article' || tagName === 'section' || tagName === 'nav' || tagName === 'aside') {
+                return 'Section';
+            }
+            return 'Other';
+        };
         for (const node of regionCandidates) {
             if (!isVisible(node)) {
                 continue;
@@ -1529,6 +1546,7 @@ async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError>
             seenTexts.add(text);
             regions.push({
                 region_id: `dom-region-${regions.length + 1}`,
+                role: regionRoleFor(node),
                 label: normalizeText(node.getAttribute('aria-label')),
                 text,
                 bbox: (() => {
@@ -1567,6 +1585,12 @@ async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError>
             .into_iter()
             .map(|region| PageRegion {
                 region_id: region.region_id,
+                role: match region.role.as_str() {
+                    "Heading" => RegionRole::Heading,
+                    "Paragraph" => RegionRole::Paragraph,
+                    "Section" => RegionRole::Section,
+                    _ => RegionRole::Other,
+                },
                 label: region.label,
                 text: region.text,
                 bbox: region.bbox,
