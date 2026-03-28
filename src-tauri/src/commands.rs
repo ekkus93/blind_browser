@@ -6408,6 +6408,77 @@ mod tests {
         }
     }
 
+    fn fixture_agent_state_for_page(title: &str, url: &str) -> AgentStateData {
+        let mut agent_state = fixture_agent_state();
+        agent_state.title = Some(String::from(title));
+        agent_state.url = Some(String::from(url));
+        agent_state
+    }
+
+    fn fixture_problematic_article_page_without_regions() -> PageModel {
+        PageModel {
+            title: Some(String::from("Metro news | Night trains finally return")),
+            url: Some(String::from(
+                "https://news.example.com/city/night-trains-return",
+            )),
+            regions: Vec::new(),
+            interactive_elements: vec![
+                InteractiveElement {
+                    element_id: String::from("link-skip"),
+                    dom_locator: Some(String::from("#skip-link")),
+                    role: crate::page_model::ElementRole::Link,
+                    tag_name: String::from("a"),
+                    text: Some(String::from("Skip to content")),
+                    accessible_name: Some(String::from("Skip to content")),
+                    placeholder: None,
+                    href: Some(String::from("#content")),
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                },
+                InteractiveElement {
+                    element_id: String::from("button-cookie-accept"),
+                    dom_locator: Some(String::from("#cookie-accept")),
+                    role: crate::page_model::ElementRole::Button,
+                    tag_name: String::from("button"),
+                    text: Some(String::from("Accept")),
+                    accessible_name: Some(String::from("Accept cookies")),
+                    placeholder: None,
+                    href: None,
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                },
+                InteractiveElement {
+                    element_id: String::from("button-subscribe"),
+                    dom_locator: Some(String::from("#subscribe")),
+                    role: crate::page_model::ElementRole::Button,
+                    tag_name: String::from("button"),
+                    text: Some(String::from("Subscribe")),
+                    accessible_name: Some(String::from("Subscribe to metro news")),
+                    placeholder: None,
+                    href: None,
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                },
+            ],
+        }
+    }
+
+    fn fixture_problematic_docs_agent_state() -> AgentStateData {
+        fixture_agent_state_for_page(
+            "Blind Browser docs | Voice commands",
+            "https://docs.example.com/blind-browser/voice-commands?ref=sidebar",
+        )
+    }
+
     fn resolve_planner_skill_fixture(
         fixture: &PlannerSkillFixture,
         active_skill_names: &[String],
@@ -11244,6 +11315,39 @@ mod tests {
                 transcript: "what page am i on",
                 resolver: PlannerSkillFixtureResolver::StatusQuery,
                 agent_state: fixture_agent_state(),
+                page_model: None,
+                expected_intent: IntentName::GetCurrentUrl,
+                expected_selected_skills: vec!["get_current_url"],
+                expected_tool_sequence: vec![ToolName::GetAgentState, ToolName::ReportResult],
+            },
+        ];
+
+        for fixture in fixtures {
+            assert_planner_skill_fixture(fixture);
+        }
+    }
+
+    #[test]
+    fn planner_skill_regression_fixtures_cover_problematic_page_shapes() {
+        let fixtures = vec![
+            PlannerSkillFixture {
+                name: "problematic-article-read-page",
+                transcript: "read page",
+                resolver: PlannerSkillFixtureResolver::ReadPage,
+                agent_state: fixture_agent_state_for_page(
+                    "Metro news | Night trains finally return",
+                    "https://news.example.com/city/night-trains-return",
+                ),
+                page_model: Some(fixture_problematic_article_page_without_regions()),
+                expected_intent: IntentName::ReadPage,
+                expected_selected_skills: vec!["read_page"],
+                expected_tool_sequence: vec![ToolName::ExtractPageModel, ToolName::ReadNextRegion],
+            },
+            PlannerSkillFixture {
+                name: "problematic-docs-current-url",
+                transcript: "what page am i on",
+                resolver: PlannerSkillFixtureResolver::StatusQuery,
+                agent_state: fixture_problematic_docs_agent_state(),
                 page_model: None,
                 expected_intent: IntentName::GetCurrentUrl,
                 expected_selected_skills: vec!["get_current_url"],

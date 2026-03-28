@@ -7647,6 +7647,19 @@ mod tests {
         }
     }
 
+    fn fixture_page_with_metadata(
+        title: &str,
+        url: &str,
+        interactive_elements: Vec<InteractiveElement>,
+    ) -> PageModel {
+        PageModel {
+            title: Some(String::from(title)),
+            url: Some(String::from(url)),
+            regions: Vec::new(),
+            interactive_elements,
+        }
+    }
+
     fn fixture_field(
         element_id: &str,
         dom_locator: &str,
@@ -7690,6 +7703,93 @@ mod tests {
             enabled: true,
             attributes: std::collections::BTreeMap::new(),
         }
+    }
+
+    fn fixture_problematic_checkout_page() -> PageModel {
+        fixture_page_with_metadata(
+            "Example Shop | Checkout",
+            "https://shop.example.com/checkout",
+            vec![
+                fixture_form("form-shipping", "#shipping-form", "Shipping address"),
+                fixture_field(
+                    "input-shipping-email",
+                    "#shipping-email",
+                    "Shipping email",
+                    "Email for shipping updates",
+                ),
+                fixture_field(
+                    "input-shipping-name",
+                    "#shipping-name",
+                    "Full name",
+                    "Full name",
+                ),
+                fixture_form("form-billing", "#billing-form", "Billing address"),
+                fixture_field(
+                    "input-billing-email",
+                    "#billing-email",
+                    "Billing email",
+                    "Billing email for receipts",
+                ),
+                fixture_field(
+                    "input-card-name",
+                    "#card-name",
+                    "Name on card",
+                    "Name on card",
+                ),
+            ],
+        )
+    }
+
+    fn fixture_problematic_landing_page() -> PageModel {
+        fixture_page_with_metadata(
+            "Example Cloud | Start free trial",
+            "https://www.example.com/start",
+            vec![
+                InteractiveElement {
+                    element_id: String::from("button-hero-get-started"),
+                    dom_locator: Some(String::from("#hero-get-started")),
+                    role: ElementRole::Button,
+                    tag_name: String::from("button"),
+                    text: Some(String::from("Get started")),
+                    accessible_name: Some(String::from("Get started")),
+                    placeholder: None,
+                    href: None,
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                },
+                InteractiveElement {
+                    element_id: String::from("button-footer-get-started"),
+                    dom_locator: Some(String::from("#footer-get-started")),
+                    role: ElementRole::Button,
+                    tag_name: String::from("button"),
+                    text: Some(String::from("Get started")),
+                    accessible_name: Some(String::from("Get started")),
+                    placeholder: None,
+                    href: None,
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                },
+            ],
+        )
+    }
+
+    fn fixture_problematic_newsletter_page() -> PageModel {
+        fixture_page_with_metadata(
+            "Metro news | Sign up for morning headlines",
+            "https://news.example.com/newsletters/morning-headlines",
+            vec![fixture_field(
+                "input-newsletter-email",
+                "#newsletter-email",
+                "Email",
+                "Email address",
+            )],
+        )
     }
 
     fn planner_tool_sequence(planner_output: &PlannerOutput) -> Vec<ToolName> {
@@ -9889,6 +9989,128 @@ mod tests {
                 fixture.name
             );
         }
+    }
+
+    #[test]
+    fn problematic_page_regression_fixtures_cover_checkout_and_duplicate_cta_shapes() {
+        let checkout_page = fixture_problematic_checkout_page();
+        let newsletter_page = fixture_problematic_newsletter_page();
+        let fixtures = vec![
+            AppCorePlannerFixture {
+                name: "problematic-checkout-ambiguous-email-focus",
+                kind: AppCorePlannerFixtureKind::FocusField,
+                transcript: "focus the email field",
+                current_page_id: None,
+                page: Some(checkout_page.clone()),
+                active_skills: vec!["focus_field"],
+                recent_context: None,
+                confirmation_threshold: 0.95,
+                expected_intent: IntentName::FillInput,
+                expected_status: PlannerStatus::Ready,
+                expected_selected_skills: vec!["focus_field"],
+                expected_tool_sequence: vec![ToolName::ReportResult],
+                expected_focus_element_id: None,
+                expected_typed_text: None,
+                expected_next_active_element_id: None,
+                expected_next_pending_text: None,
+            },
+            AppCorePlannerFixture {
+                name: "problematic-newsletter-fill-email",
+                kind: AppCorePlannerFixtureKind::FillField,
+                transcript: "fill the email field with phil@example.com",
+                current_page_id: None,
+                page: Some(newsletter_page),
+                active_skills: vec!["fill_field_by_label"],
+                recent_context: None,
+                confirmation_threshold: 0.9,
+                expected_intent: IntentName::FillInput,
+                expected_status: PlannerStatus::Ready,
+                expected_selected_skills: vec!["fill_field_by_label"],
+                expected_tool_sequence: vec![ToolName::FocusElement, ToolName::TypeIntoElement],
+                expected_focus_element_id: Some("input-newsletter-email"),
+                expected_typed_text: Some("phil@example.com"),
+                expected_next_active_element_id: None,
+                expected_next_pending_text: None,
+            },
+            AppCorePlannerFixture {
+                name: "problematic-checkout-other-field-correction",
+                kind: AppCorePlannerFixtureKind::FollowUpCorrection,
+                transcript: "no, the other field",
+                current_page_id: Some("checkout-page"),
+                page: Some(checkout_page.clone()),
+                active_skills: vec!["fill_and_submit_form"],
+                recent_context: Some(RecentFieldContext {
+                    page_id: String::from("checkout-page"),
+                    target_description: Some(String::from("email")),
+                    active_element_id: Some(String::from("input-shipping-email")),
+                    candidate_element_ids: vec![
+                        String::from("input-shipping-email"),
+                        String::from("input-billing-email"),
+                    ],
+                    pending_text: Some(String::from("phil@example.com")),
+                    submit_after: true,
+                }),
+                confirmation_threshold: 0.9,
+                expected_intent: IntentName::SubmitForm,
+                expected_status: PlannerStatus::NeedsConfirmation,
+                expected_selected_skills: vec!["fill_and_submit_form"],
+                expected_tool_sequence: vec![
+                    ToolName::ConfirmAction,
+                    ToolName::FocusElement,
+                    ToolName::TypeIntoElement,
+                    ToolName::SubmitActiveForm,
+                ],
+                expected_focus_element_id: Some("input-billing-email"),
+                expected_typed_text: Some("phil@example.com"),
+                expected_next_active_element_id: Some("input-billing-email"),
+                expected_next_pending_text: Some("phil@example.com"),
+            },
+            AppCorePlannerFixture {
+                name: "problematic-checkout-ambiguous-submit",
+                kind: AppCorePlannerFixtureKind::SubmitForm,
+                transcript: "submit form",
+                current_page_id: None,
+                page: Some(checkout_page),
+                active_skills: vec!["submit_form"],
+                recent_context: None,
+                confirmation_threshold: 0.9,
+                expected_intent: IntentName::SubmitForm,
+                expected_status: PlannerStatus::Ready,
+                expected_selected_skills: vec!["submit_form"],
+                expected_tool_sequence: vec![ToolName::ReportResult],
+                expected_focus_element_id: None,
+                expected_typed_text: None,
+                expected_next_active_element_id: None,
+                expected_next_pending_text: None,
+            },
+        ];
+
+        for fixture in fixtures {
+            assert_app_core_planner_fixture(fixture);
+        }
+
+        let landing_page = fixture_problematic_landing_page();
+        let query = build_find_element_query(&FindElementInput {
+            request_id: String::from("req-problematic-cta"),
+            timeout_ms: None,
+            description: String::from("Get started"),
+            text: None,
+            role: Some(ElementRole::Button),
+            color_hint: None,
+            nearby_text: None,
+            selector_hint: None,
+            visibility_filter: crate::commands::ElementVisibilityFilter::VisibleOnly,
+            max_candidates: Some(3),
+        })
+        .expect("landing-page query should be valid");
+        let candidates =
+            rank_find_element_candidates(&landing_page.interactive_elements, &query, 3);
+        let (chosen_element_id, _, requires_confirmation) =
+            determine_find_element_resolution(&candidates, 0.9);
+
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(chosen_element_id, None);
+        assert!(requires_confirmation);
     }
 
     #[test]
