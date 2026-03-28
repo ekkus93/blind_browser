@@ -1100,3 +1100,11 @@
 ## 2026-03-28T11:45:33Z - GPT-5.4 - Revalidated lint and unit test baseline
 - Reran the requested validation subset after the recent follow-up context slice: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, and `pnpm test:ui`.
 - The baseline stayed green with 241 Rust tests passing and 49 UI tests passing, so the current worktree is still clean from a lint/unit-test perspective before the next TODO slice.
+
+## 2026-03-28T11:49:22Z - GPT-5.4 - Reconciled stale replanning-after-failure TODO
+- `docs/TODO.md`'s `Replanning after tool failure or ambiguous result` item was stale: command-layer tests already cover `execute_planner_output(...)` returning `NeedsReplan` on failure transitions, app-core tests already cover one bounded replan cycle carrying `recent_tool_results`, and the loop already aborts on a second replan with `replan_limit_exceeded`.
+- Ambiguous grounding paths are already covered separately as bounded `NeedsFollowUp` clarification flows rather than silent execution, so this slice only required auditing the current coverage and marking the checklist item done.
+
+## 2026-03-28T12:23:09Z - GPT-5.4 - Planner-unavailable voice feedback clarified
+- Planner resolution failures in `src-tauri/src/app_core.rs` now consistently say `Command interpretation is unavailable because ...`, so push-to-talk and hands-free command errors surface the unavailable-interpreter state directly instead of only raw backend wording.
+- `src/main.ts` now also maps missing remote planner profiles into settings guidance, and `docs/TODO.md` marks `LLM unavailable with no local provider → report command interpretation unavailable` complete. Full validation passed afterward: `cargo clippy`, `cargo test`, `pnpm test:ui`, and `pnpm build`.

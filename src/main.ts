@@ -713,6 +713,21 @@ function guidanceStateForErrorMessage(message: string | null): SettingsGuidanceP
   }
 
   if (
+    normalized.includes("planner profile")
+    || normalized.includes("planner_profile_unavailable")
+    || normalized.includes("configured remote planner profile")
+  ) {
+    return {
+      title: "Planner setup needs attention",
+      message: "Command interpretation is unavailable until a remote planner profile is configured. Review the planner provider and remote planner settings below.",
+      actions: [
+        { label: "Review planner provider", targetId: "settings-planner-provider-control" },
+        { label: "Review planner API reference", targetId: "settings-remote-planner-title" },
+      ],
+    };
+  }
+
+  if (
     normalized.includes("planner api key")
     || normalized.includes("planner_secret_unavailable")
     || normalized.includes("remote planner secret")

@@ -4128,22 +4128,20 @@ impl AppCore {
         planner_input: &PlannerInput,
     ) -> Result<PlannerOutput, ToolError> {
         let Some(profile_name) = self.config.providers.planner.remote_profile.as_deref() else {
-            return Err(ToolError {
-                code: String::from("planner_profile_unavailable"),
-                message: String::from("remote planner mode requires a configured planner profile"),
-                retryable: false,
-                details: None,
-            });
+            return Err(planner_interpretation_unavailable_error(
+                "planner_profile_unavailable",
+                "remote planner mode requires a configured planner profile",
+                false,
+                None,
+            ));
         };
         let Some(profile) = self.config.remote_planner_profiles.get(profile_name) else {
-            return Err(ToolError {
-                code: String::from("planner_profile_unavailable"),
-                message: format!(
-                    "configured remote planner profile '{profile_name}' was not found"
-                ),
-                retryable: false,
-                details: None,
-            });
+            return Err(planner_interpretation_unavailable_error(
+                "planner_profile_unavailable",
+                format!("configured remote planner profile '{profile_name}' was not found"),
+                false,
+                None,
+            ));
         };
 
         match profile.provider {
@@ -4185,11 +4183,13 @@ impl AppCore {
         use async_openai::types::chat::{ResponseFormat, ResponseFormatJsonSchema};
         use async_openai::{config::OpenAIConfig, Client};
 
-        let api_key = resolve_secret_ref(&profile.api_key).map_err(|reason| ToolError {
-            code: String::from("planner_secret_unavailable"),
-            message: String::from("remote planner API key could not be resolved"),
-            retryable: false,
-            details: Some(serde_json::json!({ "reason": reason })),
+        let api_key = resolve_secret_ref(&profile.api_key).map_err(|reason| {
+            planner_interpretation_unavailable_error(
+                "planner_secret_unavailable",
+                "remote planner API key could not be resolved",
+                false,
+                Some(serde_json::json!({ "reason": reason })),
+            )
         })?;
 
         let mut openai_config = OpenAIConfig::new()
@@ -4198,14 +4198,12 @@ impl AppCore {
         if let Some(organization) = profile.organization.as_ref() {
             openai_config =
                 openai_config.with_org_id(resolve_secret_ref(organization).map_err(|reason| {
-                    ToolError {
-                        code: String::from("planner_secret_unavailable"),
-                        message: String::from(
-                            "remote planner organization secret could not be resolved",
-                        ),
-                        retryable: false,
-                        details: Some(serde_json::json!({ "reason": reason })),
-                    }
+                    planner_interpretation_unavailable_error(
+                        "planner_secret_unavailable",
+                        "remote planner organization secret could not be resolved",
+                        false,
+                        Some(serde_json::json!({ "reason": reason })),
+                    )
                 })?);
         }
         if let Some(project) = profile.project.as_ref() {
@@ -4234,66 +4232,76 @@ impl AppCore {
                 ChatCompletionRequestSystemMessageArgs::default()
                     .content(planner_system_prompt())
                     .build()
-                    .map_err(|error| ToolError {
-                        code: String::from("planner_request_build_failed"),
-                        message: format!(
-                            "failed to build planner system message for remote resolution: {error}"
-                        ),
-                        retryable: false,
-                        details: None,
+                    .map_err(|error| {
+                        planner_interpretation_unavailable_error(
+                            "planner_request_build_failed",
+                            format!(
+                                "failed to build planner system message for remote resolution: {error}"
+                            ),
+                            false,
+                            None,
+                        )
                     })?
                     .into(),
                 ChatCompletionRequestUserMessageArgs::default()
                     .content(user_content)
                     .build()
-                    .map_err(|error| ToolError {
-                        code: String::from("planner_request_build_failed"),
-                        message: format!(
-                            "failed to build planner user message for remote resolution: {error}"
-                        ),
-                        retryable: false,
-                        details: None,
+                    .map_err(|error| {
+                        planner_interpretation_unavailable_error(
+                            "planner_request_build_failed",
+                            format!(
+                                "failed to build planner user message for remote resolution: {error}"
+                            ),
+                            false,
+                            None,
+                        )
                     })?
                     .into(),
             ])
             .build()
-            .map_err(|error| ToolError {
-                code: String::from("planner_request_build_failed"),
-                message: format!("failed to build remote planner request: {error}"),
-                retryable: false,
-                details: None,
+            .map_err(|error| {
+                planner_interpretation_unavailable_error(
+                    "planner_request_build_failed",
+                    format!("failed to build remote planner request: {error}"),
+                    false,
+                    None,
+                )
             })?;
 
         let response =
             futures::executor::block_on(client.chat().create(request)).map_err(|error| {
-                ToolError {
-                    code: String::from("planner_request_failed"),
-                    message: format!("remote planner request failed: {error}"),
-                    retryable: true,
-                    details: Some(serde_json::json!({
+                planner_interpretation_unavailable_error(
+                    "planner_request_failed",
+                    format!("remote planner request failed: {error}"),
+                    true,
+                    Some(serde_json::json!({
                         "provider": "OpenAI",
                         "model": profile.model,
                         "base_url": profile.base_url,
                     })),
-                }
+                )
             })?;
         let content = response
             .choices
             .into_iter()
             .next()
             .and_then(|choice| choice.message.content)
-            .ok_or_else(|| ToolError {
-                code: String::from("planner_response_missing"),
-                message: String::from("remote planner returned no structured content"),
-                retryable: true,
-                details: None,
+            .ok_or_else(|| {
+                planner_interpretation_unavailable_error(
+                    "planner_response_missing",
+                    "remote planner returned no structured content",
+                    true,
+                    None,
+                )
             })?;
 
-        serde_json::from_str::<PlannerOutput>(&content).map_err(|error| ToolError {
-            code: String::from("planner_response_invalid"),
-            message: format!("remote planner returned invalid planner JSON: {error}"),
-            retryable: true,
-            details: Some(serde_json::json!({ "content": content })),
+        serde_json::from_str::<PlannerOutput>(&content).map_err(|error| {
+            planner_interpretation_unavailable_error(
+                "planner_response_invalid",
+                format!("remote planner returned invalid planner JSON: {error}"),
+                true,
+                Some(serde_json::json!({ "content": content })),
+            )
         })
     }
 
@@ -4303,12 +4311,12 @@ impl AppCore {
         _profile: &RemotePlannerProfile,
         _planner_input: &PlannerInput,
     ) -> Result<PlannerOutput, ToolError> {
-        Err(ToolError {
-            code: String::from("planner_backend_unavailable"),
-            message: String::from("remote OpenAI planner support is not enabled in this build"),
-            retryable: false,
-            details: None,
-        })
+        Err(planner_interpretation_unavailable_error(
+            "planner_backend_unavailable",
+            "remote OpenAI planner support is not enabled in this build",
+            false,
+            None,
+        ))
     }
 
     #[cfg(feature = "remote-openai")]
@@ -4324,11 +4332,13 @@ impl AppCore {
         };
         use async_openai::{config::OpenAIConfig, Client};
 
-        let api_key = resolve_secret_ref(&profile.api_key).map_err(|reason| ToolError {
-            code: String::from("planner_secret_unavailable"),
-            message: String::from("Ollama planner API key placeholder could not be resolved"),
-            retryable: false,
-            details: Some(serde_json::json!({ "reason": reason })),
+        let api_key = resolve_secret_ref(&profile.api_key).map_err(|reason| {
+            planner_interpretation_unavailable_error(
+                "planner_secret_unavailable",
+                "Ollama planner API key placeholder could not be resolved",
+                false,
+                Some(serde_json::json!({ "reason": reason })),
+            )
         })?;
 
         let client = Client::with_config(
@@ -4348,66 +4358,76 @@ impl AppCore {
                 ChatCompletionRequestSystemMessageArgs::default()
                     .content(planner_system_prompt())
                     .build()
-                    .map_err(|error| ToolError {
-                        code: String::from("planner_request_build_failed"),
-                        message: format!(
-                            "failed to build planner system message for Ollama resolution: {error}"
-                        ),
-                        retryable: false,
-                        details: None,
+                    .map_err(|error| {
+                        planner_interpretation_unavailable_error(
+                            "planner_request_build_failed",
+                            format!(
+                                "failed to build planner system message for Ollama resolution: {error}"
+                            ),
+                            false,
+                            None,
+                        )
                     })?
                     .into(),
                 ChatCompletionRequestUserMessageArgs::default()
                     .content(user_content)
                     .build()
-                    .map_err(|error| ToolError {
-                        code: String::from("planner_request_build_failed"),
-                        message: format!(
-                            "failed to build planner user message for Ollama resolution: {error}"
-                        ),
-                        retryable: false,
-                        details: None,
+                    .map_err(|error| {
+                        planner_interpretation_unavailable_error(
+                            "planner_request_build_failed",
+                            format!(
+                                "failed to build planner user message for Ollama resolution: {error}"
+                            ),
+                            false,
+                            None,
+                        )
                     })?
                     .into(),
             ])
             .build()
-            .map_err(|error| ToolError {
-                code: String::from("planner_request_build_failed"),
-                message: format!("failed to build Ollama planner request: {error}"),
-                retryable: false,
-                details: None,
+            .map_err(|error| {
+                planner_interpretation_unavailable_error(
+                    "planner_request_build_failed",
+                    format!("failed to build Ollama planner request: {error}"),
+                    false,
+                    None,
+                )
             })?;
 
         let response =
             futures::executor::block_on(client.chat().create(request)).map_err(|error| {
-                ToolError {
-                    code: String::from("planner_request_failed"),
-                    message: format!("Ollama planner request failed: {error}"),
-                    retryable: true,
-                    details: Some(serde_json::json!({
+                planner_interpretation_unavailable_error(
+                    "planner_request_failed",
+                    format!("Ollama planner request failed: {error}"),
+                    true,
+                    Some(serde_json::json!({
                         "provider": "Ollama",
                         "model": profile.model,
                         "base_url": profile.base_url,
                     })),
-                }
+                )
             })?;
         let content = response
             .choices
             .into_iter()
             .next()
             .and_then(|choice| choice.message.content)
-            .ok_or_else(|| ToolError {
-                code: String::from("planner_response_missing"),
-                message: String::from("Ollama planner returned no structured content"),
-                retryable: true,
-                details: None,
+            .ok_or_else(|| {
+                planner_interpretation_unavailable_error(
+                    "planner_response_missing",
+                    "Ollama planner returned no structured content",
+                    true,
+                    None,
+                )
             })?;
 
-        serde_json::from_str::<PlannerOutput>(&content).map_err(|error| ToolError {
-            code: String::from("planner_response_invalid"),
-            message: format!("Ollama planner returned invalid planner JSON: {error}"),
-            retryable: true,
-            details: Some(serde_json::json!({ "content": content })),
+        serde_json::from_str::<PlannerOutput>(&content).map_err(|error| {
+            planner_interpretation_unavailable_error(
+                "planner_response_invalid",
+                format!("Ollama planner returned invalid planner JSON: {error}"),
+                true,
+                Some(serde_json::json!({ "content": content })),
+            )
         })
     }
 
@@ -4417,12 +4437,12 @@ impl AppCore {
         _profile: &RemotePlannerProfile,
         _planner_input: &PlannerInput,
     ) -> Result<PlannerOutput, ToolError> {
-        Err(ToolError {
-            code: String::from("planner_backend_unavailable"),
-            message: String::from("remote Ollama planner support is not enabled in this build"),
-            retryable: false,
-            details: None,
-        })
+        Err(planner_interpretation_unavailable_error(
+            "planner_backend_unavailable",
+            "remote Ollama planner support is not enabled in this build",
+            false,
+            None,
+        ))
     }
 
     fn audio_tool_failure<T>(
@@ -7567,6 +7587,23 @@ fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolErro
     }
 }
 
+fn planner_interpretation_unavailable_error(
+    code: &str,
+    reason: impl Into<String>,
+    retryable: bool,
+    details: Option<serde_json::Value>,
+) -> ToolError {
+    let reason = reason.into();
+    let reason = reason.trim().trim_end_matches('.').to_string();
+
+    ToolError {
+        code: String::from(code),
+        message: format!("Command interpretation is unavailable because {reason}."),
+        retryable,
+        details,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -7578,12 +7615,12 @@ mod tests {
         build_visible_text_excerpt, determine_find_element_resolution,
         execute_bounded_replanning_loop, extracted_text_metrics, filter_interactive_elements,
         infer_extraction_source, merge_ocr_text_into_page_model, merged_region_text,
-        normalize_absolute_url, normalize_optional_text, planner_system_prompt,
-        rank_find_element_candidates, region_bbox_by_id, region_first_ocr_target_ids,
-        resolve_clickable_element, resolve_direct_fill_and_submit_command,
-        resolve_direct_fill_field_command, resolve_direct_focus_field_command,
-        resolve_direct_submit_form_command, resolve_form_element,
-        resolve_recent_fill_correction_command, resolve_typeable_element,
+        normalize_absolute_url, normalize_optional_text, planner_interpretation_unavailable_error,
+        planner_system_prompt, rank_find_element_candidates, region_bbox_by_id,
+        region_first_ocr_target_ids, resolve_clickable_element,
+        resolve_direct_fill_and_submit_command, resolve_direct_fill_field_command,
+        resolve_direct_focus_field_command, resolve_direct_submit_form_command,
+        resolve_form_element, resolve_recent_fill_correction_command, resolve_typeable_element,
         should_trigger_extract_page_model_ocr_fallback, RecentFieldContext, ReplanningRuntime,
     };
     use crate::audio_io::RuntimeAudioState;
@@ -7610,6 +7647,24 @@ mod tests {
             settings.summary,
             String::from("Planner currently uses configured remote profiles only.")
         );
+    }
+
+    #[test]
+    fn planner_interpretation_unavailable_error_wraps_reason_for_voice_feedback() {
+        let error = planner_interpretation_unavailable_error(
+            "planner_profile_unavailable",
+            "remote planner mode requires a configured planner profile",
+            false,
+            None,
+        );
+
+        assert_eq!(error.code, "planner_profile_unavailable");
+        assert_eq!(
+            error.message,
+            "Command interpretation is unavailable because remote planner mode requires a configured planner profile."
+        );
+        assert!(!error.retryable);
+        assert_eq!(error.details, None);
     }
 
     #[test]

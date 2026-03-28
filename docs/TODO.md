@@ -446,8 +446,8 @@
 - [x] Ambiguous element matches ask the user to clarify instead of silently choosing one
 - [x] Mixed commands such as fill-and-submit are decomposed into safe bounded plans
 - [x] Follow-up corrections such as `no, the other field` reuse recent context when available
-- [ ] Replanning after tool failure or ambiguous result
-- [ ] LLM unavailable with no local provider → report command interpretation unavailable
+- [x] Replanning after tool failure or ambiguous result
+- [x] LLM unavailable with no local provider → report command interpretation unavailable
 - [ ] Remote TTS selected → speech output succeeds
 - [x] Remote ASR selected → transcript is returned
 - [x] Playback volume and speed changes persist across app restart
