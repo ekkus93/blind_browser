@@ -432,7 +432,7 @@
 - [ ] Load page → extract → read
 - [ ] ASR → command → action
 - [x] Planner output → deterministic tool execution
-- [ ] Back/forward/reload tools update browser history state correctly
+- [x] Back/forward/reload tools update browser history state correctly
 - [x] Browser visibility changes are reflected in runtime status and UI state
 - [x] Listening start/stop/transcribe tools update runtime state correctly
 - [x] Deterministic audio-setting tools persist and report the updated values

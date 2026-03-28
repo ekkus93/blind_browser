@@ -1059,3 +1059,8 @@
 - `src-tauri/src/commands.rs` test coverage now keeps mocked listening state and last transcript across `start_listening`, `stop_listening`, `transcribe_command`, `get_runtime_status`, and `get_agent_state`, so follow-up state reads reflect the updated listening mode and transcription result.
 - The new regression cases cover start→runtime-status, stop→agent-state, and both transcription stop behaviors (`AutoStop` and `KeepListening`) to prove the reported runtime state matches the deterministic listening-tool results.
 - Revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo fmt --manifest-path src-tauri/Cargo.toml --all && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`.
+
+## 2026-03-28T09:09:30Z - GPT-5.4 - Added browser history runtime-state coverage
+- `src-tauri/src/commands.rs` test coverage now keeps mocked browser-history state across `go_back`, `go_forward`, `reload_page`, `get_runtime_status`, and `get_agent_state`, so follow-up state reads reflect updated back/forward availability and history indices.
+- The new regression case covers back→runtime-status, forward→runtime-status, and reload→agent-state to prove the reported browser history state stays aligned with deterministic navigation-tool results.
+- Revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo fmt --manifest-path src-tauri/Cargo.toml --all && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`.
