@@ -1158,3 +1158,15 @@
 - `src-tauri/src/commands.rs` now makes the test-only `MockExecutor` mirror the real deterministic tool behavior for playback-volume clamping, playback-speed clamping, and browser-visibility no-op/unsupported responses instead of only echoing requested values.
 - Added focused regression tests that pin clamped playback results plus `get_agent_state` / `get_runtime_status` readbacks, and browser-visibility responses for already-active and unsupported-switch cases, closing the remaining Phase 8 TODO without changing runtime behavior.
 - Full validation passed afterward with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`; Rust tests are now `258` passing and UI tests remain `49` passing.
+
+## 2026-03-28T20:28:39Z - GPT-5.4 - Browser-history serialization and boundary coverage landed
+- `src-tauri/src/state.rs` now regression-tests `BrowserHistoryState` JSON serialization/deserialization for both the default empty-history case (`current_entry_index: null`, `entry_count: 0`) and a populated navigation position.
+- Added a focused navigation-boundary test proving that a new navigation from an earlier history entry truncates forward history, closing the remaining Phase 8 browser-history test TODO without changing runtime behavior.
+
+## 2026-03-28T20:41:58Z - GPT-5.4 - Common tool-envelope serde coverage landed
+- `src-tauri/src/commands.rs` now regression-tests the shared `ToolResult<T>` envelope directly, covering success and failure constructor semantics, warning/error serialization, and typed payload deserialization through the generic envelope.
+- This closes the Phase 8 common-envelope TODO without changing runtime behavior; the prior schema tests already covered representative per-tool payload shapes, and this slice pins the shared wrapper contract itself.
+
+## 2026-03-28T21:03:47Z - GPT-5.4 - Deterministic tool-result schema TODO was already satisfied
+- `src-tauri/src/commands.rs` already exports concrete `ToolResult<...>` output schemas for every registered deterministic tool via `tool_output_schema(...)`, and `registered_tools_all_expose_output_schemas()` already fails if any tool lacks one.
+- The existing `sample_serialized_tool_results_match_generated_tool_output_schemas()` regression iterates `sample_planned_steps_for_registered_tools()`, which is built directly from `registered_tools()`, so one representative serialized result is already schema-checked for every registered tool; this slice only reconciled the stale TODO item.

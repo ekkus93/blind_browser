@@ -402,15 +402,15 @@
 - [ ] Default local model profile selection behavior
 - [x] TTS provider selection behavior
 - [x] ASR provider selection behavior
-- [ ] Deterministic tool result schemas
-- [ ] Common tool envelope serialization/deserialization
+- [x] Deterministic tool result schemas
+- [x] Common tool envelope serialization/deserialization
 - [ ] Planner input/output schema serialization/deserialization
 - [ ] Per-tool input schema validation
 - [ ] Enum serialization/deserialization and validation
 - [ ] Provider config serialization/deserialization and validation
 - [ ] Secret reference resolution and masking behavior
 - [x] Audio settings persistence and validation
-- [ ] Browser history state serialization and boundary behavior
+- [x] Browser history state serialization and boundary behavior
 - [x] Runtime status schema serialization and provider-mode reporting
 - [x] Deterministic listening state transitions and one-shot transcription tool behavior
 - [x] Deterministic browser visibility and audio-setting tool clamping behavior

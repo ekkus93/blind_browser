@@ -322,6 +322,34 @@ mod tests {
     }
 
     #[test]
+    fn record_navigation_truncates_forward_history_from_earlier_entry() {
+        let mut state = AppState {
+            browser_history: BrowserHistoryState {
+                can_go_back: false,
+                can_go_forward: true,
+                current_entry_index: Some(0),
+                entry_count: 4,
+            },
+            ..AppState::default()
+        };
+
+        state.record_navigation(
+            String::from("page-2"),
+            String::from("https://example.com/second"),
+        );
+
+        assert_eq!(
+            state.browser_history,
+            BrowserHistoryState {
+                can_go_back: true,
+                can_go_forward: false,
+                current_entry_index: Some(1),
+                entry_count: 2,
+            }
+        );
+    }
+
+    #[test]
     fn stop_speaking_clears_runtime_speaking_state() {
         let mut state = AppState::default();
         state.start_speaking_region(String::from("region-2"));
@@ -388,6 +416,52 @@ mod tests {
         assert!((state.audio.playback_speed - 1.6).abs() < f32::EPSILON);
         assert_eq!(state.audio.tts_voice.as_deref(), Some("Rosie"));
         assert!(!state.audio.muted);
+    }
+
+    #[test]
+    fn browser_history_state_serializes_default_boundary_values() {
+        let serialized = serde_json::to_value(BrowserHistoryState::default())
+            .expect("browser history state should serialize");
+
+        assert_eq!(
+            serialized,
+            serde_json::json!({
+                "can_go_back": false,
+                "can_go_forward": false,
+                "current_entry_index": null,
+                "entry_count": 0
+            })
+        );
+
+        let round_tripped: BrowserHistoryState =
+            serde_json::from_value(serialized).expect("browser history state should deserialize");
+        assert_eq!(round_tripped, BrowserHistoryState::default());
+    }
+
+    #[test]
+    fn browser_history_state_round_trips_populated_navigation_position() {
+        let history = BrowserHistoryState {
+            can_go_back: true,
+            can_go_forward: true,
+            current_entry_index: Some(2),
+            entry_count: 4,
+        };
+
+        let serialized =
+            serde_json::to_value(&history).expect("browser history state should serialize");
+        assert_eq!(
+            serialized,
+            serde_json::json!({
+                "can_go_back": true,
+                "can_go_forward": true,
+                "current_entry_index": 2,
+                "entry_count": 4
+            })
+        );
+
+        let round_tripped: BrowserHistoryState =
+            serde_json::from_value(serialized).expect("browser history state should deserialize");
+        assert_eq!(round_tripped, history);
     }
 
     #[test]
