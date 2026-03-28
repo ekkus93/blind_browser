@@ -31,7 +31,7 @@
 - [x] Define SKILL.md discovery locations and loading rules
 - [x] Define SKILL.md frontmatter schema and validation rules
 - [x] Define planner input/output schema and validation rules
-- [ ] Define per-tool input schemas and argument validation constraints
+- [x] Define per-tool input schemas and argument validation constraints
 - [ ] Replace open-ended schema strings with closed enums where the valid set is known
 
 ### Dependencies
