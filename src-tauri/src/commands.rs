@@ -9750,6 +9750,79 @@ mod tests {
     }
 
     #[test]
+    fn build_planner_skill_selection_selects_expected_bundled_skills_for_representative_tasks() {
+        let available_tools = planner_available_tools();
+        let cases = [
+            (
+                "open github dot com slash features",
+                "open_url",
+            ),
+            (
+                "please go back to the previous page",
+                "go_back",
+            ),
+            (
+                "read this page",
+                "read_page",
+            ),
+            (
+                "what page am i on",
+                "get_current_url",
+            ),
+            (
+                "continue reading",
+                "read_next",
+            ),
+            (
+                "are you listening",
+                "announce_state",
+            ),
+            (
+                "start listening",
+                "start_listening",
+            ),
+            (
+                "what's the playback speed",
+                "get_playback_speed",
+            ),
+            (
+                "change the voice to Bruno",
+                "set_tts_voice",
+            ),
+            (
+                "show the browser window",
+                "toggle_browser_visibility",
+            ),
+        ];
+
+        for (transcript, expected_skill_name) in cases {
+            let selection =
+                build_planner_skill_selection(None, None, transcript, &available_tools);
+            let ranked_skill_names = selection
+                .relevant_skill_summaries
+                .iter()
+                .map(|skill| skill.name.as_str())
+                .collect::<Vec<_>>();
+
+            assert!(
+                selection
+                    .active_skill_names
+                    .iter()
+                    .any(|name| name == expected_skill_name),
+                "transcript {transcript:?} should expose bundled skill {expected_skill_name}"
+            );
+            assert_eq!(
+                selection
+                    .relevant_skill_summaries
+                    .first()
+                    .map(|skill| skill.name.as_str()),
+                Some(expected_skill_name),
+                "transcript {transcript:?} ranked unexpected bundled skill: {ranked_skill_names:?}"
+            );
+        }
+    }
+
+    #[test]
     fn bundled_skills_cover_planner_visible_command_family_intents() {
         let available_tool_names = registered_tools()
             .into_iter()
