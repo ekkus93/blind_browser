@@ -1054,3 +1054,8 @@
 - `src-tauri/src/commands.rs` test coverage now keeps mocked browser visibility state across `set_browser_visibility`, `get_runtime_status`, and `get_agent_state`, so the command-layer tests verify that follow-up state reads report the updated mode.
 - `src/confirmation-panel.ts` now exposes a pure `statusPanelStateFromAgentState(...)` helper that maps the runtime agent snapshot into the UI status-panel state, and `src/main.ts` uses that helper instead of duplicating the mapping inline.
 - Revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo fmt --manifest-path src-tauri/Cargo.toml --all && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`.
+
+## 2026-03-28T08:17:07Z - GPT-5.4 - Added listening runtime-state coverage
+- `src-tauri/src/commands.rs` test coverage now keeps mocked listening state and last transcript across `start_listening`, `stop_listening`, `transcribe_command`, `get_runtime_status`, and `get_agent_state`, so follow-up state reads reflect the updated listening mode and transcription result.
+- The new regression cases cover start→runtime-status, stop→agent-state, and both transcription stop behaviors (`AutoStop` and `KeepListening`) to prove the reported runtime state matches the deterministic listening-tool results.
+- Revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo fmt --manifest-path src-tauri/Cargo.toml --all && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`.

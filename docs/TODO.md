@@ -434,7 +434,7 @@
 - [x] Planner output → deterministic tool execution
 - [ ] Back/forward/reload tools update browser history state correctly
 - [x] Browser visibility changes are reflected in runtime status and UI state
-- [ ] Listening start/stop/transcribe tools update runtime state correctly
+- [x] Listening start/stop/transcribe tools update runtime state correctly
 - [x] Deterministic audio-setting tools persist and report the updated values
 - [ ] Planner requests confirmation before risky execution
 - [x] Queued confirmation flows resume at the stored follow-up step after explicit user approval
