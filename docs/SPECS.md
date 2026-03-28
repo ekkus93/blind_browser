@@ -581,6 +581,7 @@ Representative-page validation guidance:
 - Supports model/voice/speed
 - Uses native speed control in kitten_tts_rs and native speed control in OpenAI TTS when available
 - Uses persisted playback speed and volume settings
+- Uses a small bounded in-memory synthesized-speech cache so repeated identical narration can reuse audio for the same provider/model/voice/speed/text combination
 
 ### Audio IO
 - Mic capture (push-to-talk)

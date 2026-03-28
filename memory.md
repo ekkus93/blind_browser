@@ -1036,3 +1036,12 @@
 - `src-tauri/src/page_model.rs` now gives `PageRegion` a structured `RegionRole` enum (`Title`, `Heading`, `Paragraph`, `Section`, `Other`) with serde defaulting so older saved state still deserializes.
 - The known producers and consumers now populate and use that role: structured extractor output, live browser DOM extraction, narration prefixing, OCR region appends, and the affected regression tests.
 - Revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo fmt --manifest-path src-tauri/Cargo.toml --all && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`.
+
+## 2026-03-28T06:14:42Z - GPT-5.4 - TTS synthesized-speech cache landed
+- `src-tauri/src/tts.rs` now keeps a bounded 8-entry in-memory cache of synthesized speech results keyed by provider/model identity, resolved voice, playback speed, and input text, while preserving the existing cached local-model load behavior.
+- This avoids repeated regeneration or remote requests for identical narration requests without changing provider selection or adding hidden fallback behavior.
+- Updated `docs/TODO.md` and `docs/SPECS.md`, and revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo fmt --manifest-path src-tauri/Cargo.toml --all && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build` (`233` Rust tests and `48` UI tests passing).
+
+## 2026-03-28T06:24:11Z - GPT-5.4 - TTS cache slice ready to land
+- The synthesized-speech cache slice remained the only local change after validation, touching `src-tauri/src/tts.rs`, `docs/TODO.md`, `docs/SPECS.md`, and `memory.md`.
+- The worktree matched the completed and validated TTS cache implementation, so the next operational step is committing and pushing the slice directly to `master`.

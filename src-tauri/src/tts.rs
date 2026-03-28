@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 
 use schemars::JsonSchema;
@@ -24,6 +25,7 @@ pub const OPENAI_TTS_VOICES: &[&str] = &[
 ];
 const OPENAI_REMOTE_TTS_MIN_SPEED: f32 = 0.25;
 const OPENAI_REMOTE_TTS_MAX_SPEED: f32 = 4.0;
+const SYNTHESIZED_SPEECH_CACHE_LIMIT: usize = 8;
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum TtsProviderKind {
@@ -105,6 +107,7 @@ pub enum TtsRuntimeError {
 pub struct TtsController {
     #[cfg(feature = "local-tts")]
     local_model: Option<CachedLocalTtsModel>,
+    synthesized_speech_cache: VecDeque<CachedSynthesizedSpeech>,
 }
 
 impl TtsController {
@@ -112,6 +115,7 @@ impl TtsController {
         Self {
             #[cfg(feature = "local-tts")]
             local_model: None,
+            synthesized_speech_cache: VecDeque::new(),
         }
     }
 
@@ -204,6 +208,19 @@ impl TtsController {
         }
 
         let voice = resolved_remote_voice(runtime_audio, profile)?;
+        let cache_key = CachedSpeechKey {
+            provider: TtsProviderKind::Remote,
+            model_identity: format!(
+                "{}|{}|{:?}",
+                profile.base_url, profile.model, profile.audio_format
+            ),
+            voice: voice.clone(),
+            playback_speed_bits: runtime_audio.playback_speed.to_bits(),
+            text: text.to_string(),
+        };
+        if let Some(cached) = self.cached_speech(&cache_key) {
+            return Ok(cached);
+        }
         let response_format = parse_openai_speech_response_format(profile.audio_format.clone());
         let request = CreateSpeechRequestArgs::default()
             .input(text.to_string())
@@ -230,13 +247,15 @@ impl TtsController {
             SpeechResponseFormat::Wav => {
                 let decoded = decode_wav_samples(response.bytes.as_ref())
                     .map_err(|reason| TtsRuntimeError::RemoteResponseDecodeFailed { reason })?;
-                Ok(SynthesizedSpeech {
+                let speech = SynthesizedSpeech {
                     provider: TtsProviderKind::Remote,
                     voice,
                     sample_rate: decoded.sample_rate,
                     channels: decoded.channels,
                     samples: decoded.samples,
-                })
+                };
+                self.store_cached_speech(cache_key, speech.clone());
+                Ok(speech)
             }
             _ => Err(TtsRuntimeError::RemoteResponseDecodeFailed {
                 reason: String::from("received an unexpected non-WAV audio response format"),
@@ -270,15 +289,32 @@ impl TtsController {
 
         let voice = resolved_voice(runtime_audio, &profile.default_voice);
         let model_dir = normalized_model_path(&profile.model_path)?;
+        let cache_key = CachedSpeechKey {
+            provider: TtsProviderKind::Local,
+            model_identity: format!(
+                "{}|{}|{}",
+                profile.model_id,
+                model_dir.display(),
+                profile.sample_rate
+            ),
+            voice: voice.clone(),
+            playback_speed_bits: runtime_audio.playback_speed.to_bits(),
+            text: text.to_string(),
+        };
+        if let Some(cached) = self.cached_speech(&cache_key) {
+            return Ok(cached);
+        }
         let samples = self.generate_local_samples(&model_dir, text, &voice, runtime_audio)?;
 
-        Ok(SynthesizedSpeech {
+        let speech = SynthesizedSpeech {
             provider: TtsProviderKind::Local,
             voice,
             sample_rate: profile.sample_rate,
             channels: KITTEN_TTS_CHANNELS,
             samples,
-        })
+        };
+        self.store_cached_speech(cache_key, speech.clone());
+        Ok(speech)
     }
 
     #[cfg(feature = "local-tts")]
@@ -333,6 +369,35 @@ impl TtsController {
             .as_mut()
             .expect("local model should be present after load")
             .model)
+    }
+
+    fn cached_speech(&mut self, key: &CachedSpeechKey) -> Option<SynthesizedSpeech> {
+        let index = self
+            .synthesized_speech_cache
+            .iter()
+            .position(|entry| &entry.key == key)?;
+        let entry = self
+            .synthesized_speech_cache
+            .remove(index)
+            .expect("cache entry should exist at located index");
+        let speech = entry.speech.clone();
+        self.synthesized_speech_cache.push_front(entry);
+        Some(speech)
+    }
+
+    fn store_cached_speech(&mut self, key: CachedSpeechKey, speech: SynthesizedSpeech) {
+        if let Some(index) = self
+            .synthesized_speech_cache
+            .iter()
+            .position(|entry| entry.key == key)
+        {
+            self.synthesized_speech_cache.remove(index);
+        }
+        self.synthesized_speech_cache
+            .push_front(CachedSynthesizedSpeech { key, speech });
+        while self.synthesized_speech_cache.len() > SYNTHESIZED_SPEECH_CACHE_LIMIT {
+            self.synthesized_speech_cache.pop_back();
+        }
     }
 }
 
@@ -523,10 +588,27 @@ struct CachedLocalTtsModel {
     model: KittenTTS,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CachedSpeechKey {
+    provider: TtsProviderKind,
+    model_identity: String,
+    voice: String,
+    playback_speed_bits: u32,
+    text: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct CachedSynthesizedSpeech {
+    key: CachedSpeechKey,
+    speech: SynthesizedSpeech,
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        decode_wav_samples, normalized_model_path, resolved_voice, KITTEN_TTS_SAMPLE_RATE,
+        decode_wav_samples, normalized_model_path, resolved_voice, CachedSpeechKey,
+        SynthesizedSpeech, TtsController, TtsProviderKind, KITTEN_TTS_CHANNELS,
+        KITTEN_TTS_SAMPLE_RATE, SYNTHESIZED_SPEECH_CACHE_LIMIT,
     };
     use crate::audio_io::RuntimeAudioState;
     use crate::config::{LocalTtsBackend, LocalTtsProfile};
@@ -652,5 +734,65 @@ mod tests {
             resolved_voice(&runtime_audio, &profile.default_voice),
             "Rosie"
         );
+    }
+
+    #[test]
+    fn synthesized_speech_cache_returns_cached_entry() {
+        let mut controller = TtsController::new();
+        let key = CachedSpeechKey {
+            provider: TtsProviderKind::Local,
+            model_identity: String::from("local|model"),
+            voice: String::from("Bruno"),
+            playback_speed_bits: 1.0f32.to_bits(),
+            text: String::from("Hello world"),
+        };
+        let speech = SynthesizedSpeech {
+            provider: TtsProviderKind::Local,
+            voice: String::from("Bruno"),
+            sample_rate: KITTEN_TTS_SAMPLE_RATE,
+            channels: KITTEN_TTS_CHANNELS,
+            samples: vec![0.1, 0.2],
+        };
+
+        controller.store_cached_speech(key.clone(), speech.clone());
+
+        assert_eq!(controller.cached_speech(&key), Some(speech));
+    }
+
+    #[test]
+    fn synthesized_speech_cache_evicts_oldest_entries() {
+        let mut controller = TtsController::new();
+
+        for index in 0..=SYNTHESIZED_SPEECH_CACHE_LIMIT {
+            controller.store_cached_speech(
+                CachedSpeechKey {
+                    provider: TtsProviderKind::Local,
+                    model_identity: format!("local|model-{index}"),
+                    voice: String::from("Bruno"),
+                    playback_speed_bits: 1.0f32.to_bits(),
+                    text: format!("text-{index}"),
+                },
+                SynthesizedSpeech {
+                    provider: TtsProviderKind::Local,
+                    voice: String::from("Bruno"),
+                    sample_rate: KITTEN_TTS_SAMPLE_RATE,
+                    channels: KITTEN_TTS_CHANNELS,
+                    samples: vec![index as f32],
+                },
+            );
+        }
+
+        assert_eq!(
+            controller.synthesized_speech_cache.len(),
+            SYNTHESIZED_SPEECH_CACHE_LIMIT
+        );
+        let oldest_key = CachedSpeechKey {
+            provider: TtsProviderKind::Local,
+            model_identity: String::from("local|model-0"),
+            voice: String::from("Bruno"),
+            playback_speed_bits: 1.0f32.to_bits(),
+            text: String::from("text-0"),
+        };
+        assert_eq!(controller.cached_speech(&oldest_key), None);
     }
 }
