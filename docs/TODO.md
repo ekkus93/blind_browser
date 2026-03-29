@@ -405,10 +405,10 @@
 - [x] Deterministic tool result schemas
 - [x] Common tool envelope serialization/deserialization
 - [x] Planner input/output schema serialization/deserialization
-- [ ] Per-tool input schema validation
-- [ ] Enum serialization/deserialization and validation
-- [ ] Provider config serialization/deserialization and validation
-- [ ] Secret reference resolution and masking behavior
+- [x] Per-tool input schema validation
+- [x] Enum serialization/deserialization and validation
+- [x] Provider config serialization/deserialization and validation
+- [x] Secret reference resolution and masking behavior
 - [x] Audio settings persistence and validation
 - [x] Browser history state serialization and boundary behavior
 - [x] Runtime status schema serialization and provider-mode reporting

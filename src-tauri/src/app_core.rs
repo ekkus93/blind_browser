@@ -7631,7 +7631,7 @@ mod tests {
         IntentSummary, PlannedStep, PlannerOutput, PlannerStatus, PlannerToolHistoryEntry,
         ReportStatus, StepTransition, ToolName, ToolResult,
     };
-    use crate::config::{AppConfig, ProviderMode};
+    use crate::config::{AppConfig, KeyringRef, ProviderMode, SecretRef};
     use crate::ocr::OcrSettings;
     use crate::page_model::{
         ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, Rect, RegionRole,
@@ -8092,6 +8092,49 @@ mod tests {
         assert_eq!(settings.language.as_deref(), Some("en"));
         assert_eq!(settings.temperature_milli, Some(0));
         assert_eq!(settings.timeout_ms, Some(30_000));
+    }
+
+    #[test]
+    fn build_remote_settings_expose_secret_references_without_raw_values() {
+        let mut config = AppConfig::default();
+        let planner_profile = config
+            .remote_planner_profiles
+            .get_mut("openai-default")
+            .expect("planner profile should exist");
+        planner_profile.api_key = SecretRef::FromFile {
+            from_file: String::from("/secure/planner.key"),
+        };
+        planner_profile.organization = Some(SecretRef::FromKeyring {
+            from_keyring: KeyringRef {
+                service: String::from("blind-browser"),
+                account: String::from("planner/openai-default"),
+            },
+        });
+
+        let settings = build_remote_planner_settings(&config);
+
+        assert_eq!(
+            settings.api_key_reference.as_deref(),
+            Some("File reference: /secure/planner.key")
+        );
+        assert_eq!(
+            settings.organization_reference.as_deref(),
+            Some("OS keyring entry: blind-browser / planner/openai-default")
+        );
+        assert!(
+            !settings
+                .api_key_reference
+                .as_deref()
+                .unwrap_or_default()
+                .contains("super-secret")
+        );
+        assert!(
+            !settings
+                .organization_reference
+                .as_deref()
+                .unwrap_or_default()
+                .contains("super-secret")
+        );
     }
 
     #[test]

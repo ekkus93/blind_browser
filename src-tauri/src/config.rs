@@ -1216,12 +1216,16 @@ impl Default for AppConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        keyring_ref_for_remote_api_key, resolve_secret_ref, AppConfig, AudioSettings, ConfigError,
-        KeyringRef, ProviderMode, ProviderSelection, RemoteProviderKind, SafetySettings, SecretRef,
+        keyring_ref_for_remote_api_key, resolve_secret_ref, secret_ref_reference,
+        set_keyring_secret, AppConfig, AudioSettings, ConfigError, KeyringRef, LocalAsrBackend,
+        LocalAsrProfile, LocalTtsBackend, LocalTtsProfile, ProviderMode, ProviderSelection,
+        ProviderSelections, RemoteAsrProfile, RemotePlannerProfile, RemoteProviderKind,
+        RemoteTtsAudioFormat, RemoteTtsProfile, SafetySettings, SecretRef, SpeechFeedbackStyle,
     };
     use crate::ocr::OcrSettings;
 
@@ -1238,6 +1242,299 @@ mod tests {
                 unique_id
             ))
             .join("config.toml")
+    }
+
+    fn test_temp_path(label: &str, file_name: &str) -> PathBuf {
+        let unique_id = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after UNIX_EPOCH")
+            .as_nanos();
+
+        std::env::temp_dir().join(format!(
+            "blind_browser_{label}_{}_{}_{}",
+            std::process::id(),
+            unique_id,
+            file_name
+        ))
+    }
+
+    #[test]
+    fn config_enums_round_trip_and_reject_invalid_variants() {
+        fn assert_enum_round_trip<T>(
+            value: T,
+            expected: serde_json::Value,
+            invalid: serde_json::Value,
+        ) where
+            T: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+        {
+            let serialized = serde_json::to_value(&value).expect("enum should serialize");
+            assert_eq!(serialized, expected);
+
+            let round_tripped: T =
+                serde_json::from_value(serialized).expect("enum should deserialize");
+            assert_eq!(round_tripped, value);
+            assert!(serde_json::from_value::<T>(invalid).is_err());
+        }
+
+        assert_enum_round_trip(
+            ProviderMode::Remote,
+            serde_json::json!("remote"),
+            serde_json::json!("REMOTE"),
+        );
+        assert_enum_round_trip(
+            RemoteProviderKind::OpenAi,
+            serde_json::json!("OpenAi"),
+            serde_json::json!("Anthropic"),
+        );
+        assert_enum_round_trip(
+            RemoteTtsAudioFormat::Wav,
+            serde_json::json!("wav"),
+            serde_json::json!("mp3"),
+        );
+        assert_enum_round_trip(
+            LocalTtsBackend::KittenTtsRs,
+            serde_json::json!("kitten_tts_rs"),
+            serde_json::json!("kitten"),
+        );
+        assert_enum_round_trip(
+            LocalAsrBackend::Whisper,
+            serde_json::json!("whisper"),
+            serde_json::json!("deepgram"),
+        );
+        assert_enum_round_trip(
+            SpeechFeedbackStyle::Detailed,
+            serde_json::json!("Detailed"),
+            serde_json::json!("Verbose"),
+        );
+    }
+
+    #[test]
+    fn provider_configs_round_trip_through_json() {
+        let providers = ProviderSelections {
+            planner: ProviderSelection {
+                mode: ProviderMode::Remote,
+                remote_profile: Some(String::from("openai-default")),
+                local_profile: None,
+                failover_to_local: None,
+            },
+            tts: ProviderSelection {
+                mode: ProviderMode::Local,
+                remote_profile: Some(String::from("openai-tts-default")),
+                local_profile: Some(String::from("kitten-default")),
+                failover_to_local: Some(false),
+            },
+            asr: ProviderSelection {
+                mode: ProviderMode::Remote,
+                remote_profile: Some(String::from("openai-asr-default")),
+                local_profile: Some(String::from("whisper-default")),
+                failover_to_local: Some(true),
+            },
+        };
+        let planner_profile = RemotePlannerProfile {
+            provider: RemoteProviderKind::OpenAi,
+            base_url: String::from("https://api.openai.com/v1"),
+            model: String::from("gpt-4.1"),
+            api_key: SecretRef::FromEnv {
+                from_env: String::from("OPENAI_API_KEY"),
+            },
+            organization: Some(SecretRef::FromEnv {
+                from_env: String::from("OPENAI_ORG_ID"),
+            }),
+            project: Some(String::from("blind-browser")),
+            temperature_milli: 250,
+            max_output_tokens: 1024,
+            timeout_ms: 30_000,
+        };
+        let remote_tts_profile = RemoteTtsProfile {
+            provider: RemoteProviderKind::OpenAi,
+            base_url: String::from("https://api.openai.com/v1"),
+            model: String::from("gpt-4o-mini-tts"),
+            api_key: SecretRef::FromKeyring {
+                from_keyring: KeyringRef {
+                    service: String::from("blind-browser"),
+                    account: String::from("tts/openai-tts-default"),
+                },
+            },
+            organization: None,
+            project: Some(String::from("blind-browser")),
+            voice: String::from("alloy"),
+            audio_format: RemoteTtsAudioFormat::Wav,
+            timeout_ms: 20_000,
+        };
+        let remote_asr_profile = RemoteAsrProfile {
+            provider: RemoteProviderKind::OpenAi,
+            base_url: String::from("https://api.openai.com/v1"),
+            model: String::from("gpt-4o-mini-transcribe"),
+            api_key: SecretRef::FromFile {
+                from_file: String::from("/tmp/openai-asr.key"),
+            },
+            organization: None,
+            project: Some(String::from("blind-browser")),
+            language: Some(String::from("en")),
+            temperature_milli: 0,
+            timeout_ms: 20_000,
+        };
+        let local_tts_profile = LocalTtsProfile {
+            backend: LocalTtsBackend::KittenTtsRs,
+            model_id: String::from("default"),
+            model_path: String::from("/models/kitten/default.onnx"),
+            default_voice: String::from("Bruno"),
+            sample_rate: 24_000,
+        };
+        let local_asr_profile = LocalAsrProfile {
+            backend: LocalAsrBackend::Whisper,
+            model_id: String::from("tiny"),
+            model_path: String::from("/models/whisper/tiny.bin"),
+            language: Some(String::from("en")),
+            threads: 4,
+        };
+
+        let serialized = serde_json::json!({
+            "providers": providers,
+            "planner_profile": planner_profile,
+            "remote_tts_profile": remote_tts_profile,
+            "remote_asr_profile": remote_asr_profile,
+            "local_tts_profile": local_tts_profile,
+            "local_asr_profile": local_asr_profile
+        });
+
+        let round_tripped = serde_json::from_value::<serde_json::Map<String, serde_json::Value>>(
+            serialized.clone(),
+        )
+        .expect("provider config payload should deserialize as JSON object");
+
+        let decoded_providers: ProviderSelections =
+            serde_json::from_value(serialized.get("providers").cloned().unwrap())
+                .expect("provider selections should deserialize");
+        let decoded_planner_profile: RemotePlannerProfile =
+            serde_json::from_value(serialized.get("planner_profile").cloned().unwrap())
+                .expect("planner profile should deserialize");
+        let decoded_remote_tts_profile: RemoteTtsProfile =
+            serde_json::from_value(serialized.get("remote_tts_profile").cloned().unwrap())
+                .expect("remote tts profile should deserialize");
+        let decoded_remote_asr_profile: RemoteAsrProfile =
+            serde_json::from_value(serialized.get("remote_asr_profile").cloned().unwrap())
+                .expect("remote asr profile should deserialize");
+        let decoded_local_tts_profile: LocalTtsProfile =
+            serde_json::from_value(serialized.get("local_tts_profile").cloned().unwrap())
+                .expect("local tts profile should deserialize");
+        let decoded_local_asr_profile: LocalAsrProfile =
+            serde_json::from_value(serialized.get("local_asr_profile").cloned().unwrap())
+                .expect("local asr profile should deserialize");
+
+        assert_eq!(decoded_providers, providers);
+        assert_eq!(decoded_planner_profile, planner_profile);
+        assert_eq!(decoded_remote_tts_profile, remote_tts_profile);
+        assert_eq!(decoded_remote_asr_profile, remote_asr_profile);
+        assert_eq!(decoded_local_tts_profile, local_tts_profile);
+        assert_eq!(decoded_local_asr_profile, local_asr_profile);
+        assert!(round_tripped.contains_key("providers"));
+    }
+
+    #[test]
+    fn secret_ref_reference_formats_sources_without_secret_values() {
+        let env_reference = secret_ref_reference(&SecretRef::FromEnv {
+            from_env: String::from("OPENAI_API_KEY"),
+        });
+        let file_reference = secret_ref_reference(&SecretRef::FromFile {
+            from_file: String::from("/secure/openai.key"),
+        });
+        let keyring_reference = secret_ref_reference(&SecretRef::FromKeyring {
+            from_keyring: KeyringRef {
+                service: String::from("blind-browser"),
+                account: String::from("planner/openai-default"),
+            },
+        });
+
+        assert_eq!(env_reference, "Environment variable: OPENAI_API_KEY");
+        assert_eq!(file_reference, "File reference: /secure/openai.key");
+        assert_eq!(
+            keyring_reference,
+            "OS keyring entry: blind-browser / planner/openai-default"
+        );
+        assert!(!env_reference.contains("super-secret"));
+        assert!(!file_reference.contains("super-secret"));
+        assert!(!keyring_reference.contains("super-secret"));
+    }
+
+    #[test]
+    fn resolve_secret_ref_reads_all_supported_reference_types() {
+        let env_var_name = format!(
+            "BLIND_BROWSER_TEST_SECRET_{}_{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system time should be after UNIX_EPOCH")
+                .as_nanos()
+        );
+        let file_path = test_temp_path("resolve_secret_file", "secret.txt");
+
+        std::env::set_var(&env_var_name, "env-secret");
+        fs::write(&file_path, "file-secret").expect("secret file should write");
+        set_keyring_secret("blind-browser", "tests/keyring-secret", "keyring-secret")
+            .expect("keyring secret should store");
+
+        let env_secret = resolve_secret_ref(&SecretRef::FromEnv {
+            from_env: env_var_name.clone(),
+        })
+        .expect("env secret should resolve");
+        let file_secret = resolve_secret_ref(&SecretRef::FromFile {
+            from_file: file_path.display().to_string(),
+        })
+        .expect("file secret should resolve");
+        let keyring_secret = resolve_secret_ref(&SecretRef::FromKeyring {
+            from_keyring: KeyringRef {
+                service: String::from("blind-browser"),
+                account: String::from("tests/keyring-secret"),
+            },
+        })
+        .expect("keyring secret should resolve");
+
+        assert_eq!(env_secret, "env-secret");
+        assert_eq!(file_secret, "file-secret");
+        assert_eq!(keyring_secret, "keyring-secret");
+
+        std::env::remove_var(&env_var_name);
+        let _ = fs::remove_file(&file_path);
+    }
+
+    #[test]
+    fn resolve_secret_ref_rejects_missing_or_empty_values() {
+        let missing_env_name = format!(
+            "BLIND_BROWSER_TEST_MISSING_SECRET_{}_{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system time should be after UNIX_EPOCH")
+                .as_nanos()
+        );
+        let empty_file_path = test_temp_path("resolve_empty_secret_file", "empty-secret.txt");
+
+        fs::write(&empty_file_path, "").expect("empty secret file should write");
+        set_keyring_secret("blind-browser", "tests/empty-keyring-secret", "")
+            .expect("empty keyring secret should store");
+
+        let missing_env_error = resolve_secret_ref(&SecretRef::FromEnv {
+            from_env: missing_env_name,
+        })
+        .expect_err("missing env secret should fail");
+        let empty_file_error = resolve_secret_ref(&SecretRef::FromFile {
+            from_file: empty_file_path.display().to_string(),
+        })
+        .expect_err("empty file secret should fail");
+        let empty_keyring_error = resolve_secret_ref(&SecretRef::FromKeyring {
+            from_keyring: KeyringRef {
+                service: String::from("blind-browser"),
+                account: String::from("tests/empty-keyring-secret"),
+            },
+        })
+        .expect_err("empty keyring secret should fail");
+
+        assert!(missing_env_error.contains("failed to read environment variable"));
+        assert_eq!(empty_file_error, "resolved secret value was empty");
+        assert_eq!(empty_keyring_error, "resolved secret value was empty");
+
+        let _ = fs::remove_file(&empty_file_path);
     }
 
     #[test]
@@ -1553,6 +1850,80 @@ threads = 4
         match error {
             ConfigError::Validation(message) => {
                 assert!(message.contains("providers.planner.remote_profile is required"));
+            }
+            other => panic!("expected validation error, got {other}"),
+        }
+    }
+
+    #[test]
+    fn rejects_missing_selected_profiles_for_tts_and_asr_modes() {
+        let invalid = r#"
+[providers.planner]
+mode = "remote"
+remote_profile = "openai-default"
+
+[providers.tts]
+mode = "remote"
+
+[providers.asr]
+mode = "local"
+
+[audio]
+playback_volume = 1.0
+playback_speed = 1.0
+default_tts_voice = "Bruno"
+
+[safety]
+confirmation_confidence_threshold = 0.9
+allow_click_without_confirmation = true
+always_confirm_submit = true
+
+[ocr]
+trigger_on_no_extractable_text = true
+sparse_text_char_threshold = 200
+sparse_text_region_threshold = 2
+prefer_region_ocr = true
+
+[models]
+models_dir = "~/.config/blind_browser/models"
+check_on_startup = true
+auto_download_missing = false
+
+[speech_feedback]
+style = "Short"
+confirm_setting_changes = true
+include_previous_value = false
+
+[remote_profiles.openai-default]
+provider = "OpenAi"
+base_url = "https://api.openai.com/v1"
+model = "gpt-4.1"
+api_key = { from_env = "OPENAI_API_KEY" }
+temperature_milli = 200
+max_output_tokens = 1024
+timeout_ms = 30000
+
+[local_profiles.kitten-default]
+backend = "kitten_tts_rs"
+model_id = "default"
+model_path = "/path/to/kitten/model"
+default_voice = "Bruno"
+sample_rate = 24000
+
+[local_profiles.whisper-default]
+backend = "whisper"
+model_id = "tiny"
+model_path = "/path/to/whisper/model"
+language = "en"
+threads = 4
+"#;
+
+        let error = AppConfig::load_from_str(invalid).expect_err("config should be invalid");
+
+        match error {
+            ConfigError::Validation(message) => {
+                assert!(message.contains("providers.tts.remote_profile is required"));
+                assert!(message.contains("providers.asr.local_profile is required"));
             }
             other => panic!("expected validation error, got {other}"),
         }

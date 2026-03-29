@@ -9157,6 +9157,81 @@ mod tests {
     }
 
     #[test]
+    fn shared_command_enums_round_trip_and_reject_invalid_variants() {
+        fn assert_enum_round_trip<T>(
+            value: T,
+            expected: serde_json::Value,
+            invalid: serde_json::Value,
+        ) where
+            T: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+        {
+            let serialized = serde_json::to_value(&value).expect("enum should serialize");
+            assert_eq!(serialized, expected);
+
+            let round_tripped: T =
+                serde_json::from_value(serialized).expect("enum should deserialize");
+            assert_eq!(round_tripped, value);
+            assert!(serde_json::from_value::<T>(invalid).is_err());
+        }
+
+        assert_enum_round_trip(
+            NarrationInterruptionMode::Interrupt,
+            serde_json::json!("Interrupt"),
+            serde_json::json!("Pause"),
+        );
+        assert_enum_round_trip(
+            NarrationBoundary::End,
+            serde_json::json!("End"),
+            serde_json::json!("Middle"),
+        );
+        assert_enum_round_trip(
+            ElementVisibilityFilter::VisibleOnly,
+            serde_json::json!("VisibleOnly"),
+            serde_json::json!("HiddenOnly"),
+        );
+        assert_enum_round_trip(
+            ReloadMode::Hard,
+            serde_json::json!("Hard"),
+            serde_json::json!("Soft"),
+        );
+        assert_enum_round_trip(
+            ClickMode::Double,
+            serde_json::json!("Double"),
+            serde_json::json!("Triple"),
+        );
+        assert_enum_round_trip(
+            TextEntryMode::Replace,
+            serde_json::json!("Replace"),
+            serde_json::json!("Overwrite"),
+        );
+        assert_enum_round_trip(
+            TextEntrySubmitMode::Submit,
+            serde_json::json!("Submit"),
+            serde_json::json!("Enter"),
+        );
+        assert_enum_round_trip(
+            TranscriptionStopMode::AutoStop,
+            serde_json::json!("AutoStop"),
+            serde_json::json!("ManualStop"),
+        );
+        assert_enum_round_trip(
+            ScreenshotScope::FullPage,
+            serde_json::json!("FullPage"),
+            serde_json::json!("Region"),
+        );
+        assert_enum_round_trip(
+            ReportStatus::NeedsFollowUp,
+            serde_json::json!("NeedsFollowUp"),
+            serde_json::json!("Retry"),
+        );
+        assert_enum_round_trip(
+            BrowserVisibilityMode::Headless,
+            serde_json::json!("Headless"),
+            serde_json::json!("Minimized"),
+        );
+    }
+
+    #[test]
     fn get_runtime_status_result_matches_schema_with_provider_modes() {
         let mut executor = MockExecutor::default();
         let step = PlannedStep {
@@ -10306,6 +10381,30 @@ mod tests {
             missing.is_empty(),
             "registered tools missing input schemas: {missing:?}"
         );
+    }
+
+    #[test]
+    fn sample_planned_steps_match_generated_tool_input_schemas() {
+        for step in sample_planned_steps_for_registered_tools() {
+            let schema = tool_input_schema(&step.tool_name).unwrap_or_else(|| {
+                panic!(
+                    "sample tool input uses tool {:?} without an input schema",
+                    step.tool_name
+                )
+            });
+            assert_json_matches_schema(&step.arguments, &schema).unwrap_or_else(|error| {
+                panic!(
+                    "sample {:?} arguments should match generated input schema: {error}",
+                    step.tool_name
+                )
+            });
+            validate_planned_step_arguments(&step).unwrap_or_else(|error| {
+                panic!(
+                    "sample {:?} arguments should pass runtime validator: {error:?}",
+                    step.tool_name
+                )
+            });
+        }
     }
 
     #[test]

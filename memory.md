@@ -974,6 +974,26 @@
 - Fixed the test-only helper mismatch by building the planner-input page model from `fixture_page_model_without_regions()` inside `commands.rs` tests instead of referencing the inaccessible `app_core.rs`-local `fixture_page(...)` helper.
 - Revalidated with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`; UI tests remain `49` passed and the production build completes cleanly.
 
+## 2026-03-29T11:26:04Z - GPT-5.4 - Per-tool input schema coverage completed
+- `src-tauri/src/commands.rs` now includes `sample_planned_steps_match_generated_tool_input_schemas()`, which iterates `sample_planned_steps_for_registered_tools()` and checks each sample arguments payload against `tool_input_schema(...)`.
+- The same regression also runs `validate_planned_step_arguments(...)` for every registered tool sample, so the exported JSON schema and the Rust-side runtime validator stay aligned on one representative valid input per tool.
+- This closes the `Per-tool input schema validation` TODO without adding fallback behavior or duplicating the many existing targeted invalid-input tests.
+
+## 2026-03-29T12:08:57Z - GPT-5.4 - Shared enum serde coverage completed
+- `src-tauri/src/commands.rs` now includes a direct regression covering shared command-contract enums, locking their serialized forms and proving invalid enum strings fail deserialization.
+- `src-tauri/src/config.rs` now includes matching coverage for provider/config enums such as `ProviderMode`, `RemoteProviderKind`, `RemoteTtsAudioFormat`, `LocalTtsBackend`, `LocalAsrBackend`, and `SpeechFeedbackStyle`.
+- Focused `commands::tests` and `config::tests` both pass after the additions, closing the `Enum serialization/deserialization and validation` TODO with explicit contract tests instead of behavior changes.
+
+## 2026-03-29T13:06:58Z - GPT-5.4 - Provider config serde coverage completed
+- `src-tauri/src/config.rs` now includes direct JSON round-trip coverage for `ProviderSelections` plus the remote/local provider profile structs (`RemotePlannerProfile`, `RemoteTtsProfile`, `RemoteAsrProfile`, `LocalTtsProfile`, and `LocalAsrProfile`).
+- Added a validation regression that rejects missing selected profiles for TTS remote mode and ASR local mode, complementing the existing planner-only missing-profile checks.
+- Focused `config::tests` passes after the additions, closing the `Provider config serialization/deserialization and validation` TODO without changing runtime behavior.
+
+## 2026-03-29T13:47:31Z - GPT-5.4 - Secret reference resolution and masking coverage completed
+- `src-tauri/src/config.rs` now has explicit tests for `secret_ref_reference(...)` formatting and `resolve_secret_ref(...)` across environment-variable, file, and keyring-backed secret references, including missing/empty failure cases.
+- `src-tauri/src/app_core.rs` now has a masking regression proving remote settings surfaces expose only source references (`Environment variable: ...`, `File reference: ...`, `OS keyring entry: ...`) rather than raw secret values.
+- Focused `config::tests` and the new `app_core` masking test both pass, closing the `Secret reference resolution and masking behavior` TODO without altering provider runtime behavior.
+
 ## 2026-03-27T08:03:57Z - claude-sonnet-4.6 - Runtime browser visibility switching implemented
 - `src-tauri/src/browser.rs`: Added `BrowserController::switch_visibility(mode)` — updates `BrowserSessionConfig.visibility`, captures current page URL if an active session exists, drops the session, relaunches with updated config, and navigates back to the captured URL. Returns `Ok(Option<String>)` (restored URL if any). Under `#[cfg(not(feature = "browser"))]` returns `Err(BrowserError::FeatureDisabled)`.
 - `src-tauri/src/app_core.rs`: Replaced stub `execute_set_browser_visibility` with a real implementation: returns early with `changed: false` if already in requested mode; calls `browser.switch_visibility`; on success updates state visibility and clears stale `current_page` if a relaunch happened; on `FeatureDisabled` returns `supported: false` without failure; on other errors returns a `browser_tool_failure`.
