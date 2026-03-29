@@ -12382,6 +12382,44 @@ mod tests {
     }
 
     #[test]
+    fn normalize_transcript_for_routing_merges_compound_tokens_and_sanitizes_punctuation() {
+        assert_eq!(
+            normalize_transcript_for_routing("Go HEAD less, please!!"),
+            "go headless please"
+        );
+        assert_eq!(
+            normalize_transcript_for_routing("What'S the PLAY back spead???"),
+            "what s the playback speed"
+        );
+        assert_eq!(
+            normalize_transcript_for_routing("focus the e-mail field."),
+            "focus the e mail field"
+        );
+    }
+
+    #[test]
+    fn parse_intent_name_value_accepts_cleaned_values_and_rejects_unknown_intents() {
+        assert_eq!(
+            parse_intent_name_value(" `OpenUrl` ").expect("open url intent should parse"),
+            IntentName::OpenUrl
+        );
+        assert_eq!(
+            parse_intent_name_value("\"SetBrowserVisibility\"")
+                .expect("browser visibility intent should parse"),
+            IntentName::SetBrowserVisibility
+        );
+        assert_eq!(
+            parse_intent_name_value("'Unknown'").expect("unknown sentinel should parse"),
+            IntentName::Unknown
+        );
+
+        let error = parse_intent_name_value("LaunchMissiles")
+            .expect_err("unknown intents should be rejected");
+        assert!(error.contains("unknown intent tag"));
+        assert!(error.contains("LaunchMissiles"));
+    }
+
+    #[test]
     fn infer_intent_hint_recognizes_repeat_phrases() {
         assert_eq!(infer_intent_hint("repeat"), IntentName::Repeat);
         assert_eq!(infer_intent_hint("repeat that"), IntentName::Repeat);

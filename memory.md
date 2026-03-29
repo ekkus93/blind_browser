@@ -994,6 +994,11 @@
 - `src-tauri/src/app_core.rs` now has a masking regression proving remote settings surfaces expose only source references (`Environment variable: ...`, `File reference: ...`, `OS keyring entry: ...`) rather than raw secret values.
 - Focused `config::tests` and the new `app_core` masking test both pass, closing the `Secret reference resolution and masking behavior` TODO without altering provider runtime behavior.
 
+## 2026-03-29T20:38:33Z - GPT-5.4 - Command parsing helper coverage completed
+- `src-tauri/src/commands.rs` now includes direct tests for `normalize_transcript_for_routing(...)` and `parse_intent_name_value(...)`, covering compound-token merging, punctuation sanitization, cleaned quoted/backticked intent names, and unknown-intent rejection.
+- The broader command-parsing suite was already present for `infer_intent_hint(...)` and the direct command resolvers; this slice closes the remaining low-level helper gap instead of duplicating the higher-level routing tests.
+- Focused `commands::tests` passes after the additions, closing the `Command parsing` TODO without changing voice-command behavior.
+
 ## 2026-03-27T08:03:57Z - claude-sonnet-4.6 - Runtime browser visibility switching implemented
 - `src-tauri/src/browser.rs`: Added `BrowserController::switch_visibility(mode)` — updates `BrowserSessionConfig.visibility`, captures current page URL if an active session exists, drops the session, relaunches with updated config, and navigates back to the captured URL. Returns `Ok(Option<String>)` (restored URL if any). Under `#[cfg(not(feature = "browser"))]` returns `Err(BrowserError::FeatureDisabled)`.
 - `src-tauri/src/app_core.rs`: Replaced stub `execute_set_browser_visibility` with a real implementation: returns early with `changed: false` if already in requested mode; calls `browser.switch_visibility`; on success updates state visibility and clears stale `current_page` if a relaunch happened; on `FeatureDisabled` returns `supported: false` without failure; on other errors returns a `browser_tool_failure`.

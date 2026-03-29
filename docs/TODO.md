@@ -397,7 +397,7 @@
 ## Phase 8: Testing
 
 ### Unit Tests
-- [ ] Command parsing
+- [x] Command parsing
 - [ ] LLM provider selection behavior
 - [ ] Default local model profile selection behavior
 - [x] TTS provider selection behavior
