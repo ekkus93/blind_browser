@@ -999,6 +999,11 @@
 - The broader command-parsing suite was already present for `infer_intent_hint(...)` and the direct command resolvers; this slice closes the remaining low-level helper gap instead of duplicating the higher-level routing tests.
 - Focused `commands::tests` passes after the additions, closing the `Command parsing` TODO without changing voice-command behavior.
 
+## 2026-03-29T21:54:50Z - GPT-5.4 - LLM provider selection coverage completed
+- `src-tauri/src/config.rs` now rejects a selected planner `remote_profile` that is missing from `remote_profiles`, closing a validation gap beyond the existing planner-mode and missing-profile-name checks.
+- `src-tauri/src/app_core.rs` now has a runtime settings regression proving that selecting `ollama-default` changes the surfaced planner provider details from the default OpenAI profile to the shipped Ollama planner defaults.
+- Focused config and app-core tests pass after the additions, closing the `LLM provider selection behavior` TODO without changing planner runtime behavior.
+
 ## 2026-03-27T08:03:57Z - claude-sonnet-4.6 - Runtime browser visibility switching implemented
 - `src-tauri/src/browser.rs`: Added `BrowserController::switch_visibility(mode)` — updates `BrowserSessionConfig.visibility`, captures current page URL if an active session exists, drops the session, relaunches with updated config, and navigates back to the captured URL. Returns `Ok(Option<String>)` (restored URL if any). Under `#[cfg(not(feature = "browser"))]` returns `Err(BrowserError::FeatureDisabled)`.
 - `src-tauri/src/app_core.rs`: Replaced stub `execute_set_browser_visibility` with a real implementation: returns early with `changed: false` if already in requested mode; calls `browser.switch_visibility`; on success updates state visibility and clears stale `current_page` if a relaunch happened; on `FeatureDisabled` returns `supported: false` without failure; on other errors returns a `browser_tool_failure`.

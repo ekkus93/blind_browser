@@ -1641,6 +1641,76 @@ threads = 4
     }
 
     #[test]
+    fn rejects_missing_selected_remote_planner_profile_reference() {
+        let invalid = r#"
+[providers.planner]
+mode = "remote"
+remote_profile = "missing-planner-profile"
+
+[providers.tts]
+mode = "local"
+local_profile = "kitten-default"
+
+[providers.asr]
+mode = "local"
+local_profile = "whisper-default"
+
+[audio]
+playback_volume = 1.0
+playback_speed = 1.0
+default_tts_voice = "Bruno"
+
+[safety]
+confirmation_confidence_threshold = 0.9
+allow_click_without_confirmation = true
+always_confirm_submit = true
+
+[ocr]
+trigger_on_no_extractable_text = true
+sparse_text_char_threshold = 200
+sparse_text_region_threshold = 2
+prefer_region_ocr = true
+
+[models]
+models_dir = "~/.config/blind_browser/models"
+check_on_startup = true
+auto_download_missing = false
+
+[speech_feedback]
+style = "Short"
+confirm_setting_changes = true
+include_previous_value = false
+
+[local_profiles.kitten-default]
+backend = "kitten_tts_rs"
+model_id = "default"
+model_path = "/path/to/kitten/model"
+default_voice = "Bruno"
+sample_rate = 24000
+
+[local_profiles.whisper-default]
+backend = "whisper"
+model_id = "tiny"
+model_path = "/path/to/whisper/model"
+language = "en"
+threads = 4
+"#;
+
+        let error = AppConfig::load_from_str(invalid).expect_err("config should be invalid");
+
+        match error {
+            ConfigError::Validation(message) => {
+                assert!(
+                    message.contains(
+                        "providers.planner references missing remote_profiles.missing-planner-profile"
+                    )
+                );
+            }
+            other => panic!("expected validation error, got {other}"),
+        }
+    }
+
+    #[test]
     fn rejects_inline_secret_refs() {
         let invalid = r#"
 [providers.planner]

@@ -398,7 +398,7 @@
 
 ### Unit Tests
 - [x] Command parsing
-- [ ] LLM provider selection behavior
+- [x] LLM provider selection behavior
 - [ ] Default local model profile selection behavior
 - [x] TTS provider selection behavior
 - [x] ASR provider selection behavior

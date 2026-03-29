@@ -8041,6 +8041,31 @@ mod tests {
     }
 
     #[test]
+    fn build_remote_planner_settings_reflects_selected_ollama_profile_details() {
+        let mut config = AppConfig::default();
+        config.providers.planner.remote_profile = Some(String::from("ollama-default"));
+
+        let settings = build_remote_planner_settings(&config);
+
+        assert_eq!(settings.profile_name.as_deref(), Some("ollama-default"));
+        assert_eq!(settings.provider, Some(crate::commands::RemoteProviderLabel::Ollama));
+        assert_eq!(
+            settings.base_url.as_deref(),
+            Some("http://localhost:11434/v1")
+        );
+        assert_eq!(settings.model.as_deref(), Some("qwen2.5:3b-instruct"));
+        assert_eq!(
+            settings.api_key_reference.as_deref(),
+            Some("Environment variable: OLLAMA_API_KEY")
+        );
+        assert_eq!(settings.organization_reference, None);
+        assert_eq!(settings.project, None);
+        assert_eq!(settings.temperature_milli, Some(200));
+        assert_eq!(settings.max_output_tokens, Some(1024));
+        assert_eq!(settings.timeout_ms, Some(30_000));
+    }
+
+    #[test]
     fn build_remote_tts_settings_reflects_configured_profile_details() {
         let config = AppConfig::default();
 
