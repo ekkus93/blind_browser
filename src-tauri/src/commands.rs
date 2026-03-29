@@ -10687,6 +10687,34 @@ mod tests {
     }
 
     #[test]
+    fn planner_output_round_trips_with_confirmation_metadata_and_matches_schema() {
+        let planner_output = canonical_planner_output_examples()
+            .remove("click_element_with_confirmation")
+            .expect("click_element_with_confirmation example should exist");
+
+        let serialized =
+            serde_json::to_value(&planner_output).expect("planner output should serialize");
+        assert_json_matches_schema(&serialized, &planner_output_schema())
+            .expect("planner output should match generated planner schema");
+        assert_eq!(
+            serialized.pointer("/status"),
+            Some(&serde_json::json!("NeedsConfirmation"))
+        );
+        assert_eq!(
+            serialized.pointer("/requires_confirmation"),
+            Some(&serde_json::json!(true))
+        );
+        assert_eq!(
+            serialized.pointer("/steps/0/on_success"),
+            Some(&serde_json::json!("RequestConfirmation"))
+        );
+
+        let round_tripped: PlannerOutput =
+            serde_json::from_value(serialized).expect("planner output should deserialize");
+        assert_eq!(round_tripped, planner_output);
+    }
+
+    #[test]
     fn canonical_planner_output_step_arguments_match_generated_tool_input_schemas() {
         for (example_name, planner_output) in canonical_planner_output_examples() {
             for step in &planner_output.steps {
@@ -10705,6 +10733,98 @@ mod tests {
                 });
             }
         }
+    }
+
+    #[test]
+    fn planner_input_round_trips_with_nested_runtime_context_and_matches_schema() {
+        let page_model = PageModel {
+            interactive_elements: vec![InteractiveElement {
+                element_id: String::from("link-help"),
+                dom_locator: Some(String::from("#help")),
+                role: crate::page_model::ElementRole::Link,
+                tag_name: String::from("a"),
+                text: Some(String::from("Help")),
+                accessible_name: Some(String::from("Help")),
+                placeholder: None,
+                href: Some(String::from("https://example.com/help")),
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::new(),
+            }],
+            ..fixture_page_model_without_regions()
+        };
+
+        let planner_input = PlannerInput {
+            request_id: String::from("req-planner-roundtrip"),
+            transcript: String::from("click the help link"),
+            agent_state: fixture_agent_state(),
+            safety: PlannerSafetySettings {
+                confirmation_confidence_threshold: 0.9,
+                allow_click_without_confirmation: true,
+                always_confirm_submit: true,
+            },
+            available_tools: planner_available_tools(),
+            active_skill_names: vec![String::from("open_link_by_text")],
+            relevant_skill_summaries: vec![SkillSummary {
+                name: String::from("open_link_by_text"),
+                description: String::from("Open a link by matching visible text."),
+                intent_tags: vec![String::from("intent:ClickElement")],
+                allowed_tools: Some(vec![ToolName::FindElement, ToolName::ClickElement]),
+                requires_confirmation: false,
+                priority: 80,
+            }],
+            page_snapshot: Some(PageSnapshotData {
+                page_id: String::from("page-1"),
+                url: String::from("https://example.com/article"),
+                title: Some(String::from("Example article")),
+                visible_text_excerpt: String::from("Example article body"),
+                interactive_elements: vec![InteractiveElement {
+                    element_id: String::from("link-help"),
+                    dom_locator: Some(String::from("#help")),
+                    role: crate::page_model::ElementRole::Link,
+                    tag_name: String::from("a"),
+                    text: Some(String::from("Help")),
+                    accessible_name: Some(String::from("Help")),
+                    placeholder: None,
+                    href: Some(String::from("https://example.com/help")),
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: std::collections::BTreeMap::new(),
+                }],
+                scroll_y: 120.0,
+                viewport_width: 1280.0,
+                viewport_height: 720.0,
+                document_height: 2400.0,
+            }),
+            page_model: Some(page_model),
+            recent_tool_results: vec![PlannerToolHistoryEntry {
+                tool_name: ToolName::GetAgentState,
+                ok: true,
+                observation_summary: vec![String::from("agent state read")],
+            }],
+        };
+
+        let serialized =
+            serde_json::to_value(&planner_input).expect("planner input should serialize");
+        let schema = schema_json::<PlannerInput>();
+        assert_json_matches_schema(&serialized, &schema)
+            .expect("planner input should match generated planner input schema");
+        assert_eq!(
+            serialized.pointer("/agent_state/browser_history/current_entry_index"),
+            Some(&serde_json::json!(1))
+        );
+        assert_eq!(
+            serialized.pointer("/relevant_skill_summaries/0/allowed_tools/1"),
+            Some(&serde_json::json!("ClickElement"))
+        );
+
+        let round_tripped: PlannerInput =
+            serde_json::from_value(serialized).expect("planner input should deserialize");
+        assert_eq!(round_tripped, planner_input);
     }
 
     #[test]

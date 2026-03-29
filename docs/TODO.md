@@ -404,7 +404,7 @@
 - [x] ASR provider selection behavior
 - [x] Deterministic tool result schemas
 - [x] Common tool envelope serialization/deserialization
-- [ ] Planner input/output schema serialization/deserialization
+- [x] Planner input/output schema serialization/deserialization
 - [ ] Per-tool input schema validation
 - [ ] Enum serialization/deserialization and validation
 - [ ] Provider config serialization/deserialization and validation
