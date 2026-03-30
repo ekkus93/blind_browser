@@ -652,14 +652,15 @@ impl AppCore {
         self.state.browser_history = browser_navigation.history.clone();
         if browser_navigation.navigated {
             self.stop_narration_playback();
-            if let Some(current_page) = self.state.current_page.as_mut() {
-                current_page.url = browser_navigation.url.clone();
-                current_page.title = browser_navigation.title.clone();
-                current_page.regions.clear();
-                current_page.interactive_elements.clear();
-            }
-            self.state.narration_cursor = Default::default();
-            self.clear_recent_field_context();
+            refresh_current_page_after_navigation(
+                &mut self.state.current_page,
+                browser_navigation.url.clone(),
+                browser_navigation.title.clone(),
+            );
+            clear_navigation_follow_up_state(
+                &mut self.state,
+                &mut self.recent_field_context,
+            );
         }
 
         let mut observations = vec![format!(
@@ -725,14 +726,15 @@ impl AppCore {
         self.state.browser_history = browser_navigation.history.clone();
         if browser_navigation.navigated {
             self.stop_narration_playback();
-            if let Some(current_page) = self.state.current_page.as_mut() {
-                current_page.url = browser_navigation.url.clone();
-                current_page.title = browser_navigation.title.clone();
-                current_page.regions.clear();
-                current_page.interactive_elements.clear();
-            }
-            self.state.narration_cursor = Default::default();
-            self.clear_recent_field_context();
+            refresh_current_page_after_navigation(
+                &mut self.state.current_page,
+                browser_navigation.url.clone(),
+                browser_navigation.title.clone(),
+            );
+            clear_navigation_follow_up_state(
+                &mut self.state,
+                &mut self.recent_field_context,
+            );
         }
 
         let mut observations = vec![format!(
@@ -794,14 +796,12 @@ impl AppCore {
 
         self.state.browser_history = browser_page.history.clone();
         self.stop_narration_playback();
-        if let Some(current_page) = self.state.current_page.as_mut() {
-            current_page.url = Some(browser_page.url.clone());
-            current_page.title = browser_page.title.clone();
-            current_page.regions.clear();
-            current_page.interactive_elements.clear();
-        }
-        self.state.narration_cursor = Default::default();
-        self.clear_recent_field_context();
+        refresh_current_page_after_navigation(
+            &mut self.state.current_page,
+            Some(browser_page.url.clone()),
+            browser_page.title.clone(),
+        );
+        clear_navigation_follow_up_state(&mut self.state, &mut self.recent_field_context);
 
         let mut observations = vec![String::from(
             "Reloaded the live browser page and refreshed runtime page metadata.",
@@ -5832,6 +5832,27 @@ fn normalize_absolute_url(url: &str) -> Result<String, ToolError> {
     Ok(trimmed.to_string())
 }
 
+fn refresh_current_page_after_navigation(
+    current_page: &mut Option<PageModel>,
+    url: Option<String>,
+    title: Option<String>,
+) {
+    if let Some(current_page) = current_page.as_mut() {
+        current_page.url = url;
+        current_page.title = title;
+        current_page.regions.clear();
+        current_page.interactive_elements.clear();
+    }
+}
+
+fn clear_navigation_follow_up_state(
+    state: &mut AppState,
+    recent_field_context: &mut Option<RecentFieldContext>,
+) {
+    state.narration_cursor = Default::default();
+    *recent_field_context = None;
+}
+
 fn resolve_direct_focus_field_command(
     transcript: &str,
     request_id: &str,
@@ -7611,14 +7632,16 @@ mod tests {
     use super::{
         build_asr_provider_settings, build_confirmation_settings, build_extracted_page_model,
         build_find_element_query, build_local_asr_model_settings, build_local_tts_model_settings,
-        build_ocr_threshold_settings, build_planner_provider_settings,
+        build_ocr_threshold_settings, build_planner_provider_settings, build_tts_model_settings,
         build_provider_failover_settings, build_remote_asr_settings, build_remote_planner_settings,
         build_remote_tts_settings, build_tts_provider_settings, build_tts_voice_settings,
-        build_visible_text_excerpt, determine_find_element_resolution,
+        build_visible_text_excerpt, clear_navigation_follow_up_state,
+        determine_find_element_resolution,
         execute_bounded_replanning_loop, extracted_text_metrics, filter_interactive_elements,
         infer_extraction_source, merge_ocr_text_into_page_model, merged_region_text,
         normalize_absolute_url, normalize_optional_text, planner_interpretation_unavailable_error,
-        planner_system_prompt, rank_find_element_candidates, region_bbox_by_id,
+        planner_system_prompt, rank_find_element_candidates, refresh_current_page_after_navigation,
+        region_bbox_by_id,
         region_first_ocr_target_ids, resolve_clickable_element,
         resolve_direct_fill_and_submit_command, resolve_direct_fill_field_command,
         resolve_direct_focus_field_command, resolve_direct_submit_form_command,
@@ -7637,6 +7660,7 @@ mod tests {
         ElementRole, ExtractionSource, InteractiveElement, PageModel, PageRegion, Rect, RegionRole,
         RegionSource,
     };
+    use crate::state::AppState;
 
     fn fixture_page(interactive_elements: Vec<InteractiveElement>) -> PageModel {
         PageModel {
@@ -8211,6 +8235,66 @@ mod tests {
     }
 
     #[test]
+    fn build_tts_model_settings_uses_selected_local_profile() {
+        let mut config = AppConfig::default();
+        config.local_tts_profiles.insert(
+            String::from("kitten-alt"),
+            crate::config::LocalTtsProfile {
+                backend: crate::config::LocalTtsBackend::KittenTtsRs,
+                model_id: String::from("expressive"),
+                model_path: String::from("/path/to/kitten/expressive"),
+                default_voice: String::from("Bella"),
+                sample_rate: 22_050,
+            },
+        );
+        config.providers.tts.local_profile = Some(String::from("kitten-alt"));
+
+        let settings = build_tts_model_settings(&config);
+
+        assert_eq!(settings.mode, ProviderMode::Local);
+        assert_eq!(settings.active_profile.as_deref(), Some("kitten-alt"));
+        assert!(settings
+            .available_profiles
+            .iter()
+            .any(|option| option.profile_name == "kitten-default" && option.model_label == "default"));
+        assert!(settings
+            .available_profiles
+            .iter()
+            .any(|option| option.profile_name == "kitten-alt" && option.model_label == "expressive"));
+    }
+
+    #[test]
+    fn build_local_tts_model_settings_reflects_selected_profile_details() {
+        let mut config = AppConfig::default();
+        config.local_tts_profiles.insert(
+            String::from("kitten-alt"),
+            crate::config::LocalTtsProfile {
+                backend: crate::config::LocalTtsBackend::KittenTtsRs,
+                model_id: String::from("expressive"),
+                model_path: String::from("/path/to/kitten/expressive"),
+                default_voice: String::from("Bella"),
+                sample_rate: 22_050,
+            },
+        );
+        config.providers.tts.local_profile = Some(String::from("kitten-alt"));
+
+        let settings = build_local_tts_model_settings(&config);
+
+        assert_eq!(settings.profile_name.as_deref(), Some("kitten-alt"));
+        assert_eq!(
+            settings.backend,
+            Some(crate::config::LocalTtsBackend::KittenTtsRs)
+        );
+        assert_eq!(settings.model_id.as_deref(), Some("expressive"));
+        assert_eq!(
+            settings.model_path.as_deref(),
+            Some("/path/to/kitten/expressive")
+        );
+        assert_eq!(settings.default_voice.as_deref(), Some("Bella"));
+        assert_eq!(settings.sample_rate, Some(22_050));
+    }
+
+    #[test]
     fn build_local_asr_model_settings_reflects_configured_profile_details() {
         let config = AppConfig::default();
 
@@ -8228,6 +8312,37 @@ mod tests {
         );
         assert_eq!(settings.language.as_deref(), Some("en"));
         assert_eq!(settings.threads, Some(4));
+    }
+
+    #[test]
+    fn build_local_asr_model_settings_reflects_selected_profile_details() {
+        let mut config = AppConfig::default();
+        config.local_asr_profiles.insert(
+            String::from("whisper-alt"),
+            crate::config::LocalAsrProfile {
+                backend: crate::config::LocalAsrBackend::Whisper,
+                model_id: String::from("base"),
+                model_path: String::from("/path/to/whisper/base"),
+                language: Some(String::from("fr")),
+                threads: 6,
+            },
+        );
+        config.providers.asr.local_profile = Some(String::from("whisper-alt"));
+
+        let settings = build_local_asr_model_settings(&config);
+
+        assert_eq!(settings.profile_name.as_deref(), Some("whisper-alt"));
+        assert_eq!(
+            settings.backend,
+            Some(crate::config::LocalAsrBackend::Whisper)
+        );
+        assert_eq!(settings.model_id.as_deref(), Some("base"));
+        assert_eq!(
+            settings.model_path.as_deref(),
+            Some("/path/to/whisper/base")
+        );
+        assert_eq!(settings.language.as_deref(), Some("fr"));
+        assert_eq!(settings.threads, Some(6));
     }
 
     #[test]
@@ -8345,6 +8460,71 @@ mod tests {
     fn normalize_absolute_url_rejects_relative_urls() {
         let error = normalize_absolute_url("/relative/path").unwrap_err();
         assert_eq!(error.code, "invalid_url");
+    }
+
+    #[test]
+    fn refresh_current_page_after_navigation_replaces_metadata_and_clears_stale_content() {
+        let mut current_page = Some(PageModel {
+            title: Some(String::from("Old page")),
+            url: Some(String::from("https://example.com/old")),
+            regions: vec![PageRegion {
+                region_id: String::from("region-1"),
+                role: RegionRole::Paragraph,
+                label: None,
+                text: String::from("Stale extracted text"),
+                bbox: None,
+                source: RegionSource::Dom,
+            }],
+            interactive_elements: vec![InteractiveElement {
+                element_id: String::from("button-1"),
+                dom_locator: Some(String::from("#old-button")),
+                role: ElementRole::Button,
+                tag_name: String::from("button"),
+                text: Some(String::from("Continue")),
+                accessible_name: Some(String::from("Continue")),
+                placeholder: None,
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::new(),
+            }],
+        });
+
+        refresh_current_page_after_navigation(
+            &mut current_page,
+            Some(String::from("https://example.com/new")),
+            Some(String::from("New page")),
+        );
+
+        let current_page = current_page.expect("page should still exist");
+        assert_eq!(current_page.url.as_deref(), Some("https://example.com/new"));
+        assert_eq!(current_page.title.as_deref(), Some("New page"));
+        assert!(current_page.regions.is_empty());
+        assert!(current_page.interactive_elements.is_empty());
+    }
+
+    #[test]
+    fn clear_navigation_follow_up_state_resets_cursor_and_recent_field_context() {
+        let mut state = AppState::default();
+        state.narration_cursor.current_index = Some(3);
+        state.narration_cursor.current_region_id = Some(String::from("region-3"));
+        state.narration_cursor.total_regions = 8;
+
+        let mut recent_field_context = Some(RecentFieldContext {
+            page_id: String::from("page-1"),
+            target_description: Some(String::from("email field")),
+            active_element_id: Some(String::from("input-email")),
+            candidate_element_ids: vec![String::from("input-email"), String::from("input-alt")],
+            pending_text: Some(String::from("user@example.com")),
+            submit_after: true,
+        });
+
+        clear_navigation_follow_up_state(&mut state, &mut recent_field_context);
+
+        assert_eq!(state.narration_cursor, Default::default());
+        assert_eq!(recent_field_context, None);
     }
 
     #[test]
@@ -8587,6 +8767,54 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![RegionSource::Dom, RegionSource::Dom, RegionSource::Ocr]
         );
+    }
+
+    #[test]
+    fn build_extracted_page_model_leaves_heading_regions_unchanged_when_disabled() {
+        let page = PageModel {
+            title: Some(String::from("Example article")),
+            url: Some(String::from("https://example.com/article")),
+            regions: vec![
+                PageRegion {
+                    region_id: String::from("region-title"),
+                    role: RegionRole::Title,
+                    label: Some(String::from("Title")),
+                    text: String::from("Example article"),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("region-heading"),
+                    role: RegionRole::Heading,
+                    label: Some(String::from("Heading")),
+                    text: String::from("Section one"),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+                PageRegion {
+                    region_id: String::from("region-paragraph"),
+                    role: RegionRole::Paragraph,
+                    label: None,
+                    text: String::from("First paragraph."),
+                    bbox: None,
+                    source: RegionSource::Dom,
+                },
+            ],
+            interactive_elements: Vec::new(),
+        };
+        let input = ExtractPageModelInput {
+            request_id: String::from("req-extract"),
+            timeout_ms: None,
+            use_dom_extraction: false,
+            include_headings: false,
+            include_links: true,
+        };
+
+        let extracted = build_extracted_page_model(&page, &input);
+
+        assert_eq!(extracted.title, page.title);
+        assert_eq!(extracted.url, page.url);
+        assert_eq!(extracted.regions, page.regions);
     }
 
     #[test]
@@ -10271,6 +10499,119 @@ mod tests {
         assert_eq!(candidates.len(), 2);
         assert_eq!(candidates[0].element_id, "button-1");
         assert!(candidates[0].confidence_bps > candidates[1].confidence_bps);
+    }
+
+    #[test]
+    fn rank_find_element_candidates_uses_selector_hint_and_respects_candidate_limit() {
+        let elements = vec![
+            InteractiveElement {
+                element_id: String::from("button-primary"),
+                dom_locator: Some(String::from("#checkout-submit")),
+                role: ElementRole::Button,
+                tag_name: String::from("button"),
+                text: Some(String::from("Continue")),
+                accessible_name: Some(String::from("Continue")),
+                placeholder: None,
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::from([
+                    (String::from("data-testid"), String::from("checkout-submit")),
+                    (String::from("class"), String::from("cta primary")),
+                ]),
+            },
+            InteractiveElement {
+                element_id: String::from("button-secondary"),
+                dom_locator: Some(String::from("#continue-reading")),
+                role: ElementRole::Button,
+                tag_name: String::from("button"),
+                text: Some(String::from("Continue")),
+                accessible_name: Some(String::from("Continue")),
+                placeholder: None,
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::from([(
+                    String::from("data-testid"),
+                    String::from("continue-reading"),
+                )]),
+            },
+            InteractiveElement {
+                element_id: String::from("button-tertiary"),
+                dom_locator: Some(String::from("#continue-later")),
+                role: ElementRole::Button,
+                tag_name: String::from("button"),
+                text: Some(String::from("Continue later")),
+                accessible_name: Some(String::from("Continue later")),
+                placeholder: None,
+                href: None,
+                value: None,
+                bbox: None,
+                visible: true,
+                enabled: true,
+                attributes: std::collections::BTreeMap::from([(
+                    String::from("data-testid"),
+                    String::from("continue-later"),
+                )]),
+            },
+        ];
+        let query = build_find_element_query(&FindElementInput {
+            request_id: String::from("req-find"),
+            timeout_ms: None,
+            description: String::from("Continue"),
+            text: None,
+            role: Some(ElementRole::Button),
+            color_hint: None,
+            nearby_text: None,
+            selector_hint: Some(String::from("checkout-submit")),
+            visibility_filter: crate::commands::ElementVisibilityFilter::VisibleOnly,
+            max_candidates: Some(2),
+        })
+        .expect("query should be valid");
+
+        let candidates = rank_find_element_candidates(&elements, &query, 2);
+
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0].element_id, "button-primary");
+        assert!(candidates[0]
+            .matched_on
+            .iter()
+            .any(|matched_on| matched_on == "selector_hint"));
+        assert!(candidates[0].confidence_bps > candidates[1].confidence_bps);
+        assert!(!candidates
+            .iter()
+            .any(|candidate| candidate.element_id == "button-tertiary"));
+    }
+
+    #[test]
+    fn build_find_element_query_normalizes_optional_hints_into_summary() {
+        let query = build_find_element_query(&FindElementInput {
+            request_id: String::from("req-find"),
+            timeout_ms: None,
+            description: String::from("  Continue  "),
+            text: Some(String::from("  Start now  ")),
+            role: Some(ElementRole::Button),
+            color_hint: Some(String::from("  primary blue  ")),
+            nearby_text: Some(String::from("  pricing  ")),
+            selector_hint: Some(String::from("  cta-primary  ")),
+            visibility_filter: crate::commands::ElementVisibilityFilter::VisibleOnly,
+            max_candidates: Some(3),
+        })
+        .expect("query should be valid");
+
+        assert_eq!(query.description.as_deref(), Some("Continue"));
+        assert_eq!(query.text.as_deref(), Some("Start now"));
+        assert_eq!(query.color_hint.as_deref(), Some("primary blue"));
+        assert_eq!(query.nearby_text.as_deref(), Some("pricing"));
+        assert_eq!(query.selector_hint.as_deref(), Some("cta-primary"));
+        assert_eq!(
+            query.summary,
+            "description=Continue; text=Start now; role=Button; color_hint=primary blue; nearby_text=pricing; selector_hint=cta-primary"
+        );
     }
 
     #[test]

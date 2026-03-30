@@ -1206,3 +1206,41 @@
 ## 2026-03-28T21:03:47Z - GPT-5.4 - Deterministic tool-result schema TODO was already satisfied
 - `src-tauri/src/commands.rs` already exports concrete `ToolResult<...>` output schemas for every registered deterministic tool via `tool_output_schema(...)`, and `registered_tools_all_expose_output_schemas()` already fails if any tool lacks one.
 - The existing `sample_serialized_tool_results_match_generated_tool_output_schemas()` regression iterates `sample_planned_steps_for_registered_tools()`, which is built directly from `registered_tools()`, so one representative serialized result is already schema-checked for every registered tool; this slice only reconciled the stale TODO item.
+
+## 2026-03-29T22:03:48Z - GPT-5.4 - Default local model profile selection coverage landed
+- Added config validation coverage in `src-tauri/src/config.rs` proving `providers.tts.local_profile` and `providers.asr.local_profile` are rejected when they reference missing local profile entries.
+- Added runtime-setting regressions in `src-tauri/src/app_core.rs` proving that switching the selected local TTS or ASR profile changes the surfaced model details, plus a `build_tts_model_settings(...)` regression showing the selected local TTS profile becomes the active profile in the exposed settings.
+- Marked `Default local model profile selection behavior` complete in `docs/TODO.md` and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`.
+
+## 2026-03-29T22:20:47Z - GPT-5.4 - SKILL.md frontmatter and precedence coverage landed
+- Added `commands.rs` regressions proving invalid `SKILL.md` documents are rejected for representative frontmatter failures, including missing YAML frontmatter, unsupported fields, missing descriptions, and unknown tools.
+- Added a file-backed discovery regression proving duplicate skill names resolve by precedence, with the project-local `SKILL.md` copy winning over lower-precedence user and bundled copies.
+- Marked `SKILL.md frontmatter validation and precedence resolution` complete in `docs/TODO.md` and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`.
+
+## 2026-03-29T22:32:19Z - GPT-5.4 - Skill ranking and top-N coverage landed
+- Added a file-backed `commands.rs` regression proving custom project skills are ranked by the live scoring inputs and that `build_planner_skill_selection(...)` returns only the top `MAX_SELECTED_PLANNER_SKILLS` matches.
+- The new test locks down the current ranking behavior across lexical overlap, inferred-intent tags, allowed-tool overlap, and explicit priority, while excluding weaker and unrelated skills from the selected summaries.
+- Marked `Skill ranking and top-N selection behavior` complete in `docs/TODO.md` and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`.
+
+## 2026-03-29T22:37:17Z - GPT-5.4 - Planner transition validation coverage landed
+- Added `commands.rs` regressions proving `validate_planner_output(...)` rejects planner steps that reference unavailable tools and rejects `NextStep` transitions targeting missing step ids before execution starts.
+- The new tests lock down the exact `invalid_planner_output` details for both failure modes, complementing the existing executor-side abort coverage for missing transition targets during execution.
+- Marked `Reject unknown tools and invalid planner transitions` complete in `docs/TODO.md` and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`.
+
+## 2026-03-29T22:41:33Z - GPT-5.4 - Invalid tool-argument rejection coverage tightened
+- Added direct `commands.rs` coverage proving `validate_planned_step_arguments(...)` reports structured `step_id` and `tool_name` details when tool arguments fail schema deserialization.
+- Tightened the existing planner-output regression so `validate_planner_output(...)` also pins the same step/tool details for malformed step arguments, complementing the existing executor-side `invalid_tool_arguments` dispatch rejection.
+- Marked `Reject invalid tool arguments before execution` complete in `docs/TODO.md` and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`.
+
+## 2026-03-29T22:49:28Z - GPT-5.4 - Element matching helper coverage tightened
+- Added `app_core.rs` regressions proving `build_find_element_query(...)` normalizes optional hint fields into the query summary and that `rank_find_element_candidates(...)` uses attribute-backed `selector_hint` matches while truncating to the requested candidate limit.
+- These tests complement the existing exact-name ranking and confidence-threshold resolution coverage by pinning the bounded hint-driven matching path used before planner clarification.
+- Marked `Element matching and resolution behavior` complete in `docs/TODO.md` and revalidated with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`.
+## 2026-03-29T23:00:29Z - GPT-5.4 - Page model building coverage completed
+- Added a focused regression in `src-tauri/src/app_core.rs` proving `build_extracted_page_model(...)` leaves title, heading, and paragraph regions unchanged when `include_headings` is false, matching the current schema contract.
+- This keeps the slice scoped to the real remaining gap: the current runtime does not yet distinguish heading-specific extraction, so disabling `include_headings` must not silently strip or rewrite heading regions.
+- Updated `docs/TODO.md` to mark `Page model building` complete. Validation is green with the standard `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` workflow.
+## 2026-03-30T03:59:01Z - GPT-5.4 - Navigation logic coverage completed
+- Extracted the shared post-navigation cleanup in `src-tauri/src/app_core.rs` into small private helpers so the current runtime contract is explicit and testable without changing navigation behavior.
+- Added focused regressions proving successful navigation clears stale extracted content (`regions` and `interactive_elements`) and resets narration follow-up state (`narration_cursor` and recent field context).
+- Updated `docs/TODO.md` to mark `Navigation logic` complete. Validation is green with the standard `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` workflow.

@@ -2000,6 +2000,72 @@ threads = 4
     }
 
     #[test]
+    fn rejects_missing_selected_local_profile_references_for_tts_and_asr() {
+        let invalid = r#"
+[providers.planner]
+mode = "remote"
+remote_profile = "openai-default"
+
+[providers.tts]
+mode = "local"
+local_profile = "missing-kitten-profile"
+
+[providers.asr]
+mode = "local"
+local_profile = "missing-whisper-profile"
+
+[audio]
+playback_volume = 1.0
+playback_speed = 1.0
+default_tts_voice = "Bruno"
+
+[safety]
+confirmation_confidence_threshold = 0.9
+allow_click_without_confirmation = true
+always_confirm_submit = true
+
+[ocr]
+trigger_on_no_extractable_text = true
+sparse_text_char_threshold = 200
+sparse_text_region_threshold = 2
+prefer_region_ocr = true
+
+[models]
+models_dir = "~/.config/blind_browser/models"
+check_on_startup = true
+auto_download_missing = false
+
+[speech_feedback]
+style = "Short"
+confirm_setting_changes = true
+include_previous_value = false
+
+[remote_profiles.openai-default]
+provider = "OpenAi"
+base_url = "https://api.openai.com/v1"
+model = "gpt-4.1"
+api_key = { from_env = "OPENAI_API_KEY" }
+temperature_milli = 200
+max_output_tokens = 1024
+timeout_ms = 30000
+"#;
+
+        let error = AppConfig::load_from_str(invalid).expect_err("config should be invalid");
+
+        match error {
+            ConfigError::Validation(message) => {
+                assert!(message.contains(
+                    "providers.tts references missing local_profiles.missing-kitten-profile"
+                ));
+                assert!(message.contains(
+                    "providers.asr references missing local_profiles.missing-whisper-profile"
+                ));
+            }
+            other => panic!("expected validation error, got {other}"),
+        }
+    }
+
+    #[test]
     fn rejects_out_of_range_audio_settings() {
         let invalid =
             AppConfig::default_template().replace("playback_speed = 1.0", "playback_speed = 7.0");

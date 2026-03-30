@@ -399,7 +399,7 @@
 ### Unit Tests
 - [x] Command parsing
 - [x] LLM provider selection behavior
-- [ ] Default local model profile selection behavior
+- [x] Default local model profile selection behavior
 - [x] TTS provider selection behavior
 - [x] ASR provider selection behavior
 - [x] Deterministic tool result schemas
@@ -418,15 +418,15 @@
 - [x] Volume normalization from percent, decimal, and relative phrases
 - [x] Playback speed normalization from multiplier, percent, and relative phrases
 - [x] Volume and playback speed query command normalization and spoken response formatting
-- [ ] SKILL.md frontmatter validation and precedence resolution
-- [ ] Skill ranking and top-N selection behavior
-- [ ] Reject unknown tools and invalid planner transitions
-- [ ] Reject invalid tool arguments before execution
-- [ ] Element matching and resolution behavior
+- [x] SKILL.md frontmatter validation and precedence resolution
+- [x] Skill ranking and top-N selection behavior
+- [x] Reject unknown tools and invalid planner transitions
+- [x] Reject invalid tool arguments before execution
+- [x] Element matching and resolution behavior
 - [x] Pending plan execution state serialization and resume bookkeeping
 - [x] ExecutionOutcome mapping from PlannerStatus and step transitions
-- [ ] Page model building
-- [ ] Navigation logic
+- [x] Page model building
+- [x] Navigation logic
 
 ### Integration Tests
 - [ ] Load page → extract → read

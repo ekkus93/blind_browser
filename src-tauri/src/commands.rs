@@ -6143,6 +6143,23 @@ mod tests {
     use super::*;
     use crate::page_model::RegionRole;
 
+    fn unique_temp_path(label: &str) -> std::path::PathBuf {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock should be after unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "blind-browser-{label}-{}-{timestamp}",
+            std::process::id()
+        ))
+    }
+
+    fn write_skill_document(root: &std::path::Path, skill_name: &str, content: &str) {
+        let skill_dir = root.join(skill_name);
+        std::fs::create_dir_all(&skill_dir).expect("skill directory should be created");
+        std::fs::write(skill_dir.join("SKILL.md"), content).expect("skill document should be written");
+    }
+
     struct MockExecutor {
         last_open_url: Option<String>,
         last_go_back_request: Option<GoBackInput>,
@@ -8928,6 +8945,35 @@ mod tests {
     }
 
     #[test]
+    fn validate_planned_step_arguments_reports_schema_mismatch_details() {
+        let step = PlannedStep {
+            step_id: String::from("step-speed"),
+            tool_name: ToolName::SetPlaybackSpeed,
+            arguments: serde_json::json!({
+                "request_id": "req-speed",
+                "speed": "fast"
+            }),
+            purpose: String::from("set playback speed"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        let error = validate_planned_step_arguments(&step)
+            .expect_err("validation should reject malformed step arguments");
+
+        assert_eq!(error.code, "invalid_planner_output");
+        assert!(error.message.contains("expected schema"));
+        assert_eq!(
+            error.details.as_ref().and_then(|details| details.get("step_id")),
+            Some(&serde_json::json!("step-speed"))
+        );
+        assert_eq!(
+            error.details.as_ref().and_then(|details| details.get("tool_name")),
+            Some(&serde_json::json!("SetPlaybackSpeed"))
+        );
+    }
+
+    #[test]
     fn dispatches_set_browser_visibility_from_planned_step() {
         let mut executor = MockExecutor::default();
         let step = PlannedStep {
@@ -10215,6 +10261,232 @@ mod tests {
     }
 
     #[test]
+    fn parse_skill_document_rejects_invalid_frontmatter_cases() {
+        let available_tool_names = planner_available_tools()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect::<Vec<_>>();
+        let cases = [
+            (
+                "missing frontmatter",
+                "Use the browser state to guide the user.",
+                "SKILL.md is missing a YAML frontmatter block",
+            ),
+            (
+                "unsupported field",
+                r#"---
+name: browse_help
+description: Help the user browse
+unsupported: true
+---
+Use the browser state to guide the user."#,
+                "unsupported frontmatter field 'unsupported'",
+            ),
+            (
+                "missing description",
+                r#"---
+name: browse_help
+allowed_tools:
+  - get_runtime_status
+---
+Use the browser state to guide the user."#,
+                "skill frontmatter is missing description",
+            ),
+            (
+                "unknown tool",
+                r#"---
+name: browse_help
+description: Help the user browse
+allowed_tools:
+  - not_a_real_tool
+---
+Use the browser state to guide the user."#,
+                "unknown tool 'not_a_real_tool'",
+            ),
+        ];
+
+        for (label, content, expected_error) in cases {
+            let error = parse_skill_document(content, SkillSource::Project, &available_tool_names)
+                .expect_err("invalid skill document should be rejected");
+            assert!(
+                error.contains(expected_error),
+                "case {label} expected error containing {expected_error:?}, got {error:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn discover_skills_prefers_higher_precedence_duplicate_skill_names() {
+        let project_root = unique_temp_path("skill-project");
+        let user_root = unique_temp_path("skill-user");
+        let project_skills_root = project_root.join(".pi").join("skills");
+        std::fs::create_dir_all(&project_skills_root)
+            .expect("project skill root should be created");
+        std::fs::create_dir_all(&user_root).expect("user skill root should be created");
+
+        write_skill_document(
+            &project_skills_root,
+            "open_url",
+            r#"---
+name: open_url
+description: Project-local open URL workflow
+priority: 90
+allowed_tools:
+  - open_url
+intent_tags:
+  - intent:OpenUrl
+---
+Project skills should override lower-precedence copies."#,
+        );
+        write_skill_document(
+            &user_root,
+            "open_url",
+            r#"---
+name: open_url
+description: User-level open URL workflow
+priority: 10
+allowed_tools:
+  - open_url
+intent_tags:
+  - intent:OpenUrl
+---
+User skills should lose to project-local copies."#,
+        );
+
+        let available_tools = planner_available_tools();
+        let loaded_skills = discover_skills(
+            Some(project_root.as_path()),
+            Some(user_root.as_path()),
+            &available_tools,
+        );
+        let matching_skills = loaded_skills
+            .iter()
+            .filter(|skill| skill.summary.name == "open_url")
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            matching_skills.len(),
+            1,
+            "duplicate skill names should resolve to one loaded skill"
+        );
+        let resolved = matching_skills[0];
+        assert_eq!(resolved.source, SkillSource::Project);
+        assert_eq!(
+            resolved.summary.description,
+            "Project-local open URL workflow"
+        );
+        assert_eq!(resolved.summary.priority, 90);
+        assert_eq!(
+            resolved.body,
+            "Project skills should override lower-precedence copies."
+        );
+
+        std::fs::remove_dir_all(&project_root).expect("project temp directory should be removed");
+        std::fs::remove_dir_all(&user_root).expect("user temp directory should be removed");
+    }
+
+    #[test]
+    fn build_planner_skill_selection_ranks_custom_skills_and_caps_to_top_n() {
+        let project_root = unique_temp_path("skill-ranking-project");
+        let project_skills_root = project_root.join(".pi").join("skills");
+        std::fs::create_dir_all(&project_skills_root)
+            .expect("project skill root should be created");
+
+        write_skill_document(
+            &project_skills_root,
+            "open_dashboard_exact",
+            r#"---
+name: open_dashboard_exact
+description: Open the dashboard URL directly
+priority: 10
+allowed_tools:
+  - open_url
+intent_tags:
+  - intent:OpenUrl
+---
+Open the dashboard URL directly when the user asks to open the dashboard."#,
+        );
+        write_skill_document(
+            &project_skills_root,
+            "open_dashboard_priority",
+            r#"---
+name: open_dashboard_priority
+description: Open the dashboard URL quickly
+priority: 200
+allowed_tools:
+  - open_url
+---
+Use this when dashboard navigation should stay fast."#,
+        );
+        write_skill_document(
+            &project_skills_root,
+            "dashboard_url_reference",
+            r#"---
+name: dashboard_url_reference
+description: Explain the dashboard URL steps
+priority: 50
+---
+Guide the user through the dashboard URL flow."#,
+        );
+        write_skill_document(
+            &project_skills_root,
+            "dashboard_helper",
+            r#"---
+name: dashboard_helper
+description: Help with the dashboard
+priority: 0
+---
+This helper mentions dashboard guidance only."#,
+        );
+        write_skill_document(
+            &project_skills_root,
+            "completely_unrelated",
+            r#"---
+name: completely_unrelated
+description: Explain OCR fallback tuning
+priority: 500
+---
+Use OCR threshold tuning when extraction fails."#,
+        );
+
+        let available_tools = planner_available_tools();
+        let selection = build_planner_skill_selection(
+            Some(project_root.as_path()),
+            None,
+            "please open the dashboard url",
+            &available_tools,
+        );
+        let ranked_skill_names = selection
+            .relevant_skill_summaries
+            .iter()
+            .map(|summary| summary.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            ranked_skill_names,
+            vec![
+                "open_dashboard_exact",
+                "open_dashboard_priority",
+                "dashboard_url_reference",
+            ]
+        );
+        assert_eq!(
+            selection.relevant_skill_summaries.len(),
+            MAX_SELECTED_PLANNER_SKILLS
+        );
+        assert!(!selection
+            .relevant_skill_summaries
+            .iter()
+            .any(|summary| summary.name == "dashboard_helper"));
+        assert!(!selection
+            .relevant_skill_summaries
+            .iter()
+            .any(|summary| summary.name == "completely_unrelated"));
+
+        std::fs::remove_dir_all(&project_root).expect("project temp directory should be removed");
+    }
+
+    #[test]
     fn build_planner_skill_selection_prefers_matching_bundled_skill() {
         let available_tools = planner_available_tools();
         let selection = build_planner_skill_selection(
@@ -11112,6 +11384,107 @@ mod tests {
     }
 
     #[test]
+    fn validate_planner_output_rejects_unavailable_tool_reference() {
+        let mut available_tools = planner_available_tools();
+        available_tools.retain(|tool| tool.name != ToolName::SetPlaybackVolume);
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::SetPlaybackVolume,
+                goal: String::from("adjust audio"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("audio_controls")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-volume"),
+                tool_name: ToolName::SetPlaybackVolume,
+                arguments: serde_json::json!({
+                    "request_id": "req-volume",
+                    "volume": 0.4
+                }),
+                purpose: String::from("set the volume"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("audio_controls")],
+        )
+        .expect_err("validation should reject unavailable tool references");
+        assert_eq!(error.code, "invalid_planner_output");
+        assert!(error
+            .message
+            .contains("planner referenced unavailable tool SetPlaybackVolume"));
+        assert_eq!(
+            error.details.as_ref().and_then(|details| details.get("step_id")),
+            Some(&serde_json::json!("step-volume"))
+        );
+    }
+
+    #[test]
+    fn validate_planner_output_rejects_missing_next_step_transition() {
+        let available_tools = planner_available_tools();
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::SetPlaybackVolume,
+                goal: String::from("adjust audio"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("audio_controls")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-volume"),
+                tool_name: ToolName::SetPlaybackVolume,
+                arguments: serde_json::json!({
+                    "request_id": "req-volume",
+                    "volume": 0.4
+                }),
+                purpose: String::from("set the volume"),
+                on_success: StepTransition::NextStep {
+                    step_id: String::from("missing-step"),
+                },
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("audio_controls")],
+        )
+        .expect_err("validation should reject missing next-step transitions");
+        assert_eq!(error.code, "invalid_planner_output");
+        assert!(error
+            .message
+            .contains("planner referenced missing next step 'missing-step' from 'step-volume'"));
+        assert_eq!(
+            error
+                .details
+                .as_ref()
+                .and_then(|details| details.get("source_step_id")),
+            Some(&serde_json::json!("step-volume"))
+        );
+        assert_eq!(
+            error
+                .details
+                .as_ref()
+                .and_then(|details| details.get("next_step_id")),
+            Some(&serde_json::json!("missing-step"))
+        );
+    }
+
+    #[test]
     fn validate_planner_output_rejects_submit_form_without_needs_confirmation() {
         let available_tools = planner_available_tools();
         let planner_output = PlannerOutput {
@@ -11385,6 +11758,14 @@ mod tests {
         .expect_err("validation should reject malformed step arguments");
         assert_eq!(error.code, "invalid_planner_output");
         assert!(error.message.contains("expected schema"));
+        assert_eq!(
+            error.details.as_ref().and_then(|details| details.get("step_id")),
+            Some(&serde_json::json!("step-volume"))
+        );
+        assert_eq!(
+            error.details.as_ref().and_then(|details| details.get("tool_name")),
+            Some(&serde_json::json!("SetPlaybackVolume"))
+        );
     }
 
     #[test]
