@@ -9895,6 +9895,105 @@ mod tests {
     }
 
     #[test]
+    fn executes_load_page_extract_and_read_flow_from_resolved_read_page_plan() {
+        let mut executor = MockExecutor::default();
+        let page_model = fixture_problematic_article_page_without_regions();
+        let agent_state = fixture_agent_state_for_page(
+            "Metro news | Night trains finally return",
+            "https://news.example.com/city/night-trains-return",
+        );
+        let planner_output = resolve_direct_read_page_command(
+            "read page",
+            "req-load-extract-read",
+            Some(&page_model),
+            &agent_state,
+            &[String::from("read_page")],
+        )
+        .expect("read-page command should resolve");
+        let expected_step_ids = planner_output
+            .steps
+            .iter()
+            .map(|step| step.step_id.clone())
+            .collect::<Vec<_>>();
+        let expected_extract_input: ExtractPageModelInput = serde_json::from_value(
+            planner_output.steps[0].arguments.clone(),
+        )
+        .expect("extract step should deserialize");
+        let expected_read_next_input: ReadNextRegionInput = serde_json::from_value(
+            planner_output.steps[1].arguments.clone(),
+        )
+        .expect("read-next step should deserialize");
+
+        let outcome = execute_planner_output(
+            &mut executor,
+            String::from("req-load-extract-read"),
+            &planner_output,
+        );
+
+        match outcome {
+            ExecutionOutcome::Complete { trace } => {
+                assert_eq!(trace.executed_step_ids, expected_step_ids);
+                assert_eq!(
+                    trace.tool_results
+                        .iter()
+                        .map(|result| result.tool_name.clone())
+                        .collect::<Vec<_>>(),
+                    vec![ToolName::ExtractPageModel, ToolName::ReadNextRegion]
+                );
+                assert_eq!(
+                    executor.last_extract_request,
+                    Some(expected_extract_input)
+                );
+                assert_eq!(
+                    executor.last_read_next_region_request,
+                    Some(expected_read_next_input)
+                );
+            }
+            other => panic!("expected complete outcome, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn executes_resolved_spoken_command_action_flow_for_continue_reading() {
+        let mut executor = MockExecutor::default();
+        let planner_output = resolve_direct_navigation_readback_command(
+            "continue reading",
+            "req-asr-command-action",
+            &[String::from("read_next")],
+        )
+        .expect("continue-reading command should resolve");
+        let expected_step_ids = planner_output
+            .steps
+            .iter()
+            .map(|step| step.step_id.clone())
+            .collect::<Vec<_>>();
+
+        let outcome = execute_planner_output(
+            &mut executor,
+            String::from("req-asr-command-action"),
+            &planner_output,
+        );
+
+        match outcome {
+            ExecutionOutcome::Complete { trace } => {
+                assert_eq!(planner_output.intent.name, IntentName::ReadNext);
+                assert_eq!(trace.executed_step_ids, expected_step_ids);
+                assert_eq!(trace.tool_results.len(), 1);
+                assert_eq!(trace.tool_results[0].tool_name, ToolName::ReadNextRegion);
+                assert_eq!(
+                    executor.last_read_next_region_request,
+                    Some(ReadNextRegionInput {
+                        request_id: String::from("req-asr-command-action"),
+                        timeout_ms: None,
+                        interruption_mode: NarrationInterruptionMode::Interrupt,
+                    })
+                );
+            }
+            other => panic!("expected complete outcome, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn follows_failure_transition_to_replan() {
         let mut executor = MockExecutor::default();
         let planner_output = PlannerOutput {

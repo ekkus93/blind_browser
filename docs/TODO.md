@@ -429,8 +429,8 @@
 - [x] Navigation logic
 
 ### Integration Tests
-- [ ] Load page → extract → read
-- [ ] ASR → command → action
+- [x] Load page → extract → read
+- [x] ASR → command → action
 - [x] Planner output → deterministic tool execution
 - [x] Back/forward/reload tools update browser history state correctly
 - [x] Browser visibility changes are reflected in runtime status and UI state
