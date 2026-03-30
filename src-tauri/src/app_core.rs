@@ -7635,7 +7635,7 @@ mod tests {
         build_ocr_threshold_settings, build_planner_provider_settings, build_tts_model_settings,
         build_provider_failover_settings, build_remote_asr_settings, build_remote_planner_settings,
         build_remote_tts_settings, build_tts_provider_settings, build_tts_voice_settings,
-        build_visible_text_excerpt, clear_navigation_follow_up_state,
+        browser_error_to_tool_error, build_visible_text_excerpt, clear_navigation_follow_up_state,
         determine_find_element_resolution,
         execute_bounded_replanning_loop, extracted_text_metrics, filter_interactive_elements,
         infer_extraction_source, merge_ocr_text_into_page_model, merged_region_text,
@@ -7649,6 +7649,7 @@ mod tests {
         should_trigger_extract_page_model_ocr_fallback, RecentFieldContext, ReplanningRuntime,
     };
     use crate::audio_io::RuntimeAudioState;
+    use crate::browser::BrowserError;
     use crate::commands::{
         ExecutionOutcome, ExecutionTrace, ExtractPageModelInput, FindElementInput, IntentName,
         IntentSummary, PlannedStep, PlannerOutput, PlannerStatus, PlannerToolHistoryEntry,
@@ -8460,6 +8461,35 @@ mod tests {
     fn normalize_absolute_url_rejects_relative_urls() {
         let error = normalize_absolute_url("/relative/path").unwrap_err();
         assert_eq!(error.code, "invalid_url");
+    }
+
+    #[test]
+    fn browser_error_to_tool_error_keeps_navigation_failures_retryable_and_structured() {
+        let navigate_error = browser_error_to_tool_error(
+            String::from("open_url failed to navigate the active page"),
+            BrowserError::Navigate(String::from("dns resolution failed")),
+        );
+        assert_eq!(navigate_error.code, "browser_navigation_failed");
+        assert!(navigate_error.retryable);
+        assert_eq!(
+            navigate_error.details,
+            Some(serde_json::json!({
+                "reason": "failed to navigate browser page: dns resolution failed"
+            }))
+        );
+
+        let history_error = browser_error_to_tool_error(
+            String::from("go_back failed to update the current page"),
+            BrowserError::History(String::from("no previous entry")),
+        );
+        assert_eq!(history_error.code, "browser_history_failed");
+        assert!(history_error.retryable);
+        assert_eq!(
+            history_error.details,
+            Some(serde_json::json!({
+                "reason": "failed to read browser navigation history: no previous entry"
+            }))
+        );
     }
 
     #[test]
@@ -9397,6 +9427,75 @@ mod tests {
                 height: 80.0,
             })
         );
+    }
+
+    #[test]
+    fn merge_ocr_text_into_page_model_rejects_blank_ocr_text() {
+        let mut page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![PageRegion {
+                region_id: String::from("region-1"),
+                role: RegionRole::Paragraph,
+                label: None,
+                text: String::from("Existing text"),
+                bbox: None,
+                source: RegionSource::Dom,
+            }],
+            interactive_elements: Vec::new(),
+        };
+
+        let error = merge_ocr_text_into_page_model(
+            &mut page,
+            Some("region-1"),
+            "   ",
+            None,
+            String::from("ocr-region-1"),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "invalid_ocr_text");
+        assert_eq!(page.regions[0].text, "Existing text");
+        assert_eq!(page.regions[0].source, RegionSource::Dom);
+    }
+
+    #[test]
+    fn merge_ocr_text_into_page_model_rejects_unknown_target_region() {
+        let mut page = PageModel {
+            title: Some(String::from("Example")),
+            url: Some(String::from("https://example.com")),
+            regions: vec![PageRegion {
+                region_id: String::from("region-1"),
+                role: RegionRole::Paragraph,
+                label: None,
+                text: String::from("Existing text"),
+                bbox: None,
+                source: RegionSource::Dom,
+            }],
+            interactive_elements: Vec::new(),
+        };
+
+        let error = merge_ocr_text_into_page_model(
+            &mut page,
+            Some("missing-region"),
+            "Scanned text",
+            Some(Rect {
+                x: 10.0,
+                y: 20.0,
+                width: 100.0,
+                height: 40.0,
+            }),
+            String::from("ocr-region-1"),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "unknown_region_id");
+        assert_eq!(
+            error.details,
+            Some(serde_json::json!({ "region_id": "missing-region" }))
+        );
+        assert_eq!(page.regions.len(), 1);
+        assert_eq!(page.regions[0].text, "Existing text");
     }
 
     #[test]
@@ -10674,6 +10773,7 @@ mod tests {
         resolve_results: Vec<Result<PlannerOutput, crate::commands::ToolError>>,
         execute_results: Vec<ExecutionOutcome>,
         resolve_recent_tool_results: Vec<Vec<PlannerToolHistoryEntry>>,
+        execute_request_ids: Vec<String>,
     }
 
     impl ReplanningRuntime for MockReplanningRuntime {
@@ -10690,9 +10790,10 @@ mod tests {
 
         fn execute_plan(
             &mut self,
-            _request_id: String,
+            request_id: String,
             _planner_output: &PlannerOutput,
         ) -> ExecutionOutcome {
+            self.execute_request_ids.push(request_id);
             self.execute_results.remove(0)
         }
     }
@@ -10753,6 +10854,7 @@ mod tests {
                 },
             ],
             resolve_recent_tool_results: Vec::new(),
+            execute_request_ids: Vec::new(),
         };
 
         let outcome = execute_bounded_replanning_loop(&mut runtime, "req", "what is the status")
@@ -10772,6 +10874,13 @@ mod tests {
         assert_eq!(
             runtime.resolve_recent_tool_results[1][0].observation_summary,
             vec![String::from("first plan failed")]
+        );
+        assert_eq!(
+            runtime.execute_request_ids,
+            vec![
+                String::from("req-execute"),
+                String::from("req-execute-replan-1")
+            ]
         );
     }
 
@@ -10799,6 +10908,7 @@ mod tests {
                 },
             ],
             resolve_recent_tool_results: Vec::new(),
+            execute_request_ids: Vec::new(),
         };
 
         let outcome = execute_bounded_replanning_loop(&mut runtime, "req", "what is the status")
@@ -10812,6 +10922,49 @@ mod tests {
             }
             other => panic!("expected aborted outcome, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn bounded_replanning_loop_aborts_with_accumulated_trace_when_follow_up_resolution_fails() {
+        let mut runtime = MockReplanningRuntime {
+            resolve_results: vec![
+                Ok(mock_planner_output("step-1")),
+                Err(crate::commands::ToolError {
+                    code: String::from("planner_backend_unavailable"),
+                    message: String::from("planner could not resolve a follow-up plan"),
+                    retryable: true,
+                    details: Some(serde_json::json!({
+                        "attempt": 2
+                    })),
+                }),
+            ],
+            execute_results: vec![ExecutionOutcome::NeedsReplan {
+                trace: mock_trace("step-1", ToolName::GetRuntimeStatus, "first plan failed"),
+            }],
+            resolve_recent_tool_results: Vec::new(),
+            execute_request_ids: Vec::new(),
+        };
+
+        let outcome = execute_bounded_replanning_loop(&mut runtime, "req", "what is the status")
+            .expect("bounded replanning should surface an aborted execution outcome");
+
+        match outcome {
+            ExecutionOutcome::Aborted { trace, error } => {
+                assert_eq!(error.code, "planner_backend_unavailable");
+                assert_eq!(trace.executed_step_ids, vec![String::from("step-1")]);
+                assert_eq!(trace.tool_results.len(), 1);
+                assert_eq!(
+                    trace.tool_results[0].observations,
+                    vec![String::from("first plan failed")]
+                );
+            }
+            other => panic!("expected aborted outcome, got {other:?}"),
+        }
+
+        assert_eq!(runtime.resolve_recent_tool_results.len(), 2);
+        assert!(runtime.resolve_recent_tool_results[0].is_empty());
+        assert_eq!(runtime.resolve_recent_tool_results[1].len(), 1);
+        assert_eq!(runtime.execute_request_ids, vec![String::from("req-execute")]);
     }
 
     #[test]
@@ -10868,5 +11021,34 @@ mod tests {
         let error = resolve_clickable_element(&page, "button-1").unwrap_err();
 
         assert_eq!(error.code, "missing_dom_locator");
+    }
+
+    #[test]
+    fn resolve_clickable_element_rejects_blank_and_unknown_ids() {
+        let page = fixture_page(vec![InteractiveElement {
+            element_id: String::from("button-1"),
+            dom_locator: Some(String::from("#button-1")),
+            role: ElementRole::Button,
+            tag_name: String::from("button"),
+            text: Some(String::from("Continue")),
+            accessible_name: Some(String::from("Continue")),
+            placeholder: None,
+            href: None,
+            value: None,
+            bbox: None,
+            visible: true,
+            enabled: true,
+            attributes: std::collections::BTreeMap::new(),
+        }]);
+
+        let blank_error = resolve_clickable_element(&page, "   ").unwrap_err();
+        assert_eq!(blank_error.code, "invalid_element_id");
+
+        let unknown_error = resolve_clickable_element(&page, "missing-button").unwrap_err();
+        assert_eq!(unknown_error.code, "unknown_element_id");
+        assert_eq!(
+            unknown_error.details,
+            Some(serde_json::json!({ "element_id": "missing-button" }))
+        );
     }
 }
