@@ -131,6 +131,11 @@
 - Frontend modularization now uses `app-shell.ts`, `panel-state.ts`, `event-handlers.ts`, `main-errors.ts`, `runtime-refresh.ts`, `panel-types.ts`, `confirmation-panel-helpers.ts`, and `settings-status-panels.ts`, with `src/main.ts` reduced below 2000 lines and `src/confirmation-panel.ts` reduced to the confirmation-specific surface.
 - `docs/BB_CODE_REVIEW1_TODO.md` now marks phase 7 done, and the validated commands remain `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` after sourcing `./fix-node-version.sh`.
 
+## 2026-04-02T20:23:45Z - GPT-5.4 - Phase 8 coverage completed
+- Added Node test coverage for the extracted DOM seams in `src/dom-seams.test.mjs`, including targeted rerender focus/cursor restoration, delegated URL button handling after panel replacement, settings-target focus jumps, and scoped change-handler busy guards.
+- Added Tauri bridge contract coverage in `src/tauri-api.test.mjs` plus an explicit invoke test hook in `src/tauri-api.ts`, and tightened the Rust `GetPageSnapshot` command test so snapshot metrics are asserted as non-zero live fields instead of placeholder zeroes.
+- Confirmed `.github/workflows/ci.yml` already runs the same validated command set used locally: Rust clippy, Rust tests, `pnpm test:ui`, and `pnpm build` on Node 22.12.0 with the required Ubuntu native dependencies.
+
 ## 2026-03-23T20:00:53Z - GPT-5.4 - Frontend confirmation submission errors surfaced
 - `src/planner-orchestration.ts` now stores a transient `submissionError` on awaiting-confirmation UI state and exposes a store helper to set or clear that error by confirmation id.
 - `src/main.ts` now converts failed confirmation submissions into a user-facing error message instead of only re-enabling the buttons.

@@ -1,5 +1,21 @@
 import { invoke } from "@tauri-apps/api/core";
 
+const tauriInvoker = {
+  invoke,
+};
+
+export function __setInvokeForTests(nextInvoke: typeof invoke) {
+  tauriInvoker.invoke = nextInvoke;
+}
+
+export function __resetInvokeForTests() {
+  tauriInvoker.invoke = invoke;
+}
+
+function invokeCommand<T>(command: string, args: Record<string, unknown>): Promise<T> {
+  return tauriInvoker.invoke<T>(command, args);
+}
+
 export type ProviderMode = "Local" | "Remote" | "Disabled";
 export type SelectableProviderMode = Exclude<ProviderMode, "Disabled">;
 
@@ -495,7 +511,7 @@ export async function executePlannerOutput(
   requestId: string,
   plannerOutput: PlannerOutput,
 ): Promise<ExecutionOutcome> {
-  return invoke<ExecutionOutcome>("execute_planner_output", {
+  return invokeCommand<ExecutionOutcome>("execute_planner_output", {
     requestId,
     plannerOutput,
   });
@@ -505,7 +521,7 @@ export async function resolveCommand(
   requestId: string,
   transcript: string,
 ): Promise<PlannerOutput> {
-  return invoke<PlannerOutput>("resolve_command", {
+  return invokeCommand<PlannerOutput>("resolve_command", {
     requestId,
     transcript,
   });
@@ -514,7 +530,7 @@ export async function resolveCommand(
 export async function submitConfirmationResponse(
   input: ConfirmActionResponseInput,
 ): Promise<ConfirmActionResolution> {
-  return invoke<ConfirmActionResolution>("submit_confirmation_response", {
+  return invokeCommand<ConfirmActionResolution>("submit_confirmation_response", {
     confirmationId: input.confirmationId,
     confirmed: input.confirmed,
     timedOut: input.timedOut,
@@ -522,7 +538,7 @@ export async function submitConfirmationResponse(
 }
 
 export async function startListening(input: DirectToolRequestInput): Promise<StartListeningData> {
-  const result = await invoke<ToolResult<StartListeningData>>("start_listening", {
+  const result = await invokeCommand<ToolResult<StartListeningData>>("start_listening", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
   });
@@ -530,7 +546,7 @@ export async function startListening(input: DirectToolRequestInput): Promise<Sta
 }
 
 export async function stopListening(input: DirectToolRequestInput): Promise<StopListeningData> {
-  const result = await invoke<ToolResult<StopListeningData>>("stop_listening", {
+  const result = await invokeCommand<ToolResult<StopListeningData>>("stop_listening", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
   });
@@ -540,7 +556,7 @@ export async function stopListening(input: DirectToolRequestInput): Promise<Stop
 export async function transcribeCommand(
   input: DirectTranscribeCommandInput,
 ): Promise<TranscribeCommandData> {
-  const result = await invoke<ToolResult<TranscribeCommandData>>("transcribe_command", {
+  const result = await invokeCommand<ToolResult<TranscribeCommandData>>("transcribe_command", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     maxDurationMs: input.maxDurationMs,
@@ -552,7 +568,7 @@ export async function transcribeCommand(
 export async function transcribeAndExecuteCommand(
   input: DirectTranscribeCommandInput,
 ): Promise<TranscribeAndExecuteCommandData> {
-  return invoke<TranscribeAndExecuteCommandData>("transcribe_and_execute_command", {
+  return invokeCommand<TranscribeAndExecuteCommandData>("transcribe_and_execute_command", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     maxDurationMs: input.maxDurationMs,
@@ -561,7 +577,7 @@ export async function transcribeAndExecuteCommand(
 }
 
 export async function getAgentState(input: DirectToolRequestInput): Promise<AgentStateData> {
-  const result = await invoke<ToolResult<AgentStateData>>("get_agent_state", {
+  const result = await invokeCommand<ToolResult<AgentStateData>>("get_agent_state", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     includeLastTranscript: input.includeLastTranscript ?? false,
@@ -574,7 +590,7 @@ export async function openUrl(input: {
   timeoutMs?: number;
   url: string;
 }): Promise<OpenUrlData> {
-  const result = await invoke<ToolResult<OpenUrlData>>("open_url", {
+  const result = await invokeCommand<ToolResult<OpenUrlData>>("open_url", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     url: input.url,
@@ -587,7 +603,7 @@ export async function setPlaybackVolume(input: {
   timeoutMs?: number;
   volume: number;
 }): Promise<SetPlaybackVolumeData> {
-  const result = await invoke<ToolResult<SetPlaybackVolumeData>>("set_playback_volume", {
+  const result = await invokeCommand<ToolResult<SetPlaybackVolumeData>>("set_playback_volume", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     volume: input.volume,
@@ -600,7 +616,7 @@ export async function setPlaybackSpeed(input: {
   timeoutMs?: number;
   speed: number;
 }): Promise<SetPlaybackSpeedData> {
-  const result = await invoke<ToolResult<SetPlaybackSpeedData>>("set_playback_speed", {
+  const result = await invokeCommand<ToolResult<SetPlaybackSpeedData>>("set_playback_speed", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     speed: input.speed,
@@ -613,7 +629,7 @@ export async function setBrowserVisibility(input: {
   timeoutMs?: number;
   mode: BrowserVisibilityMode;
 }): Promise<SetBrowserVisibilityData> {
-  const result = await invoke<ToolResult<SetBrowserVisibilityData>>("set_browser_visibility", {
+  const result = await invokeCommand<ToolResult<SetBrowserVisibilityData>>("set_browser_visibility", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     mode: input.mode,
@@ -626,7 +642,7 @@ export async function setTtsVoice(input: {
   timeoutMs?: number;
   voice: string;
 }): Promise<SetTtsVoiceData> {
-  const result = await invoke<ToolResult<SetTtsVoiceData>>("set_tts_voice", {
+  const result = await invokeCommand<ToolResult<SetTtsVoiceData>>("set_tts_voice", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     voice: input.voice,
@@ -639,7 +655,7 @@ export async function setAsrProviderSelection(input: {
   timeoutMs?: number;
   mode: SelectableProviderMode;
 }): Promise<{ mode: SelectableProviderMode; changed: boolean }> {
-  return invoke<{ mode: SelectableProviderMode; changed: boolean }>("set_asr_provider_selection", {
+  return invokeCommand<{ mode: SelectableProviderMode; changed: boolean }>("set_asr_provider_selection", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     mode: input.mode,
@@ -651,7 +667,7 @@ export async function setTtsProviderSelection(input: {
   timeoutMs?: number;
   mode: SelectableProviderMode;
 }): Promise<{ mode: SelectableProviderMode; changed: boolean }> {
-  return invoke<{ mode: SelectableProviderMode; changed: boolean }>("set_tts_provider_selection", {
+  return invokeCommand<{ mode: SelectableProviderMode; changed: boolean }>("set_tts_provider_selection", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     mode: input.mode,
@@ -663,7 +679,7 @@ export async function setTtsModelSelection(input: {
   timeoutMs?: number;
   profileName: string;
 }): Promise<{ profile_name: string; changed: boolean }> {
-  return invoke<{ profile_name: string; changed: boolean }>("set_tts_model_selection", {
+  return invokeCommand<{ profile_name: string; changed: boolean }>("set_tts_model_selection", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     profileName: input.profileName,
@@ -675,7 +691,7 @@ export async function setConfirmationThreshold(input: {
   timeoutMs?: number;
   confirmationConfidenceThreshold: number;
 }): Promise<{ confirmation_confidence_threshold: number; changed: boolean }> {
-  return invoke<{ confirmation_confidence_threshold: number; changed: boolean }>(
+  return invokeCommand<{ confirmation_confidence_threshold: number; changed: boolean }>(
     "set_confirmation_threshold",
     {
       requestId: input.requestId,
@@ -690,7 +706,7 @@ export async function setAllowClickWithoutConfirmation(input: {
   timeoutMs?: number;
   allowClickWithoutConfirmation: boolean;
 }): Promise<{ allow_click_without_confirmation: boolean; changed: boolean }> {
-  return invoke<{ allow_click_without_confirmation: boolean; changed: boolean }>(
+  return invokeCommand<{ allow_click_without_confirmation: boolean; changed: boolean }>(
     "set_allow_click_without_confirmation",
     {
       requestId: input.requestId,
@@ -710,7 +726,7 @@ export async function setOcrThresholds(input: {
   sparse_text_region_threshold: number;
   changed: boolean;
 }> {
-  return invoke<{
+  return invokeCommand<{
     sparse_text_char_threshold: number;
     sparse_text_region_threshold: number;
     changed: boolean;
@@ -728,7 +744,7 @@ export async function setRemotePlannerApiKey(input: {
   profileName: string;
   apiKey: string;
 }): Promise<SetRemoteApiKeyData> {
-  return invoke<SetRemoteApiKeyData>("set_remote_planner_api_key", {
+  return invokeCommand<SetRemoteApiKeyData>("set_remote_planner_api_key", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     profileName: input.profileName,
@@ -742,7 +758,7 @@ export async function setRemoteTtsApiKey(input: {
   profileName: string;
   apiKey: string;
 }): Promise<SetRemoteApiKeyData> {
-  return invoke<SetRemoteApiKeyData>("set_remote_tts_api_key", {
+  return invokeCommand<SetRemoteApiKeyData>("set_remote_tts_api_key", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     profileName: input.profileName,
@@ -756,7 +772,7 @@ export async function setRemoteAsrApiKey(input: {
   profileName: string;
   apiKey: string;
 }): Promise<SetRemoteApiKeyData> {
-  return invoke<SetRemoteApiKeyData>("set_remote_asr_api_key", {
+  return invokeCommand<SetRemoteApiKeyData>("set_remote_asr_api_key", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     profileName: input.profileName,
@@ -768,7 +784,7 @@ export async function getModelManagementSettings(input: {
   requestId: string;
   timeoutMs?: number;
 }): Promise<ModelManagementSettingsData> {
-  return invoke<ModelManagementSettingsData>("get_model_management_settings", {
+  return invokeCommand<ModelManagementSettingsData>("get_model_management_settings", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
   });
@@ -785,7 +801,7 @@ export async function setModelManagementSettings(input: {
   check_on_startup: boolean;
   auto_download_missing: boolean;
 }> {
-  return invoke("set_model_management_settings", {
+  return invokeCommand("set_model_management_settings", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     modelsDir: input.modelsDir,
@@ -798,7 +814,7 @@ export async function downloadActiveLocalTtsModel(input: {
   requestId: string;
   timeoutMs?: number;
 }): Promise<DownloadedLocalModelData> {
-  return invoke<DownloadedLocalModelData>("download_active_local_tts_model", {
+  return invokeCommand<DownloadedLocalModelData>("download_active_local_tts_model", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
   });
@@ -808,7 +824,7 @@ export async function downloadActiveLocalAsrModel(input: {
   requestId: string;
   timeoutMs?: number;
 }): Promise<DownloadedLocalModelData> {
-  return invoke<DownloadedLocalModelData>("download_active_local_asr_model", {
+  return invokeCommand<DownloadedLocalModelData>("download_active_local_asr_model", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
   });

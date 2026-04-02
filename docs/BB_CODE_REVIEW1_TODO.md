@@ -417,9 +417,9 @@ Split by capability or command family. Suggested structure:
 
 ---
 
-## 8. Expand tests beyond render snapshots and basic happy paths
+## 8. Expand tests beyond render snapshots and basic happy paths — DONE
 
-### 8.1 Frontend interaction tests
+### 8.1 Frontend interaction tests — DONE
 
 Add targeted tests for:
 
@@ -430,19 +430,19 @@ Add targeted tests for:
 - runtime partial-refresh behavior
 - TTS provider rollback behavior
 
-### 8.2 Tauri bridge contract tests
+### 8.2 Tauri bridge contract tests — DONE
 
 - Add tests around `src/tauri-api.ts` wrappers if missing.
 - Verify expected request and response shapes for high-risk settings operations.
 - Ensure error-shape handling is consistent.
 
-### 8.3 Rust-side tests
+### 8.3 Rust-side tests — DONE
 
 - Add or extend tests for page snapshot metrics once implemented.
 - Add tests for capability reporting if provider failover becomes runtime-query-driven.
 - Add tests for settings rollback and error handling where practical.
 
-### 8.4 CI improvements
+### 8.4 CI improvements — DONE
 
 - Ensure CI runs the correct frontend test command.
 - Ensure CI runs TypeScript validation in an environment with required dependencies installed.

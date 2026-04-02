@@ -897,10 +897,10 @@ impl DeterministicToolExecutor for MockExecutor {
                 } else {
                     Vec::new()
                 },
-                scroll_y: 0.0,
-                viewport_width: 0.0,
-                viewport_height: 0.0,
-                document_height: 0.0,
+                scroll_y: 120.0,
+                viewport_width: 1280.0,
+                viewport_height: 720.0,
+                document_height: 2400.0,
             },
             vec![String::from("captured page snapshot")],
         )
@@ -2485,6 +2485,10 @@ fn dispatches_get_page_snapshot_from_planned_step() {
         .get("interactive_elements")
         .and_then(serde_json::Value::as_array)
         .is_some_and(|elements| !elements.is_empty()));
+    assert_eq!(data.get("scroll_y"), Some(&serde_json::json!(120.0)));
+    assert_eq!(data.get("viewport_width"), Some(&serde_json::json!(1280.0)));
+    assert_eq!(data.get("viewport_height"), Some(&serde_json::json!(720.0)));
+    assert_eq!(data.get("document_height"), Some(&serde_json::json!(2400.0)));
 }
 
 #[test]
