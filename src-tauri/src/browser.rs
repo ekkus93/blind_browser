@@ -150,6 +150,14 @@ pub struct BrowserScreenshotState {
     pub height: u32,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct BrowserPageMetrics {
+    pub scroll_y: f32,
+    pub viewport_width: f32,
+    pub viewport_height: f32,
+    pub document_height: f32,
+}
+
 #[derive(Debug, Error)]
 pub enum BrowserError {
     #[error("browser support is not enabled in this build")]
@@ -627,6 +635,20 @@ impl BrowserController {
             let session = self.ensure_session()?;
             let page = session.page.clone().ok_or(BrowserError::NoActivePage)?;
             tauri::async_runtime::block_on(extract_live_page_model(&page))
+        }
+
+        #[cfg(not(feature = "browser"))]
+        {
+            Err(BrowserError::FeatureDisabled)
+        }
+    }
+
+    pub fn get_page_metrics(&mut self) -> Result<BrowserPageMetrics, BrowserError> {
+        #[cfg(feature = "browser")]
+        {
+            let session = self.ensure_session()?;
+            let page = session.page.clone().ok_or(BrowserError::NoActivePage)?;
+            tauri::async_runtime::block_on(read_page_metrics(&page))
         }
 
         #[cfg(not(feature = "browser"))]
@@ -1158,6 +1180,15 @@ struct LiveSubmitResult {
     submitted: bool,
 }
 
+#[cfg(feature = "browser")]
+#[derive(Debug, Deserialize)]
+struct LivePageMetrics {
+    scroll_y: f64,
+    viewport_width: f64,
+    viewport_height: f64,
+    document_height: f64,
+}
+
 fn png_dimensions(image_bytes: &[u8]) -> Result<(u32, u32), BrowserError> {
     const PNG_SIGNATURE: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
     if image_bytes.len() < 24 || &image_bytes[..8] != PNG_SIGNATURE {
@@ -1219,6 +1250,54 @@ async fn current_scroll_y(page: &Page) -> Result<f32, BrowserError> {
         .into_value::<f64>()
         .map_err(|error| BrowserError::Scroll(error.to_string()))?;
     Ok(scroll_y as f32)
+}
+
+#[cfg(feature = "browser")]
+async fn read_page_metrics(page: &Page) -> Result<BrowserPageMetrics, BrowserError> {
+    let live_metrics = page
+        .evaluate(
+            r#"(() => {
+                const doc = document.documentElement;
+                const body = document.body;
+                const viewportWidth = window.innerWidth || doc?.clientWidth || 0;
+                const viewportHeight = window.innerHeight || doc?.clientHeight || 0;
+                const documentHeight = Math.max(
+                    doc?.scrollHeight || 0,
+                    body?.scrollHeight || 0,
+                    doc?.clientHeight || 0,
+                    body?.clientHeight || 0
+                );
+                return {
+                    scroll_y: window.scrollY || 0,
+                    viewport_width: viewportWidth,
+                    viewport_height: viewportHeight,
+                    document_height: documentHeight
+                };
+            })()"#,
+        )
+        .await
+        .map_err(|error| BrowserError::Inspect(error.to_string()))?
+        .into_value::<LivePageMetrics>()
+        .map_err(|error| BrowserError::Inspect(error.to_string()))?;
+    Ok(normalize_page_metrics(live_metrics))
+}
+
+#[cfg(feature = "browser")]
+fn normalize_page_metrics(metrics: LivePageMetrics) -> BrowserPageMetrics {
+    fn clean(value: f64) -> f32 {
+        if value.is_finite() && value >= 0.0 {
+            value as f32
+        } else {
+            0.0
+        }
+    }
+
+    BrowserPageMetrics {
+        scroll_y: clean(metrics.scroll_y),
+        viewport_width: clean(metrics.viewport_width),
+        viewport_height: clean(metrics.viewport_height),
+        document_height: clean(metrics.document_height),
+    }
 }
 
 #[cfg(feature = "browser")]
@@ -1641,4 +1720,51 @@ async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError>
 fn wait_for_page_settle(timeout_ms: Option<u64>) {
     let wait_ms = timeout_ms.unwrap_or(400).clamp(150, 2_000);
     std::thread::sleep(Duration::from_millis(wait_ms));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(feature = "browser")]
+    #[test]
+    fn normalize_page_metrics_keeps_finite_non_negative_values() {
+        let metrics = normalize_page_metrics(LivePageMetrics {
+            scroll_y: 42.5,
+            viewport_width: 1280.0,
+            viewport_height: 720.0,
+            document_height: 2400.25,
+        });
+
+        assert_eq!(
+            metrics,
+            BrowserPageMetrics {
+                scroll_y: 42.5,
+                viewport_width: 1280.0,
+                viewport_height: 720.0,
+                document_height: 2400.25,
+            }
+        );
+    }
+
+    #[cfg(feature = "browser")]
+    #[test]
+    fn normalize_page_metrics_clamps_invalid_values_to_zero() {
+        let metrics = normalize_page_metrics(LivePageMetrics {
+            scroll_y: f64::NAN,
+            viewport_width: -10.0,
+            viewport_height: f64::INFINITY,
+            document_height: -0.5,
+        });
+
+        assert_eq!(
+            metrics,
+            BrowserPageMetrics {
+                scroll_y: 0.0,
+                viewport_width: 0.0,
+                viewport_height: 0.0,
+                document_height: 0.0,
+            }
+        );
+    }
 }

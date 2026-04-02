@@ -966,6 +966,11 @@
 - `src/main.ts` now emits structured `console.debug(...)` events for TTS provider transition start, success, rollback, and propagated panel errors, matching the review follow-up requirement without changing the existing voice-first flow.
 - Runtime refresh error copy is now panel-scoped: status surfaces `runtime state refresh failed: ...` while model management surfaces `model management refresh failed: ...`, so partial refresh failures no longer look like one generic fan-out problem.
 - `docs/BB_CODE_REVIEW1_TODO.md` now marks review phases 4 and 5 done, and the standard validation pass succeeded with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`.
+
+## 2026-04-02T19:10:37Z - GPT-5.4 - Review backlog phase 6 completed
+- `src-tauri/src/browser.rs` now reads live page snapshot metrics (`scroll_y`, `viewport_width`, `viewport_height`, `document_height`) from the active Chromium page, normalizes the values, and covers that normalization with focused Rust tests.
+- `src-tauri/src/app_core.rs` now threads those live metrics into both explicit `get_page_snapshot` tool responses and planner snapshot payloads, surfacing an explicit browser-backed failure instead of placeholder zeros when live metrics cannot be read.
+- Updated `README.md`, `src/main.ts`, and `docs/SPECS.md` so the project no longer presents itself as a Phase 0 scaffold and so provider failover is described consistently as config-defined but runtime-disabled in v1.
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed, Rust tests remained `205` passed, and `pnpm test:ui` remained `48` passed.
 
 ## 2026-03-26T22:56:24Z - GPT-5.4 - Wave 1 input schemas are now finalized

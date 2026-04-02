@@ -8,7 +8,8 @@ use crate::asr::{
 };
 use crate::audio_io::{AudioPlaybackController, AudioPlaybackError, RuntimeAudioState};
 use crate::browser::{
-    BrowserController, BrowserError, BrowserSessionConfig, BrowserVisibilityMode, LoadState,
+    BrowserController, BrowserError, BrowserPageMetrics, BrowserSessionConfig,
+    BrowserVisibilityMode, LoadState,
 };
 use crate::commands::{
     build_planner_skill_selection, canonical_planner_output_examples, execute_planner_output,
@@ -1608,12 +1609,24 @@ impl AppCore {
             );
         };
 
+        let title = current_page.title.clone();
         let visible_text_excerpt =
             build_visible_text_excerpt(current_page, input.text_excerpt_max_chars);
         let interactive_elements = if input.include_interactive_elements {
             current_page.interactive_elements.clone()
         } else {
             Vec::new()
+        };
+        let page_metrics = match self.browser.get_page_metrics() {
+            Ok(page_metrics) => page_metrics,
+            Err(error) => {
+                return self.browser_tool_failure(
+                    ToolName::GetPageSnapshot,
+                    input.request_id,
+                    String::from("Live page snapshot metrics could not be read from the active browser page."),
+                    error,
+                )
+            }
         };
 
         ToolResult::success(
@@ -1622,20 +1635,20 @@ impl AppCore {
             PageSnapshotData {
                 page_id,
                 url,
-                title: current_page.title.clone(),
+                title,
                 visible_text_excerpt,
                 interactive_elements,
-                scroll_y: 0.0,
-                viewport_width: 0.0,
-                viewport_height: 0.0,
-                document_height: 0.0,
+                scroll_y: page_metrics.scroll_y,
+                viewport_width: page_metrics.viewport_width,
+                viewport_height: page_metrics.viewport_height,
+                document_height: page_metrics.document_height,
             },
             vec![
                 String::from(
                     "Built a deterministic page snapshot from the current runtime page state.",
                 ),
                 String::from(
-                    "Scroll and viewport metrics remain placeholder values until the browser backend is wired.",
+                    "Included live scroll and viewport metrics from the active browser page.",
                 ),
             ],
         )
@@ -4093,28 +4106,38 @@ impl AppCore {
     }
 
     fn current_page_snapshot(
-        &self,
+        &mut self,
         text_excerpt_max_chars: Option<usize>,
         include_interactive_elements: bool,
     ) -> Option<PageSnapshotData> {
         let page_id = self.state.current_page_id.clone()?;
         let current_page = self.state.current_page.as_ref()?;
         let url = current_page.url.clone()?;
+        let title = current_page.title.clone();
+        let visible_text_excerpt = build_visible_text_excerpt(current_page, text_excerpt_max_chars);
+        let interactive_elements = if include_interactive_elements {
+            current_page.interactive_elements.clone()
+        } else {
+            Vec::new()
+        };
+        let _ = current_page;
+        let BrowserPageMetrics {
+            scroll_y,
+            viewport_width,
+            viewport_height,
+            document_height,
+        } = self.browser.get_page_metrics().ok()?;
 
         Some(PageSnapshotData {
             page_id,
             url,
-            title: current_page.title.clone(),
-            visible_text_excerpt: build_visible_text_excerpt(current_page, text_excerpt_max_chars),
-            interactive_elements: if include_interactive_elements {
-                current_page.interactive_elements.clone()
-            } else {
-                Vec::new()
-            },
-            scroll_y: 0.0,
-            viewport_width: 0.0,
-            viewport_height: 0.0,
-            document_height: 0.0,
+            title,
+            visible_text_excerpt,
+            interactive_elements,
+            scroll_y,
+            viewport_width,
+            viewport_height,
+            document_height,
         })
     }
 
@@ -4770,7 +4793,7 @@ fn build_provider_failover_settings(_config: &AppConfig) -> ProviderFailoverSett
         tts_available: false,
         asr_available: false,
         summary: String::from(
-            "Automatic provider failover is not currently available in the live runtime.",
+            "Provider failover settings are defined in config, but automatic failover is still disabled in the live runtime.",
         ),
     }
 }
@@ -8199,7 +8222,7 @@ mod tests {
         assert_eq!(
             settings.summary,
             String::from(
-                "Automatic provider failover is not currently available in the live runtime."
+                "Provider failover settings are defined in config, but automatic failover is still disabled in the live runtime."
             )
         );
     }

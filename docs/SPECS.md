@@ -27,7 +27,7 @@ Low-resource desktop web-reading assistant for vision-impaired users.
 - Stores user settings (TOML)
 - Stores provider selection for planner, TTS, and ASR
 - Stores local model preferences and remote API configuration references
-- Stores failover preferences where supported
+- Stores failover preferences in config, even though automatic runtime failover is still disabled in v1
 - Stores persistent audio settings including playback volume and playback speed
 
 ## Provider Configuration Schema
@@ -330,7 +330,7 @@ Keyring-backed API keys
 
 - Planner default mode: `remote`
 - Planner remote profile: `openai-default`
-- Planner failover: enabled when local model is configured
+- Planner failover: preference may be configured, but automatic runtime failover remains disabled in v1
 - TTS default mode: `local`
 - TTS local profile: `kitten-default`
 - ASR default mode: `local`
@@ -1922,7 +1922,7 @@ The planner is the LLM-facing component that converts a user transcript plus cur
 - Mark ambiguous or risky actions as requiring confirmation.
 - Honor `planner_input.safety.confirmation_confidence_threshold` when deciding whether the grounded confidence for a side-effecting action is high enough to proceed without confirmation.
 - Stop and report blocked status when the request cannot be grounded safely.
-- Use the configured active LLM provider, with optional remote-to-local failover when enabled.
+- Use the configured active LLM provider. Automatic remote-to-local failover is not active in the live v1 runtime.
 
 ### Planner Non-Responsibilities
 

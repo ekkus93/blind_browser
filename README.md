@@ -12,12 +12,16 @@ Voice-first desktop browser for vision-impaired users, built with Rust and Tauri
 
 ## Current Status
 
-Phase 0 project setup is in place:
+The project is well past scaffold stage. The current repo includes:
 
-- standard Tauri + Vite scaffold
-- Rust module boundaries for browser, extraction, narration, ASR, TTS, OCR, config, state, and commands
-- initial planner/tool schema layer matching the documented v1 contracts
-- feature-gated dependency declarations for browser, OCR, audio, local TTS, local ASR, and remote planner integration via OpenAI-compatible APIs
+- live Rust runtime support for browser control, extraction, narration, OCR, ASR, TTS, deterministic tool execution, and planner orchestration
+- a thin Tauri frontend for voice capture, confirmation flows, URL/navigation actions, runtime status, and settings panels
+- persisted local/remote provider configuration plus model-management controls for local TTS and ASR profiles
+
+Still intentionally incomplete:
+
+- automatic provider failover is configured in schema but remains disabled in the live runtime
+- some review-driven cleanup work is still in progress, especially internal modularization and additional interaction coverage
 
 ## Local Development
 

@@ -317,9 +317,9 @@ The desired behavior:
 
 ---
 
-## 6. Address incomplete features, placeholders, and status drift
+## 6. Address incomplete features, placeholders, and status drift — DONE
 
-### 6.1 Clarify the provider failover story
+### 6.1 Clarify the provider failover story — DONE
 
 - Decide whether provider failover is:
   - intentionally not implemented yet,
@@ -328,7 +328,7 @@ The desired behavior:
 - Ensure the UI, docs, and runtime capability reporting all say the same thing.
 - If appropriate, expose a real runtime capability flag instead of hard-coded summary text.
 
-### 6.2 Implement or gate page snapshot placeholder metrics
+### 6.2 Implement or gate page snapshot placeholder metrics — DONE
 
 Review `src-tauri/src/app_core.rs` page snapshot behavior.
 
@@ -343,13 +343,13 @@ Subtasks:
 - If not, make the placeholder status explicit in contracts, docs, and any downstream usage.
 - Add tests once real values are supported.
 
-### 6.3 Update README and visible app copy to match the actual state of the project
+### 6.3 Update README and visible app copy to match the actual state of the project — DONE
 
 - Update `README.md` current-status language so it no longer undersells the implementation.
 - Update any “Phase 0 scaffold” UI copy if it no longer reflects reality.
 - Keep the messaging honest about what is complete versus still placeholder.
 
-### 6.4 Align docs with actual runtime capabilities
+### 6.4 Align docs with actual runtime capabilities — DONE
 
 - Compare current docs in `docs/` against live code behavior.
 - Correct any stale descriptions around:

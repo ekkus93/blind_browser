@@ -255,7 +255,8 @@ function createInitialProviderFailoverPanelState(): ProviderFailoverPanelState {
     plannerAvailable: false,
     ttsAvailable: false,
     asrAvailable: false,
-    summary: "Automatic provider failover is not currently available in the live runtime.",
+    summary:
+      "Provider failover settings are defined in config, but automatic failover is still disabled in the live runtime.",
   };
 }
 
@@ -401,23 +402,23 @@ function renderAppShell(): string {
   return `
     <main class="shell">
       <section class="hero">
-        <p class="eyebrow">Phase 0 scaffold</p>
+        <p class="eyebrow">Voice-first desktop runtime</p>
         <h1>Voice-first browser workspace</h1>
         <p class="lede">
-          Initial Tauri shell for the blind_browser runtime. This scaffold keeps the
-          frontend thin while the Rust tool layer, planner contracts, and provider
-          configuration are established under src-tauri.
+          Thin Tauri frontend for the live blind_browser runtime. Browser control,
+          narration, voice input, settings, and confirmation flows stay lightweight
+          here while deterministic tools and runtime state live in Rust.
         </p>
       </section>
 
       <section class="panels" aria-label="Application sections">
         <article class="panel">
-          <h2>Current focus</h2>
-          <p>Deterministic tool schemas, provider config models, and runtime state live in Rust.</p>
+          <h2>Current runtime</h2>
+          <p>Deterministic browser, audio, extraction, and planner state still live in Rust.</p>
         </article>
         <article class="panel">
-          <h2>Next phases</h2>
-          <p>Browser control, extraction, narration, ASR, TTS, and planner execution follow this baseline.</p>
+          <h2>Remaining gaps</h2>
+          <p>Provider failover and some internal cleanup work remain, but the core voice-first runtime is already wired.</p>
         </article>
         <article class="panel">
           <h2>UI stance</h2>
