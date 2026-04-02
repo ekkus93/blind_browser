@@ -21,9 +21,9 @@ Work in this order unless a dependency forces a different sequence:
 
 ---
 
-## 1. Establish a safety net before major refactors — IN PROGRESS
+## 1. Establish a safety net before major refactors — DONE
 
-### 1.1 Add frontend regression tests for current high-risk behaviors — IN PROGRESS
+### 1.1 Add frontend regression tests for current high-risk behaviors — DONE
 
 - Create targeted tests for `src/main.ts` behavior, not just pure render output.
 - Add tests that simulate user interactions through the DOM and event listeners.
@@ -42,7 +42,7 @@ Work in this order unless a dependency forces a different sequence:
   - confirmation settings
   - OCR threshold settings
 
-### 1.2 Add focus and cursor regression tests — PENDING
+### 1.2 Add focus and cursor regression tests — DONE
 
 - Add a test proving that typing into text fields does not:
   - drop focus
@@ -74,7 +74,7 @@ Work in this order unless a dependency forces a different sequence:
 - Add a test ensuring successful panel data is still applied when another fetch fails.
 - Add a test ensuring errors are panel-specific instead of globally sprayed everywhere.
 
-### 1.6 Improve validation scripts and local review instructions — PENDING
+### 1.6 Improve validation scripts and local review instructions — DONE
 
 - Confirm the intended install/build workflow for the frontend and Tauri bridge.
 - Make sure contributors know how to run:
@@ -86,7 +86,7 @@ Work in this order unless a dependency forces a different sequence:
 
 ---
 
-## 2. Replace full-app rerendering with targeted UI updates — IN PROGRESS
+## 2. Replace full-app rerendering with targeted UI updates — DONE
 
 ### 2.1 Audit current rerender behavior in `src/main.ts` — DONE
 
@@ -95,7 +95,7 @@ Work in this order unless a dependency forces a different sequence:
 - Identify which state changes truly require structural rerendering and which only require targeted value updates.
 - Identify controls that currently update on every `input` event.
 
-### 2.2 Introduce a more structured frontend update model — IN PROGRESS
+### 2.2 Introduce a more structured frontend update model — DONE
 
 Implement one of the following approaches consistently:
 
@@ -107,14 +107,14 @@ The important constraint is this:
 
 - do **not** continue replacing the entire `app.innerHTML` tree for routine state changes
 
-### 2.3 Preserve stable DOM roots for interactive panels — IN PROGRESS
+### 2.3 Preserve stable DOM roots for interactive panels — DONE
 
 - Create persistent root elements for major panels.
 - Ensure text inputs, selects, sliders, and buttons are not recreated unnecessarily.
 - Only update the affected panel subtree when its state changes.
 - Keep event delegation or direct listeners stable after updates.
 
-### 2.4 Separate “initial render” from “state update” — IN PROGRESS
+### 2.4 Separate “initial render” from “state update” — DONE
 
 - Keep one function for initial DOM creation.
 - Add update functions for each panel, for example:
@@ -127,21 +127,21 @@ The important constraint is this:
   - `updateConfirmationPanel(...)`
 - Ensure those functions patch content instead of recreating the whole app shell.
 
-### 2.5 Preserve user interaction state during updates — IN PROGRESS
+### 2.5 Preserve user interaction state during updates — DONE
 
 - Preserve focused element where possible.
 - Preserve input selection and cursor position for text inputs.
 - Preserve slider thumb interaction continuity.
 - Do not clear draft text while async operations are in flight unless explicitly intended.
 
-### 2.6 Re-check accessibility after refactor — PENDING
+### 2.6 Re-check accessibility after refactor — DONE
 
 - Ensure labels remain associated with inputs.
 - Ensure ARIA descriptions and busy indicators still work.
 - Ensure screen-reader-announced status regions are not spammed by full subtree replacement.
 - Verify keyboard navigation order remains stable.
 
-### 2.7 Add acceptance criteria for rerender refactor — PENDING
+### 2.7 Add acceptance criteria for rerender refactor — DONE
 
 Refactor is complete only when:
 
@@ -154,7 +154,7 @@ Refactor is complete only when:
 
 ---
 
-## 3. Replace global busy gating with panel-scoped busy behavior — IN PROGRESS
+## 3. Replace global busy gating with panel-scoped busy behavior — DONE
 
 ### 3.1 Audit current global gate in the `change` handler — DONE
 
@@ -162,7 +162,7 @@ Refactor is complete only when:
 - Identify all controls currently blocked by unrelated busy flags.
 - Document the desired busy owner for each setting.
 
-### 3.2 Define ownership for each busy state — IN PROGRESS
+### 3.2 Define ownership for each busy state — DONE
 
 For each interactive control, decide which busy flag should block it.
 
@@ -187,7 +187,7 @@ Examples:
   - `isConfirmationSettingsBusy(...)`
 - Keep the logic readable and explicit.
 
-### 3.4 Update control disabling logic in the UI — IN PROGRESS
+### 3.4 Update control disabling logic in the UI — DONE
 
 - Ensure disabled attributes match the new scoped busy semantics.
 - Do not show a control as enabled if its handler will ignore the event.
@@ -199,7 +199,7 @@ Examples:
 - Do not allow rapid double-submit on a single panel to create race conditions.
 - Consider request ownership IDs if that simplifies deconfliction.
 
-### 3.6 Validate busy-state behavior — IN PROGRESS
+### 3.6 Validate busy-state behavior — DONE
 
 - Confirm unrelated controls remain interactive during independent saves.
 - Confirm same-control duplicate requests are blocked.
@@ -450,21 +450,21 @@ Add targeted tests for:
 
 ---
 
-## 9. Do a final UX and accessibility pass after the refactors
+## 9. Do a final UX and accessibility pass after the refactors — DONE
 
-### 9.1 Keyboard and focus audit
+### 9.1 Keyboard and focus audit — DONE
 
 - Verify tab order across all panels.
 - Verify focus remains stable during async save transitions.
 - Verify returning focus after modal-like confirmation interactions if applicable.
 
-### 9.2 Screen-reader and status message audit
+### 9.2 Screen-reader and status message audit — DONE
 
 - Confirm busy states are announced appropriately.
 - Confirm error messages are tied to relevant controls.
 - Confirm status regions are not excessively re-announced after removing full rerenders.
 
-### 9.3 Manual interaction audit
+### 9.3 Manual interaction audit — DONE
 
 Manually test at least:
 
@@ -478,7 +478,7 @@ Manually test at least:
 
 ---
 
-## 10. Final validation checklist
+## 10. Final validation checklist — DONE
 
 Complete this checklist before considering the review fixes done:
 

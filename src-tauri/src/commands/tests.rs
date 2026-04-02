@@ -2488,7 +2488,10 @@ fn dispatches_get_page_snapshot_from_planned_step() {
     assert_eq!(data.get("scroll_y"), Some(&serde_json::json!(120.0)));
     assert_eq!(data.get("viewport_width"), Some(&serde_json::json!(1280.0)));
     assert_eq!(data.get("viewport_height"), Some(&serde_json::json!(720.0)));
-    assert_eq!(data.get("document_height"), Some(&serde_json::json!(2400.0)));
+    assert_eq!(
+        data.get("document_height"),
+        Some(&serde_json::json!(2400.0))
+    );
 }
 
 #[test]

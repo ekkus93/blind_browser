@@ -136,6 +136,16 @@
 - Added Tauri bridge contract coverage in `src/tauri-api.test.mjs` plus an explicit invoke test hook in `src/tauri-api.ts`, and tightened the Rust `GetPageSnapshot` command test so snapshot metrics are asserted as non-zero live fields instead of placeholder zeroes.
 - Confirmed `.github/workflows/ci.yml` already runs the same validated command set used locally: Rust clippy, Rust tests, `pnpm test:ui`, and `pnpm build` on Node 22.12.0 with the required Ubuntu native dependencies.
 
+## 2026-04-02T20:28:40Z - GPT-5.4 - Phase 9 accessibility audit completed
+- `src/settings-status-panels.ts` now adds screen-reader value text to range sliders, `aria-describedby` wiring for the models-directory input, polite live updates for URL/status changes, and clearer browser-visibility group semantics.
+- `src/confirmation-panel-helpers.ts` now links remote API key inputs to their keyring-storage guidance, and `src/confirmation-panel.ts` groups approve/reject actions explicitly for assistive tech.
+- `src/confirmation-panel.test.mjs` now covers the new accessibility semantics so the final UX pass stays pinned by the existing Node UI suite.
+
+## 2026-04-02T20:30:24Z - GPT-5.4 - Review backlog completed
+- Reconciled `docs/BB_CODE_REVIEW1_TODO.md` so phases 1-10 now reflect the landed work instead of leaving early-phase headings stale after later slices closed the remaining test, rerender, busy-state, and accessibility requirements.
+- Ran the full final validation flow on the completed backlog: Rust formatting, clippy, Rust tests, frontend UI tests, and frontend production build all passed on the current tree.
+- The review backlog is now fully implemented in the repo state represented by this worktree, with the last landed slices covering modularization, expanded seam/bridge tests, and the final accessibility pass.
+
 ## 2026-03-23T20:00:53Z - GPT-5.4 - Frontend confirmation submission errors surfaced
 - `src/planner-orchestration.ts` now stores a transient `submissionError` on awaiting-confirmation UI state and exposes a store helper to set or clear that error by confirmation id.
 - `src/main.ts` now converts failed confirmation submissions into a user-facing error message instead of only re-enabling the buttons.

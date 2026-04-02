@@ -31,12 +31,12 @@ pub use validators::*;
 #[cfg(test)]
 pub(crate) use planner_executor::execute_planner_output_with_runner;
 #[cfg(test)]
+pub(crate) use registry::{discover_skills, SkillSource};
+#[cfg(test)]
 pub(crate) use registry::{
     parse_bundled_skills, parse_intent_name_value, parse_skill_document, schema_json,
     BUNDLED_SKILLS_MARKDOWN, MAX_SELECTED_PLANNER_SKILLS,
 };
-#[cfg(test)]
-pub(crate) use registry::{discover_skills, SkillSource};
 #[cfg(test)]
 pub(crate) use validators::{validate_confirm_action_input, validate_planned_step_arguments};
 
