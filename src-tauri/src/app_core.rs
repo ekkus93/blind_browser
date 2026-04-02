@@ -658,10 +658,7 @@ impl AppCore {
                 browser_navigation.url.clone(),
                 browser_navigation.title.clone(),
             );
-            clear_navigation_follow_up_state(
-                &mut self.state,
-                &mut self.recent_field_context,
-            );
+            clear_navigation_follow_up_state(&mut self.state, &mut self.recent_field_context);
         }
 
         let mut observations = vec![format!(
@@ -732,10 +729,7 @@ impl AppCore {
                 browser_navigation.url.clone(),
                 browser_navigation.title.clone(),
             );
-            clear_navigation_follow_up_state(
-                &mut self.state,
-                &mut self.recent_field_context,
-            );
+            clear_navigation_follow_up_state(&mut self.state, &mut self.recent_field_context);
         }
 
         let mut observations = vec![format!(
@@ -1619,14 +1613,14 @@ impl AppCore {
         };
         let page_metrics = match self.browser.get_page_metrics() {
             Ok(page_metrics) => page_metrics,
-            Err(error) => {
-                return self.browser_tool_failure(
-                    ToolName::GetPageSnapshot,
-                    input.request_id,
-                    String::from("Live page snapshot metrics could not be read from the active browser page."),
-                    error,
-                )
-            }
+            Err(error) => return self.browser_tool_failure(
+                ToolName::GetPageSnapshot,
+                input.request_id,
+                String::from(
+                    "Live page snapshot metrics could not be read from the active browser page.",
+                ),
+                error,
+            ),
         };
 
         ToolResult::success(
@@ -7653,18 +7647,18 @@ fn planner_interpretation_unavailable_error(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_asr_provider_settings, build_confirmation_settings, build_extracted_page_model,
-        build_find_element_query, build_local_asr_model_settings, build_local_tts_model_settings,
-        build_ocr_threshold_settings, build_planner_provider_settings, build_tts_model_settings,
-        build_provider_failover_settings, build_remote_asr_settings, build_remote_planner_settings,
-        build_remote_tts_settings, build_tts_provider_settings, build_tts_voice_settings,
-        browser_error_to_tool_error, build_visible_text_excerpt, clear_navigation_follow_up_state,
-        determine_find_element_resolution,
-        execute_bounded_replanning_loop, extracted_text_metrics, filter_interactive_elements,
-        infer_extraction_source, merge_ocr_text_into_page_model, merged_region_text,
-        normalize_absolute_url, normalize_optional_text, planner_interpretation_unavailable_error,
-        planner_system_prompt, rank_find_element_candidates, refresh_current_page_after_navigation,
-        region_bbox_by_id,
+        browser_error_to_tool_error, build_asr_provider_settings, build_confirmation_settings,
+        build_extracted_page_model, build_find_element_query, build_local_asr_model_settings,
+        build_local_tts_model_settings, build_ocr_threshold_settings,
+        build_planner_provider_settings, build_provider_failover_settings,
+        build_remote_asr_settings, build_remote_planner_settings, build_remote_tts_settings,
+        build_tts_model_settings, build_tts_provider_settings, build_tts_voice_settings,
+        build_visible_text_excerpt, clear_navigation_follow_up_state,
+        determine_find_element_resolution, execute_bounded_replanning_loop, extracted_text_metrics,
+        filter_interactive_elements, infer_extraction_source, merge_ocr_text_into_page_model,
+        merged_region_text, normalize_absolute_url, normalize_optional_text,
+        planner_interpretation_unavailable_error, planner_system_prompt,
+        rank_find_element_candidates, refresh_current_page_after_navigation, region_bbox_by_id,
         region_first_ocr_target_ids, resolve_clickable_element,
         resolve_direct_fill_and_submit_command, resolve_direct_fill_field_command,
         resolve_direct_focus_field_command, resolve_direct_submit_form_command,
@@ -8071,7 +8065,10 @@ mod tests {
         let settings = build_remote_planner_settings(&config);
 
         assert_eq!(settings.profile_name.as_deref(), Some("openai-default"));
-        assert_eq!(settings.provider, Some(crate::commands::RemoteProviderLabel::OpenAi));
+        assert_eq!(
+            settings.provider,
+            Some(crate::commands::RemoteProviderLabel::OpenAi)
+        );
         assert_eq!(
             settings.base_url.as_deref(),
             Some("https://api.openai.com/v1")
@@ -8096,7 +8093,10 @@ mod tests {
         let settings = build_remote_planner_settings(&config);
 
         assert_eq!(settings.profile_name.as_deref(), Some("ollama-default"));
-        assert_eq!(settings.provider, Some(crate::commands::RemoteProviderLabel::Ollama));
+        assert_eq!(
+            settings.provider,
+            Some(crate::commands::RemoteProviderLabel::Ollama)
+        );
         assert_eq!(
             settings.base_url.as_deref(),
             Some("http://localhost:11434/v1")
@@ -8120,7 +8120,10 @@ mod tests {
         let settings = build_remote_tts_settings(&config);
 
         assert_eq!(settings.profile_name.as_deref(), Some("openai-tts-default"));
-        assert_eq!(settings.provider, Some(crate::commands::RemoteProviderLabel::OpenAi));
+        assert_eq!(
+            settings.provider,
+            Some(crate::commands::RemoteProviderLabel::OpenAi)
+        );
         assert_eq!(
             settings.base_url.as_deref(),
             Some("https://api.openai.com/v1")
@@ -8150,7 +8153,10 @@ mod tests {
             settings.profile_name.as_deref(),
             Some("openai-transcribe-default")
         );
-        assert_eq!(settings.provider, Some(crate::commands::RemoteProviderLabel::OpenAi));
+        assert_eq!(
+            settings.provider,
+            Some(crate::commands::RemoteProviderLabel::OpenAi)
+        );
         assert_eq!(
             settings.base_url.as_deref(),
             Some("https://api.openai.com/v1")
@@ -8194,20 +8200,16 @@ mod tests {
             settings.organization_reference.as_deref(),
             Some("OS keyring entry: blind-browser / planner/openai-default")
         );
-        assert!(
-            !settings
-                .api_key_reference
-                .as_deref()
-                .unwrap_or_default()
-                .contains("super-secret")
-        );
-        assert!(
-            !settings
-                .organization_reference
-                .as_deref()
-                .unwrap_or_default()
-                .contains("super-secret")
-        );
+        assert!(!settings
+            .api_key_reference
+            .as_deref()
+            .unwrap_or_default()
+            .contains("super-secret"));
+        assert!(!settings
+            .organization_reference
+            .as_deref()
+            .unwrap_or_default()
+            .contains("super-secret"));
     }
 
     #[test]
@@ -8280,11 +8282,15 @@ mod tests {
         assert!(settings
             .available_profiles
             .iter()
-            .any(|option| option.profile_name == "kitten-default" && option.model_label == "default"));
+            .any(
+                |option| option.profile_name == "kitten-default" && option.model_label == "default"
+            ));
         assert!(settings
             .available_profiles
             .iter()
-            .any(|option| option.profile_name == "kitten-alt" && option.model_label == "expressive"));
+            .any(
+                |option| option.profile_name == "kitten-alt" && option.model_label == "expressive"
+            ));
     }
 
     #[test]
@@ -10987,7 +10993,10 @@ mod tests {
         assert_eq!(runtime.resolve_recent_tool_results.len(), 2);
         assert!(runtime.resolve_recent_tool_results[0].is_empty());
         assert_eq!(runtime.resolve_recent_tool_results[1].len(), 1);
-        assert_eq!(runtime.execute_request_ids, vec![String::from("req-execute")]);
+        assert_eq!(
+            runtime.execute_request_ids,
+            vec![String::from("req-execute")]
+        );
     }
 
     #[test]

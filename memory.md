@@ -118,8 +118,18 @@
 ## 2026-03-23T19:59:31Z - GPT-5.4 - Frontend confirmation submitting state added
 - `src/planner-orchestration.ts` now carries an `isSubmitting` flag in awaiting-confirmation UI state and exposes a store helper to toggle that flag by confirmation id.
 - `src/main.ts` now sets the confirmation state to submitting before calling `resolveConfirmationResponse`, blocks repeat clicks during the request, and restores the buttons if the request fails.
+
+## 2026-04-02T20:11:42Z - GPT-5.4 - Phase 7 frontend modularization
+- `src/main.ts` now delegates shared frontend error/guidance mapping to `src/main-errors.ts` and runtime panel reconciliation to `src/runtime-refresh.ts`, which makes the main entrypoint smaller without changing UI behavior.
+- `src/confirmation-panel.ts` now preserves the public panel render/type export surface while re-exporting most settings, status, and URL panel renderers from `src/settings-status-panels.ts`.
+- Frontend validation after the refactor: `pnpm build` and `pnpm test:ui` both pass.
 - `src/confirmation-panel.ts` and `src/styles.css` now show a temporary submitting status and disable both confirmation buttons while the response is in flight.
 - Frontend validation after the submitting-state change: `pnpm build` passes.
+
+## 2026-04-02T20:14:43Z - GPT-5.4 - Phase 7 modularization completed
+- `src-tauri/src/commands.rs` is now split under `src-tauri/src/commands/` with test-only helper exposure repaired so the shared `commands/tests.rs` module still exercises planner validation and execution helpers.
+- Frontend modularization now uses `app-shell.ts`, `panel-state.ts`, `event-handlers.ts`, `main-errors.ts`, `runtime-refresh.ts`, `panel-types.ts`, `confirmation-panel-helpers.ts`, and `settings-status-panels.ts`, with `src/main.ts` reduced below 2000 lines and `src/confirmation-panel.ts` reduced to the confirmation-specific surface.
+- `docs/BB_CODE_REVIEW1_TODO.md` now marks phase 7 done, and the validated commands remain `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build` after sourcing `./fix-node-version.sh`.
 
 ## 2026-03-23T20:00:53Z - GPT-5.4 - Frontend confirmation submission errors surfaced
 - `src/planner-orchestration.ts` now stores a transient `submissionError` on awaiting-confirmation UI state and exposes a store helper to set or clear that error by confirmation id.
@@ -1269,3 +1279,8 @@
 - TTS provider-switch failures should surface the current failure on the provider, model, and voice panels together instead of only on the provider panel.
 - Page snapshot metrics should be implemented now rather than merely documented or gated as placeholders.
 - The frontend rerender fix should be a larger internal store / panel-update refactor rather than a minimal localized patch.
+
+## 2026-04-02T19:51:00Z - GPT-5 - Phase 7.3 commands modularization
+- Replaced `src-tauri/src/commands.rs` with `src-tauri/src/commands/` and a `mod.rs` façade that re-exports the existing commands API so `crate::commands::{...}` callers stay unchanged.
+- Split the backend command layer into focused Rust modules for tool contracts, planner execution, registry/skill loading, routing, validators, and tests without intentionally changing planner or tool behavior.
+- Validation for this refactor: `cd src-tauri && cargo fmt && cargo check` succeeded; Phase 7.3 in `docs/BB_CODE_REVIEW1_TODO.md` is now marked done.

@@ -1700,11 +1700,9 @@ threads = 4
 
         match error {
             ConfigError::Validation(message) => {
-                assert!(
-                    message.contains(
-                        "providers.planner references missing remote_profiles.missing-planner-profile"
-                    )
-                );
+                assert!(message.contains(
+                    "providers.planner references missing remote_profiles.missing-planner-profile"
+                ));
             }
             other => panic!("expected validation error, got {other}"),
         }

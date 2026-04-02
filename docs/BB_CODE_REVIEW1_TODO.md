@@ -362,9 +362,9 @@ Subtasks:
 
 ---
 
-## 7. Split oversized files into maintainable modules
+## 7. Split oversized files into maintainable modules — DONE
 
-### 7.1 Refactor `src/main.ts`
+### 7.1 Refactor `src/main.ts` — DONE
 
 Create a cleaner module structure. Suggested extraction targets:
 
@@ -386,7 +386,7 @@ Subtasks:
 - isolate rendering from side effects
 - keep the main entry point small and legible
 
-### 7.2 Refactor `src/confirmation-panel.ts`
+### 7.2 Refactor `src/confirmation-panel.ts` — DONE
 
 Possible extraction targets:
 
@@ -396,7 +396,7 @@ Possible extraction targets:
 - state-to-markup mapping helpers
 - HTML helper utilities such as escaping and shared markup generation
 
-### 7.3 Refactor `src-tauri/src/commands.rs`
+### 7.3 Refactor `src-tauri/src/commands.rs` — DONE
 
 Split by capability or command family. Suggested structure:
 
@@ -409,7 +409,7 @@ Split by capability or command family. Suggested structure:
 - TTS commands
 - shared command utilities
 
-### 7.4 Preserve test coverage while refactoring
+### 7.4 Preserve test coverage while refactoring — DONE
 
 - Keep public interfaces stable where practical.
 - Move tests with the code they cover.

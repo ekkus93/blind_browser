@@ -1,6 +1,13 @@
 import "./styles.css";
 
 import {
+  createPanelRoots,
+  renderPanelRoot as renderPanelRootHtml,
+  type PanelRootKey,
+  type PanelRootMap,
+} from "./app-shell";
+import { createInitialPanelStates } from "./panel-state";
+import {
   renderAudioControlsPanel,
   renderConfirmationPanel,
   renderPushToTalkPanel,
@@ -22,7 +29,6 @@ import {
   renderSettingsSpeedPanel,
   renderSettingsVolumePanel,
   renderStatusPanel,
-  statusPanelStateFromAgentState,
   renderUrlInputPanel,
   type AudioControlsPanelState,
   type AsrProviderPanelState,
@@ -37,7 +43,6 @@ import {
   type RemotePlannerPanelState,
   type RemoteTtsPanelState,
   type PushToTalkPanelState,
-  type SettingsGuidancePanelState,
   type StatusPanelState,
   type TtsModelPanelState,
   type TtsProviderPanelState,
@@ -53,13 +58,20 @@ import {
 import {
   buildTtsProviderFailureRollbackState,
   isSettingsControlBusy,
-  splitRuntimeRefreshResults,
 } from "./main-behavior";
 import {
-  classifyInvokeFailure,
-  type AgentStateData,
-  getAgentState,
-  getModelManagementSettings,
+  currentSettingsGuidanceState,
+  describeAudioControlFailure,
+  describePlannerBlockedMessage,
+  describePushToTalkFailure,
+  describeScopedRuntimeRefreshFailure,
+  describeUrlInputFailure,
+} from "./main-errors";
+import { registerAppEventHandlers } from "./event-handlers";
+import {
+  createRuntimeRefreshHandlers,
+} from "./runtime-refresh";
+import {
   openUrl,
   resolveCommand,
   downloadActiveLocalAsrModel,
@@ -121,25 +133,29 @@ const app = document.querySelector<HTMLDivElement>("#app");
 const uiStore = createExecutionUiStore();
 const PUSH_TO_TALK_RELEASE_CAPTURE_MS = 1;
 const CONTINUOUS_LISTEN_CAPTURE_MS = 3_000;
+const initialPanelStates = createInitialPanelStates();
 let currentExecutionUiState = uiStore.getState();
-let pushToTalkState: PushToTalkPanelState = createInitialPushToTalkState();
-let audioControlsState: AudioControlsPanelState = createInitialAudioControlsState();
-let plannerProviderPanelState: PlannerProviderPanelState = createInitialPlannerProviderPanelState();
-let remotePlannerPanelState: RemotePlannerPanelState = createInitialRemotePlannerPanelState();
-let providerFailoverPanelState: ProviderFailoverPanelState = createInitialProviderFailoverPanelState();
-let confirmationSettingsPanelState: ConfirmationSettingsPanelState = createInitialConfirmationSettingsPanelState();
-let ocrThresholdSettingsPanelState: OcrThresholdSettingsPanelState = createInitialOcrThresholdSettingsPanelState();
-let asrProviderPanelState: AsrProviderPanelState = createInitialAsrProviderPanelState();
-let localAsrModelPanelState: LocalAsrModelPanelState = createInitialLocalAsrModelPanelState();
-let modelManagementPanelState: ModelManagementPanelState = createInitialModelManagementPanelState();
-let remoteAsrPanelState: RemoteAsrPanelState = createInitialRemoteAsrPanelState();
-let ttsProviderPanelState: TtsProviderPanelState = createInitialTtsProviderPanelState();
-let ttsModelPanelState: TtsModelPanelState = createInitialTtsModelPanelState();
-let localTtsModelPanelState: LocalTtsModelPanelState = createInitialLocalTtsModelPanelState();
-let remoteTtsPanelState: RemoteTtsPanelState = createInitialRemoteTtsPanelState();
-let ttsVoicePanelState: TtsVoicePanelState = createInitialTtsVoicePanelState();
-let statusPanelState: StatusPanelState = createInitialStatusPanelState();
-let urlInputPanelState: UrlInputPanelState = createInitialUrlInputPanelState();
+let pushToTalkState: PushToTalkPanelState = initialPanelStates.pushToTalkState;
+let audioControlsState: AudioControlsPanelState = initialPanelStates.audioControlsState;
+let plannerProviderPanelState: PlannerProviderPanelState = initialPanelStates.plannerProviderPanelState;
+let remotePlannerPanelState: RemotePlannerPanelState = initialPanelStates.remotePlannerPanelState;
+let providerFailoverPanelState: ProviderFailoverPanelState = initialPanelStates.providerFailoverPanelState;
+let confirmationSettingsPanelState: ConfirmationSettingsPanelState =
+  initialPanelStates.confirmationSettingsPanelState;
+let ocrThresholdSettingsPanelState: OcrThresholdSettingsPanelState =
+  initialPanelStates.ocrThresholdSettingsPanelState;
+let asrProviderPanelState: AsrProviderPanelState = initialPanelStates.asrProviderPanelState;
+let localAsrModelPanelState: LocalAsrModelPanelState = initialPanelStates.localAsrModelPanelState;
+let modelManagementPanelState: ModelManagementPanelState =
+  initialPanelStates.modelManagementPanelState;
+let remoteAsrPanelState: RemoteAsrPanelState = initialPanelStates.remoteAsrPanelState;
+let ttsProviderPanelState: TtsProviderPanelState = initialPanelStates.ttsProviderPanelState;
+let ttsModelPanelState: TtsModelPanelState = initialPanelStates.ttsModelPanelState;
+let localTtsModelPanelState: LocalTtsModelPanelState = initialPanelStates.localTtsModelPanelState;
+let remoteTtsPanelState: RemoteTtsPanelState = initialPanelStates.remoteTtsPanelState;
+let ttsVoicePanelState: TtsVoicePanelState = initialPanelStates.ttsVoicePanelState;
+let statusPanelState: StatusPanelState = initialPanelStates.statusPanelState;
+let urlInputPanelState: UrlInputPanelState = initialPanelStates.urlInputPanelState;
 let activePushToTalkSource: "keyboard" | "pointer" | null = null;
 let continuousListeningLoopActive = false;
 
@@ -148,440 +164,47 @@ if (!app) {
 }
 const appRoot: HTMLDivElement = app;
 
-function createInitialPushToTalkState(): PushToTalkPanelState {
-  return {
-    enabled: true,
-    isHolding: false,
-    isListening: false,
-    isBusy: false,
-    lastTranscript: null,
-    lastError: null,
-  };
-}
-
-function createInitialAudioControlsState(): AudioControlsPanelState {
-  return {
-    playbackVolume: 1,
-    playbackSpeed: 1,
-    isBusy: false,
-    error: null,
-  };
-}
-
-function createInitialPlannerProviderPanelState(): PlannerProviderPanelState {
-  return {
-    activeMode: "Remote",
-    availableModes: ["Remote"],
-    summary: "Planner currently uses configured remote profiles only.",
-  };
-}
-
-function createInitialRemotePlannerPanelState(): RemotePlannerPanelState {
-  return {
-    profileName: null,
-    provider: null,
-    baseUrl: null,
-    model: null,
-    apiKeyReference: null,
-    organizationReference: null,
-    project: null,
-    temperatureMilli: null,
-    maxOutputTokens: null,
-    timeoutMs: null,
-    apiKeyDraft: "",
-    isSavingApiKey: false,
-    error: null,
-  };
-}
-
-function createInitialAsrProviderPanelState(): AsrProviderPanelState {
-  return {
-    activeMode: "Local",
-    availableModes: ["Local", "Remote"],
-    isBusy: false,
-    error: null,
-  };
-}
-
-function createInitialLocalAsrModelPanelState(): LocalAsrModelPanelState {
-  return {
-    profileName: null,
-    backend: null,
-    modelId: null,
-    modelPath: null,
-    language: null,
-    threads: null,
-  };
-}
-
-function createInitialRemoteAsrPanelState(): RemoteAsrPanelState {
-  return {
-    profileName: null,
-    provider: null,
-    baseUrl: null,
-    model: null,
-    apiKeyReference: null,
-    organizationReference: null,
-    project: null,
-    language: null,
-    temperatureMilli: null,
-    timeoutMs: null,
-    apiKeyDraft: "",
-    isSavingApiKey: false,
-    error: null,
-  };
-}
-
-function createInitialModelManagementPanelState(): ModelManagementPanelState {
-  return {
-    modelsDir: "",
-    checkOnStartup: true,
-    autoDownloadMissing: false,
-    localTtsAvailable: false,
-    localTtsDownloadSupported: false,
-    localTtsDownloadLabel: null,
-    localAsrAvailable: false,
-    localAsrDownloadSupported: false,
-    localAsrDownloadLabel: null,
-    isSaving: false,
-    isDownloadingTts: false,
-    isDownloadingAsr: false,
-    error: null,
-  };
-}
-
-function createInitialProviderFailoverPanelState(): ProviderFailoverPanelState {
-  return {
-    plannerAvailable: false,
-    ttsAvailable: false,
-    asrAvailable: false,
-    summary:
-      "Provider failover settings are defined in config, but automatic failover is still disabled in the live runtime.",
-  };
-}
-
-function createInitialConfirmationSettingsPanelState(): ConfirmationSettingsPanelState {
-  return {
-    confirmationConfidenceThreshold: 0.9,
-    allowClickWithoutConfirmation: true,
-    alwaysConfirmSubmit: true,
-    isBusy: false,
-    error: null,
-  };
-}
-
-function createInitialOcrThresholdSettingsPanelState(): OcrThresholdSettingsPanelState {
-  return {
-    sparseTextCharThreshold: 200,
-    sparseTextRegionThreshold: 2,
-    isBusy: false,
-    error: null,
-  };
-}
-
-function createInitialTtsProviderPanelState(): TtsProviderPanelState {
-  return {
-    activeMode: "Local",
-    availableModes: ["Local", "Remote"],
-    isBusy: false,
-    error: null,
-  };
-}
-
-function createInitialLocalTtsModelPanelState(): LocalTtsModelPanelState {
-  return {
-    profileName: null,
-    backend: null,
-    modelId: null,
-    modelPath: null,
-    defaultVoice: null,
-    sampleRate: null,
-  };
-}
-
-function createInitialRemoteTtsPanelState(): RemoteTtsPanelState {
-  return {
-    profileName: null,
-    provider: null,
-    baseUrl: null,
-    model: null,
-    apiKeyReference: null,
-    organizationReference: null,
-    project: null,
-    voice: null,
-    audioFormat: null,
-    timeoutMs: null,
-    apiKeyDraft: "",
-    isSavingApiKey: false,
-    error: null,
-  };
-}
-
-function createInitialTtsModelPanelState(): TtsModelPanelState {
-  return {
-    mode: "Local",
-    activeProfile: null,
-    availableProfiles: [],
-    isBusy: false,
-    error: null,
-  };
-}
-
-function createInitialTtsVoicePanelState(): TtsVoicePanelState {
-  return {
-    mode: "Local",
-    activeVoice: null,
-    availableVoices: [],
-    isBusy: false,
-    error: null,
-  };
-}
-
-function createInitialStatusPanelState(): StatusPanelState {
-  return {
-    pageTitle: null,
-    currentRegionLabel: null,
-    lastTranscript: null,
-    listening: false,
-    speaking: false,
-    browserVisibility: "Visible",
-    canGoBack: false,
-    canGoForward: false,
-    isUpdatingVisibility: false,
-    error: null,
-  };
-}
-
-function createInitialUrlInputPanelState(): UrlInputPanelState {
-  return {
-    draftValue: "",
-    currentUrl: null,
-    hasUnsubmittedChanges: false,
-    isOpening: false,
-    isReading: false,
-    isStopping: false,
-    isAdvancing: false,
-    isRewinding: false,
-    error: null,
-  };
-}
-
-type PanelRootKey =
-  | "push-to-talk"
-  | "url-input"
-  | "status"
-  | "audio-controls"
-  | "settings-guidance"
-  | "settings-planner-provider"
-  | "settings-remote-planner"
-  | "settings-provider-failover"
-  | "settings-confirmation"
-  | "settings-ocr-threshold"
-  | "settings-asr-provider"
-  | "settings-local-asr-model"
-  | "settings-model-management"
-  | "settings-remote-asr"
-  | "settings-tts-provider"
-  | "settings-tts-model"
-  | "settings-local-tts-model"
-  | "settings-remote-tts"
-  | "settings-tts-voice"
-  | "settings-volume"
-  | "settings-speed"
-  | "confirmation-panel";
-
-type PanelRootMap = Record<PanelRootKey, HTMLDivElement>;
-
 let panelRoots: PanelRootMap | null = null;
-
-function renderPanelRootPlaceholder(rootKey: PanelRootKey): string {
-  return `<div data-panel-root="${rootKey}"></div>`;
-}
-
-function renderAppShell(): string {
-  return `
-    <main class="shell">
-      <section class="hero">
-        <p class="eyebrow">Voice-first desktop runtime</p>
-        <h1>Voice-first browser workspace</h1>
-        <p class="lede">
-          Thin Tauri frontend for the live blind_browser runtime. Browser control,
-          narration, voice input, settings, and confirmation flows stay lightweight
-          here while deterministic tools and runtime state live in Rust.
-        </p>
-      </section>
-
-      <section class="panels" aria-label="Application sections">
-        <article class="panel">
-          <h2>Current runtime</h2>
-          <p>Deterministic browser, audio, extraction, and planner state still live in Rust.</p>
-        </article>
-        <article class="panel">
-          <h2>Remaining gaps</h2>
-          <p>Provider failover and some internal cleanup work remain, but the core voice-first runtime is already wired.</p>
-        </article>
-        <article class="panel">
-          <h2>UI stance</h2>
-          <p>The UI remains intentionally light so voice-first behavior stays the primary product path.</p>
-        </article>
-        <article class="panel">
-          <h2>Confirmation flow</h2>
-          <p>
-            Frontend orchestration now opens a dedicated confirmation UI state whenever a planner
-            execution returns <strong>AwaitingConfirmation</strong>.
-          </p>
-        </article>
-      </section>
-
-      ${renderPanelRootPlaceholder("push-to-talk")}
-      ${renderPanelRootPlaceholder("url-input")}
-      ${renderPanelRootPlaceholder("status")}
-      ${renderPanelRootPlaceholder("audio-controls")}
-      ${renderPanelRootPlaceholder("settings-guidance")}
-      ${renderPanelRootPlaceholder("settings-planner-provider")}
-      ${renderPanelRootPlaceholder("settings-remote-planner")}
-      ${renderPanelRootPlaceholder("settings-provider-failover")}
-      ${renderPanelRootPlaceholder("settings-confirmation")}
-      ${renderPanelRootPlaceholder("settings-ocr-threshold")}
-      ${renderPanelRootPlaceholder("settings-asr-provider")}
-      ${renderPanelRootPlaceholder("settings-local-asr-model")}
-      ${renderPanelRootPlaceholder("settings-model-management")}
-      ${renderPanelRootPlaceholder("settings-remote-asr")}
-      ${renderPanelRootPlaceholder("settings-tts-provider")}
-      ${renderPanelRootPlaceholder("settings-tts-model")}
-      ${renderPanelRootPlaceholder("settings-local-tts-model")}
-      ${renderPanelRootPlaceholder("settings-remote-tts")}
-      ${renderPanelRootPlaceholder("settings-tts-voice")}
-      ${renderPanelRootPlaceholder("settings-volume")}
-      ${renderPanelRootPlaceholder("settings-speed")}
-      ${renderPanelRootPlaceholder("confirmation-panel")}
-    </main>
-  `;
-}
-
-function requirePanelRoot(rootKey: PanelRootKey): HTMLDivElement {
-  const root = appRoot.querySelector<HTMLDivElement>(`[data-panel-root="${rootKey}"]`);
-  if (!root) {
-    throw new Error(`Panel root ${rootKey} was not found.`);
-  }
-
-  return root;
-}
-
 function ensurePanelRoots(): PanelRootMap {
   if (panelRoots) {
     return panelRoots;
   }
 
-  appRoot.innerHTML = renderAppShell();
-  panelRoots = {
-    "push-to-talk": requirePanelRoot("push-to-talk"),
-    "url-input": requirePanelRoot("url-input"),
-    "status": requirePanelRoot("status"),
-    "audio-controls": requirePanelRoot("audio-controls"),
-    "settings-guidance": requirePanelRoot("settings-guidance"),
-    "settings-planner-provider": requirePanelRoot("settings-planner-provider"),
-    "settings-remote-planner": requirePanelRoot("settings-remote-planner"),
-    "settings-provider-failover": requirePanelRoot("settings-provider-failover"),
-    "settings-confirmation": requirePanelRoot("settings-confirmation"),
-    "settings-ocr-threshold": requirePanelRoot("settings-ocr-threshold"),
-    "settings-asr-provider": requirePanelRoot("settings-asr-provider"),
-    "settings-local-asr-model": requirePanelRoot("settings-local-asr-model"),
-    "settings-model-management": requirePanelRoot("settings-model-management"),
-    "settings-remote-asr": requirePanelRoot("settings-remote-asr"),
-    "settings-tts-provider": requirePanelRoot("settings-tts-provider"),
-    "settings-tts-model": requirePanelRoot("settings-tts-model"),
-    "settings-local-tts-model": requirePanelRoot("settings-local-tts-model"),
-    "settings-remote-tts": requirePanelRoot("settings-remote-tts"),
-    "settings-tts-voice": requirePanelRoot("settings-tts-voice"),
-    "settings-volume": requirePanelRoot("settings-volume"),
-    "settings-speed": requirePanelRoot("settings-speed"),
-    "confirmation-panel": requirePanelRoot("confirmation-panel"),
-  };
+  panelRoots = createPanelRoots(appRoot);
 
   return panelRoots;
 }
 
-interface PreservedPanelControlState {
-  elementId: string;
-  value: string;
-  selectionStart: number | null;
-  selectionEnd: number | null;
-  selectionDirection: "forward" | "backward" | "none" | null;
-}
-
-function captureActivePanelControl(root: HTMLDivElement): PreservedPanelControlState | null {
-  const activeElement = document.activeElement;
-  if (
-    !activeElement
-    || !root.contains(activeElement)
-    || (
-      !(activeElement instanceof HTMLInputElement)
-      && !(activeElement instanceof HTMLTextAreaElement)
-      && !(activeElement instanceof HTMLSelectElement)
-    )
-    || !activeElement.id
-  ) {
-    return null;
-  }
-
-  return {
-    elementId: activeElement.id,
-    value: activeElement.value,
-    selectionStart:
-      activeElement instanceof HTMLSelectElement ? null : activeElement.selectionStart,
-    selectionEnd:
-      activeElement instanceof HTMLSelectElement ? null : activeElement.selectionEnd,
-    selectionDirection:
-      activeElement instanceof HTMLSelectElement ? null : activeElement.selectionDirection,
-  };
-}
-
-function restoreActivePanelControl(
-  root: HTMLDivElement,
-  controlState: PreservedPanelControlState | null,
-) {
-  if (!controlState) {
-    return;
-  }
-
-  const nextElement = document.getElementById(controlState.elementId);
-  if (
-    !nextElement
-    || !root.contains(nextElement)
-    || (
-      !(nextElement instanceof HTMLInputElement)
-      && !(nextElement instanceof HTMLTextAreaElement)
-      && !(nextElement instanceof HTMLSelectElement)
-    )
-  ) {
-    return;
-  }
-
-  nextElement.focus({ preventScroll: true });
-  if (
-    nextElement instanceof HTMLInputElement
-    || nextElement instanceof HTMLTextAreaElement
-  ) {
-    if (nextElement.value === controlState.value) {
-      nextElement.setSelectionRange(
-        controlState.selectionStart,
-        controlState.selectionEnd,
-        controlState.selectionDirection ?? undefined,
-      );
-    }
-  }
-}
-
 function renderPanelRoot(rootKey: PanelRootKey, html: string) {
-  const root = ensurePanelRoots()[rootKey];
-  const controlState = captureActivePanelControl(root);
-  root.innerHTML = html;
-  restoreActivePanelControl(root, controlState);
+  renderPanelRootHtml(ensurePanelRoots(), rootKey, html);
 }
 
 function rerenderSettingsGuidancePanel() {
-  renderPanelRoot("settings-guidance", renderSettingsGuidancePanel(currentSettingsGuidanceState()));
+  renderPanelRoot(
+    "settings-guidance",
+    renderSettingsGuidancePanel(
+      currentSettingsGuidanceState({
+        pushToTalkState,
+        audioControlsState,
+        plannerProviderPanelState,
+        remotePlannerPanelState,
+        providerFailoverPanelState,
+        confirmationSettingsPanelState,
+        ocrThresholdSettingsPanelState,
+        asrProviderPanelState,
+        localAsrModelPanelState,
+        modelManagementPanelState,
+        remoteAsrPanelState,
+        ttsProviderPanelState,
+        ttsModelPanelState,
+        localTtsModelPanelState,
+        remoteTtsPanelState,
+        ttsVoicePanelState,
+        statusPanelState,
+        urlInputPanelState,
+      }),
+    ),
+  );
 }
 
 function rerenderPushToTalkPanel() {
@@ -865,164 +488,6 @@ function isPushToTalkKeyEvent(event: KeyboardEvent): boolean {
   );
 }
 
-function describePushToTalkFailure(error: unknown): string {
-  const failure = classifyInvokeFailure(error);
-  if (failure.kind === "tool-error") {
-    return failure.toolError.message;
-  }
-
-  return failure.message;
-}
-
-function describeAudioControlFailure(error: unknown): string {
-  const failure = classifyInvokeFailure(error);
-  if (failure.kind === "tool-error") {
-    return failure.toolError.message;
-  }
-
-  return failure.message;
-}
-
-function describeUrlInputFailure(error: unknown): string {
-  const failure = classifyInvokeFailure(error);
-  if (failure.kind === "tool-error") {
-    return failure.toolError.message;
-  }
-
-  return failure.message;
-}
-
-function describeScopedRuntimeRefreshFailure(
-  scope: "runtime state" | "model management",
-  error: unknown,
-): string {
-  return `${scope} refresh failed: ${describeAudioControlFailure(error)}`;
-}
-
-function describePlannerBlockedMessage(defaultMessage: string, userMessage: string | null): string {
-  const trimmed = userMessage?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : defaultMessage;
-}
-
-function guidanceStateForErrorMessage(message: string | null): SettingsGuidancePanelState | null {
-  const normalized = message?.trim().toLowerCase();
-  if (!normalized) {
-    return null;
-  }
-
-  if (
-    normalized.includes("local tts model path")
-    || normalized.includes("failed to load the local tts model")
-    || normalized.includes("tts local profile")
-  ) {
-    return {
-      title: "Model setup needs attention",
-      message: "The current local TTS setup is unavailable. Review the TTS provider or TTS model settings below.",
-      actions: [
-        { label: "Review TTS provider", targetId: "settings-tts-provider-control" },
-        { label: "Review TTS model", targetId: "settings-tts-model-control" },
-        { label: "Open model management", targetId: "settings-model-management-title" },
-        { label: "Review local TTS reference", targetId: "settings-local-tts-model-title" },
-      ],
-    };
-  }
-
-  if (
-    normalized.includes("local asr model path")
-    || normalized.includes("failed to load the local asr model")
-    || normalized.includes("asr local profile")
-  ) {
-    return {
-      title: "Model setup needs attention",
-      message: "The current local ASR setup is unavailable. Review the ASR provider and local model settings below.",
-      actions: [
-        { label: "Review ASR provider", targetId: "settings-asr-provider-control" },
-        { label: "Open model management", targetId: "settings-model-management-title" },
-        { label: "Review local ASR reference", targetId: "settings-local-asr-model-title" },
-      ],
-    };
-  }
-
-  if (
-    normalized.includes("planner profile")
-    || normalized.includes("planner_profile_unavailable")
-    || normalized.includes("configured remote planner profile")
-  ) {
-    return {
-      title: "Planner setup needs attention",
-      message: "Command interpretation is unavailable until a remote planner profile is configured. Review the planner provider and remote planner settings below.",
-      actions: [
-        { label: "Review planner provider", targetId: "settings-planner-provider-control" },
-        { label: "Review planner API reference", targetId: "settings-remote-planner-title" },
-      ],
-    };
-  }
-
-  if (
-    normalized.includes("planner api key")
-    || normalized.includes("planner_secret_unavailable")
-    || normalized.includes("remote planner secret")
-    || normalized.includes("keyring secret")
-  ) {
-    return {
-      title: "Remote planner secret needs attention",
-      message: "The current remote planner secret is unavailable. Review the planner API reference and save a replacement key below.",
-      actions: [
-        { label: "Review planner API reference", targetId: "settings-remote-planner-title" },
-        { label: "Enter planner API key", targetId: "settings-remote-planner-api-key-input" },
-      ],
-    };
-  }
-
-  if (
-    normalized.includes("tts api key")
-    || normalized.includes("tts_secret_unavailable")
-    || normalized.includes("remote tts secret")
-  ) {
-    return {
-      title: "Remote TTS secret needs attention",
-      message: "The current remote TTS secret is unavailable. Review the remote TTS profile and save a replacement key below.",
-      actions: [
-        { label: "Review remote TTS profile", targetId: "settings-remote-tts-title" },
-        { label: "Enter remote TTS API key", targetId: "settings-remote-tts-api-key-input" },
-      ],
-    };
-  }
-
-  if (
-    normalized.includes("asr api key")
-    || normalized.includes("asr_secret_unavailable")
-    || normalized.includes("remote asr secret")
-  ) {
-    return {
-      title: "Remote ASR secret needs attention",
-      message: "The current remote ASR secret is unavailable. Review the remote ASR profile and save a replacement key below.",
-      actions: [
-        { label: "Review remote ASR profile", targetId: "settings-remote-asr-title" },
-        { label: "Enter remote ASR API key", targetId: "settings-remote-asr-api-key-input" },
-      ],
-    };
-  }
-
-  return null;
-}
-
-function currentSettingsGuidanceState(): SettingsGuidancePanelState | null {
-  return (
-    guidanceStateForErrorMessage(pushToTalkState.lastError)
-    ?? guidanceStateForErrorMessage(urlInputPanelState.error)
-    ?? guidanceStateForErrorMessage(statusPanelState.error)
-    ?? guidanceStateForErrorMessage(ttsProviderPanelState.error)
-    ?? guidanceStateForErrorMessage(ttsModelPanelState.error)
-    ?? guidanceStateForErrorMessage(ttsVoicePanelState.error)
-    ?? guidanceStateForErrorMessage(asrProviderPanelState.error)
-    ?? guidanceStateForErrorMessage(remotePlannerPanelState.error)
-    ?? guidanceStateForErrorMessage(remoteTtsPanelState.error)
-    ?? guidanceStateForErrorMessage(remoteAsrPanelState.error)
-    ?? guidanceStateForErrorMessage(modelManagementPanelState.error)
-  );
-}
-
 function isSettingsActionBusy(
   control:
     | "volume"
@@ -1049,141 +514,6 @@ function isSettingsActionBusy(
     ttsModel: ttsModelPanelState,
     ttsVoice: ttsVoicePanelState,
   });
-}
-
-function applyAgentStateToPanels(agentState: AgentStateData) {
-  setPushToTalkState({
-    enabled: agentState.listening_state.push_to_talk_enabled,
-    isListening: agentState.listening_state.is_listening,
-    lastTranscript: agentState.last_transcript,
-  });
-  setAudioControlsState({
-    playbackVolume: agentState.audio.playback_volume,
-    playbackSpeed: agentState.audio.playback_speed,
-    error: null,
-  });
-  setPlannerProviderPanelState({
-    activeMode: agentState.planner_provider_settings.active_mode,
-    availableModes: agentState.planner_provider_settings.available_modes,
-    summary: agentState.planner_provider_settings.summary,
-  });
-  setRemotePlannerPanelState({
-    profileName: agentState.remote_planner_settings.profile_name,
-    provider: agentState.remote_planner_settings.provider,
-    baseUrl: agentState.remote_planner_settings.base_url,
-    model: agentState.remote_planner_settings.model,
-    apiKeyReference: agentState.remote_planner_settings.api_key_reference,
-    organizationReference: agentState.remote_planner_settings.organization_reference,
-    project: agentState.remote_planner_settings.project,
-    temperatureMilli: agentState.remote_planner_settings.temperature_milli,
-    maxOutputTokens: agentState.remote_planner_settings.max_output_tokens,
-    timeoutMs: agentState.remote_planner_settings.timeout_ms,
-  });
-  setProviderFailoverPanelState({
-    plannerAvailable: agentState.provider_failover_settings.planner_available,
-    ttsAvailable: agentState.provider_failover_settings.tts_available,
-    asrAvailable: agentState.provider_failover_settings.asr_available,
-    summary: agentState.provider_failover_settings.summary,
-  });
-  setConfirmationSettingsPanelState({
-    confirmationConfidenceThreshold: agentState.confirmation_settings.confirmation_confidence_threshold,
-    allowClickWithoutConfirmation: agentState.confirmation_settings.allow_click_without_confirmation,
-    alwaysConfirmSubmit: agentState.confirmation_settings.always_confirm_submit,
-    isBusy: false,
-    error: null,
-  });
-  setOcrThresholdSettingsPanelState({
-    sparseTextCharThreshold: agentState.ocr_threshold_settings.sparse_text_char_threshold,
-    sparseTextRegionThreshold: agentState.ocr_threshold_settings.sparse_text_region_threshold,
-    isBusy: false,
-    error: null,
-  });
-  setAsrProviderPanelState({
-    activeMode: agentState.asr_provider_settings.active_mode,
-    availableModes: agentState.asr_provider_settings.available_modes,
-    isBusy: false,
-    error: null,
-  });
-  setLocalAsrModelPanelState({
-    profileName: agentState.local_asr_model_settings.profile_name,
-    backend: agentState.local_asr_model_settings.backend,
-    modelId: agentState.local_asr_model_settings.model_id,
-    modelPath: agentState.local_asr_model_settings.model_path,
-    language: agentState.local_asr_model_settings.language,
-    threads: agentState.local_asr_model_settings.threads,
-  });
-  setRemoteAsrPanelState({
-    profileName: agentState.remote_asr_settings.profile_name,
-    provider: agentState.remote_asr_settings.provider,
-    baseUrl: agentState.remote_asr_settings.base_url,
-    model: agentState.remote_asr_settings.model,
-    apiKeyReference: agentState.remote_asr_settings.api_key_reference,
-    organizationReference: agentState.remote_asr_settings.organization_reference,
-    project: agentState.remote_asr_settings.project,
-    language: agentState.remote_asr_settings.language,
-    temperatureMilli: agentState.remote_asr_settings.temperature_milli,
-    timeoutMs: agentState.remote_asr_settings.timeout_ms,
-  });
-  setTtsProviderPanelState({
-    activeMode: agentState.tts_provider_settings.active_mode,
-    availableModes: agentState.tts_provider_settings.available_modes,
-    isBusy: false,
-    error: null,
-  });
-  setTtsModelPanelState({
-    mode: agentState.tts_model_settings.mode,
-    activeProfile: agentState.tts_model_settings.active_profile,
-    availableProfiles: agentState.tts_model_settings.available_profiles.map((option) => ({
-      profileName: option.profile_name,
-      modelLabel: option.model_label,
-    })),
-    isBusy: false,
-    error: null,
-  });
-  setLocalTtsModelPanelState({
-    profileName: agentState.local_tts_model_settings.profile_name,
-    backend: agentState.local_tts_model_settings.backend,
-    modelId: agentState.local_tts_model_settings.model_id,
-    modelPath: agentState.local_tts_model_settings.model_path,
-    defaultVoice: agentState.local_tts_model_settings.default_voice,
-    sampleRate: agentState.local_tts_model_settings.sample_rate,
-  });
-  setRemoteTtsPanelState({
-    profileName: agentState.remote_tts_settings.profile_name,
-    provider: agentState.remote_tts_settings.provider,
-    baseUrl: agentState.remote_tts_settings.base_url,
-    model: agentState.remote_tts_settings.model,
-    apiKeyReference: agentState.remote_tts_settings.api_key_reference,
-    organizationReference: agentState.remote_tts_settings.organization_reference,
-    project: agentState.remote_tts_settings.project,
-    voice: agentState.remote_tts_settings.voice,
-    audioFormat: agentState.remote_tts_settings.audio_format,
-    timeoutMs: agentState.remote_tts_settings.timeout_ms,
-  });
-  setTtsVoicePanelState({
-    mode: agentState.tts_voice_settings.mode,
-    activeVoice: agentState.tts_voice_settings.active_voice,
-    availableVoices: agentState.tts_voice_settings.available_voices.map((option) => ({
-      voiceName: option.voice_name,
-      displayLabel: option.display_label,
-    })),
-    isBusy: false,
-    error: null,
-  });
-  setStatusPanelState(statusPanelStateFromAgentState(agentState));
-  setUrlInputPanelState({
-    currentUrl: agentState.url,
-    draftValue: urlInputPanelState.hasUnsubmittedChanges ? urlInputPanelState.draftValue : (agentState.url ?? ""),
-    isOpening: false,
-    isReading: false,
-    isStopping: false,
-    isAdvancing: false,
-    isRewinding: false,
-    error: null,
-  });
-  if (agentState.listening_state.is_listening && !pushToTalkState.isHolding) {
-    void ensureContinuousListeningLoop();
-  }
 }
 
 function isUrlInputActionBusy(): boolean {
@@ -1251,65 +581,50 @@ async function executeUrlPanelPlannerCommand(input: {
   }
 }
 
-async function refreshRuntimePanelsFromRuntime() {
-  const refreshResults = splitRuntimeRefreshResults(
-    ...(await Promise.allSettled([
-      getAgentState({
-        requestId: createRequestId("runtime-panels-state"),
-        includeLastTranscript: true,
-      }),
-      getModelManagementSettings({
-        requestId: createRequestId("model-management-state"),
-      }),
-    ])),
-    describeAudioControlFailure,
-  );
-
-  if (refreshResults.agentState) {
-    applyAgentStateToPanels(refreshResults.agentState);
-  } else if (refreshResults.agentStateError) {
-    setStatusPanelState({
-      error: describeScopedRuntimeRefreshFailure(
-        "runtime state",
-        refreshResults.agentStateError,
-      ),
-      isUpdatingVisibility: false,
-    });
-    setPushToTalkState({
-      isBusy: false,
-      lastError: pushToTalkState.lastError,
-    });
-  }
-
-  if (refreshResults.modelSettings) {
-    const modelManagementSettings = refreshResults.modelSettings;
-    setModelManagementPanelState({
-      modelsDir: modelManagementSettings.models_dir,
-      checkOnStartup: modelManagementSettings.check_on_startup,
-      autoDownloadMissing: modelManagementSettings.auto_download_missing,
-      localTtsAvailable: modelManagementSettings.local_tts.available,
-      localTtsDownloadSupported: modelManagementSettings.local_tts.download_supported,
-      localTtsDownloadLabel: modelManagementSettings.local_tts.download_label,
-      localAsrAvailable: modelManagementSettings.local_asr.available,
-      localAsrDownloadSupported: modelManagementSettings.local_asr.download_supported,
-      localAsrDownloadLabel: modelManagementSettings.local_asr.download_label,
-      isSaving: false,
-      isDownloadingTts: false,
-      isDownloadingAsr: false,
-      error: null,
-    });
-  } else if (refreshResults.modelSettingsError) {
-    setModelManagementPanelState({
-      isSaving: false,
-      isDownloadingTts: false,
-      isDownloadingAsr: false,
-      error: describeScopedRuntimeRefreshFailure(
-        "model management",
-        refreshResults.modelSettingsError,
-      ),
-    });
-  }
-}
+const { refreshRuntimePanelsFromRuntime } = createRuntimeRefreshHandlers({
+  createRequestId,
+  describeAudioControlFailure,
+  describeScopedRuntimeRefreshFailure,
+  ensureContinuousListeningLoop,
+  getPanelStates: () => ({
+    pushToTalkState,
+    audioControlsState,
+    plannerProviderPanelState,
+    remotePlannerPanelState,
+    providerFailoverPanelState,
+    confirmationSettingsPanelState,
+    ocrThresholdSettingsPanelState,
+    asrProviderPanelState,
+    localAsrModelPanelState,
+    modelManagementPanelState,
+    remoteAsrPanelState,
+    ttsProviderPanelState,
+    ttsModelPanelState,
+    localTtsModelPanelState,
+    remoteTtsPanelState,
+    ttsVoicePanelState,
+    statusPanelState,
+    urlInputPanelState,
+  }),
+  setPushToTalkState,
+  setAudioControlsState,
+  setPlannerProviderPanelState,
+  setRemotePlannerPanelState,
+  setProviderFailoverPanelState,
+  setConfirmationSettingsPanelState,
+  setOcrThresholdSettingsPanelState,
+  setAsrProviderPanelState,
+  setLocalAsrModelPanelState,
+  setModelManagementPanelState,
+  setRemoteAsrPanelState,
+  setTtsProviderPanelState,
+  setTtsModelPanelState,
+  setLocalTtsModelPanelState,
+  setRemoteTtsPanelState,
+  setTtsVoicePanelState,
+  setStatusPanelState,
+  setUrlInputPanelState,
+});
 
 async function stopContinuousListeningAfterFailure(message: string) {
   if (!pushToTalkState.isListening) {
@@ -2190,170 +1505,13 @@ async function releasePushToTalk(source: "keyboard" | "pointer") {
   }
 }
 
-rerender();
-void refreshRuntimePanelsFromRuntime();
-uiStore.subscribe((uiState) => {
-  currentExecutionUiState = uiState;
-  rerender();
-});
-
-appRoot.addEventListener("click", (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) {
-    return;
-  }
-
-  const settingsTargetButton = target.closest<HTMLButtonElement>("[data-settings-target]");
-  if (settingsTargetButton) {
-    const targetId = settingsTargetButton.dataset.settingsTarget;
-    if (!targetId) {
-      return;
-    }
-
-    const targetElement = document.getElementById(targetId);
-    if (!targetElement) {
-      return;
-    }
-
-    targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
-    if (
-      targetElement instanceof HTMLInputElement
-      || targetElement instanceof HTMLSelectElement
-      || targetElement instanceof HTMLButtonElement
-      || targetElement instanceof HTMLTextAreaElement
-    ) {
-      targetElement.focus({ preventScroll: true });
-    }
-    return;
-  }
-
-  const remoteApiKeySaveButton = target.closest<HTMLButtonElement>("[data-remote-api-key-save]");
-  if (remoteApiKeySaveButton) {
-    if (remoteApiKeySaveButton.disabled) {
-      return;
-    }
-
-    const kind = remoteApiKeySaveButton.dataset.remoteApiKeySave;
-    if (kind === "planner") {
-      void persistRemotePlannerApiKey();
-      return;
-    }
-    if (kind === "tts") {
-      void persistRemoteTtsApiKey();
-      return;
-    }
-    if (kind === "asr") {
-      void persistRemoteAsrApiKey();
-      return;
-    }
-  }
-
-  const modelDownloadButton = target.closest<HTMLButtonElement>("[data-model-download]");
-  if (modelDownloadButton) {
-    if (modelDownloadButton.disabled) {
-      return;
-    }
-
-    const kind = modelDownloadButton.dataset.modelDownload;
-    if (kind === "tts") {
-      void downloadManagedLocalTtsModel();
-      return;
-    }
-    if (kind === "asr") {
-      void downloadManagedLocalAsrModel();
-      return;
-    }
-  }
-
-  const visibilityButton = target.closest<HTMLButtonElement>("[data-browser-visibility-mode]");
-  if (visibilityButton) {
-    if (statusPanelState.isUpdatingVisibility || visibilityButton.disabled) {
-      return;
-    }
-
-    const mode = visibilityButton.dataset.browserVisibilityMode;
-    if (mode === "Visible" || mode === "Headless") {
-      void persistBrowserVisibility(mode);
-    }
-    return;
-  }
-
-  const urlOpenButton = target.closest<HTMLButtonElement>("[data-url-open-button]");
-  if (urlOpenButton) {
-    if (
-      isUrlInputActionBusy() ||
-      urlOpenButton.disabled
-    ) {
-      return;
-    }
-
-    void openDraftUrl();
-    return;
-  }
-
-  const urlReadButton = target.closest<HTMLButtonElement>("[data-url-read-button]");
-  if (urlReadButton) {
-    if (
-      isUrlInputActionBusy() ||
-      urlReadButton.disabled
-    ) {
-      return;
-    }
-
-    void readCurrentPage();
-    return;
-  }
-
-  const urlStopButton = target.closest<HTMLButtonElement>("[data-url-stop-button]");
-  if (urlStopButton) {
-    if (
-      isUrlInputActionBusy() ||
-      urlStopButton.disabled
-    ) {
-      return;
-    }
-
-    void stopCurrentReading();
-    return;
-  }
-
-  const urlPreviousButton = target.closest<HTMLButtonElement>("[data-url-previous-button]");
-  if (urlPreviousButton) {
-    if (isUrlInputActionBusy() || urlPreviousButton.disabled) {
-      return;
-    }
-
-    void readPreviousRegion();
-    return;
-  }
-
-  const urlNextButton = target.closest<HTMLButtonElement>("[data-url-next-button]");
-  if (urlNextButton) {
-    if (isUrlInputActionBusy() || urlNextButton.disabled) {
-      return;
-    }
-
-    void readNextRegion();
-    return;
-  }
-
-  const actionButton = target.closest<HTMLButtonElement>("[data-confirmation-action]");
-  if (!actionButton) {
-    return;
-  }
-
+function submitConfirmationAction(action: "approve" | "reject", confirmationId: string) {
   const confirmationState = uiStore.getState().confirmation;
   if (confirmationState.kind !== "awaiting-confirmation" || confirmationState.isSubmitting) {
     return;
   }
 
-  const action = actionButton.dataset.confirmationAction;
-  const confirmationId = actionButton.dataset.confirmationId;
-  if (!confirmationId || confirmationId !== confirmationState.confirmationId) {
-    return;
-  }
-
-  if (action !== "approve" && action !== "reject") {
+  if (confirmationId !== confirmationState.confirmationId) {
     return;
   }
 
@@ -2375,262 +1533,186 @@ appRoot.addEventListener("click", (event) => {
       uiStore.setConfirmationError(confirmationId, describeConfirmationSubmissionFailure(error));
       console.error("Failed to submit confirmation response.", error);
     });
+}
+
+rerender();
+void refreshRuntimePanelsFromRuntime();
+uiStore.subscribe((uiState) => {
+  currentExecutionUiState = uiState;
+  rerenderConfirmationPanel();
 });
-
-appRoot.addEventListener("input", (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLInputElement)) {
-    return;
-  }
-
-  if (target.dataset.audioControl === "volume") {
+registerAppEventHandlers({
+  appRoot,
+  document,
+  window,
+  isUrlInputActionBusy,
+  isBrowserVisibilityUpdating: () => statusPanelState.isUpdatingVisibility,
+  isSettingsActionBusy,
+  isPushToTalkKeyEvent,
+  saveRemoteApiKey: (kind) => {
+    if (kind === "planner") {
+      void persistRemotePlannerApiKey();
+      return;
+    }
+    if (kind === "tts") {
+      void persistRemoteTtsApiKey();
+      return;
+    }
+    void persistRemoteAsrApiKey();
+  },
+  downloadModel: (kind) => {
+    if (kind === "tts") {
+      void downloadManagedLocalTtsModel();
+      return;
+    }
+    void downloadManagedLocalAsrModel();
+  },
+  setBrowserVisibility: (mode) => {
+    void persistBrowserVisibility(mode);
+  },
+  runUrlAction: (action) => {
+    if (action === "open") {
+      void openDraftUrl();
+      return;
+    }
+    if (action === "read") {
+      void readCurrentPage();
+      return;
+    }
+    if (action === "stop") {
+      void stopCurrentReading();
+      return;
+    }
+    if (action === "previous") {
+      void readPreviousRegion();
+      return;
+    }
+    void readNextRegion();
+  },
+  submitConfirmationAction,
+  updateAudioInput: (kind, value) => {
+    if (kind === "volume") {
+      setAudioControlsState({
+        playbackVolume: value,
+        error: null,
+      });
+      return;
+    }
     setAudioControlsState({
-      playbackVolume: Number.parseFloat(target.value),
+      playbackSpeed: value,
       error: null,
     });
-    return;
-  }
-
-  if (target.dataset.audioControl === "speed") {
-    setAudioControlsState({
-      playbackSpeed: Number.parseFloat(target.value),
-      error: null,
-    });
-    return;
-  }
-
-  if (target.dataset.confirmationThresholdControl === "true") {
+  },
+  updateConfirmationThresholdInput: (value) => {
     setConfirmationSettingsPanelState({
-      confirmationConfidenceThreshold: Number.parseFloat(target.value),
+      confirmationConfidenceThreshold: value,
       error: null,
     });
-    return;
-  }
-
-  if (target.dataset.ocrThresholdControl === "char") {
+  },
+  updateOcrThresholdInput: (kind, value) => {
+    if (kind === "char") {
+      setOcrThresholdSettingsPanelState({
+        sparseTextCharThreshold: value,
+        error: null,
+      });
+      return;
+    }
     setOcrThresholdSettingsPanelState({
-      sparseTextCharThreshold: Number.parseInt(target.value, 10),
+      sparseTextRegionThreshold: value,
       error: null,
     });
-    return;
-  }
-
-  if (target.dataset.ocrThresholdControl === "region") {
-    setOcrThresholdSettingsPanelState({
-      sparseTextRegionThreshold: Number.parseInt(target.value, 10),
-      error: null,
-    });
-    return;
-  }
-
-  if (target.dataset.remoteApiKeyInput === "planner") {
-    setRemotePlannerPanelState({
-      apiKeyDraft: target.value,
-      error: null,
-    });
-    return;
-  }
-
-  if (target.dataset.remoteApiKeyInput === "tts") {
-    setRemoteTtsPanelState({
-      apiKeyDraft: target.value,
-      error: null,
-    });
-    return;
-  }
-
-  if (target.dataset.remoteApiKeyInput === "asr") {
+  },
+  updateRemoteApiKeyInput: (kind, value) => {
+    if (kind === "planner") {
+      setRemotePlannerPanelState({
+        apiKeyDraft: value,
+        error: null,
+      });
+      return;
+    }
+    if (kind === "tts") {
+      setRemoteTtsPanelState({
+        apiKeyDraft: value,
+        error: null,
+      });
+      return;
+    }
     setRemoteAsrPanelState({
-      apiKeyDraft: target.value,
+      apiKeyDraft: value,
       error: null,
     });
-    return;
-  }
-
-   if (target.dataset.modelManagementInput === "models-dir") {
+  },
+  updateModelManagementInput: (value) => {
     setModelManagementPanelState({
-      modelsDir: target.value,
+      modelsDir: value,
       error: null,
     });
-    return;
-  }
-
-  if (target.dataset.urlInput === "true") {
+  },
+  updateUrlInput: (value) => {
     setUrlInputPanelState({
-      draftValue: target.value,
+      draftValue: value,
       hasUnsubmittedChanges: true,
       error: null,
     });
-  }
-});
-
-appRoot.addEventListener("change", (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) {
-    return;
-  }
-
-  if (target instanceof HTMLInputElement && target.dataset.audioControl === "volume") {
-    if (isSettingsActionBusy("volume")) {
+  },
+  persistAudioChange: (kind, value) => {
+    if (kind === "volume") {
+      void persistPlaybackVolume(value);
       return;
     }
-    void persistPlaybackVolume(Number.parseFloat(target.value));
-    return;
-  }
-
-  if (target instanceof HTMLInputElement && target.dataset.audioControl === "speed") {
-    if (isSettingsActionBusy("speed")) {
+    void persistPlaybackSpeed(value);
+  },
+  persistConfirmationThreshold: (value) => {
+    void persistConfirmationThreshold(value);
+  },
+  persistClickWithoutConfirmation: (checked) => {
+    void persistAllowClickWithoutConfirmation(checked);
+  },
+  persistOcrThresholdChange: (kind, value) => {
+    if (kind === "char") {
+      void persistOcrThresholds(value, ocrThresholdSettingsPanelState.sparseTextRegionThreshold);
       return;
     }
-    void persistPlaybackSpeed(Number.parseFloat(target.value));
-    return;
-  }
-
-  if (target instanceof HTMLInputElement && target.dataset.confirmationThresholdControl === "true") {
-    if (isSettingsActionBusy("confirmation-threshold")) {
-      return;
-    }
-    void persistConfirmationThreshold(Number.parseFloat(target.value));
-    return;
-  }
-
-  if (target instanceof HTMLInputElement && target.dataset.clickWithoutConfirmationToggle === "true") {
-    if (isSettingsActionBusy("click-without-confirmation")) {
-      return;
-    }
-    void persistAllowClickWithoutConfirmation(target.checked);
-    return;
-  }
-
-  if (target instanceof HTMLInputElement && target.dataset.ocrThresholdControl === "char") {
-    if (isSettingsActionBusy("ocr-char-threshold")) {
-      return;
-    }
-    void persistOcrThresholds(
-      Number.parseInt(target.value, 10),
-      ocrThresholdSettingsPanelState.sparseTextRegionThreshold,
-    );
-    return;
-  }
-
-  if (target instanceof HTMLInputElement && target.dataset.ocrThresholdControl === "region") {
-    if (isSettingsActionBusy("ocr-region-threshold")) {
-      return;
-    }
-    void persistOcrThresholds(
-      ocrThresholdSettingsPanelState.sparseTextCharThreshold,
-      Number.parseInt(target.value, 10),
-    );
-    return;
-  }
-
-  if (target instanceof HTMLInputElement && target.dataset.modelManagementToggle === "check-on-startup") {
-    if (isSettingsActionBusy("model-check-on-startup")) {
-      return;
-    }
-    setModelManagementPanelState({
-      checkOnStartup: target.checked,
-      error: null,
-    });
-    void persistModelManagementSettings();
-    return;
-  }
-
-  if (target instanceof HTMLInputElement && target.dataset.modelManagementToggle === "auto-download-missing") {
-    if (isSettingsActionBusy("model-auto-download-missing")) {
-      return;
-    }
-    setModelManagementPanelState({
-      autoDownloadMissing: target.checked,
-      error: null,
-    });
-    void persistModelManagementSettings();
-    return;
-  }
-
-  if (target instanceof HTMLInputElement && target.dataset.modelManagementInput === "models-dir") {
-    if (isSettingsActionBusy("models-dir")) {
-      return;
+    void persistOcrThresholds(ocrThresholdSettingsPanelState.sparseTextCharThreshold, value);
+  },
+  persistModelManagementToggle: (kind, checked) => {
+    if (kind === "check-on-startup") {
+      setModelManagementPanelState({
+        checkOnStartup: checked,
+        error: null,
+      });
+    } else {
+      setModelManagementPanelState({
+        autoDownloadMissing: checked,
+        error: null,
+      });
     }
     void persistModelManagementSettings();
-    return;
-  }
-
-  if (target instanceof HTMLSelectElement && target.dataset.asrProviderSelect === "true") {
-    if (isSettingsActionBusy("asr-provider")) {
-      return;
-    }
-    void persistAsrProviderSelection(target.value as "Local" | "Remote");
-    return;
-  }
-
-  if (target instanceof HTMLSelectElement && target.dataset.ttsProviderSelect === "true") {
-    if (isSettingsActionBusy("tts-provider")) {
-      return;
-    }
-    void persistTtsProviderSelection(target.value as "Local" | "Remote");
-    return;
-  }
-
-  if (target instanceof HTMLSelectElement && target.dataset.ttsModelSelect === "true") {
-    if (isSettingsActionBusy("tts-model")) {
-      return;
-    }
-    void persistTtsModelSelection(target.value);
-    return;
-  }
-
-  if (target instanceof HTMLSelectElement && target.dataset.ttsVoiceSelect === "true") {
-    if (isSettingsActionBusy("tts-voice")) {
-      return;
-    }
-    void persistTtsVoiceSelection(target.value);
-  }
-});
-
-appRoot.addEventListener("pointerdown", (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) {
-    return;
-  }
-
-  const button = target.closest<HTMLButtonElement>("[data-push-to-talk-button]");
-  if (!button || button.disabled || event.button !== 0) {
-    return;
-  }
-
-  event.preventDefault();
-  void beginPushToTalk("pointer");
-});
-
-window.addEventListener("pointerup", () => {
-  void releasePushToTalk("pointer");
-});
-
-window.addEventListener("pointercancel", () => {
-  void cancelPushToTalk();
-});
-
-window.addEventListener("blur", () => {
-  void cancelPushToTalk();
-});
-
-window.addEventListener("keydown", (event) => {
-  if (!isPushToTalkKeyEvent(event)) {
-    return;
-  }
-
-  event.preventDefault();
-  void beginPushToTalk("keyboard");
-});
-
-window.addEventListener("keyup", (event) => {
-  if (!isPushToTalkKeyEvent(event)) {
-    return;
-  }
-
-  event.preventDefault();
-  void releasePushToTalk("keyboard");
+  },
+  persistModelsDir: () => {
+    void persistModelManagementSettings();
+  },
+  persistAsrProvider: (mode) => {
+    void persistAsrProviderSelection(mode);
+  },
+  persistTtsProvider: (mode) => {
+    void persistTtsProviderSelection(mode);
+  },
+  persistTtsModel: (profileName) => {
+    void persistTtsModelSelection(profileName);
+  },
+  persistTtsVoice: (voice) => {
+    void persistTtsVoiceSelection(voice);
+  },
+  beginPushToTalk: (source) => {
+    void beginPushToTalk(source);
+  },
+  releasePushToTalk: (source) => {
+    void releasePushToTalk(source);
+  },
+  cancelPushToTalk: () => {
+    void cancelPushToTalk();
+  },
 });
 
 export { renderConfirmationPanel } from "./confirmation-panel";
