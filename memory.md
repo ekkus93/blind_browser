@@ -961,6 +961,11 @@
 
 ## 2026-03-26T22:41:19Z - GPT-5.4 - Validation rerun stayed green after screenshot cleanup
 - Re-ran the standard lint and unit-test pass after the recent contract cleanup work without making further code changes.
+
+## 2026-04-02T19:03:29Z - GPT-5.4 - Review backlog frontend phases 4 and 5 completed
+- `src/main.ts` now emits structured `console.debug(...)` events for TTS provider transition start, success, rollback, and propagated panel errors, matching the review follow-up requirement without changing the existing voice-first flow.
+- Runtime refresh error copy is now panel-scoped: status surfaces `runtime state refresh failed: ...` while model management surfaces `model management refresh failed: ...`, so partial refresh failures no longer look like one generic fan-out problem.
+- `docs/BB_CODE_REVIEW1_TODO.md` now marks review phases 4 and 5 done, and the standard validation pass succeeded with `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --all-features && pnpm test:ui && pnpm build`.
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed, Rust tests remained `205` passed, and `pnpm test:ui` remained `48` passed.
 
 ## 2026-03-26T22:56:24Z - GPT-5.4 - Wave 1 input schemas are now finalized
@@ -1254,3 +1259,8 @@
 - Added navigation failure consistency coverage at the shared browser-error translation seam, proving `BrowserError::Navigate` and `BrowserError::History` stay retryable and preserve structured `reason` details for user-facing failure reporting.
 - Added a bounded replanning regression proving a follow-up planner-resolution failure aborts with the accumulated execution trace and does not execute another plan; this also pins the current derived execute request IDs across replan cycles.
 - Added OCR merge edge-case regressions proving `merge_ocr_text_into_page_model(...)` rejects blank OCR text and unknown target region IDs without mutating the page model. Validation is green with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `pnpm test:ui`, and `pnpm build`.
+## 2026-04-02T18:43:31Z - GPT-5.4 - Review-backlog implementation decisions fixed by user
+- The user wants `docs/BB_CODE_REVIEW1_TODO.md` treated as the implementation backlog rather than a reduced shortlist.
+- TTS provider-switch failures should surface the current failure on the provider, model, and voice panels together instead of only on the provider panel.
+- Page snapshot metrics should be implemented now rather than merely documented or gated as placeholders.
+- The frontend rerender fix should be a larger internal store / panel-update refactor rather than a minimal localized patch.

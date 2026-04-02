@@ -49,8 +49,12 @@ import {
   describeConfirmationSubmissionFailure,
   resolveConfirmationResponse,
   runPlannerExecution,
-  type ExecutionUiState,
 } from "./planner-orchestration";
+import {
+  buildTtsProviderFailureRollbackState,
+  isSettingsControlBusy,
+  splitRuntimeRefreshResults,
+} from "./main-behavior";
 import {
   classifyInvokeFailure,
   type AgentStateData,
@@ -142,6 +146,7 @@ let continuousListeningLoopActive = false;
 if (!app) {
   throw new Error("App root element was not found.");
 }
+const appRoot: HTMLDivElement = app;
 
 function createInitialPushToTalkState(): PushToTalkPanelState {
   return {
@@ -360,28 +365,40 @@ function createInitialUrlInputPanelState(): UrlInputPanelState {
   };
 }
 
-const renderApp = (
-  uiState: ExecutionUiState,
-  pushToTalk: PushToTalkPanelState,
-  audioControls: AudioControlsPanelState,
-  plannerProviderPanel: PlannerProviderPanelState,
-  remotePlannerPanel: RemotePlannerPanelState,
-  providerFailoverPanel: ProviderFailoverPanelState,
-  confirmationSettingsPanel: ConfirmationSettingsPanelState,
-  ocrThresholdSettingsPanel: OcrThresholdSettingsPanelState,
-  asrProviderPanel: AsrProviderPanelState,
-  localAsrModelPanel: LocalAsrModelPanelState,
-  modelManagementPanel: ModelManagementPanelState,
-  remoteAsrPanel: RemoteAsrPanelState,
-  ttsProviderPanel: TtsProviderPanelState,
-  ttsModelPanel: TtsModelPanelState,
-  localTtsModelPanel: LocalTtsModelPanelState,
-  remoteTtsPanel: RemoteTtsPanelState,
-  ttsVoicePanel: TtsVoicePanelState,
-  statusPanel: StatusPanelState,
-  urlInputPanel: UrlInputPanelState,
-) => {
-  app.innerHTML = `
+type PanelRootKey =
+  | "push-to-talk"
+  | "url-input"
+  | "status"
+  | "audio-controls"
+  | "settings-guidance"
+  | "settings-planner-provider"
+  | "settings-remote-planner"
+  | "settings-provider-failover"
+  | "settings-confirmation"
+  | "settings-ocr-threshold"
+  | "settings-asr-provider"
+  | "settings-local-asr-model"
+  | "settings-model-management"
+  | "settings-remote-asr"
+  | "settings-tts-provider"
+  | "settings-tts-model"
+  | "settings-local-tts-model"
+  | "settings-remote-tts"
+  | "settings-tts-voice"
+  | "settings-volume"
+  | "settings-speed"
+  | "confirmation-panel";
+
+type PanelRootMap = Record<PanelRootKey, HTMLDivElement>;
+
+let panelRoots: PanelRootMap | null = null;
+
+function renderPanelRootPlaceholder(rootKey: PanelRootKey): string {
+  return `<div data-panel-root="${rootKey}"></div>`;
+}
+
+function renderAppShell(): string {
+  return `
     <main class="shell">
       <section class="hero">
         <p class="eyebrow">Phase 0 scaffold</p>
@@ -415,54 +432,260 @@ const renderApp = (
         </article>
       </section>
 
-      ${renderPushToTalkPanel(pushToTalk)}
-      ${renderUrlInputPanel(urlInputPanel)}
-      ${renderStatusPanel(statusPanel)}
-      ${renderAudioControlsPanel(audioControls)}
-      ${renderSettingsGuidancePanel(currentSettingsGuidanceState())}
-      ${renderSettingsPlannerProviderPanel(plannerProviderPanel)}
-      ${renderSettingsRemotePlannerPanel(remotePlannerPanel)}
-      ${renderSettingsProviderFailoverPanel(providerFailoverPanel)}
-      ${renderSettingsConfirmationPanel(confirmationSettingsPanel)}
-      ${renderSettingsOcrThresholdPanel(ocrThresholdSettingsPanel)}
-      ${renderSettingsAsrProviderPanel(asrProviderPanel)}
-      ${renderSettingsLocalAsrModelPanel(localAsrModelPanel)}
-      ${renderSettingsModelManagementPanel(modelManagementPanel)}
-      ${renderSettingsRemoteAsrPanel(remoteAsrPanel)}
-      ${renderSettingsTtsProviderPanel(ttsProviderPanel)}
-      ${renderSettingsTtsModelPanel(ttsModelPanel)}
-      ${renderSettingsLocalTtsModelPanel(localTtsModelPanel)}
-      ${renderSettingsRemoteTtsPanel(remoteTtsPanel)}
-      ${renderSettingsTtsVoicePanel(ttsVoicePanel)}
-      ${renderSettingsVolumePanel(audioControls)}
-      ${renderSettingsSpeedPanel(audioControls)}
-      ${renderConfirmationPanel(uiState.confirmation)}
+      ${renderPanelRootPlaceholder("push-to-talk")}
+      ${renderPanelRootPlaceholder("url-input")}
+      ${renderPanelRootPlaceholder("status")}
+      ${renderPanelRootPlaceholder("audio-controls")}
+      ${renderPanelRootPlaceholder("settings-guidance")}
+      ${renderPanelRootPlaceholder("settings-planner-provider")}
+      ${renderPanelRootPlaceholder("settings-remote-planner")}
+      ${renderPanelRootPlaceholder("settings-provider-failover")}
+      ${renderPanelRootPlaceholder("settings-confirmation")}
+      ${renderPanelRootPlaceholder("settings-ocr-threshold")}
+      ${renderPanelRootPlaceholder("settings-asr-provider")}
+      ${renderPanelRootPlaceholder("settings-local-asr-model")}
+      ${renderPanelRootPlaceholder("settings-model-management")}
+      ${renderPanelRootPlaceholder("settings-remote-asr")}
+      ${renderPanelRootPlaceholder("settings-tts-provider")}
+      ${renderPanelRootPlaceholder("settings-tts-model")}
+      ${renderPanelRootPlaceholder("settings-local-tts-model")}
+      ${renderPanelRootPlaceholder("settings-remote-tts")}
+      ${renderPanelRootPlaceholder("settings-tts-voice")}
+      ${renderPanelRootPlaceholder("settings-volume")}
+      ${renderPanelRootPlaceholder("settings-speed")}
+      ${renderPanelRootPlaceholder("confirmation-panel")}
     </main>
   `;
-};
+}
+
+function requirePanelRoot(rootKey: PanelRootKey): HTMLDivElement {
+  const root = appRoot.querySelector<HTMLDivElement>(`[data-panel-root="${rootKey}"]`);
+  if (!root) {
+    throw new Error(`Panel root ${rootKey} was not found.`);
+  }
+
+  return root;
+}
+
+function ensurePanelRoots(): PanelRootMap {
+  if (panelRoots) {
+    return panelRoots;
+  }
+
+  appRoot.innerHTML = renderAppShell();
+  panelRoots = {
+    "push-to-talk": requirePanelRoot("push-to-talk"),
+    "url-input": requirePanelRoot("url-input"),
+    "status": requirePanelRoot("status"),
+    "audio-controls": requirePanelRoot("audio-controls"),
+    "settings-guidance": requirePanelRoot("settings-guidance"),
+    "settings-planner-provider": requirePanelRoot("settings-planner-provider"),
+    "settings-remote-planner": requirePanelRoot("settings-remote-planner"),
+    "settings-provider-failover": requirePanelRoot("settings-provider-failover"),
+    "settings-confirmation": requirePanelRoot("settings-confirmation"),
+    "settings-ocr-threshold": requirePanelRoot("settings-ocr-threshold"),
+    "settings-asr-provider": requirePanelRoot("settings-asr-provider"),
+    "settings-local-asr-model": requirePanelRoot("settings-local-asr-model"),
+    "settings-model-management": requirePanelRoot("settings-model-management"),
+    "settings-remote-asr": requirePanelRoot("settings-remote-asr"),
+    "settings-tts-provider": requirePanelRoot("settings-tts-provider"),
+    "settings-tts-model": requirePanelRoot("settings-tts-model"),
+    "settings-local-tts-model": requirePanelRoot("settings-local-tts-model"),
+    "settings-remote-tts": requirePanelRoot("settings-remote-tts"),
+    "settings-tts-voice": requirePanelRoot("settings-tts-voice"),
+    "settings-volume": requirePanelRoot("settings-volume"),
+    "settings-speed": requirePanelRoot("settings-speed"),
+    "confirmation-panel": requirePanelRoot("confirmation-panel"),
+  };
+
+  return panelRoots;
+}
+
+interface PreservedPanelControlState {
+  elementId: string;
+  value: string;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  selectionDirection: "forward" | "backward" | "none" | null;
+}
+
+function captureActivePanelControl(root: HTMLDivElement): PreservedPanelControlState | null {
+  const activeElement = document.activeElement;
+  if (
+    !activeElement
+    || !root.contains(activeElement)
+    || (
+      !(activeElement instanceof HTMLInputElement)
+      && !(activeElement instanceof HTMLTextAreaElement)
+      && !(activeElement instanceof HTMLSelectElement)
+    )
+    || !activeElement.id
+  ) {
+    return null;
+  }
+
+  return {
+    elementId: activeElement.id,
+    value: activeElement.value,
+    selectionStart:
+      activeElement instanceof HTMLSelectElement ? null : activeElement.selectionStart,
+    selectionEnd:
+      activeElement instanceof HTMLSelectElement ? null : activeElement.selectionEnd,
+    selectionDirection:
+      activeElement instanceof HTMLSelectElement ? null : activeElement.selectionDirection,
+  };
+}
+
+function restoreActivePanelControl(
+  root: HTMLDivElement,
+  controlState: PreservedPanelControlState | null,
+) {
+  if (!controlState) {
+    return;
+  }
+
+  const nextElement = document.getElementById(controlState.elementId);
+  if (
+    !nextElement
+    || !root.contains(nextElement)
+    || (
+      !(nextElement instanceof HTMLInputElement)
+      && !(nextElement instanceof HTMLTextAreaElement)
+      && !(nextElement instanceof HTMLSelectElement)
+    )
+  ) {
+    return;
+  }
+
+  nextElement.focus({ preventScroll: true });
+  if (
+    nextElement instanceof HTMLInputElement
+    || nextElement instanceof HTMLTextAreaElement
+  ) {
+    if (nextElement.value === controlState.value) {
+      nextElement.setSelectionRange(
+        controlState.selectionStart,
+        controlState.selectionEnd,
+        controlState.selectionDirection ?? undefined,
+      );
+    }
+  }
+}
+
+function renderPanelRoot(rootKey: PanelRootKey, html: string) {
+  const root = ensurePanelRoots()[rootKey];
+  const controlState = captureActivePanelControl(root);
+  root.innerHTML = html;
+  restoreActivePanelControl(root, controlState);
+}
+
+function rerenderSettingsGuidancePanel() {
+  renderPanelRoot("settings-guidance", renderSettingsGuidancePanel(currentSettingsGuidanceState()));
+}
+
+function rerenderPushToTalkPanel() {
+  renderPanelRoot("push-to-talk", renderPushToTalkPanel(pushToTalkState));
+  rerenderSettingsGuidancePanel();
+}
+
+function rerenderAudioPanels() {
+  renderPanelRoot("audio-controls", renderAudioControlsPanel(audioControlsState));
+  renderPanelRoot("settings-volume", renderSettingsVolumePanel(audioControlsState));
+  renderPanelRoot("settings-speed", renderSettingsSpeedPanel(audioControlsState));
+}
+
+function rerenderPlannerProviderPanel() {
+  renderPanelRoot(
+    "settings-planner-provider",
+    renderSettingsPlannerProviderPanel(plannerProviderPanelState),
+  );
+}
+
+function rerenderRemotePlannerPanel() {
+  renderPanelRoot("settings-remote-planner", renderSettingsRemotePlannerPanel(remotePlannerPanelState));
+  rerenderSettingsGuidancePanel();
+}
+
+function rerenderProviderFailoverPanel() {
+  renderPanelRoot(
+    "settings-provider-failover",
+    renderSettingsProviderFailoverPanel(providerFailoverPanelState),
+  );
+}
+
+function rerenderConfirmationSettingsPanel() {
+  renderPanelRoot(
+    "settings-confirmation",
+    renderSettingsConfirmationPanel(confirmationSettingsPanelState),
+  );
+}
+
+function rerenderOcrThresholdPanel() {
+  renderPanelRoot(
+    "settings-ocr-threshold",
+    renderSettingsOcrThresholdPanel(ocrThresholdSettingsPanelState),
+  );
+}
+
+function rerenderAsrPanels() {
+  renderPanelRoot("settings-asr-provider", renderSettingsAsrProviderPanel(asrProviderPanelState));
+  renderPanelRoot(
+    "settings-local-asr-model",
+    renderSettingsLocalAsrModelPanel(localAsrModelPanelState),
+  );
+  renderPanelRoot("settings-remote-asr", renderSettingsRemoteAsrPanel(remoteAsrPanelState));
+  rerenderSettingsGuidancePanel();
+}
+
+function rerenderModelManagementPanel() {
+  renderPanelRoot(
+    "settings-model-management",
+    renderSettingsModelManagementPanel(modelManagementPanelState),
+  );
+  rerenderSettingsGuidancePanel();
+}
+
+function rerenderTtsPanels() {
+  renderPanelRoot("settings-tts-provider", renderSettingsTtsProviderPanel(ttsProviderPanelState));
+  renderPanelRoot("settings-tts-model", renderSettingsTtsModelPanel(ttsModelPanelState));
+  renderPanelRoot(
+    "settings-local-tts-model",
+    renderSettingsLocalTtsModelPanel(localTtsModelPanelState),
+  );
+  renderPanelRoot("settings-remote-tts", renderSettingsRemoteTtsPanel(remoteTtsPanelState));
+  renderPanelRoot("settings-tts-voice", renderSettingsTtsVoicePanel(ttsVoicePanelState));
+  rerenderSettingsGuidancePanel();
+}
+
+function rerenderStatusPanel() {
+  renderPanelRoot("status", renderStatusPanel(statusPanelState));
+  rerenderSettingsGuidancePanel();
+}
+
+function rerenderUrlInputPanel() {
+  renderPanelRoot("url-input", renderUrlInputPanel(urlInputPanelState));
+  rerenderSettingsGuidancePanel();
+}
+
+function rerenderConfirmationPanel() {
+  renderPanelRoot("confirmation-panel", renderConfirmationPanel(currentExecutionUiState.confirmation));
+}
 
 function rerender() {
-  renderApp(
-    currentExecutionUiState,
-    pushToTalkState,
-    audioControlsState,
-    plannerProviderPanelState,
-    remotePlannerPanelState,
-    providerFailoverPanelState,
-    confirmationSettingsPanelState,
-    ocrThresholdSettingsPanelState,
-    asrProviderPanelState,
-    localAsrModelPanelState,
-    modelManagementPanelState,
-    remoteAsrPanelState,
-    ttsProviderPanelState,
-    ttsModelPanelState,
-    localTtsModelPanelState,
-    remoteTtsPanelState,
-    ttsVoicePanelState,
-    statusPanelState,
-    urlInputPanelState,
-  );
+  ensurePanelRoots();
+  rerenderPushToTalkPanel();
+  rerenderUrlInputPanel();
+  rerenderStatusPanel();
+  rerenderAudioPanels();
+  rerenderPlannerProviderPanel();
+  rerenderRemotePlannerPanel();
+  rerenderProviderFailoverPanel();
+  rerenderConfirmationSettingsPanel();
+  rerenderOcrThresholdPanel();
+  rerenderAsrPanels();
+  rerenderModelManagementPanel();
+  rerenderTtsPanels();
+  rerenderConfirmationPanel();
 }
 
 function setPushToTalkState(nextState: Partial<PushToTalkPanelState>) {
@@ -470,7 +693,7 @@ function setPushToTalkState(nextState: Partial<PushToTalkPanelState>) {
     ...pushToTalkState,
     ...nextState,
   };
-  rerender();
+  rerenderPushToTalkPanel();
 }
 
 function setAudioControlsState(nextState: Partial<AudioControlsPanelState>) {
@@ -478,7 +701,7 @@ function setAudioControlsState(nextState: Partial<AudioControlsPanelState>) {
     ...audioControlsState,
     ...nextState,
   };
-  rerender();
+  rerenderAudioPanels();
 }
 
 function setPlannerProviderPanelState(nextState: Partial<PlannerProviderPanelState>) {
@@ -486,7 +709,7 @@ function setPlannerProviderPanelState(nextState: Partial<PlannerProviderPanelSta
     ...plannerProviderPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderPlannerProviderPanel();
 }
 
 function setRemotePlannerPanelState(nextState: Partial<RemotePlannerPanelState>) {
@@ -494,7 +717,7 @@ function setRemotePlannerPanelState(nextState: Partial<RemotePlannerPanelState>)
     ...remotePlannerPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderRemotePlannerPanel();
 }
 
 function setProviderFailoverPanelState(nextState: Partial<ProviderFailoverPanelState>) {
@@ -502,7 +725,7 @@ function setProviderFailoverPanelState(nextState: Partial<ProviderFailoverPanelS
     ...providerFailoverPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderProviderFailoverPanel();
 }
 
 function setConfirmationSettingsPanelState(nextState: Partial<ConfirmationSettingsPanelState>) {
@@ -510,7 +733,7 @@ function setConfirmationSettingsPanelState(nextState: Partial<ConfirmationSettin
     ...confirmationSettingsPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderConfirmationSettingsPanel();
 }
 
 function setOcrThresholdSettingsPanelState(nextState: Partial<OcrThresholdSettingsPanelState>) {
@@ -518,7 +741,7 @@ function setOcrThresholdSettingsPanelState(nextState: Partial<OcrThresholdSettin
     ...ocrThresholdSettingsPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderOcrThresholdPanel();
 }
 
 function setAsrProviderPanelState(nextState: Partial<AsrProviderPanelState>) {
@@ -526,7 +749,7 @@ function setAsrProviderPanelState(nextState: Partial<AsrProviderPanelState>) {
     ...asrProviderPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderAsrPanels();
 }
 
 function setLocalAsrModelPanelState(nextState: Partial<LocalAsrModelPanelState>) {
@@ -534,7 +757,7 @@ function setLocalAsrModelPanelState(nextState: Partial<LocalAsrModelPanelState>)
     ...localAsrModelPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderAsrPanels();
 }
 
 function setRemoteAsrPanelState(nextState: Partial<RemoteAsrPanelState>) {
@@ -542,7 +765,7 @@ function setRemoteAsrPanelState(nextState: Partial<RemoteAsrPanelState>) {
     ...remoteAsrPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderAsrPanels();
 }
 
 function setModelManagementPanelState(nextState: Partial<ModelManagementPanelState>) {
@@ -550,7 +773,7 @@ function setModelManagementPanelState(nextState: Partial<ModelManagementPanelSta
     ...modelManagementPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderModelManagementPanel();
 }
 
 function setTtsProviderPanelState(nextState: Partial<TtsProviderPanelState>) {
@@ -558,7 +781,7 @@ function setTtsProviderPanelState(nextState: Partial<TtsProviderPanelState>) {
     ...ttsProviderPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderTtsPanels();
 }
 
 function setTtsModelPanelState(nextState: Partial<TtsModelPanelState>) {
@@ -566,7 +789,7 @@ function setTtsModelPanelState(nextState: Partial<TtsModelPanelState>) {
     ...ttsModelPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderTtsPanels();
 }
 
 function setLocalTtsModelPanelState(nextState: Partial<LocalTtsModelPanelState>) {
@@ -574,7 +797,7 @@ function setLocalTtsModelPanelState(nextState: Partial<LocalTtsModelPanelState>)
     ...localTtsModelPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderTtsPanels();
 }
 
 function setRemoteTtsPanelState(nextState: Partial<RemoteTtsPanelState>) {
@@ -582,7 +805,7 @@ function setRemoteTtsPanelState(nextState: Partial<RemoteTtsPanelState>) {
     ...remoteTtsPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderTtsPanels();
 }
 
 function setTtsVoicePanelState(nextState: Partial<TtsVoicePanelState>) {
@@ -590,7 +813,7 @@ function setTtsVoicePanelState(nextState: Partial<TtsVoicePanelState>) {
     ...ttsVoicePanelState,
     ...nextState,
   };
-  rerender();
+  rerenderTtsPanels();
 }
 
 function setStatusPanelState(nextState: Partial<StatusPanelState>) {
@@ -598,7 +821,7 @@ function setStatusPanelState(nextState: Partial<StatusPanelState>) {
     ...statusPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderStatusPanel();
 }
 
 function setUrlInputPanelState(nextState: Partial<UrlInputPanelState>) {
@@ -606,7 +829,7 @@ function setUrlInputPanelState(nextState: Partial<UrlInputPanelState>) {
     ...urlInputPanelState,
     ...nextState,
   };
-  rerender();
+  rerenderUrlInputPanel();
 }
 
 function createRequestId(prefix: string): string {
@@ -666,6 +889,13 @@ function describeUrlInputFailure(error: unknown): string {
   }
 
   return failure.message;
+}
+
+function describeScopedRuntimeRefreshFailure(
+  scope: "runtime state" | "model management",
+  error: unknown,
+): string {
+  return `${scope} refresh failed: ${describeAudioControlFailure(error)}`;
 }
 
 function describePlannerBlockedMessage(defaultMessage: string, userMessage: string | null): string {
@@ -790,6 +1020,34 @@ function currentSettingsGuidanceState(): SettingsGuidancePanelState | null {
     ?? guidanceStateForErrorMessage(remoteAsrPanelState.error)
     ?? guidanceStateForErrorMessage(modelManagementPanelState.error)
   );
+}
+
+function isSettingsActionBusy(
+  control:
+    | "volume"
+    | "speed"
+    | "confirmation-threshold"
+    | "click-without-confirmation"
+    | "ocr-char-threshold"
+    | "ocr-region-threshold"
+    | "model-check-on-startup"
+    | "model-auto-download-missing"
+    | "models-dir"
+    | "asr-provider"
+    | "tts-provider"
+    | "tts-model"
+    | "tts-voice",
+): boolean {
+  return isSettingsControlBusy(control, {
+    audioControls: audioControlsState,
+    confirmationSettings: confirmationSettingsPanelState,
+    ocrThresholdSettings: ocrThresholdSettingsPanelState,
+    asrProvider: asrProviderPanelState,
+    modelManagement: modelManagementPanelState,
+    ttsProvider: ttsProviderPanelState,
+    ttsModel: ttsModelPanelState,
+    ttsVoice: ttsVoicePanelState,
+  });
 }
 
 function applyAgentStateToPanels(agentState: AgentStateData) {
@@ -993,8 +1251,8 @@ async function executeUrlPanelPlannerCommand(input: {
 }
 
 async function refreshRuntimePanelsFromRuntime() {
-  try {
-    const [agentState, modelManagementSettings] = await Promise.all([
+  const refreshResults = splitRuntimeRefreshResults(
+    ...(await Promise.allSettled([
       getAgentState({
         requestId: createRequestId("runtime-panels-state"),
         includeLastTranscript: true,
@@ -1002,8 +1260,28 @@ async function refreshRuntimePanelsFromRuntime() {
       getModelManagementSettings({
         requestId: createRequestId("model-management-state"),
       }),
-    ]);
-    applyAgentStateToPanels(agentState);
+    ])),
+    describeAudioControlFailure,
+  );
+
+  if (refreshResults.agentState) {
+    applyAgentStateToPanels(refreshResults.agentState);
+  } else if (refreshResults.agentStateError) {
+    setStatusPanelState({
+      error: describeScopedRuntimeRefreshFailure(
+        "runtime state",
+        refreshResults.agentStateError,
+      ),
+      isUpdatingVisibility: false,
+    });
+    setPushToTalkState({
+      isBusy: false,
+      lastError: pushToTalkState.lastError,
+    });
+  }
+
+  if (refreshResults.modelSettings) {
+    const modelManagementSettings = refreshResults.modelSettings;
     setModelManagementPanelState({
       modelsDir: modelManagementSettings.models_dir,
       checkOnStartup: modelManagementSettings.check_on_startup,
@@ -1019,35 +1297,15 @@ async function refreshRuntimePanelsFromRuntime() {
       isDownloadingAsr: false,
       error: null,
     });
-  } catch (error: unknown) {
-    const message = describeAudioControlFailure(error);
-    setAudioControlsState({
-      error: message,
-    });
-    setAsrProviderPanelState({
-      error: message,
-      isBusy: false,
-    });
-    setTtsProviderPanelState({
-      error: message,
-      isBusy: false,
-    });
-    setTtsModelPanelState({
-      error: message,
-      isBusy: false,
-    });
-    setTtsVoicePanelState({
-      error: message,
-      isBusy: false,
-    });
-    setStatusPanelState({
-      error: message,
-    });
+  } else if (refreshResults.modelSettingsError) {
     setModelManagementPanelState({
       isSaving: false,
       isDownloadingTts: false,
       isDownloadingAsr: false,
-      error: message,
+      error: describeScopedRuntimeRefreshFailure(
+        "model management",
+        refreshResults.modelSettingsError,
+      ),
     });
   }
 }
@@ -1157,6 +1415,10 @@ async function persistBrowserVisibility(nextMode: "Visible" | "Headless") {
 }
 
 async function persistPlaybackVolume(nextVolume: number) {
+  if (isSettingsActionBusy("volume")) {
+    return;
+  }
+
   const previousState = audioControlsState;
   setAudioControlsState({
     playbackVolume: nextVolume,
@@ -1183,6 +1445,10 @@ async function persistPlaybackVolume(nextVolume: number) {
 }
 
 async function persistPlaybackSpeed(nextSpeed: number) {
+  if (isSettingsActionBusy("speed")) {
+    return;
+  }
+
   const previousState = audioControlsState;
   setAudioControlsState({
     playbackSpeed: nextSpeed,
@@ -1209,6 +1475,10 @@ async function persistPlaybackSpeed(nextSpeed: number) {
 }
 
 async function persistAsrProviderSelection(nextMode: "Local" | "Remote") {
+  if (isSettingsActionBusy("asr-provider")) {
+    return;
+  }
+
   const previousState = asrProviderPanelState;
   setAsrProviderPanelState({
     activeMode: nextMode,
@@ -1237,9 +1507,17 @@ async function persistAsrProviderSelection(nextMode: "Local" | "Remote") {
 }
 
 async function persistTtsProviderSelection(nextMode: "Local" | "Remote") {
+  if (isSettingsActionBusy("tts-provider")) {
+    return;
+  }
+
   const previousProviderState = ttsProviderPanelState;
   const previousModelState = ttsModelPanelState;
   const previousVoiceState = ttsVoicePanelState;
+  console.debug("TTS provider transition started", {
+    from: previousProviderState.activeMode,
+    to: nextMode,
+  });
   setTtsProviderPanelState({
     activeMode: nextMode,
     isBusy: true,
@@ -1258,28 +1536,40 @@ async function persistTtsProviderSelection(nextMode: "Local" | "Remote") {
       isBusy: false,
       error: null,
     });
+    console.debug("TTS provider transition succeeded", {
+      from: previousProviderState.activeMode,
+      to: result.mode,
+    });
     await refreshRuntimePanelsFromRuntime();
   } catch (error: unknown) {
     const message = describeAudioControlFailure(error);
-    setTtsProviderPanelState({
-      activeMode: previousProviderState.activeMode,
-      isBusy: false,
+    console.debug("TTS provider transition rolling back", {
+      from: previousProviderState.activeMode,
+      to: nextMode,
       error: message,
     });
-    setTtsModelPanelState({
-      activeProfile: previousModelState.activeProfile,
-      isBusy: false,
-      error: previousModelState.error,
+    const rollbackState = buildTtsProviderFailureRollbackState(
+      previousProviderState,
+      previousModelState,
+      previousVoiceState,
+      message,
+    );
+    console.debug("TTS provider transition propagated failure", {
+      providerError: rollbackState.provider.error,
+      modelError: rollbackState.model.error,
+      voiceError: rollbackState.voice.error,
     });
-    setTtsVoicePanelState({
-      activeVoice: previousVoiceState.activeVoice,
-      isBusy: false,
-      error: previousVoiceState.error,
-    });
+    setTtsProviderPanelState(rollbackState.provider);
+    setTtsModelPanelState(rollbackState.model);
+    setTtsVoicePanelState(rollbackState.voice);
   }
 }
 
 async function persistTtsModelSelection(nextProfileName: string) {
+  if (isSettingsActionBusy("tts-model")) {
+    return;
+  }
+
   const previousState = ttsModelPanelState;
   setTtsModelPanelState({
     activeProfile: nextProfileName,
@@ -1308,6 +1598,10 @@ async function persistTtsModelSelection(nextProfileName: string) {
 }
 
 async function persistTtsVoiceSelection(nextVoice: string) {
+  if (isSettingsActionBusy("tts-voice")) {
+    return;
+  }
+
   const previousState = ttsVoicePanelState;
   setTtsVoicePanelState({
     activeVoice: nextVoice,
@@ -1336,6 +1630,10 @@ async function persistTtsVoiceSelection(nextVoice: string) {
 }
 
 async function persistConfirmationThreshold(nextThreshold: number) {
+  if (isSettingsActionBusy("confirmation-threshold")) {
+    return;
+  }
+
   const previousState = confirmationSettingsPanelState;
   setConfirmationSettingsPanelState({
     confirmationConfidenceThreshold: nextThreshold,
@@ -1366,6 +1664,10 @@ async function persistConfirmationThreshold(nextThreshold: number) {
 }
 
 async function persistAllowClickWithoutConfirmation(nextValue: boolean) {
+  if (isSettingsActionBusy("click-without-confirmation")) {
+    return;
+  }
+
   const previousState = confirmationSettingsPanelState;
   setConfirmationSettingsPanelState({
     allowClickWithoutConfirmation: nextValue,
@@ -1396,6 +1698,10 @@ async function persistAllowClickWithoutConfirmation(nextValue: boolean) {
 }
 
 async function persistOcrThresholds(nextCharThreshold: number, nextRegionThreshold: number) {
+  if (isSettingsActionBusy("ocr-char-threshold")) {
+    return;
+  }
+
   const previousState = ocrThresholdSettingsPanelState;
   setOcrThresholdSettingsPanelState({
     sparseTextCharThreshold: nextCharThreshold,
@@ -1428,6 +1734,10 @@ async function persistOcrThresholds(nextCharThreshold: number, nextRegionThresho
 }
 
 async function persistModelManagementSettings() {
+  if (isSettingsActionBusy("models-dir")) {
+    return;
+  }
+
   const modelsDir = modelManagementPanelState.modelsDir.trim();
   if (modelsDir.length === 0) {
     setModelManagementPanelState({
@@ -1886,7 +2196,7 @@ uiStore.subscribe((uiState) => {
   rerender();
 });
 
-app.addEventListener("click", (event) => {
+appRoot.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
     return;
@@ -2066,7 +2376,7 @@ app.addEventListener("click", (event) => {
     });
 });
 
-app.addEventListener("input", (event) => {
+appRoot.addEventListener("input", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) {
     return;
@@ -2153,46 +2463,48 @@ app.addEventListener("input", (event) => {
   }
 });
 
-app.addEventListener("change", (event) => {
+appRoot.addEventListener("change", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) {
     return;
   }
 
-  if (
-    audioControlsState.isBusy ||
-    confirmationSettingsPanelState.isBusy ||
-    ocrThresholdSettingsPanelState.isBusy ||
-    asrProviderPanelState.isBusy ||
-    modelManagementPanelState.isSaving ||
-    ttsProviderPanelState.isBusy ||
-    ttsModelPanelState.isBusy ||
-    ttsVoicePanelState.isBusy
-  ) {
-    return;
-  }
-
   if (target instanceof HTMLInputElement && target.dataset.audioControl === "volume") {
+    if (isSettingsActionBusy("volume")) {
+      return;
+    }
     void persistPlaybackVolume(Number.parseFloat(target.value));
     return;
   }
 
   if (target instanceof HTMLInputElement && target.dataset.audioControl === "speed") {
+    if (isSettingsActionBusy("speed")) {
+      return;
+    }
     void persistPlaybackSpeed(Number.parseFloat(target.value));
     return;
   }
 
   if (target instanceof HTMLInputElement && target.dataset.confirmationThresholdControl === "true") {
+    if (isSettingsActionBusy("confirmation-threshold")) {
+      return;
+    }
     void persistConfirmationThreshold(Number.parseFloat(target.value));
     return;
   }
 
   if (target instanceof HTMLInputElement && target.dataset.clickWithoutConfirmationToggle === "true") {
+    if (isSettingsActionBusy("click-without-confirmation")) {
+      return;
+    }
     void persistAllowClickWithoutConfirmation(target.checked);
     return;
   }
 
   if (target instanceof HTMLInputElement && target.dataset.ocrThresholdControl === "char") {
+    if (isSettingsActionBusy("ocr-char-threshold")) {
+      return;
+    }
     void persistOcrThresholds(
       Number.parseInt(target.value, 10),
       ocrThresholdSettingsPanelState.sparseTextRegionThreshold,
@@ -2201,6 +2513,9 @@ app.addEventListener("change", (event) => {
   }
 
   if (target instanceof HTMLInputElement && target.dataset.ocrThresholdControl === "region") {
+    if (isSettingsActionBusy("ocr-region-threshold")) {
+      return;
+    }
     void persistOcrThresholds(
       ocrThresholdSettingsPanelState.sparseTextCharThreshold,
       Number.parseInt(target.value, 10),
@@ -2209,6 +2524,9 @@ app.addEventListener("change", (event) => {
   }
 
   if (target instanceof HTMLInputElement && target.dataset.modelManagementToggle === "check-on-startup") {
+    if (isSettingsActionBusy("model-check-on-startup")) {
+      return;
+    }
     setModelManagementPanelState({
       checkOnStartup: target.checked,
       error: null,
@@ -2218,6 +2536,9 @@ app.addEventListener("change", (event) => {
   }
 
   if (target instanceof HTMLInputElement && target.dataset.modelManagementToggle === "auto-download-missing") {
+    if (isSettingsActionBusy("model-auto-download-missing")) {
+      return;
+    }
     setModelManagementPanelState({
       autoDownloadMissing: target.checked,
       error: null,
@@ -2227,31 +2548,46 @@ app.addEventListener("change", (event) => {
   }
 
   if (target instanceof HTMLInputElement && target.dataset.modelManagementInput === "models-dir") {
+    if (isSettingsActionBusy("models-dir")) {
+      return;
+    }
     void persistModelManagementSettings();
     return;
   }
 
   if (target instanceof HTMLSelectElement && target.dataset.asrProviderSelect === "true") {
+    if (isSettingsActionBusy("asr-provider")) {
+      return;
+    }
     void persistAsrProviderSelection(target.value as "Local" | "Remote");
     return;
   }
 
   if (target instanceof HTMLSelectElement && target.dataset.ttsProviderSelect === "true") {
+    if (isSettingsActionBusy("tts-provider")) {
+      return;
+    }
     void persistTtsProviderSelection(target.value as "Local" | "Remote");
     return;
   }
 
   if (target instanceof HTMLSelectElement && target.dataset.ttsModelSelect === "true") {
+    if (isSettingsActionBusy("tts-model")) {
+      return;
+    }
     void persistTtsModelSelection(target.value);
     return;
   }
 
   if (target instanceof HTMLSelectElement && target.dataset.ttsVoiceSelect === "true") {
+    if (isSettingsActionBusy("tts-voice")) {
+      return;
+    }
     void persistTtsVoiceSelection(target.value);
   }
 });
 
-app.addEventListener("pointerdown", (event) => {
+appRoot.addEventListener("pointerdown", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
     return;
