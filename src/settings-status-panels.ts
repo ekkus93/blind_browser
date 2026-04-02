@@ -32,6 +32,18 @@ import type {
   UrlInputPanelState,
 } from "./panel-types.ts";
 
+function renderPlaybackVolumeValueText(value: number): string {
+  return `${Math.round(value * 100)} percent`;
+}
+
+function renderPlaybackSpeedValueText(value: number): string {
+  return `${value.toFixed(2)} times`;
+}
+
+function renderConfirmationThresholdValueText(value: number): string {
+  return `${Math.round(value * 100)} percent confidence`;
+}
+
 export function statusPanelStateFromAgentState(
   agentState: StatusPanelAgentStateLike,
 ): StatusPanelState {
@@ -81,6 +93,7 @@ export function renderAudioControlsPanel(state: AudioControlsPanelState): string
             max="1"
             step="0.05"
             value="${state.playbackVolume.toFixed(2)}"
+            aria-valuetext="${escapeHtml(renderPlaybackVolumeValueText(state.playbackVolume))}"
             ${busyAttribute}
           />
         </label>
@@ -96,6 +109,7 @@ export function renderAudioControlsPanel(state: AudioControlsPanelState): string
             max="5"
             step="0.05"
             value="${state.playbackSpeed.toFixed(2)}"
+            aria-valuetext="${escapeHtml(renderPlaybackSpeedValueText(state.playbackSpeed))}"
             ${busyAttribute}
           />
         </label>
@@ -134,6 +148,7 @@ export function renderSettingsVolumePanel(state: AudioControlsPanelState): strin
             max="1"
             step="0.05"
             value="${state.playbackVolume.toFixed(2)}"
+            aria-valuetext="${escapeHtml(renderPlaybackVolumeValueText(state.playbackVolume))}"
             ${busyAttribute}
           />
         </label>
@@ -172,6 +187,7 @@ export function renderSettingsSpeedPanel(state: AudioControlsPanelState): string
             max="5"
             step="0.05"
             value="${state.playbackSpeed.toFixed(2)}"
+            aria-valuetext="${escapeHtml(renderPlaybackSpeedValueText(state.playbackSpeed))}"
             ${busyAttribute}
           />
         </label>
@@ -349,6 +365,7 @@ export function renderSettingsConfirmationPanel(state: ConfirmationSettingsPanel
             max="1"
             step="0.01"
             value="${state.confirmationConfidenceThreshold.toFixed(2)}"
+            aria-valuetext="${escapeHtml(renderConfirmationThresholdValueText(state.confirmationConfidenceThreshold))}"
             ${disabledAttribute}
           />
         </label>
@@ -576,8 +593,12 @@ export function renderSettingsModelManagementPanel(state: ModelManagementPanelSt
             value="${escapeHtml(state.modelsDir)}"
             placeholder="~/.local/share/blind_browser/models"
             spellcheck="false"
+            aria-describedby="settings-models-dir-description"
             ${disabledAttribute}
           />
+          <span id="settings-models-dir-description" class="settings-panel-description">
+            Updates here change where local model downloads and startup checks look for speech models.
+          </span>
         </label>
         <label class="settings-control-card" for="settings-model-check-on-startup-toggle">
           <span class="settings-control-label">Check models on startup</span>
@@ -947,8 +968,8 @@ export function renderUrlInputPanel(state: UrlInputPanelState): string {
     ? `<p class="url-input-current"><strong>Current URL:</strong> ${escapeHtml(state.currentUrl)}</p>`
     : '<p class="url-input-current">No page URL is loaded yet.</p>';
   const draftStatusCopy = state.hasUnsubmittedChanges
-    ? '<p class="url-input-status" role="status">Draft URL updated. Open controls can use this value next.</p>'
-    : '<p class="url-input-status" role="status">The field mirrors the current page URL until you edit it.</p>';
+    ? '<p class="url-input-status" role="status" aria-live="polite" aria-atomic="true">Draft URL updated. Open controls can use this value next.</p>'
+    : '<p class="url-input-status" role="status" aria-live="polite" aria-atomic="true">The field mirrors the current page URL until you edit it.</p>';
   const disabledAttribute =
     state.isOpening || state.isReading || state.isStopping || state.isAdvancing || state.isRewinding
       ? " disabled aria-disabled=\"true\""
@@ -1060,16 +1081,16 @@ export function renderStatusPanel(state: StatusPanelState): string {
         </div>
         <div class="status-card">
           <dt>Current region</dt>
-          <dd>${escapeHtml(region)}</dd>
+            <dd aria-live="polite" aria-atomic="true">${escapeHtml(region)}</dd>
         </div>
         <div class="status-card status-card-wide status-card-transcript">
           <dt>Last transcript</dt>
-          <dd>${escapeHtml(transcript)}</dd>
+            <dd aria-live="polite" aria-atomic="true">${escapeHtml(transcript)}</dd>
         </div>
         <div class="status-card">
           <dt>Listening</dt>
           <dd>
-            <span class="status-indicator${state.listening ? " status-indicator-active" : ""}">
+            <span class="status-indicator${state.listening ? " status-indicator-active" : ""}" role="status" aria-live="polite" aria-atomic="true">
               ${state.listening ? "Active" : "Idle"}
             </span>
           </dd>
@@ -1077,7 +1098,7 @@ export function renderStatusPanel(state: StatusPanelState): string {
         <div class="status-card">
           <dt>Speaking</dt>
           <dd>
-            <span class="status-indicator${state.speaking ? " status-indicator-active" : ""}">
+            <span class="status-indicator${state.speaking ? " status-indicator-active" : ""}" role="status" aria-live="polite" aria-atomic="true">
               ${state.speaking ? "Active" : "Idle"}
             </span>
           </dd>
@@ -1085,12 +1106,13 @@ export function renderStatusPanel(state: StatusPanelState): string {
         <div class="status-card">
           <dt>Browser mode</dt>
           <dd>
-            <span class="status-mode-label">${escapeHtml(state.browserVisibility)}</span>
-            <div class="status-toggle-group" aria-label="Browser visibility mode">
+            <span class="status-mode-label" role="status" aria-live="polite" aria-atomic="true">${escapeHtml(state.browserVisibility)}</span>
+            <div class="status-toggle-group" role="group" aria-label="Browser visibility mode">
               <button
                 type="button"
                 class="status-toggle-button${visiblePressed ? " status-toggle-button-active" : ""}"
                 data-browser-visibility-mode="Visible"
+                aria-label="Browser visibility mode: Visible"
                 aria-pressed="${visiblePressed}"
                 ${visibilityDisabled}
               >
@@ -1100,6 +1122,7 @@ export function renderStatusPanel(state: StatusPanelState): string {
                 type="button"
                 class="status-toggle-button${headlessPressed ? " status-toggle-button-active" : ""}"
                 data-browser-visibility-mode="Headless"
+                aria-label="Browser visibility mode: Headless"
                 aria-pressed="${headlessPressed}"
                 ${visibilityDisabled}
               >

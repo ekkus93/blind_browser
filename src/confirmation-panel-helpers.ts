@@ -61,6 +61,7 @@ export function renderSecretEntryCard(
         placeholder="Enter a replacement API key"
         autocomplete="off"
         spellcheck="false"
+        aria-describedby="settings-remote-${kind}-api-key-description"
         ${disabledAttribute}
       />
       <button
@@ -71,7 +72,7 @@ export function renderSecretEntryCard(
       >
         Save API key
       </button>
-      <p class="settings-panel-description">
+      <p id="settings-remote-${kind}-api-key-description" class="settings-panel-description">
         Saving stores the secret in the OS keyring and updates the config to keep only a masked
         keyring reference.
       </p>

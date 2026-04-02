@@ -120,7 +120,7 @@ export function renderConfirmationPanel(state: ConfirmationUiState): string {
         </div>
       </div>
 
-      <div class="confirmation-actions" aria-label="Confirmation actions">
+      <div class="confirmation-actions" role="group" aria-label="Confirmation actions">
         <button
           type="button"
           class="confirmation-button confirmation-button-approve"

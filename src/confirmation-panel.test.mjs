@@ -213,6 +213,74 @@ test("renders push-to-talk errors when voice input fails", () => {
   assert.match(html, /role="alert"/);
 });
 
+test("renders slider controls with screen-reader value text", () => {
+  const audioHtml = renderAudioControlsPanel({
+    playbackVolume: 0.67,
+    playbackSpeed: 1.25,
+    isBusy: false,
+    error: null,
+  });
+  const confirmationHtml = renderSettingsConfirmationPanel({
+    confirmationConfidenceThreshold: 0.82,
+    allowClickWithoutConfirmation: false,
+    alwaysConfirmSubmit: true,
+    isBusy: false,
+    error: null,
+  });
+
+  assert.match(audioHtml, /aria-valuetext="67 percent"/);
+  assert.match(audioHtml, /aria-valuetext="1\.25 times"/);
+  assert.match(confirmationHtml, /aria-valuetext="82 percent confidence"/);
+});
+
+test("renders described settings inputs and grouped confirmation actions", () => {
+  const plannerHtml = renderSettingsRemotePlannerPanel({
+    profileName: "remote-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.example.com",
+    model: "gpt-test",
+    apiKeyReference: "keyring:planner",
+    organizationReference: null,
+    project: null,
+    temperatureMilli: 250,
+    maxOutputTokens: 1024,
+    timeoutMs: 30000,
+    apiKeyDraft: "secret",
+    isSavingApiKey: false,
+    error: null,
+  });
+  const modelManagementHtml = renderSettingsModelManagementPanel({
+    modelsDir: "/tmp/models",
+    checkOnStartup: true,
+    autoDownloadMissing: false,
+    localTtsAvailable: true,
+    localTtsDownloadSupported: true,
+    localTtsDownloadLabel: "Download TTS",
+    localAsrAvailable: true,
+    localAsrDownloadSupported: true,
+    localAsrDownloadLabel: "Download ASR",
+    isSaving: false,
+    isDownloadingTts: false,
+    isDownloadingAsr: false,
+    error: null,
+  });
+  const confirmationHtml = renderConfirmationPanel({
+    kind: "awaiting-confirmation",
+    isSubmitting: false,
+    submissionError: null,
+    confirmationId: "confirmation-1",
+    promptText: "Submit the form?",
+    requestId: "request-1",
+    selectedSkills: ["form_submit"],
+    nextStepId: "step-2",
+    queuedStepIds: ["step-2"],
+  });
+
+  assert.match(plannerHtml, /aria-describedby="settings-remote-planner-api-key-description"/);
+  assert.match(modelManagementHtml, /aria-describedby="settings-models-dir-description"/);
+  assert.match(confirmationHtml, /role="group" aria-label="Confirmation actions"/);
+});
+
 test("renders URL input with current URL and staged draft value", () => {
   const html = renderUrlInputPanel({
     draftValue: "https://staged.example.com",
@@ -241,6 +309,7 @@ test("renders URL input with current URL and staged draft value", () => {
   assert.match(html, />\s*Previous\s*<\/button>/);
   assert.match(html, />\s*Next\s*<\/button>/);
   assert.match(html, /value="https:\/\/staged\.example\.com"/);
+  assert.match(html, /role="status" aria-live="polite" aria-atomic="true"/);
 });
 
 test("renders URL input fallback copy when no page is loaded", () => {
