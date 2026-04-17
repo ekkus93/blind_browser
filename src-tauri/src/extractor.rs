@@ -152,6 +152,7 @@ pub fn extract_structured_article_from_html(
     }
 }
 
+#[cfg(any(feature = "browser", test))]
 fn build_article_blocks_from_text(text: &str, title: Option<&str>) -> Vec<ExtractedArticleBlock> {
     let mut blocks = Vec::new();
     let mut current = Vec::<String>::new();
@@ -194,6 +195,7 @@ fn build_article_blocks_from_text(text: &str, title: Option<&str>) -> Vec<Extrac
     blocks
 }
 
+#[cfg(any(feature = "browser", test))]
 fn build_article_blocks_from_html(html: &str, title: Option<&str>) -> Vec<ExtractedArticleBlock> {
     let mut blocks = Vec::new();
     let lowercase_html = html.to_ascii_lowercase();
@@ -255,6 +257,7 @@ fn build_article_blocks_from_html(html: &str, title: Option<&str>) -> Vec<Extrac
     blocks
 }
 
+#[cfg(any(feature = "browser", test))]
 fn strip_html_tags(html: &str) -> String {
     let mut text = String::with_capacity(html.len());
     let mut in_tag = false;
@@ -271,6 +274,7 @@ fn strip_html_tags(html: &str) -> String {
     text
 }
 
+#[cfg(any(feature = "browser", test))]
 fn normalize_block_text(text: String) -> Option<String> {
     let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
     let trimmed = normalized.trim();
@@ -281,6 +285,7 @@ fn normalize_block_text(text: String) -> Option<String> {
     }
 }
 
+#[cfg(any(feature = "browser", test))]
 fn normalize_optional_text(value: Option<&str>) -> Option<String> {
     value
         .map(str::trim)

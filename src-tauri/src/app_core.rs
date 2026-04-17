@@ -1,3 +1,4 @@
+#[cfg(feature = "remote-openai")]
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -12,23 +13,22 @@ use crate::browser::{
     BrowserVisibilityMode, LoadState,
 };
 use crate::commands::{
-    build_planner_skill_selection, canonical_planner_output_examples, execute_planner_output,
-    is_direct_submit_form_command, parse_direct_fill_and_submit_command,
-    parse_direct_fill_field_command, parse_direct_focus_field_command,
-    parse_fill_field_correction_command, planner_available_tools, planner_output_schema,
+    build_planner_skill_selection, execute_planner_output, is_direct_submit_form_command,
+    parse_direct_fill_and_submit_command, parse_direct_fill_field_command,
+    parse_direct_focus_field_command, parse_fill_field_correction_command, planner_available_tools,
     resolve_direct_audio_command, resolve_direct_browser_visibility_command,
     resolve_direct_navigation_readback_command, resolve_direct_open_url_command,
     resolve_direct_read_page_command, resolve_direct_read_title_command,
     resolve_direct_repeat_command, resolve_direct_status_query_command,
-    resolve_direct_voice_input_command, resume_after_confirmation, tool_input_schema,
-    validate_planner_output, AgentStateData, AsrProviderSettings, CaptureScreenshotData,
-    CaptureScreenshotInput, ClickElementData, ClickElementInput, ConfirmActionData,
-    ConfirmActionInput, ConfirmActionResolution, ConfirmationSettings, DeterministicToolExecutor,
-    EvalJsData, EvalJsInput, ExecutionOutcome, ExecutionTrace, ExtractPageModelData,
-    ExtractPageModelInput, FillFieldCorrectionCommand, FindElementData, FindElementInput,
-    FocusElementData, FocusElementInput, GetAgentStateInput, GetHtmlData, GetHtmlInput,
-    GetPageSnapshotInput, GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput,
-    GoForwardData, GoForwardInput, IntentName, IntentSummary, ListInteractiveElementsData,
+    resolve_direct_voice_input_command, resume_after_confirmation, validate_planner_output,
+    AgentStateData, AsrProviderSettings, CaptureScreenshotData, CaptureScreenshotInput,
+    ClickElementData, ClickElementInput, ConfirmActionData, ConfirmActionInput,
+    ConfirmActionResolution, ConfirmationSettings, DeterministicToolExecutor, EvalJsData,
+    EvalJsInput, ExecutionOutcome, ExecutionTrace, ExtractPageModelData, ExtractPageModelInput,
+    FillFieldCorrectionCommand, FindElementData, FindElementInput, FocusElementData,
+    FocusElementInput, GetAgentStateInput, GetHtmlData, GetHtmlInput, GetPageSnapshotInput,
+    GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData,
+    GoForwardInput, IntentName, IntentSummary, ListInteractiveElementsData,
     ListInteractiveElementsInput, LocalAsrModelSettings, LocalTtsModelSettings,
     MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput, OcrThresholdSettings, OpenUrlData,
     OpenUrlInput, PageSnapshotData, PlannedStep, PlannerInput, PlannerOutput,
@@ -46,10 +46,15 @@ use crate::commands::{
     TtsProviderSettings, TtsVoiceOption, TtsVoiceSettings, TypeIntoElementData,
     TypeIntoElementInput,
 };
+#[cfg(feature = "remote-openai")]
+use crate::commands::{
+    canonical_planner_output_examples, planner_output_schema, tool_input_schema,
+};
+#[cfg(feature = "remote-openai")]
+use crate::config::resolve_secret_ref;
 use crate::config::{
-    resolve_secret_ref, secret_ref_reference, AppConfig, AudioSettings, ConfigError,
-    LocalAsrProfile, LocalTtsProfile, ModelManagementSettings, RemotePlannerProfile,
-    RemoteProviderKind,
+    secret_ref_reference, AppConfig, AudioSettings, ConfigError, LocalAsrProfile, LocalTtsProfile,
+    ModelManagementSettings, RemotePlannerProfile, RemoteProviderKind,
 };
 use crate::extractor::extract_structured_article_from_html;
 use crate::narration::{
@@ -99,6 +104,7 @@ struct ResolvedDirectFieldCommand {
     recent_field_context: Option<PendingRecentFieldContext>,
 }
 
+#[cfg(feature = "remote-openai")]
 #[derive(Serialize)]
 struct PlannerPromptPayload<'a> {
     planner_input: &'a PlannerInput,
@@ -4169,6 +4175,7 @@ impl AppCore {
         }
     }
 
+    #[cfg(feature = "remote-openai")]
     fn planner_prompt_payload<'a>(
         &self,
         planner_input: &'a PlannerInput,
@@ -5796,6 +5803,7 @@ fn asr_runtime_error_to_tool_error(error: &AsrRuntimeError) -> ToolError {
     }
 }
 
+#[cfg(any(feature = "remote-openai", test))]
 fn planner_system_prompt() -> &'static str {
     "You are the bounded planner for blind_browser, a voice-first desktop browser for vision-impaired users.
 Return only JSON that matches the provided planner_output_schema.

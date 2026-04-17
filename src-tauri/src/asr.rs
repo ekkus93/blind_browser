@@ -1,6 +1,9 @@
 use std::path::Path;
+#[cfg(feature = "audio")]
 use std::sync::{Arc, Mutex};
+#[cfg(any(feature = "audio", feature = "remote-openai"))]
 use std::thread;
+#[cfg(any(feature = "audio", feature = "remote-openai"))]
 use std::time::Duration;
 
 #[cfg(feature = "remote-openai")]
@@ -10,9 +13,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(feature = "remote-openai")]
+use crate::config::resolve_secret_ref;
 use crate::config::{
-    resolve_secret_ref, AppConfig, LocalAsrProfile, ProviderMode, RemoteAsrProfile,
-    RemoteProviderKind,
+    AppConfig, LocalAsrProfile, ProviderMode, RemoteAsrProfile, RemoteProviderKind,
 };
 
 #[cfg(feature = "audio")]
@@ -471,6 +475,7 @@ struct CapturedAudio {
 }
 
 impl CapturedAudio {
+    #[cfg(feature = "audio")]
     fn ensure_non_empty(self) -> Result<Self, AsrRuntimeError> {
         if self.samples.is_empty() {
             Err(AsrRuntimeError::NoAudioCaptured)
@@ -493,6 +498,7 @@ impl CapturedAudio {
         resample_linear(&mono, self.sample_rate, WHISPER_TARGET_SAMPLE_RATE)
     }
 
+    #[cfg(feature = "remote-openai")]
     fn to_remote_wav_bytes(&self) -> Result<Vec<u8>, AsrRuntimeError> {
         let mono = interleaved_to_mono(&self.samples, self.channels);
         let audio = resample_linear(&mono, self.sample_rate, WHISPER_TARGET_SAMPLE_RATE);
@@ -580,6 +586,7 @@ fn build_openai_transcription_request(
         })
 }
 
+#[cfg(any(feature = "remote-openai", test))]
 fn normalized_optional_string(value: Option<&str>) -> Option<String> {
     value
         .map(str::trim)
@@ -587,6 +594,7 @@ fn normalized_optional_string(value: Option<&str>) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+#[cfg(any(feature = "remote-openai", test))]
 fn encode_wav_pcm16(samples: &[f32], sample_rate: u32, channels: u16) -> Result<Vec<u8>, String> {
     if sample_rate == 0 {
         return Err(String::from("sample rate must be greater than zero"));

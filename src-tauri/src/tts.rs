@@ -25,7 +25,9 @@ pub const OPENAI_TTS_VOICES: &[&str] = &[
     "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse",
     "marin", "cedar",
 ];
+#[cfg(any(feature = "remote-openai", test))]
 const OPENAI_REMOTE_TTS_MIN_SPEED: f32 = 0.25;
+#[cfg(any(feature = "remote-openai", test))]
 const OPENAI_REMOTE_TTS_MAX_SPEED: f32 = 4.0;
 const SYNTHESIZED_SPEECH_CACHE_LIMIT: usize = 8;
 
@@ -474,12 +476,14 @@ fn normalized_model_path(model_path: &str) -> Result<PathBuf, TtsRuntimeError> {
     Ok(path)
 }
 
+#[cfg(any(feature = "remote-openai", test))]
 struct DecodedWav {
     sample_rate: u32,
     channels: u16,
     samples: Vec<f32>,
 }
 
+#[cfg(any(feature = "remote-openai", test))]
 fn decode_wav_samples(bytes: &[u8]) -> Result<DecodedWav, String> {
     if bytes.len() < 12 {
         return Err(String::from("response was too short to be a WAV file"));

@@ -28,7 +28,9 @@ impl Default for OcrSettings {
     }
 }
 
+#[cfg(any(feature = "ocr", test))]
 const OCR_FALLBACK_SOURCE_DPI: i32 = 300;
+#[cfg(any(feature = "ocr", test))]
 const TESSERACT_LANGUAGE: &str = "eng";
 
 #[derive(Debug, Clone, PartialEq)]
@@ -110,10 +112,12 @@ impl OcrController {
     }
 }
 
+#[cfg(any(feature = "ocr", test))]
 fn normalize_ocr_text(text: String) -> String {
     text.trim().to_string()
 }
 
+#[cfg(any(feature = "ocr", test))]
 fn normalize_ocr_confidence(confidence: i32) -> Option<f32> {
     if confidence < 0 {
         None
@@ -122,6 +126,7 @@ fn normalize_ocr_confidence(confidence: i32) -> Option<f32> {
     }
 }
 
+#[cfg(any(feature = "ocr", test))]
 fn normalized_ocr_bbox(bbox: &Rect) -> Result<(i32, i32, i32, i32), OcrRuntimeError> {
     if !bbox.x.is_finite()
         || !bbox.y.is_finite()

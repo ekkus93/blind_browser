@@ -1,3 +1,4 @@
+#[cfg(feature = "audio")]
 use std::num::{NonZeroU16, NonZeroU32};
 
 use schemars::JsonSchema;
@@ -140,6 +141,9 @@ impl AudioPlaybackController {
     }
 
     pub fn set_volume(&mut self, volume: f32) {
+        #[cfg(not(feature = "audio"))]
+        let _ = volume;
+
         #[cfg(feature = "audio")]
         if let Some(active_playback) = self.active_playback.as_ref() {
             active_playback.player.set_volume(volume);

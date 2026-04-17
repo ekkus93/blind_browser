@@ -1,4 +1,6 @@
+#[cfg(any(feature = "browser", test))]
 use std::collections::BTreeMap;
+#[cfg(any(feature = "browser", test))]
 use std::time::Duration;
 
 #[cfg(feature = "browser")]
@@ -18,9 +20,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::page_model::{
-    ElementRole, InteractiveElement, PageModel, PageRegion, Rect, RegionRole, RegionSource,
-};
+#[cfg(any(feature = "browser", test))]
+use crate::page_model::{ElementRole, PageRegion, RegionRole, RegionSource};
+use crate::page_model::{InteractiveElement, PageModel, Rect};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum LoadState {
@@ -199,6 +201,7 @@ pub enum BrowserError {
 }
 
 pub struct BrowserController {
+    #[cfg(feature = "browser")]
     config: BrowserSessionConfig,
     #[cfg(feature = "browser")]
     session: Option<LiveBrowserSession>,
@@ -206,7 +209,11 @@ pub struct BrowserController {
 
 impl BrowserController {
     pub fn new(config: BrowserSessionConfig) -> Self {
+        #[cfg(not(feature = "browser"))]
+        let _ = config;
+
         Self {
+            #[cfg(feature = "browser")]
             config,
             #[cfg(feature = "browser")]
             session: None,
@@ -1189,6 +1196,7 @@ struct LivePageMetrics {
     document_height: f64,
 }
 
+#[cfg(any(feature = "browser", test))]
 fn png_dimensions(image_bytes: &[u8]) -> Result<(u32, u32), BrowserError> {
     const PNG_SIGNATURE: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
     if image_bytes.len() < 24 || &image_bytes[..8] != PNG_SIGNATURE {
@@ -1354,6 +1362,7 @@ async fn build_scroll_instruction(
     ))
 }
 
+#[cfg(any(feature = "browser", test))]
 fn normalize_optional_text(value: &str) -> Option<String> {
     let trimmed = value.trim();
     (!trimmed.is_empty()).then(|| trimmed.to_string())
