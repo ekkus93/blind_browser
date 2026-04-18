@@ -12,7 +12,19 @@ function describeInvokeFailureMessage(error: unknown): string {
 }
 
 export function describePushToTalkFailure(error: unknown): string {
-  return describeInvokeFailureMessage(error);
+  const failure = classifyInvokeFailure(error);
+  if (failure.kind === "tool-error") {
+    switch (failure.toolError.code) {
+      case "asr_model_unavailable":
+        return "Voice input setup is incomplete. Switch ASR to OpenAI or finish the local Whisper setup.";
+      case "asr_secret_unavailable":
+        return "Voice input needs an OpenAI API key before it can start.";
+      default:
+        return failure.toolError.message;
+    }
+  }
+
+  return failure.message;
 }
 
 export function describeAudioControlFailure(error: unknown): string {
@@ -62,6 +74,7 @@ export function guidanceStateForErrorMessage(message: string | null): SettingsGu
     normalized.includes("local asr model path")
     || normalized.includes("failed to load the local asr model")
     || normalized.includes("asr local profile")
+    || normalized.includes("voice input setup is incomplete")
   ) {
     return {
       title: "Model setup needs attention",
@@ -124,6 +137,7 @@ export function guidanceStateForErrorMessage(message: string | null): SettingsGu
     normalized.includes("asr api key")
     || normalized.includes("asr_secret_unavailable")
     || normalized.includes("remote asr secret")
+    || normalized.includes("voice input needs an openai api key")
   ) {
     return {
       title: "Remote ASR secret needs attention",

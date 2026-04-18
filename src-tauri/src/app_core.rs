@@ -8271,6 +8271,7 @@ mod tests {
     #[test]
     fn build_tts_model_settings_uses_selected_local_profile() {
         let mut config = AppConfig::default();
+        config.providers.tts.mode = ProviderMode::Local;
         config.local_tts_profiles.insert(
             String::from("kitten-alt"),
             crate::config::LocalTtsProfile {
@@ -8399,7 +8400,7 @@ mod tests {
 
         let settings = build_asr_provider_settings(&config);
 
-        assert_eq!(settings.active_mode, ProviderMode::Local);
+        assert_eq!(settings.active_mode, ProviderMode::Remote);
         assert_eq!(
             settings.available_modes,
             vec![ProviderMode::Local, ProviderMode::Remote]
@@ -8412,7 +8413,7 @@ mod tests {
 
         let settings = build_tts_provider_settings(&config);
 
-        assert_eq!(settings.active_mode, ProviderMode::Local);
+        assert_eq!(settings.active_mode, ProviderMode::Remote);
         assert_eq!(
             settings.available_modes,
             vec![ProviderMode::Local, ProviderMode::Remote]
@@ -8421,7 +8422,8 @@ mod tests {
 
     #[test]
     fn build_tts_voice_settings_returns_kitten_voice_choices_for_local_mode() {
-        let config = AppConfig::default();
+        let mut config = AppConfig::default();
+        config.providers.tts.mode = ProviderMode::Local;
         let runtime_audio = RuntimeAudioState::from(&config.audio);
 
         let settings = build_tts_voice_settings(&config, &runtime_audio);

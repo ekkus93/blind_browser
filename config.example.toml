@@ -3,12 +3,12 @@ mode = "remote"
 remote_profile = "openai-default"
 
 [providers.tts]
-mode = "local"
+mode = "remote"
 remote_profile = "openai-tts-default"
 local_profile = "kitten-default"
 
 [providers.asr]
-mode = "local"
+mode = "remote"
 remote_profile = "openai-transcribe-default"
 local_profile = "whisper-default"
 

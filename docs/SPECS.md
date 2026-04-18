@@ -42,12 +42,12 @@ mode = "remote"
 remote_profile = "openai-default"
 
 [providers.tts]
-mode = "local"
+mode = "remote"
 remote_profile = "openai-tts-default"
 local_profile = "kitten-default"
 
 [providers.asr]
-mode = "local"
+mode = "remote"
 remote_profile = "openai-transcribe-default"
 local_profile = "whisper-default"
 
@@ -331,9 +331,10 @@ Keyring-backed API keys
 - Planner default mode: `remote`
 - Planner remote profile: `openai-default`
 - Planner failover: preference may be configured, but automatic runtime failover remains disabled in v1
-- TTS default mode: `local`
+- TTS default mode: `remote`
+- TTS remote profile: `openai-tts-default`
 - TTS local profile: `kitten-default`
-- ASR default mode: `local`
+- ASR default mode: `remote`
 - ASR remote profile: `openai-transcribe-default`
 - ASR local profile: `whisper-default`
 - Playback volume default: `1.0`
@@ -362,12 +363,12 @@ mode = "remote"
 remote_profile = "openai-default"
 
 [providers.tts]
-mode = "local"
+mode = "remote"
 remote_profile = "openai-tts-default"
 local_profile = "kitten-default"
 
 [providers.asr]
-mode = "local"
+mode = "remote"
 remote_profile = "openai-transcribe-default"
 local_profile = "whisper-default"
 
@@ -576,8 +577,8 @@ Representative-page validation guidance:
 - Maintains cursor
 
 ### TTS
-- Local default via kitten_tts_rs
-- Optional remote TTS provider via OpenAI API
+- Remote default via OpenAI TTS
+- Optional local TTS provider via kitten_tts_rs
 - Supports model/voice/speed
 - Uses native speed control in kitten_tts_rs and native speed control in OpenAI TTS when available
 - Uses persisted playback speed and volume settings
@@ -590,8 +591,8 @@ Representative-page validation guidance:
 - Does not require external ffmpeg-style post-processing for normal TTS speed control
 
 ### ASR
-- Local default via Whisper backend
-- Optional remote ASR provider via OpenAI API
+- Remote default via OpenAI transcription
+- Optional local ASR provider via Whisper backend
 - Short command recognition
 
 ### Commands
@@ -3322,7 +3323,7 @@ No extractable text or sparse extractable text → Screenshot → OCR → Merge 
 - Next / Previous / Repeat / Stop
 - Push-to-talk commands
 - LLM-backed command interpretation
-- Optional remote TTS and ASR providers with local defaults retained
+- OpenAI TTS and ASR as shipped defaults, with local TTS and ASR profiles retained for later setup
 - User-configurable provider selection for planner, TTS, and ASR
 - Persistent playback volume and playback speed settings across app restarts
 - Voice commands for adjusting playback volume and playback speed
@@ -3346,7 +3347,7 @@ No extractable text or sparse extractable text → Screenshot → OCR → Merge 
 ## Performance Goals
 
 - Prefer the smallest workable local models
-- Prefer local default TTS and ASR backends, with remote providers used optionally
+- Prefer OpenAI TTS and ASR for first-run behavior, while retaining local providers for later setup
 - Avoid full-page OCR
 - Minimal idle CPU
 - Fast TTS playback

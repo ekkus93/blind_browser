@@ -1172,13 +1172,13 @@ impl Default for AppConfig {
                     failover_to_local: None,
                 },
                 tts: ProviderSelection {
-                    mode: ProviderMode::Local,
+                    mode: ProviderMode::Remote,
                     remote_profile: Some(String::from("openai-tts-default")),
                     local_profile: Some(String::from("kitten-default")),
                     failover_to_local: None,
                 },
                 asr: ProviderSelection {
-                    mode: ProviderMode::Local,
+                    mode: ProviderMode::Remote,
                     remote_profile: Some(String::from("openai-transcribe-default")),
                     local_profile: Some(String::from("whisper-default")),
                     failover_to_local: None,
@@ -1546,6 +1546,8 @@ mod tests {
             config.providers.planner.remote_profile.as_deref(),
             Some("openai-default")
         );
+        assert_eq!(config.providers.tts.mode, ProviderMode::Remote);
+        assert_eq!(config.providers.asr.mode, ProviderMode::Remote);
         assert!(config
             .remote_planner_profiles
             .contains_key("openai-default"));
