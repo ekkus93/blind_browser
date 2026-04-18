@@ -224,6 +224,11 @@
 - Backend validation now performs a real OpenAI-compatible `GET /models` request against the configured remote profile base URL, including organization and project headers when configured.
 - Validation after the feature change is green: `pnpm test:ui`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `pnpm build` all pass.
 
+## 2026-04-18T11:13:10Z - GPT-5.4 - API key test errors sanitized
+- The backend no longer returns raw OpenAI error bodies for Settings API key tests, which prevents partial key fingerprints or verbose provider payloads from reaching the UI.
+- Settings API key test failures now map HTTP status codes to short safe copy such as invalid key, forbidden project access, rate limiting, timeout, or a generic verification failure.
+- Validation after the fix: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` and `cargo test --manifest-path src-tauri/Cargo.toml --all-features` both pass.
+
 ## 2026-04-18T09:53:56Z - GPT-5.4 - Full validation run passed
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed.
 - `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passed with 304 backend tests green.

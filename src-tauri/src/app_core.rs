@@ -4983,29 +4983,31 @@ fn test_openai_api_key_connectivity(
     }
 
     let status = response.status();
-    let body = response.text().unwrap_or_default();
-    let detail = abbreviate_openai_error_body(&body);
-    if detail.is_empty() {
-        return Err(format!(
-            "OpenAI API key test failed with HTTP {}.",
-            status.as_u16()
-        ));
-    }
-
-    Err(format!(
-        "OpenAI API key test failed with HTTP {}: {}",
-        status.as_u16(), detail
-    ))
+    Err(openai_api_key_test_failure_message(status))
 }
 
-fn abbreviate_openai_error_body(body: &str) -> String {
-    let normalized = body.split_whitespace().collect::<Vec<_>>().join(" ");
-    if normalized.chars().count() <= 240 {
-        return normalized;
+fn openai_api_key_test_failure_message(status: reqwest::StatusCode) -> String {
+    match status {
+        reqwest::StatusCode::UNAUTHORIZED => {
+            String::from("OpenAI rejected that API key. Check the key and try again.")
+        }
+        reqwest::StatusCode::FORBIDDEN => String::from(
+            "OpenAI refused this request. Check that the API key has access to this project.",
+        ),
+        reqwest::StatusCode::TOO_MANY_REQUESTS => {
+            String::from("OpenAI rate-limited the API key test. Wait a moment and try again.")
+        }
+        reqwest::StatusCode::REQUEST_TIMEOUT
+        | reqwest::StatusCode::GATEWAY_TIMEOUT
+        | reqwest::StatusCode::BAD_GATEWAY
+        | reqwest::StatusCode::SERVICE_UNAVAILABLE => {
+            String::from("OpenAI did not respond in time. Try the API key test again.")
+        }
+        _ => format!(
+            "OpenAI could not verify the API key right now (HTTP {}).",
+            status.as_u16()
+        ),
     }
-
-    let truncated = normalized.chars().take(237).collect::<String>();
-    format!("{truncated}...")
 }
 
 fn build_confirmation_settings(config: &AppConfig) -> ConfirmationSettings {
@@ -11389,7 +11391,7 @@ mod tests {
     fn test_openai_api_key_connectivity_reports_http_failures() {
         let (base_url, server) = spawn_openai_models_test_server(
             "401 Unauthorized",
-            r#"{"error":{"message":"bad key"}}"#,
+            r#"{"error":{"message":"Incorrect API key provided: sk-proj-test-secret"}}"#,
         );
 
         let error = test_openai_api_key_connectivity(
@@ -11402,7 +11404,10 @@ mod tests {
         .expect_err("request should fail with an HTTP error");
 
         server.join().expect("test server should exit cleanly");
-        assert!(error.contains("HTTP 401"));
-        assert!(error.contains("bad key"));
+        assert_eq!(
+            error,
+            "OpenAI rejected that API key. Check the key and try again."
+        );
+        assert!(!error.contains("sk-proj"));
     }
 }
