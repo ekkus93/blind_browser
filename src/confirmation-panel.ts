@@ -41,8 +41,6 @@ export {
   renderSettingsTtsProviderPanelNode,
   renderSettingsTtsModelPanelNode,
   renderSettingsTtsVoicePanelNode,
-  renderSettingsSpeedPanel,
-  renderSettingsVolumePanel,
   renderStatusPanelNode,
   renderUrlInputPanelNode,
   statusPanelStateFromAgentState,

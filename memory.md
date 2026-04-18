@@ -3,6 +3,11 @@
 - Changed `src/app-shell.ts` so the `renderAppShell()` helper used only by `src/app-shell.test.mjs` loads `react-dom/server` lazily instead of importing it into the live browser bundle.
 - The build warning is now actually gone instead of being masked: `pnpm build` produces a `428.09 kB` main JS chunk instead of the prior `615.81 kB`, and full validation is green with `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features`.
 
+## 2026-04-18T21:43:40Z - GPT-5.4 - Phase 2 removed the last HTML render seam from the frontend runtime
+- Deleted the legacy string-only playback helpers from `src/settings-status-panels.ts` and dropped their test-only re-exports from `src/confirmation-panel.ts`, so the remaining panel surface is React-node based.
+- Replaced `renderPanelRoot(..., html)` in `src/app-shell.ts` with `preserveActivePanelControl(...)`, which keeps the focus-restoration behavior while removing the last `innerHTML` rendering path from the app shell module.
+- `docs/TODO.md` now marks the full Priority 2 seam-removal phase complete, and validation is green again with `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features`.
+
 ## 2026-04-18T21:34:10Z - GPT-5.4 - Phase 1 of the React follow-up moved runtime rendering onto a single Redux-backed tree
 - `src/main.ts` no longer imperatively rerenders panel roots; it now mounts one React app tree and renders shell views and panel content from the Redux-backed frontend state.
 - `src/app-shell-store.ts` is now the source of truth for shell view state, panel state, and execution UI state, which let the runtime replace the old `rerender*Panel()` orchestration with state-driven rendering.

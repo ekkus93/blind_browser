@@ -25,11 +25,11 @@ This document tracks the remaining frontend follow-up after the settings cleanup
 
 ## Priority 2: Remove Legacy HTML Rendering Seams
 
-- [ ] Remove the remaining string-render helpers in `src/settings-status-panels.ts`, especially `renderSettingsVolumePanel(...)` and `renderSettingsSpeedPanel(...)`.
-- [ ] Migrate tests that still depend on HTML-string renderers to assert against React-rendered DOM instead.
-- [ ] Retire `renderPanelRoot(panelRoots, rootKey, html)` from `src/app-shell.ts` after the DOM seam tests no longer require the `innerHTML` replacement path.
-- [ ] Delete the last `innerHTML`-based render seam once focus-preservation behavior is covered by React-based tests.
-- [ ] Keep all SSR-only helpers test-local or lazily loaded so browser bundles stay free of server-rendering code.
+- [x] Remove the remaining string-render helpers in `src/settings-status-panels.ts`, especially `renderSettingsVolumePanel(...)` and `renderSettingsSpeedPanel(...)`.
+- [x] Migrate tests that still depend on HTML-string renderers to assert against React-rendered DOM instead.
+- [x] Retire `renderPanelRoot(panelRoots, rootKey, html)` from `src/app-shell.ts` after the DOM seam tests no longer require the `innerHTML` replacement path.
+- [x] Delete the last `innerHTML`-based render seam once focus-preservation behavior is covered by React-based tests.
+- [x] Keep all SSR-only helpers test-local or lazily loaded so browser bundles stay free of server-rendering code.
 
 ## Priority 3: Break Up The Frontend Into Smaller React Units
 
@@ -68,7 +68,7 @@ This document tracks the remaining frontend follow-up after the settings cleanup
 
 - [x] Introduce a top-level React app component and move shell plus subpage navigation under it.
 - [x] Move panel state ownership out of `src/main.ts` into Redux or React state.
-- [ ] Convert remaining string renderers and retire the HTML seam.
+- [x] Convert remaining string renderers and retire the HTML seam.
 - [ ] Replace legacy DOM-seam tests with React-centric DOM tests.
 - [ ] Split the large frontend modules after the rendering model is stable.
 - [ ] Refresh docs once the architecture is settled.

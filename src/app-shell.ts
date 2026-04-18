@@ -593,14 +593,9 @@ function restoreActivePanelControl(
   }
 }
 
-export function renderPanelRoot(
-  panelRoots: PanelRootMap,
-  rootKey: PanelRootKey,
-  html: string,
-) {
-  const root = panelRoots[rootKey];
+export function preserveActivePanelControl(root: HTMLDivElement, renderPanel: () => void) {
   const controlState = captureActivePanelControl(root);
-  root.innerHTML = html;
+  renderPanel();
   restoreActivePanelControl(root, controlState);
 }
 
@@ -610,16 +605,15 @@ export function renderPanelRootNode(
   node: ReactNode,
 ) {
   const root = panelRoots[rootKey];
-  const controlState = captureActivePanelControl(root);
-  let panelRoot = mountedPanelRoots.get(root);
-  if (!panelRoot) {
-    panelRoot = createRoot(root);
-    mountedPanelRoots.set(root, panelRoot);
-  }
+  preserveActivePanelControl(root, () => {
+    let panelRoot = mountedPanelRoots.get(root);
+    if (!panelRoot) {
+      panelRoot = createRoot(root);
+      mountedPanelRoots.set(root, panelRoot);
+    }
 
-  flushSync(() => {
-    panelRoot.render(node);
+    flushSync(() => {
+      panelRoot.render(node);
+    });
   });
-
-  restoreActivePanelControl(root, controlState);
 }

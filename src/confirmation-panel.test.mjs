@@ -20,8 +20,6 @@ import {
   renderSettingsTtsProviderPanelNode,
   renderSettingsTtsModelPanelNode,
   renderSettingsTtsVoicePanelNode,
-  renderSettingsSpeedPanel,
-  renderSettingsVolumePanel,
   renderStatusPanelNode,
   statusPanelStateFromAgentState,
   renderUrlInputPanelNode,
@@ -651,64 +649,6 @@ test("renders nearby playback controls with volume and speed values", () => {
   assert.match(html, /1\.25x/);
   assert.match(html, /data-audio-control="volume"/);
   assert.match(html, /data-audio-control="speed"/);
-});
-
-test("renders settings volume control with the persisted default value", () => {
-  const html = renderSettingsVolumePanel({
-    playbackVolume: 0.65,
-    playbackSpeed: 1.25,
-    isBusy: false,
-    error: null,
-  });
-
-  assert.match(html, /Playback volume/);
-  assert.match(html, /Default volume/);
-  assert.match(html, /65%/);
-  assert.match(html, /persist across app restarts/);
-  assert.match(html, /id="settings-playback-volume-control"/);
-  assert.match(html, /data-audio-control="volume"/);
-});
-
-test("renders settings volume errors and disabled state while saving", () => {
-  const html = renderSettingsVolumePanel({
-    playbackVolume: 1,
-    playbackSpeed: 1,
-    isBusy: true,
-    error: "The playback volume could not be saved.",
-  });
-
-  assert.match(html, /The playback volume could not be saved\./);
-  assert.match(html, /disabled aria-disabled="true"/);
-  assert.match(html, /role="alert"/);
-});
-
-test("renders settings speed control with the persisted default value", () => {
-  const html = renderSettingsSpeedPanel({
-    playbackVolume: 0.65,
-    playbackSpeed: 1.4,
-    isBusy: false,
-    error: null,
-  });
-
-  assert.match(html, /Playback speed/);
-  assert.match(html, /Default speed/);
-  assert.match(html, /1\.40x/);
-  assert.match(html, /persist across app restarts/);
-  assert.match(html, /id="settings-playback-speed-control"/);
-  assert.match(html, /data-audio-control="speed"/);
-});
-
-test("renders settings speed errors and disabled state while saving", () => {
-  const html = renderSettingsSpeedPanel({
-    playbackVolume: 1,
-    playbackSpeed: 2,
-    isBusy: true,
-    error: "The playback speed could not be saved.",
-  });
-
-  assert.match(html, /The playback speed could not be saved\./);
-  assert.match(html, /disabled aria-disabled="true"/);
-  assert.match(html, /role="alert"/);
 });
 
 test("renders remote planner API reference details", () => {

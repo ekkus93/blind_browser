@@ -96,7 +96,7 @@ globalThis.HTMLSelectElement = FakeSelectElement;
 globalThis.HTMLButtonElement = FakeButtonElement;
 globalThis.HTMLDivElement = FakeDivElement;
 
-const { renderPanelRoot } = await import("./app-shell.ts");
+const { preserveActivePanelControl } = await import("./app-shell.ts");
 const { registerAppEventHandlers } = await import("./event-handlers.ts");
 
 function createEventHandlerDeps() {
@@ -179,7 +179,7 @@ function createEventHandlerDeps() {
   return { appRoot, calls, document };
 }
 
-test("renderPanelRoot preserves focus and selection for the active control", () => {
+test("preserveActivePanelControl keeps focus and selection on the replacement control", () => {
   const document = new FakeDocument();
   globalThis.document = document;
 
@@ -199,13 +199,9 @@ test("renderPanelRoot preserves focus and selection for the active control", () 
   document.register(replacementInput);
   replacementInput.value = "https://example.com";
 
-  Object.defineProperty(root, "innerHTML", {
-    set() {
-      root.children = [replacementInput];
-    },
+  preserveActivePanelControl(root, () => {
+    root.children = [replacementInput];
   });
-
-  renderPanelRoot({ "url-input": root }, "url-input", "<input id=\"url-input\" />");
 
   assert.equal(document.activeElement, replacementInput);
   assert.deepEqual(replacementInput.focusOptions, { preventScroll: true });
