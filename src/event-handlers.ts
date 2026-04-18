@@ -7,7 +7,7 @@ type OcrThresholdControlKind = "char" | "region";
 type ModelManagementToggleKind = "check-on-startup" | "auto-download-missing";
 type PushToTalkSource = "keyboard" | "pointer";
 type AppView = "workspace" | "settings";
-type SettingsView = "overview" | "planner";
+type SettingsView = "overview" | "planner" | "tts";
 type SettingsBusyKey =
   | "volume"
   | "speed"
@@ -69,6 +69,10 @@ interface EventHandlerDependencies {
 function resolveSettingsViewForTarget(targetId: string): SettingsView {
   if (targetId.startsWith("settings-remote-planner")) {
     return "planner";
+  }
+
+  if (targetId.startsWith("settings-tts-") || targetId.startsWith("settings-remote-tts")) {
+    return "tts";
   }
 
   return "overview";
@@ -164,7 +168,7 @@ export function registerAppEventHandlers({
     const settingsViewButton = target.closest<HTMLButtonElement>("[data-settings-view-button]");
     if (settingsViewButton) {
       const view = settingsViewButton.dataset.settingsViewButton;
-      if (view === "overview" || view === "planner") {
+      if (view === "overview" || view === "planner" || view === "tts") {
         setAppView("settings");
         setSettingsView(view);
       }

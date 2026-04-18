@@ -20,7 +20,7 @@ export type PanelRootKey =
   | "confirmation-panel";
 
 export type AppView = "workspace" | "settings";
-export type SettingsView = "overview" | "planner";
+export type SettingsView = "overview" | "planner" | "tts";
 
 export type PanelRootMap = Record<PanelRootKey, HTMLDivElement>;
 
@@ -115,19 +115,20 @@ export function renderAppShell(): string {
             </div>
           </section>
 
-          <section class="settings-group" aria-labelledby="settings-group-tts-title">
+          <section class="settings-group settings-group-link" aria-labelledby="settings-group-tts-title">
             <div class="settings-group-copy">
               <p class="settings-group-eyebrow">Speech output</p>
               <h2 id="settings-group-tts-title">Text to speech</h2>
-              <p class="settings-group-description">
-                Pick the TTS provider, model, voice, and any local or remote profile details in one place.
-              </p>
             </div>
-            ${renderPanelRootPlaceholder("settings-tts-provider")}
-            ${renderPanelRootPlaceholder("settings-tts-model")}
-            ${renderPanelRootPlaceholder("settings-local-tts-model")}
-            ${renderPanelRootPlaceholder("settings-remote-tts")}
-            ${renderPanelRootPlaceholder("settings-tts-voice")}
+            <div class="settings-subpage-card">
+              <button
+                type="button"
+                class="settings-subpage-link"
+                data-settings-view-button="tts"
+              >
+                Open TTS setup
+              </button>
+            </div>
           </section>
 
           <section class="settings-group" aria-labelledby="settings-group-asr-title">
@@ -172,6 +173,26 @@ export function renderAppShell(): string {
           </section>
 
           ${renderPanelRootPlaceholder("settings-remote-planner")}
+        </div>
+
+        <div class="settings-view" data-settings-view-section="tts" hidden aria-hidden="true">
+          <section class="hero hero-settings hero-settings-subpage">
+            <button
+              type="button"
+              class="settings-subpage-back"
+              data-settings-view-button="overview"
+            >
+              Back to settings
+            </button>
+            <p class="settings-group-eyebrow">Speech output</p>
+            <h2>TTS setup</h2>
+          </section>
+
+          ${renderPanelRootPlaceholder("settings-tts-provider")}
+          ${renderPanelRootPlaceholder("settings-tts-model")}
+          ${renderPanelRootPlaceholder("settings-local-tts-model")}
+          ${renderPanelRootPlaceholder("settings-remote-tts")}
+          ${renderPanelRootPlaceholder("settings-tts-voice")}
         </div>
       </section>
     </main>

@@ -1,3 +1,8 @@
+## 2026-04-18T18:55:16Z - GPT-5.4 - TTS setup moved to a settings subpage
+- Continued the Settings declutter pass by moving the TTS controls out of the overview in `src/app-shell.ts` and behind an `Open TTS setup` link with a matching back control.
+- Extended nested settings-view routing in `src/app-shell.ts`, `src/main.ts`, and `src/event-handlers.ts` so TTS-targeted guidance and control links open the TTS subpage before focusing the requested element.
+- Updated `src/app-shell.test.mjs` and `src/dom-seams.test.mjs`, and validation is green with `pnpm lint` plus `pnpm test:ui`.
+
 ## 2026-04-18T18:51:46Z - GPT-5.4 - Planner setup moved to a settings subpage
 - Split the crowded Settings overview in `src/app-shell.ts` by moving the planner configuration panel behind a dedicated in-settings subpage reached through an `Open planner setup` link and a `Back to settings` control.
 - Added nested settings-view state in `src/app-shell.ts`, `src/main.ts`, and `src/event-handlers.ts` so planner-target guidance links open the planner subpage before focusing the requested control.
