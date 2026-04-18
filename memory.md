@@ -1,3 +1,44 @@
+## 2026-04-18T21:00:29Z - GPT-5.4 - Removed the frontend bundle-size warning by cutting server-render code from the client graph
+- Removed the unused `renderPanelMarkup(...)` helper from `src/confirmation-panel-helpers.ts`, which also let the shared runtime module drop its `react-dom/server` import entirely.
+- Changed `src/app-shell.ts` so the `renderAppShell()` helper used only by `src/app-shell.test.mjs` loads `react-dom/server` lazily instead of importing it into the live browser bundle.
+- The build warning is now actually gone instead of being masked: `pnpm build` produces a `428.09 kB` main JS chunk instead of the prior `615.81 kB`, and full validation is green with `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features`.
+
+## 2026-04-18T20:44:21Z - GPT-5.4 - Migrated panel tests off the string compatibility layer
+- Removed the source-level string compatibility wrappers for the already-migrated panel builders in `src/confirmation-panel.ts` and `src/settings-status-panels.ts`, so the runtime and exported API now prefer React-node renderers directly.
+- Updated `src/confirmation-panel.test.mjs` to render those panel node builders through a test-local serializer instead of depending on the app's SSR compatibility bridge, including local prop-to-attribute mapping and `<select>`/`<option>` selection inference to preserve existing DOM assertions.
+- Frontend validation remains green after the cleanup: `pnpm lint`, `pnpm test:ui`, and `pnpm build` all pass; the only remaining build signal is still the non-blocking Vite chunk-size warning.
+
+## 2026-04-18T20:29:07Z - GPT-5.4 - Runtime panel roots now mount as React subtrees
+- Replaced the live panel update path in `src/main.ts` and `src/app-shell.ts` so mounted panel roots render through dedicated React roots instead of replacing `innerHTML` with server-rendered HTML strings.
+- Added React-node panel builders for the mounted workspace and settings surfaces in `src/confirmation-panel.ts` and `src/settings-status-panels.ts`, while keeping the existing string-returning render functions as compatibility wrappers for the current HTML-based tests.
+- Frontend validation remains green after the runtime-path switch: `pnpm lint`, `pnpm test:ui`, and `pnpm build` all pass; the only remaining build signal is still the non-blocking Vite chunk-size warning.
+## 2026-04-18T20:11:13Z - GPT-5.4 - Remaining selector and local settings panels moved to React components
+- Converted the remaining string-based selector and local-profile settings panels in `src/settings-status-panels.ts` to React implementations: TTS provider, TTS model, TTS voice, local TTS profile, local ASR profile, and model management.
+- Kept the existing DOM and delegated-event contract intact by continuing to render these panels through the shared `renderReactMarkup(...)` string bridge, including boolean-attribute normalization for `disabled`, `checked`, and `selected` so the HTML-based test expectations stay stable.
+- Frontend validation remains green after this slice: `pnpm lint`, `pnpm test:ui`, and `pnpm build` all pass; the only remaining build signal is still the non-blocking Vite chunk-size warning.
+## 2026-04-18T19:53:18Z - GPT-5.4 - Remote settings panels and API-key card moved to React components
+- Converted the remaining remote settings slice in `src/settings-status-panels.ts` so the remote planner, remote TTS, and remote ASR panels now render through React component implementations while preserving the existing HTML-returning `render...Panel()` API.
+- Moved the shared API-key entry path in `src/confirmation-panel-helpers.ts` from raw template-string output to a React node helper, including the masked-value field behavior, save/test controls, and OpenAI API key status/link rendering.
+- Frontend validation remains green after the remote-panel migration: `pnpm lint`, `pnpm test:ui`, and `pnpm build` all pass; the remaining build signal is still the non-blocking large-chunk warning from Vite.
+## 2026-04-18T19:44:24Z - GPT-5.4 - First real settings-panel slice moved to React components
+- Converted a first cluster of actual settings panels in `src/settings-status-panels.ts` from template-string implementations to React component implementations while preserving the existing `render...Panel(): string` API via `renderToStaticMarkup` wrappers.
+- This slice covers nearby playback controls, failover, confirmation, OCR fallback, settings guidance, and ASR provider selection; the more complex remote-profile and secret-entry panels still use the older string path.
+- Frontend validation stayed green after the change: `pnpm lint`, `pnpm test:ui`, and `pnpm build` all pass, with the same existing Vite warning about the large main JS chunk.
+## 2026-04-18T19:28:18Z - GPT-5.4 - Frontend shell migrated onto React, Material UI, and Redux navigation state
+- Added `react`, `react-dom`, `@mui/material`, `@mui/icons-material`, `@emotion/react`, `@emotion/styled`, `@reduxjs/toolkit`, `react-redux`, plus `@types/react` and `@types/react-dom` to support a real React/MUI shell path under the repo's strict type-aware frontend linting.
+- `src/app-shell.ts` now mounts the outer shell through React with Material UI buttons and icon controls while preserving the existing imperative panel-root rendering so the migration stays incremental instead of rewriting every settings/status panel at once.
+- `src/app-shell-store.ts` now holds Redux Toolkit state for `workspace` versus `settings` plus nested settings subviews, and `src/main.ts` dispatches/subscribes to that store instead of owning those view flags as local mutable variables.
+- Frontend validation is green after the migration: `pnpm lint`, `pnpm test:ui`, and `pnpm build` all pass; the Vite build now warns that the main JS chunk is above 500 kB after minification.
+## 2026-04-18T19:13:55Z - GPT-5.4 - Settings subpage back button moved into the toolbar
+- Moved the shared settings-subpage back-arrow button from each subpage hero into the top shell toolbar in `src/app-shell.ts`, right-aligned opposite the `Workspace` and `Settings` nav buttons.
+- Kept the back control as an inline SVG icon button rather than adding Font Awesome, and updated `src/styles.css` so it only appears while a non-overview settings subpage is active.
+- Updated `src/app-shell.test.mjs`, and validation is green with `pnpm lint` plus `pnpm test:ui`.
+
+## 2026-04-18T19:07:51Z - GPT-5.4 - Settings subpages use back-arrow icon buttons
+- Replaced the text `Back to settings` controls on every settings subpage in `src/app-shell.ts` with a shared back-arrow icon button that keeps the same accessible label.
+- Updated `src/styles.css` so the back control reads as a proper icon button instead of a text link while preserving keyboard focus styles.
+- Updated `src/app-shell.test.mjs`, and validation is green with `pnpm lint` plus `pnpm test:ui`.
+
 ## 2026-04-18T19:03:24Z - GPT-5.4 - Runtime setup moved to a settings subpage
 - Continued the Settings declutter pass by moving the Runtime controls out of the overview in `src/app-shell.ts` and behind an `Open Runtime setup` link with a matching back control.
 - Extended nested settings-view routing in `src/app-shell.ts` and `src/event-handlers.ts` so Runtime-targeted guidance and control links open the Runtime subpage before focusing the requested element.

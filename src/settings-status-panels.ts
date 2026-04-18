@@ -5,12 +5,12 @@ import {
   renderModelAvailabilityLabel,
   renderOcrThresholdValue,
   renderProviderModeLabel,
-  renderReadOnlySettingValue,
   renderSecretEntryCard,
-  renderTextWithKnownLinks,
+  renderTextWithKnownLinkNodes,
   renderTtsModelOptionLabel,
   renderTtsVoiceOptionLabel,
 } from "./confirmation-panel-helpers.ts";
+import { createElement, type ReactNode } from "react";
 import type {
   AudioControlsPanelState,
   AsrProviderPanelState,
@@ -31,6 +31,25 @@ import type {
   TtsVoicePanelState,
   UrlInputPanelState,
 } from "./panel-types.ts";
+
+const h = createElement;
+
+function renderReadOnlySettingText(value: string | number | null): string {
+  if (value === null) {
+    return "Not configured";
+  }
+
+  return `${value}`;
+}
+
+function renderReadOnlyCard(label: string, value: string | number | null) {
+  return h(
+    "div",
+    { className: "settings-control-card" },
+    h("span", { className: "settings-control-label" }, label),
+    h("span", { className: "settings-control-value" }, renderReadOnlySettingText(value)),
+  );
+}
 
 function renderPlaybackVolumeValueText(value: number): string {
   return `${Math.round(value * 100)} percent`;
@@ -63,55 +82,64 @@ export function statusPanelStateFromAgentState(
   };
 }
 
-export function renderAudioControlsPanel(state: AudioControlsPanelState): string {
-  const busyAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
-  const errorCopy = state.error
-    ? `<p class="audio-controls-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
-
-  return `
-    <section class="audio-controls-panel" aria-labelledby="audio-controls-title">
-      <div class="audio-controls-copy">
-        <p class="audio-controls-eyebrow">Speech output</p>
-        <h2 id="audio-controls-title">Playback volume and speed</h2>
-        ${errorCopy}
-      </div>
-      <div class="audio-controls-grid">
-        <label class="audio-control" for="playback-volume-control">
-          <span class="audio-control-label">Volume</span>
-          <span class="audio-control-value">${Math.round(state.playbackVolume * 100)}%</span>
-          <input
-            id="playback-volume-control"
-            class="audio-control-input"
-            data-audio-control="volume"
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value="${state.playbackVolume.toFixed(2)}"
-            aria-valuetext="${escapeHtml(renderPlaybackVolumeValueText(state.playbackVolume))}"
-            ${busyAttribute}
-          />
-        </label>
-        <label class="audio-control" for="playback-speed-control">
-          <span class="audio-control-label">Speed</span>
-          <span class="audio-control-value">${state.playbackSpeed.toFixed(2)}x</span>
-          <input
-            id="playback-speed-control"
-            class="audio-control-input"
-            data-audio-control="speed"
-            type="range"
-            min="0.5"
-            max="5"
-            step="0.05"
-            value="${state.playbackSpeed.toFixed(2)}"
-            aria-valuetext="${escapeHtml(renderPlaybackSpeedValueText(state.playbackSpeed))}"
-            ${busyAttribute}
-          />
-        </label>
-      </div>
-    </section>
-  `;
+export function renderAudioControlsPanelNode(state: AudioControlsPanelState): ReactNode {
+  return h(
+      "section",
+      { className: "audio-controls-panel", "aria-labelledby": "audio-controls-title" },
+      h(
+        "div",
+        { className: "audio-controls-copy" },
+        h("p", { className: "audio-controls-eyebrow" }, "Speech output"),
+        h("h2", { id: "audio-controls-title" }, "Playback volume and speed"),
+        state.error
+          ? h("p", { className: "audio-controls-error", role: "alert" }, state.error)
+          : null,
+      ),
+      h(
+        "div",
+        { className: "audio-controls-grid" },
+        h(
+          "label",
+          { className: "audio-control", htmlFor: "playback-volume-control" },
+          h("span", { className: "audio-control-label" }, "Volume"),
+          h("span", { className: "audio-control-value" }, `${Math.round(state.playbackVolume * 100)}%`),
+          h("input", {
+            id: "playback-volume-control",
+            className: "audio-control-input",
+            "data-audio-control": "volume",
+            type: "range",
+            min: "0",
+            max: "1",
+            step: "0.05",
+            value: state.playbackVolume.toFixed(2),
+            "aria-valuetext": renderPlaybackVolumeValueText(state.playbackVolume),
+            disabled: state.isBusy || undefined,
+            "aria-disabled": state.isBusy ? "true" : undefined,
+            readOnly: true,
+          }),
+        ),
+        h(
+          "label",
+          { className: "audio-control", htmlFor: "playback-speed-control" },
+          h("span", { className: "audio-control-label" }, "Speed"),
+          h("span", { className: "audio-control-value" }, `${state.playbackSpeed.toFixed(2)}x`),
+          h("input", {
+            id: "playback-speed-control",
+            className: "audio-control-input",
+            "data-audio-control": "speed",
+            type: "range",
+            min: "0.5",
+            max: "5",
+            step: "0.05",
+            value: state.playbackSpeed.toFixed(2),
+            "aria-valuetext": renderPlaybackSpeedValueText(state.playbackSpeed),
+            disabled: state.isBusy || undefined,
+            "aria-disabled": state.isBusy ? "true" : undefined,
+            readOnly: true,
+          }),
+        ),
+      ),
+  );
 }
 
 export function renderSettingsVolumePanel(state: AudioControlsPanelState): string {
@@ -192,51 +220,38 @@ export function renderSettingsSpeedPanel(state: AudioControlsPanelState): string
   `;
 }
 
-export function renderSettingsRemotePlannerPanel(state: RemotePlannerPanelState): string {
-  const errorCopy = state.error
-    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
+export function renderSettingsRemotePlannerPanelNode(state: RemotePlannerPanelState): ReactNode {
   const modelsAreFresh = (state.baseUrl?.trim().length ?? 0) > 0
     && state.loadedModelsEndpoint === state.baseUrl
     && state.availableModels.length > 0;
   const isConnectionBusy = state.isLoadingModels || state.isSavingConnection || state.isResettingConnection;
-  const endpointDisabledAttribute = isConnectionBusy ? " disabled aria-disabled=\"true\"" : "";
-  const modelDisabledAttribute = isConnectionBusy || state.availableModels.length === 0
-    ? " disabled aria-disabled=\"true\""
-    : "";
-  const loadModelsDisabledAttribute = isConnectionBusy || (state.baseUrl?.trim().length ?? 0) === 0
-    ? " disabled aria-disabled=\"true\""
-    : "";
-  const saveSettingsDisabledAttribute = isConnectionBusy
+  const modelDisabled = isConnectionBusy || state.availableModels.length === 0;
+  const loadModelsDisabled = isConnectionBusy || (state.baseUrl?.trim().length ?? 0) === 0;
+  const saveSettingsDisabled = isConnectionBusy
     || !state.profileName
     || (state.baseUrl?.trim().length ?? 0) === 0
     || (state.model?.trim().length ?? 0) === 0
     || state.loadedModelsEndpoint !== state.baseUrl
-      ? " disabled aria-disabled=\"true\""
-      : "";
-  const resetSettingsDisabledAttribute = isConnectionBusy || !state.profileName
-    ? " disabled aria-disabled=\"true\""
-    : "";
+  const resetSettingsDisabled = isConnectionBusy || !state.profileName;
   const modelOptions = state.availableModels.length > 0
     ? state.availableModels
-        .map(
-          (model) => `<option value="${escapeHtml(model)}"${model === state.model ? " selected" : ""}>${escapeHtml(model)}</option>`,
-        )
-        .join("")
-    : `<option value="">${escapeHtml(state.loadedModelsEndpoint === state.baseUrl && state.model ? state.model : "Load models for this endpoint")}</option>`;
+    : [state.loadedModelsEndpoint === state.baseUrl && state.model ? state.model : "Load models for this endpoint"];
 
-  return `
-    <section class="settings-panel" aria-labelledby="settings-remote-planner-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-remote-planner-title">Planner setup</h2>
-        <p class="settings-panel-description">
-          Set the endpoint, model, and API key used to interpret commands.
-        </p>
-        ${errorCopy}
-      </div>
-      <div class="settings-grid settings-grid-single">
-        ${renderSecretEntryCard(
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-remote-planner-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-remote-planner-title" }, "Planner setup"),
+        h("p", { className: "settings-panel-description" }, "Set the endpoint, model, and API key used to interpret commands."),
+        state.error ? h("p", { className: "settings-panel-error", role: "alert" }, state.error) : null,
+      ),
+      h(
+        "div",
+        { className: "settings-grid settings-grid-single" },
+        renderSecretEntryCard(
           "planner",
           state.profileName,
           state.apiKeyDraft,
@@ -245,492 +260,560 @@ export function renderSettingsRemotePlannerPanel(state: RemotePlannerPanelState)
           state.isTestingApiKey,
           state.apiKeyReference !== null,
           state.apiKeyTestMessage,
-        )}
-      </div>
-      <div class="settings-grid settings-grid-single settings-grid-compact">
-        <div class="settings-control-card settings-planner-connection-card">
-          <label class="settings-field-group" for="settings-remote-planner-endpoint-input">
-            <span class="settings-control-label">Endpoint</span>
-            <input
-              id="settings-remote-planner-endpoint-input"
-              class="settings-control-select"
-              data-remote-planner-endpoint-input="true"
-              type="text"
-              value="${escapeHtml(state.baseUrl ?? "")}"
-              placeholder="https://api.openai.com/v1"
-              spellcheck="false"
-              autocomplete="off"
-              ${endpointDisabledAttribute}
-            />
-          </label>
-        </div>
-      </div>
-      <div class="settings-grid settings-grid-single settings-grid-compact">
-        <div class="settings-control-card settings-planner-connection-card">
-          <label class="settings-field-group" for="settings-remote-planner-model-select">
-            <span class="settings-control-label settings-inline-label-row">
-              <span>Model</span>
-              <span
-                class="settings-status-light ${modelsAreFresh ? "settings-status-light-fresh" : "settings-status-light-stale"}"
-                role="img"
-                aria-label="${escapeHtml(modelsAreFresh ? "Models are loaded for the current endpoint" : "Models need to be reloaded for the current endpoint")}" 
-              ></span>
-            </span>
-            <div class="settings-inline-control-row settings-inline-control-row-wrap">
-              <select
-                id="settings-remote-planner-model-select"
-                class="settings-control-select settings-inline-control-fill"
-                data-remote-planner-model-select="true"
-                ${modelDisabledAttribute}
-              >
-                ${modelOptions}
-              </select>
-              <button
-                type="button"
-                class="settings-control-button settings-control-button-secondary"
-                data-remote-planner-models-refresh="true"
-                ${loadModelsDisabledAttribute}
-              >
-                ${escapeHtml(state.isLoadingModels ? "Loading models..." : "Load models")}
-              </button>
-            </div>
-          </label>
-          <div class="settings-button-row settings-button-row-wrap">
-            <button
-              type="button"
-              class="settings-control-button"
-              data-remote-planner-settings-save="true"
-              ${saveSettingsDisabledAttribute}
-            >
-              ${escapeHtml(state.isSavingConnection ? "Saving..." : "Save settings")}
-            </button>
-            <button
-              type="button"
-              class="settings-control-button settings-control-button-secondary"
-              data-remote-planner-settings-reset="true"
-              ${resetSettingsDisabledAttribute}
-            >
-              ${escapeHtml(state.isResettingConnection ? "Resetting..." : "Reset to defaults")}
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  `;
+        ),
+      ),
+      h(
+        "div",
+        { className: "settings-grid settings-grid-single settings-grid-compact" },
+        h(
+          "div",
+          { className: "settings-control-card settings-planner-connection-card" },
+          h(
+            "label",
+            { className: "settings-field-group", htmlFor: "settings-remote-planner-endpoint-input" },
+            h("span", { className: "settings-control-label" }, "Endpoint"),
+            h("input", {
+              id: "settings-remote-planner-endpoint-input",
+              className: "settings-control-select",
+              "data-remote-planner-endpoint-input": "true",
+              type: "text",
+              value: state.baseUrl ?? "",
+              placeholder: "https://api.openai.com/v1",
+              spellCheck: false,
+              autoComplete: "off",
+              disabled: isConnectionBusy || undefined,
+              "aria-disabled": isConnectionBusy ? "true" : undefined,
+              readOnly: true,
+            }),
+          ),
+        ),
+      ),
+      h(
+        "div",
+        { className: "settings-grid settings-grid-single settings-grid-compact" },
+        h(
+          "div",
+          { className: "settings-control-card settings-planner-connection-card" },
+          h(
+            "label",
+            { className: "settings-field-group", htmlFor: "settings-remote-planner-model-select" },
+            h(
+              "span",
+              { className: "settings-control-label settings-inline-label-row" },
+              h("span", null, "Model"),
+              h("span", {
+                className: `settings-status-light ${modelsAreFresh ? "settings-status-light-fresh" : "settings-status-light-stale"}`,
+                role: "img",
+                "aria-label": modelsAreFresh
+                  ? "Models are loaded for the current endpoint"
+                  : "Models need to be reloaded for the current endpoint",
+              }),
+            ),
+            h(
+              "div",
+              { className: "settings-inline-control-row settings-inline-control-row-wrap" },
+              h(
+                "select",
+                {
+                  id: "settings-remote-planner-model-select",
+                  className: "settings-control-select settings-inline-control-fill",
+                  "data-remote-planner-model-select": "true",
+                  value: state.model ?? "",
+                  disabled: modelDisabled || undefined,
+                  "aria-disabled": modelDisabled ? "true" : undefined,
+                  onChange: () => undefined,
+                },
+                ...modelOptions.map((model) => h("option", { value: model, key: model }, model)),
+              ),
+              h(
+                "button",
+                {
+                  type: "button",
+                  className: "settings-control-button settings-control-button-secondary",
+                  "data-remote-planner-models-refresh": "true",
+                  disabled: loadModelsDisabled || undefined,
+                  "aria-disabled": loadModelsDisabled ? "true" : undefined,
+                },
+                state.isLoadingModels ? "Loading models..." : "Load models",
+              ),
+            ),
+          ),
+          h(
+            "div",
+            { className: "settings-button-row settings-button-row-wrap" },
+            h(
+              "button",
+              {
+                type: "button",
+                className: "settings-control-button",
+                "data-remote-planner-settings-save": "true",
+                disabled: saveSettingsDisabled || undefined,
+                "aria-disabled": saveSettingsDisabled ? "true" : undefined,
+              },
+              state.isSavingConnection ? "Saving..." : "Save settings",
+            ),
+            h(
+              "button",
+              {
+                type: "button",
+                className: "settings-control-button settings-control-button-secondary",
+                "data-remote-planner-settings-reset": "true",
+                disabled: resetSettingsDisabled || undefined,
+                "aria-disabled": resetSettingsDisabled ? "true" : undefined,
+              },
+              state.isResettingConnection ? "Resetting..." : "Reset to defaults",
+            ),
+          ),
+        ),
+      ),
+  );
 }
 
-export function renderSettingsProviderFailoverPanel(state: ProviderFailoverPanelState): string {
+export function renderSettingsProviderFailoverPanelNode(state: ProviderFailoverPanelState): ReactNode {
   const renderFailoverCard = (
     providerKey: "planner" | "tts" | "asr",
     providerLabel: string,
     available: boolean,
-  ): string => `
-    <label class="settings-control-card" for="settings-provider-failover-${providerKey}">
-      <span class="settings-control-label">${escapeHtml(providerLabel)}</span>
-      <span class="settings-control-value">${escapeHtml(renderFailoverAvailabilityLabel(available))}</span>
-      <input
-        id="settings-provider-failover-${providerKey}"
-        class="settings-control-input"
-        data-provider-failover-toggle="${escapeHtml(providerKey)}"
-        type="checkbox"
-        disabled
-        aria-disabled="true"
-      />
-    </label>
-  `;
+  ) => h(
+    "label",
+    {
+      className: "settings-control-card",
+      htmlFor: `settings-provider-failover-${providerKey}`,
+    },
+    h("span", { className: "settings-control-label" }, providerLabel),
+    h("span", { className: "settings-control-value" }, renderFailoverAvailabilityLabel(available)),
+    h("input", {
+      id: `settings-provider-failover-${providerKey}`,
+      className: "settings-control-input",
+      "data-provider-failover-toggle": providerKey,
+      type: "checkbox",
+      disabled: true,
+      "aria-disabled": "true",
+      readOnly: true,
+    }),
+  );
 
-  return `
-    <section class="settings-panel" aria-labelledby="settings-provider-failover-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-provider-failover-title">Failover</h2>
-        <p class="settings-panel-description">
-          Remote-to-local failover is not available yet. These toggles stay read-only until it is.
-        </p>
-        <p class="settings-panel-description">${escapeHtml(state.summary)}</p>
-      </div>
-      <div class="settings-grid">
-        ${renderFailoverCard("planner", "Planner", state.plannerAvailable)}
-        ${renderFailoverCard("tts", "TTS", state.ttsAvailable)}
-        ${renderFailoverCard("asr", "ASR", state.asrAvailable)}
-      </div>
-    </section>
-  `;
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-provider-failover-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-provider-failover-title" }, "Failover"),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          "Remote-to-local failover is not available yet. These toggles stay read-only until it is.",
+        ),
+        h("p", { className: "settings-panel-description" }, state.summary),
+      ),
+      h(
+        "div",
+        { className: "settings-grid" },
+        renderFailoverCard("planner", "Planner", state.plannerAvailable),
+        renderFailoverCard("tts", "TTS", state.ttsAvailable),
+        renderFailoverCard("asr", "ASR", state.asrAvailable),
+      ),
+  );
 }
 
-export function renderSettingsConfirmationPanel(state: ConfirmationSettingsPanelState): string {
-  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
-  const errorCopy = state.error
-    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
-  const clickWithoutConfirmationChecked = state.allowClickWithoutConfirmation ? " checked" : "";
-
-  return `
-    <section class="settings-panel" aria-labelledby="settings-confirmation-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-confirmation-title">Confirmation</h2>
-        <p class="settings-panel-description">
-          Choose how confident a click must be before the app asks for confirmation. Form submits
-          still always require confirmation.
-        </p>
-        ${errorCopy}
-      </div>
-      <div class="settings-grid">
-        <label class="settings-control-card" for="settings-confirmation-threshold-control">
-          <span class="settings-control-label">Click threshold</span>
-          <span class="settings-control-value">${renderConfirmationThresholdValue(state.confirmationConfidenceThreshold)}</span>
-          <input
-            id="settings-confirmation-threshold-control"
-            class="settings-control-input"
-            data-confirmation-threshold-control="true"
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value="${state.confirmationConfidenceThreshold.toFixed(2)}"
-            aria-valuetext="${escapeHtml(renderConfirmationThresholdValueText(state.confirmationConfidenceThreshold))}"
-            ${disabledAttribute}
-          />
-        </label>
-        <label class="settings-control-card" for="settings-click-without-confirmation-toggle">
-          <span class="settings-control-label">Skip confirmation for confident clicks</span>
-          <span class="settings-control-value">${state.allowClickWithoutConfirmation ? "Enabled" : "Disabled"}</span>
-          <input
-            id="settings-click-without-confirmation-toggle"
-            class="settings-control-input"
-            data-click-without-confirmation-toggle="true"
-            type="checkbox"
-            ${clickWithoutConfirmationChecked}
-            ${disabledAttribute}
-          />
-        </label>
-        <div class="settings-control-card" aria-live="polite">
-          <span class="settings-control-label">Submit actions</span>
-          <span class="settings-control-value">${state.alwaysConfirmSubmit ? "Always require confirmation" : "Confirmation not required"}</span>
-        </div>
-      </div>
-    </section>
-  `;
+export function renderSettingsConfirmationPanelNode(state: ConfirmationSettingsPanelState): ReactNode {
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-confirmation-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-confirmation-title" }, "Confirmation"),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          "Choose how confident a click must be before the app asks for confirmation. Form submits still always require confirmation.",
+        ),
+        state.error
+          ? h("p", { className: "settings-panel-error", role: "alert" }, state.error)
+          : null,
+      ),
+      h(
+        "div",
+        { className: "settings-grid" },
+        h(
+          "label",
+          { className: "settings-control-card", htmlFor: "settings-confirmation-threshold-control" },
+          h("span", { className: "settings-control-label" }, "Click threshold"),
+          h(
+            "span",
+            { className: "settings-control-value" },
+            renderConfirmationThresholdValue(state.confirmationConfidenceThreshold),
+          ),
+          h("input", {
+            id: "settings-confirmation-threshold-control",
+            className: "settings-control-input",
+            "data-confirmation-threshold-control": "true",
+            type: "range",
+            min: "0",
+            max: "1",
+            step: "0.01",
+            value: state.confirmationConfidenceThreshold.toFixed(2),
+            "aria-valuetext": renderConfirmationThresholdValueText(state.confirmationConfidenceThreshold),
+            disabled: state.isBusy || undefined,
+            "aria-disabled": state.isBusy ? "true" : undefined,
+            readOnly: true,
+          }),
+        ),
+        h(
+          "label",
+          { className: "settings-control-card", htmlFor: "settings-click-without-confirmation-toggle" },
+          h("span", { className: "settings-control-label" }, "Skip confirmation for confident clicks"),
+          h(
+            "span",
+            { className: "settings-control-value" },
+            state.allowClickWithoutConfirmation ? "Enabled" : "Disabled",
+          ),
+          h("input", {
+            id: "settings-click-without-confirmation-toggle",
+            className: "settings-control-input",
+            "data-click-without-confirmation-toggle": "true",
+            type: "checkbox",
+            checked: state.allowClickWithoutConfirmation || undefined,
+            disabled: state.isBusy || undefined,
+            "aria-disabled": state.isBusy ? "true" : undefined,
+            readOnly: true,
+          }),
+        ),
+        h(
+          "div",
+          { className: "settings-control-card", "aria-live": "polite" },
+          h("span", { className: "settings-control-label" }, "Submit actions"),
+          h(
+            "span",
+            { className: "settings-control-value" },
+            state.alwaysConfirmSubmit ? "Always require confirmation" : "Confirmation not required",
+          ),
+        ),
+      ),
+  );
 }
 
-export function renderSettingsOcrThresholdPanel(state: OcrThresholdSettingsPanelState): string {
-  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
-  const errorCopy = state.error
-    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
-
-  return `
-    <section class="settings-panel" aria-labelledby="settings-ocr-thresholds-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-ocr-thresholds-title">OCR fallback</h2>
-        <p class="settings-panel-description">
-          Choose when sparse DOM extraction should fall back to OCR.
-        </p>
-        ${errorCopy}
-      </div>
-      <div class="settings-grid">
-        <label class="settings-control-card" for="settings-ocr-char-threshold-control">
-          <span class="settings-control-label">Character threshold</span>
-          <span class="settings-control-value">${renderOcrThresholdValue(state.sparseTextCharThreshold)}</span>
-          <input
-            id="settings-ocr-char-threshold-control"
-            class="settings-control-input"
-            data-ocr-threshold-control="char"
-            type="number"
-            min="1"
-            step="1"
-            value="${state.sparseTextCharThreshold}"
-            ${disabledAttribute}
-          />
-        </label>
-        <label class="settings-control-card" for="settings-ocr-region-threshold-control">
-          <span class="settings-control-label">Region threshold</span>
-          <span class="settings-control-value">${renderOcrThresholdValue(state.sparseTextRegionThreshold)}</span>
-          <input
-            id="settings-ocr-region-threshold-control"
-            class="settings-control-input"
-            data-ocr-threshold-control="region"
-            type="number"
-            min="1"
-            step="1"
-            value="${state.sparseTextRegionThreshold}"
-            ${disabledAttribute}
-          />
-        </label>
-      </div>
-    </section>
-  `;
+export function renderSettingsOcrThresholdPanelNode(state: OcrThresholdSettingsPanelState): ReactNode {
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-ocr-thresholds-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-ocr-thresholds-title" }, "OCR fallback"),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          "Choose when sparse DOM extraction should fall back to OCR.",
+        ),
+        state.error
+          ? h("p", { className: "settings-panel-error", role: "alert" }, state.error)
+          : null,
+      ),
+      h(
+        "div",
+        { className: "settings-grid" },
+        h(
+          "label",
+          { className: "settings-control-card", htmlFor: "settings-ocr-char-threshold-control" },
+          h("span", { className: "settings-control-label" }, "Character threshold"),
+          h("span", { className: "settings-control-value" }, renderOcrThresholdValue(state.sparseTextCharThreshold)),
+          h("input", {
+            id: "settings-ocr-char-threshold-control",
+            className: "settings-control-input",
+            "data-ocr-threshold-control": "char",
+            type: "number",
+            min: "1",
+            step: "1",
+            value: `${state.sparseTextCharThreshold}`,
+            disabled: state.isBusy || undefined,
+            "aria-disabled": state.isBusy ? "true" : undefined,
+            readOnly: true,
+          }),
+        ),
+        h(
+          "label",
+          { className: "settings-control-card", htmlFor: "settings-ocr-region-threshold-control" },
+          h("span", { className: "settings-control-label" }, "Region threshold"),
+          h("span", { className: "settings-control-value" }, renderOcrThresholdValue(state.sparseTextRegionThreshold)),
+          h("input", {
+            id: "settings-ocr-region-threshold-control",
+            className: "settings-control-input",
+            "data-ocr-threshold-control": "region",
+            type: "number",
+            min: "1",
+            step: "1",
+            value: `${state.sparseTextRegionThreshold}`,
+            disabled: state.isBusy || undefined,
+            "aria-disabled": state.isBusy ? "true" : undefined,
+            readOnly: true,
+          }),
+        ),
+      ),
+  );
 }
 
-export function renderSettingsGuidancePanel(state: SettingsGuidancePanelState | null): string {
+export function renderSettingsGuidancePanelNode(state: SettingsGuidancePanelState | null): ReactNode {
   if (!state) {
-    return "";
+    return null;
   }
 
-  const actionsCopy = state.actions
-    .map(
-      (action) => `
-        <button
-          type="button"
-          class="url-open-button"
-          data-settings-target="${escapeHtml(action.targetId)}"
-        >
-          ${escapeHtml(action.label)}
-        </button>
-      `,
-    )
-    .join("");
-
-  return `
-    <section class="settings-panel" aria-labelledby="settings-guidance-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Guidance</p>
-        <h2 id="settings-guidance-title">${escapeHtml(state.title)}</h2>
-        <p class="settings-panel-description">${renderTextWithKnownLinks(state.message)}</p>
-      </div>
-      <div class="url-input-actions">
-        ${actionsCopy}
-      </div>
-    </section>
-  `;
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-guidance-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Guidance"),
+        h("h2", { id: "settings-guidance-title" }, state.title),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          ...renderTextWithKnownLinkNodes(state.message),
+        ),
+      ),
+      h(
+        "div",
+        { className: "url-input-actions" },
+        ...state.actions.map((action) => h(
+          "button",
+          {
+            type: "button",
+            className: "url-open-button",
+            "data-settings-target": action.targetId,
+            key: action.targetId,
+          },
+          action.label,
+        )),
+      ),
+  );
 }
 
-export function renderSettingsAsrProviderPanel(state: AsrProviderPanelState): string {
-  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
-  const errorCopy = state.error
-    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
-  const optionsCopy = state.availableModes
-    .map((mode) => {
-      const selected = mode === state.activeMode ? " selected" : "";
-      return `<option value="${escapeHtml(mode)}"${selected}>${escapeHtml(renderProviderModeLabel(mode))}</option>`;
-    })
-    .join("");
-
-  return `
-    <section class="settings-panel" aria-labelledby="settings-asr-provider-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-asr-provider-title">ASR provider</h2>
-        <p class="settings-panel-description">
-          Choose the local or remote speech-to-text provider. Changes apply to the next listening request.
-        </p>
-        ${errorCopy}
-      </div>
-      <div class="settings-grid">
-        <label class="settings-control-card" for="settings-asr-provider-control">
-          <span class="settings-control-label">Provider</span>
-          <span class="settings-control-value">${escapeHtml(renderProviderModeLabel(state.activeMode))}</span>
-          <select
-            id="settings-asr-provider-control"
-            class="settings-control-select"
-            data-asr-provider-select="true"
-            ${disabledAttribute}
-          >
-            ${optionsCopy}
-          </select>
-        </label>
-      </div>
-    </section>
-  `;
+export function renderSettingsAsrProviderPanelNode(state: AsrProviderPanelState): ReactNode {
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-asr-provider-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-asr-provider-title" }, "ASR provider"),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          "Choose the local or remote speech-to-text provider. Changes apply to the next listening request.",
+        ),
+        state.error
+          ? h("p", { className: "settings-panel-error", role: "alert" }, state.error)
+          : null,
+      ),
+      h(
+        "div",
+        { className: "settings-grid" },
+        h(
+          "label",
+          { className: "settings-control-card", htmlFor: "settings-asr-provider-control" },
+          h("span", { className: "settings-control-label" }, "Provider"),
+          h("span", { className: "settings-control-value" }, renderProviderModeLabel(state.activeMode)),
+          h(
+            "select",
+            {
+              id: "settings-asr-provider-control",
+              className: "settings-control-select",
+              "data-asr-provider-select": "true",
+              value: state.activeMode,
+              disabled: state.isBusy || undefined,
+              "aria-disabled": state.isBusy ? "true" : undefined,
+              onChange: () => undefined,
+            },
+            ...state.availableModes.map((mode) => h(
+              "option",
+              { value: mode, key: mode },
+              renderProviderModeLabel(mode),
+            )),
+          ),
+        ),
+      ),
+  );
 }
 
-export function renderSettingsLocalTtsModelPanel(state: LocalTtsModelPanelState): string {
-  return `
-    <section class="settings-panel" aria-labelledby="settings-local-tts-model-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-local-tts-model-title">Local TTS profile</h2>
-        <p class="settings-panel-description">
-          Review the local speech profile used when TTS runs in local mode. Edit the app config to
-          change it.
-        </p>
-      </div>
-      <div class="settings-grid">
-        <div class="settings-control-card">
-          <span class="settings-control-label">Profile</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Backend</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.backend)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Model ID</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.modelId)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Model path</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.modelPath)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Default voice</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.defaultVoice)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Sample rate</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.sampleRate)}</span>
-        </div>
-      </div>
-    </section>
-  `;
+export function renderSettingsLocalTtsModelPanelNode(state: LocalTtsModelPanelState): ReactNode {
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-local-tts-model-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-local-tts-model-title" }, "Local TTS profile"),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          "Review the local speech profile used when TTS runs in local mode. Edit the app config to change it.",
+        ),
+      ),
+      h(
+        "div",
+        { className: "settings-grid" },
+        renderReadOnlyCard("Profile", state.profileName),
+        renderReadOnlyCard("Backend", state.backend),
+        renderReadOnlyCard("Model ID", state.modelId),
+        renderReadOnlyCard("Model path", state.modelPath),
+        renderReadOnlyCard("Default voice", state.defaultVoice),
+        renderReadOnlyCard("Sample rate", state.sampleRate),
+      ),
+  );
 }
 
-export function renderSettingsModelManagementPanel(state: ModelManagementPanelState): string {
-  const disabledAttribute = state.isSaving ? " disabled aria-disabled=\"true\"" : "";
-  const ttsDownloadDisabled =
-    state.isDownloadingTts || !state.localTtsDownloadSupported
-      ? " disabled aria-disabled=\"true\""
-      : "";
-  const asrDownloadDisabled =
-    state.isDownloadingAsr || !state.localAsrDownloadSupported
-      ? " disabled aria-disabled=\"true\""
-      : "";
-  const errorCopy = state.error
-    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
+export function renderSettingsModelManagementPanelNode(state: ModelManagementPanelState): ReactNode {
+  const ttsDownloadDisabled = state.isDownloadingTts || !state.localTtsDownloadSupported;
+  const asrDownloadDisabled = state.isDownloadingAsr || !state.localAsrDownloadSupported;
 
-  return `
-    <section class="settings-panel" aria-labelledby="settings-model-management-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-model-management-title">Local models</h2>
-        <p class="settings-panel-description">
-          Choose where local speech models live, whether startup checks them, and whether missing
-          models download automatically.
-        </p>
-        ${errorCopy}
-      </div>
-      <div class="settings-grid">
-        <label class="settings-control-card" for="settings-models-dir-input">
-          <span class="settings-control-label">Model folder</span>
-          <span class="settings-control-value">${escapeHtml(state.modelsDir || "Not configured")}</span>
-          <input
-            id="settings-models-dir-input"
-            class="settings-control-select"
-            data-model-management-input="models-dir"
-            type="text"
-            value="${escapeHtml(state.modelsDir)}"
-            placeholder="~/.local/share/blind_browser/models"
-            spellcheck="false"
-            aria-describedby="settings-models-dir-description"
-            ${disabledAttribute}
-          />
-          <span id="settings-models-dir-description" class="settings-panel-description">
-            Updates here change where downloads and startup checks look for speech models.
-          </span>
-        </label>
-        <label class="settings-control-card" for="settings-model-check-on-startup-toggle">
-          <span class="settings-control-label">Check on startup</span>
-          <span class="settings-control-value">${state.checkOnStartup ? "Enabled" : "Disabled"}</span>
-          <input
-            id="settings-model-check-on-startup-toggle"
-            data-model-management-toggle="check-on-startup"
-            type="checkbox"
-            ${state.checkOnStartup ? "checked" : ""}
-            ${disabledAttribute}
-          />
-        </label>
-        <label class="settings-control-card" for="settings-model-auto-download-toggle">
-          <span class="settings-control-label">Auto-download missing</span>
-          <span class="settings-control-value">${state.autoDownloadMissing ? "Enabled" : "Disabled"}</span>
-          <input
-            id="settings-model-auto-download-toggle"
-            data-model-management-toggle="auto-download-missing"
-            type="checkbox"
-            ${state.autoDownloadMissing ? "checked" : ""}
-            ${disabledAttribute}
-          />
-        </label>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Local TTS</span>
-          <span class="settings-control-value">${renderModelAvailabilityLabel(state.localTtsAvailable)}</span>
-          <button
-            type="button"
-            class="settings-control-button"
-            data-model-download="tts"
-            ${ttsDownloadDisabled}
-          >
-            ${escapeHtml(state.isDownloadingTts ? "Downloading..." : (state.localTtsDownloadLabel ?? "Download unavailable"))}
-          </button>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Local ASR</span>
-          <span class="settings-control-value">${renderModelAvailabilityLabel(state.localAsrAvailable)}</span>
-          <button
-            type="button"
-            class="settings-control-button"
-            data-model-download="asr"
-            ${asrDownloadDisabled}
-          >
-            ${escapeHtml(state.isDownloadingAsr ? "Downloading..." : (state.localAsrDownloadLabel ?? "Download unavailable"))}
-          </button>
-        </div>
-      </div>
-    </section>
-  `;
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-model-management-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-model-management-title" }, "Local models"),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          "Choose where local speech models live, whether startup checks them, and whether missing models download automatically.",
+        ),
+        state.error ? h("p", { className: "settings-panel-error", role: "alert" }, state.error) : null,
+      ),
+      h(
+        "div",
+        { className: "settings-grid" },
+        h(
+          "label",
+          { className: "settings-control-card", htmlFor: "settings-models-dir-input" },
+          h("span", { className: "settings-control-label" }, "Model folder"),
+          h("span", { className: "settings-control-value" }, state.modelsDir || "Not configured"),
+          h("input", {
+            id: "settings-models-dir-input",
+            className: "settings-control-select",
+            "data-model-management-input": "models-dir",
+            type: "text",
+            value: state.modelsDir,
+            placeholder: "~/.local/share/blind_browser/models",
+            spellCheck: false,
+            "aria-describedby": "settings-models-dir-description",
+            disabled: state.isSaving || undefined,
+            "aria-disabled": state.isSaving ? "true" : undefined,
+            readOnly: true,
+          }),
+          h(
+            "span",
+            { id: "settings-models-dir-description", className: "settings-panel-description" },
+            "Updates here change where downloads and startup checks look for speech models.",
+          ),
+        ),
+        h(
+          "label",
+          { className: "settings-control-card", htmlFor: "settings-model-check-on-startup-toggle" },
+          h("span", { className: "settings-control-label" }, "Check on startup"),
+          h("span", { className: "settings-control-value" }, state.checkOnStartup ? "Enabled" : "Disabled"),
+          h("input", {
+            id: "settings-model-check-on-startup-toggle",
+            "data-model-management-toggle": "check-on-startup",
+            type: "checkbox",
+            checked: state.checkOnStartup || undefined,
+            disabled: state.isSaving || undefined,
+            "aria-disabled": state.isSaving ? "true" : undefined,
+            readOnly: true,
+          }),
+        ),
+        h(
+          "label",
+          { className: "settings-control-card", htmlFor: "settings-model-auto-download-toggle" },
+          h("span", { className: "settings-control-label" }, "Auto-download missing"),
+          h("span", { className: "settings-control-value" }, state.autoDownloadMissing ? "Enabled" : "Disabled"),
+          h("input", {
+            id: "settings-model-auto-download-toggle",
+            "data-model-management-toggle": "auto-download-missing",
+            type: "checkbox",
+            checked: state.autoDownloadMissing || undefined,
+            disabled: state.isSaving || undefined,
+            "aria-disabled": state.isSaving ? "true" : undefined,
+            readOnly: true,
+          }),
+        ),
+        h(
+          "div",
+          { className: "settings-control-card" },
+          h("span", { className: "settings-control-label" }, "Local TTS"),
+          h("span", { className: "settings-control-value" }, renderModelAvailabilityLabel(state.localTtsAvailable)),
+          h(
+            "button",
+            {
+              type: "button",
+              className: "settings-control-button",
+              "data-model-download": "tts",
+              disabled: ttsDownloadDisabled || undefined,
+              "aria-disabled": ttsDownloadDisabled ? "true" : undefined,
+            },
+            state.isDownloadingTts ? "Downloading..." : (state.localTtsDownloadLabel ?? "Download unavailable"),
+          ),
+        ),
+        h(
+          "div",
+          { className: "settings-control-card" },
+          h("span", { className: "settings-control-label" }, "Local ASR"),
+          h("span", { className: "settings-control-value" }, renderModelAvailabilityLabel(state.localAsrAvailable)),
+          h(
+            "button",
+            {
+              type: "button",
+              className: "settings-control-button",
+              "data-model-download": "asr",
+              disabled: asrDownloadDisabled || undefined,
+              "aria-disabled": asrDownloadDisabled ? "true" : undefined,
+            },
+            state.isDownloadingAsr ? "Downloading..." : (state.localAsrDownloadLabel ?? "Download unavailable"),
+          ),
+        ),
+      ),
+  );
 }
 
-export function renderSettingsRemoteTtsPanel(state: RemoteTtsPanelState): string {
-  const errorCopy = state.error
-    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
-
-  return `
-    <section class="settings-panel" aria-labelledby="settings-remote-tts-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-remote-tts-title">Remote TTS profile</h2>
-        <p class="settings-panel-description">
-          Review the speech profile used when TTS runs in remote mode. API keys stay masked here,
-          and replacements are stored in the OS keyring instead of the config file.
-        </p>
-        ${errorCopy}
-      </div>
-      <div class="settings-grid">
-        <div class="settings-control-card">
-          <span class="settings-control-label">Profile</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Provider</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.provider)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Base URL</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.baseUrl)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Model</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.model)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">API key source</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.apiKeyReference)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Organization source</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.organizationReference)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Project</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.project)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Voice</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.voice)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Audio format</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.audioFormat)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Timeout (ms)</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.timeoutMs)}</span>
-        </div>
-        ${renderSecretEntryCard(
+export function renderSettingsRemoteTtsPanelNode(state: RemoteTtsPanelState): ReactNode {
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-remote-tts-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-remote-tts-title" }, "Remote TTS profile"),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          "Review the speech profile used when TTS runs in remote mode. API keys stay masked here, and replacements are stored in the OS keyring instead of the config file.",
+        ),
+        state.error ? h("p", { className: "settings-panel-error", role: "alert" }, state.error) : null,
+      ),
+      h(
+        "div",
+        { className: "settings-grid" },
+        renderReadOnlyCard("Profile", state.profileName),
+        renderReadOnlyCard("Provider", state.provider),
+        renderReadOnlyCard("Base URL", state.baseUrl),
+        renderReadOnlyCard("Model", state.model),
+        renderReadOnlyCard("API key source", state.apiKeyReference),
+        renderReadOnlyCard("Organization source", state.organizationReference),
+        renderReadOnlyCard("Project", state.project),
+        renderReadOnlyCard("Voice", state.voice),
+        renderReadOnlyCard("Audio format", state.audioFormat),
+        renderReadOnlyCard("Timeout (ms)", state.timeoutMs),
+        renderSecretEntryCard(
           "tts",
           state.profileName,
           state.apiKeyDraft,
@@ -739,151 +822,115 @@ export function renderSettingsRemoteTtsPanel(state: RemoteTtsPanelState): string
           state.isTestingApiKey,
           state.apiKeyReference !== null,
           state.apiKeyTestMessage,
-        )}
-      </div>
-    </section>
-  `;
+        ),
+      ),
+  );
 }
 
-export function renderSettingsTtsProviderPanel(state: TtsProviderPanelState): string {
-  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
-  const errorCopy = state.error
-    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
-  const optionsCopy = state.availableModes
-    .map((mode) => {
-      const selected = mode === state.activeMode ? " selected" : "";
-      return `<option value="${escapeHtml(mode)}"${selected}>${escapeHtml(renderProviderModeLabel(mode))}</option>`;
-    })
-    .join("");
-
-  return `
-    <section class="settings-panel" aria-labelledby="settings-tts-provider-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-tts-provider-title">TTS provider</h2>
-        <p class="settings-panel-description">
-          Choose the local or remote speech output provider. Changes apply to the next utterance.
-        </p>
-        ${errorCopy}
-      </div>
-      <div class="settings-grid">
-        <label class="settings-control-card" for="settings-tts-provider-control">
-          <span class="settings-control-label">Provider</span>
-          <span class="settings-control-value">${escapeHtml(renderProviderModeLabel(state.activeMode))}</span>
-          <select
-            id="settings-tts-provider-control"
-            class="settings-control-select"
-            data-tts-provider-select="true"
-            ${disabledAttribute}
-          >
-            ${optionsCopy}
-          </select>
-        </label>
-      </div>
-    </section>
-  `;
+export function renderSettingsTtsProviderPanelNode(state: TtsProviderPanelState): ReactNode {
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-tts-provider-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-tts-provider-title" }, "TTS provider"),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          "Choose the local or remote speech output provider. Changes apply to the next utterance.",
+        ),
+        state.error ? h("p", { className: "settings-panel-error", role: "alert" }, state.error) : null,
+      ),
+      h(
+        "div",
+        { className: "settings-grid" },
+        h(
+          "label",
+          { className: "settings-control-card", htmlFor: "settings-tts-provider-control" },
+          h("span", { className: "settings-control-label" }, "Provider"),
+          h("span", { className: "settings-control-value" }, renderProviderModeLabel(state.activeMode)),
+          h(
+            "select",
+            {
+              id: "settings-tts-provider-control",
+              className: "settings-control-select",
+              "data-tts-provider-select": "true",
+              value: state.activeMode,
+              disabled: state.isBusy || undefined,
+              "aria-disabled": state.isBusy ? "true" : undefined,
+              onChange: () => undefined,
+            },
+            ...state.availableModes.map((mode) => h(
+              "option",
+              { value: mode, key: mode },
+              renderProviderModeLabel(mode),
+            )),
+          ),
+        ),
+      ),
+  );
 }
 
-export function renderSettingsLocalAsrModelPanel(state: LocalAsrModelPanelState): string {
-  return `
-    <section class="settings-panel" aria-labelledby="settings-local-asr-model-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-local-asr-model-title">Local ASR profile</h2>
-        <p class="settings-panel-description">
-          Review the speech-to-text profile used when ASR runs in local mode. Edit the app config
-          to change it.
-        </p>
-      </div>
-      <div class="settings-grid">
-        <div class="settings-control-card">
-          <span class="settings-control-label">Profile</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Backend</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.backend)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Model ID</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.modelId)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Model path</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.modelPath)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Language</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.language)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Threads</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.threads)}</span>
-        </div>
-      </div>
-    </section>
-  `;
+export function renderSettingsLocalAsrModelPanelNode(state: LocalAsrModelPanelState): ReactNode {
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-local-asr-model-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-local-asr-model-title" }, "Local ASR profile"),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          "Review the speech-to-text profile used when ASR runs in local mode. Edit the app config to change it.",
+        ),
+      ),
+      h(
+        "div",
+        { className: "settings-grid" },
+        renderReadOnlyCard("Profile", state.profileName),
+        renderReadOnlyCard("Backend", state.backend),
+        renderReadOnlyCard("Model ID", state.modelId),
+        renderReadOnlyCard("Model path", state.modelPath),
+        renderReadOnlyCard("Language", state.language),
+        renderReadOnlyCard("Threads", state.threads),
+      ),
+  );
 }
 
-export function renderSettingsRemoteAsrPanel(state: RemoteAsrPanelState): string {
-  const errorCopy = state.error
-    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
-
-  return `
-    <section class="settings-panel" aria-labelledby="settings-remote-asr-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-remote-asr-title">Remote ASR profile</h2>
-        <p class="settings-panel-description">
-          Review the speech-to-text profile used when ASR runs in remote mode. API keys stay
-          masked here, and replacements are stored in the OS keyring instead of the config file.
-        </p>
-        ${errorCopy}
-      </div>
-      <div class="settings-grid">
-        <div class="settings-control-card">
-          <span class="settings-control-label">Profile</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Provider</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.provider)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Base URL</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.baseUrl)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Model</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.model)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">API key source</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.apiKeyReference)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Organization source</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.organizationReference)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Project</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.project)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Language</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.language)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Temperature (milli)</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.temperatureMilli)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Timeout (ms)</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.timeoutMs)}</span>
-        </div>
-        ${renderSecretEntryCard(
+export function renderSettingsRemoteAsrPanelNode(state: RemoteAsrPanelState): ReactNode {
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-remote-asr-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-remote-asr-title" }, "Remote ASR profile"),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          "Review the speech-to-text profile used when ASR runs in remote mode. API keys stay masked here, and replacements are stored in the OS keyring instead of the config file.",
+        ),
+        state.error ? h("p", { className: "settings-panel-error", role: "alert" }, state.error) : null,
+      ),
+      h(
+        "div",
+        { className: "settings-grid" },
+        renderReadOnlyCard("Profile", state.profileName),
+        renderReadOnlyCard("Provider", state.provider),
+        renderReadOnlyCard("Base URL", state.baseUrl),
+        renderReadOnlyCard("Model", state.model),
+        renderReadOnlyCard("API key source", state.apiKeyReference),
+        renderReadOnlyCard("Organization source", state.organizationReference),
+        renderReadOnlyCard("Project", state.project),
+        renderReadOnlyCard("Language", state.language),
+        renderReadOnlyCard("Temperature (milli)", state.temperatureMilli),
+        renderReadOnlyCard("Timeout (ms)", state.timeoutMs),
+        renderSecretEntryCard(
           "asr",
           state.profileName,
           state.apiKeyDraft,
@@ -892,288 +939,227 @@ export function renderSettingsRemoteAsrPanel(state: RemoteAsrPanelState): string
           state.isTestingApiKey,
           state.apiKeyReference !== null,
           state.apiKeyTestMessage,
-        )}
-      </div>
-    </section>
-  `;
+        ),
+      ),
+  );
 }
 
-export function renderSettingsTtsModelPanel(state: TtsModelPanelState): string {
-  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
-  const errorCopy = state.error
-    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
-  const optionsCopy = state.availableProfiles
-    .map((option) => {
-      const selected = option.profileName === state.activeProfile ? " selected" : "";
-      return `<option value="${escapeHtml(option.profileName)}"${selected}>${escapeHtml(
-        renderTtsModelOptionLabel(option.profileName, option.modelLabel),
-      )}</option>`;
-    })
-    .join("");
+export function renderSettingsTtsModelPanelNode(state: TtsModelPanelState): ReactNode {
   const modeCopy =
     state.mode === "Remote" ? "remote" : state.mode === "Local" ? "local" : "disabled";
   const activeOption = state.availableProfiles.find((option) => option.profileName === state.activeProfile);
 
-  return `
-    <section class="settings-panel" aria-labelledby="settings-tts-model-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-tts-model-title">TTS model</h2>
-        <p class="settings-panel-description">
-          Choose the ${modeCopy} TTS model for the current mode. Changes apply to the next utterance.
-        </p>
-        ${errorCopy}
-      </div>
-      <div class="settings-grid">
-        <label class="settings-control-card" for="settings-tts-model-control">
-          <span class="settings-control-label">Selected model</span>
-          <span class="settings-control-value">${
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-tts-model-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-tts-model-title" }, "TTS model"),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          `Choose the ${modeCopy} TTS model for the current mode. Changes apply to the next utterance.`,
+        ),
+        state.error ? h("p", { className: "settings-panel-error", role: "alert" }, state.error) : null,
+      ),
+      h(
+        "div",
+        { className: "settings-grid" },
+        h(
+          "label",
+          { className: "settings-control-card", htmlFor: "settings-tts-model-control" },
+          h("span", { className: "settings-control-label" }, "Selected model"),
+          h(
+            "span",
+            { className: "settings-control-value" },
             activeOption
-              ? escapeHtml(renderTtsModelOptionLabel(activeOption.profileName, activeOption.modelLabel))
-              : "No configured model"
-          }</span>
-          <select
-            id="settings-tts-model-control"
-            class="settings-control-select"
-            data-tts-model-select="true"
-            ${disabledAttribute}
-          >
-            ${optionsCopy}
-          </select>
-        </label>
-      </div>
-    </section>
-  `;
+              ? renderTtsModelOptionLabel(activeOption.profileName, activeOption.modelLabel)
+              : "No configured model",
+          ),
+          h(
+            "select",
+            {
+              id: "settings-tts-model-control",
+              className: "settings-control-select",
+              "data-tts-model-select": "true",
+              value: state.activeProfile ?? "",
+              disabled: state.isBusy || undefined,
+              "aria-disabled": state.isBusy ? "true" : undefined,
+              onChange: () => undefined,
+            },
+            ...state.availableProfiles.map((option) => h(
+              "option",
+              { value: option.profileName, key: option.profileName },
+              renderTtsModelOptionLabel(option.profileName, option.modelLabel),
+            )),
+          ),
+        ),
+      ),
+  );
 }
 
-export function renderSettingsTtsVoicePanel(state: TtsVoicePanelState): string {
-  const disabledAttribute = state.isBusy ? " disabled aria-disabled=\"true\"" : "";
-  const errorCopy = state.error
-    ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
-  const optionsCopy = state.availableVoices
-    .map((option) => {
-      const selected = option.voiceName === state.activeVoice ? " selected" : "";
-      return `<option value="${escapeHtml(option.voiceName)}"${selected}>${escapeHtml(
-        renderTtsVoiceOptionLabel(option.displayLabel, option.voiceName),
-      )}</option>`;
-    })
-    .join("");
+export function renderSettingsTtsVoicePanelNode(state: TtsVoicePanelState): ReactNode {
   const modeCopy =
     state.mode === "Remote" ? "remote" : state.mode === "Local" ? "local" : "disabled";
   const activeOption = state.availableVoices.find((option) => option.voiceName === state.activeVoice);
 
-  return `
-    <section class="settings-panel" aria-labelledby="settings-tts-voice-title">
-      <div class="settings-panel-copy">
-        <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-tts-voice-title">Voice</h2>
-        <p class="settings-panel-description">
-          Choose the ${modeCopy} TTS voice for the current mode. Changes apply to the next utterance.
-        </p>
-        ${errorCopy}
-      </div>
-      <div class="settings-grid">
-        <label class="settings-control-card" for="settings-tts-voice-control">
-          <span class="settings-control-label">Selected voice</span>
-          <span class="settings-control-value">${
+  return h(
+      "section",
+      { className: "settings-panel", "aria-labelledby": "settings-tts-voice-title" },
+      h(
+        "div",
+        { className: "settings-panel-copy" },
+        h("p", { className: "settings-panel-eyebrow" }, "Settings"),
+        h("h2", { id: "settings-tts-voice-title" }, "Voice"),
+        h(
+          "p",
+          { className: "settings-panel-description" },
+          `Choose the ${modeCopy} TTS voice for the current mode. Changes apply to the next utterance.`,
+        ),
+        state.error ? h("p", { className: "settings-panel-error", role: "alert" }, state.error) : null,
+      ),
+      h(
+        "div",
+        { className: "settings-grid" },
+        h(
+          "label",
+          { className: "settings-control-card", htmlFor: "settings-tts-voice-control" },
+          h("span", { className: "settings-control-label" }, "Selected voice"),
+          h(
+            "span",
+            { className: "settings-control-value" },
             activeOption
-              ? escapeHtml(renderTtsVoiceOptionLabel(activeOption.displayLabel, activeOption.voiceName))
+              ? renderTtsVoiceOptionLabel(activeOption.displayLabel, activeOption.voiceName)
               : state.activeVoice
-                ? escapeHtml(state.activeVoice)
-                : "No configured voice"
-          }</span>
-          <select
-            id="settings-tts-voice-control"
-            class="settings-control-select"
-            data-tts-voice-select="true"
-            ${disabledAttribute}
-          >
-            ${optionsCopy}
-          </select>
-        </label>
-      </div>
-    </section>
-  `;
+                ? state.activeVoice
+                : "No configured voice",
+          ),
+          h(
+            "select",
+            {
+              id: "settings-tts-voice-control",
+              className: "settings-control-select",
+              "data-tts-voice-select": "true",
+              value: state.activeVoice ?? "",
+              disabled: state.isBusy || undefined,
+              "aria-disabled": state.isBusy ? "true" : undefined,
+              onChange: () => undefined,
+            },
+            ...state.availableVoices.map((option) => h(
+              "option",
+              { value: option.voiceName, key: option.voiceName },
+              renderTtsVoiceOptionLabel(option.displayLabel, option.voiceName),
+            )),
+          ),
+        ),
+      ),
+  );
 }
 
-export function renderUrlInputPanel(state: UrlInputPanelState): string {
-  const currentUrlCopy = state.currentUrl
-    ? `<p class="url-input-current"><strong>Current URL:</strong> ${escapeHtml(state.currentUrl)}</p>`
-    : '<p class="url-input-current">No page URL is loaded yet.</p>';
-  const draftStatusCopy = state.hasUnsubmittedChanges
-    ? '<p class="url-input-status" role="status" aria-live="polite" aria-atomic="true">Draft URL updated. Open controls can use this value next.</p>'
-    : '<p class="url-input-status" role="status" aria-live="polite" aria-atomic="true">The field mirrors the current page URL until you edit it.</p>';
-  const disabledAttribute =
-    state.isOpening || state.isReading || state.isStopping || state.isAdvancing || state.isRewinding
-      ? " disabled aria-disabled=\"true\""
-      : "";
-  const errorCopy = state.error
-    ? `<p class="url-input-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
+export function renderUrlInputPanelNode(state: UrlInputPanelState): ReactNode {
+  const actionsDisabled = state.isOpening || state.isReading || state.isStopping || state.isAdvancing || state.isRewinding;
 
-  return `
-    <section class="url-input-panel" aria-labelledby="url-input-title">
-      <div class="url-input-copy">
-        <p class="url-input-eyebrow">Navigation</p>
-        <h2 id="url-input-title">URL input</h2>
-        <p class="url-input-description">
-          Stage the next destination here. This keeps the nearby UI ready for direct navigation
-          controls while voice-first command entry remains the primary path.
-        </p>
-        ${currentUrlCopy}
-        ${draftStatusCopy}
-        ${errorCopy}
-      </div>
-      <div class="url-input-actions">
-        <label class="url-input-field" for="url-input-control">
-          <span class="url-input-label">Page URL</span>
-          <input
-            id="url-input-control"
-            class="url-input-control"
-            data-url-input="true"
-            type="url"
-            inputmode="url"
-            autocomplete="url"
-            spellcheck="false"
-            placeholder="https://example.com"
-            value="${escapeHtml(state.draftValue)}"
-            ${disabledAttribute}
-          />
-        </label>
-        <button
-          type="button"
-          class="url-open-button"
-          data-url-open-button="true"
-          ${disabledAttribute}
-        >
-          ${state.isOpening ? "Opening..." : "Open"}
-        </button>
-        <button
-          type="button"
-          class="url-open-button url-read-button"
-          data-url-read-button="true"
-          ${disabledAttribute}
-        >
-          ${state.isReading ? "Reading..." : "Read"}
-        </button>
-        <button
-          type="button"
-          class="url-open-button url-stop-button"
-          data-url-stop-button="true"
-          ${disabledAttribute}
-        >
-          ${state.isStopping ? "Stopping..." : "Stop"}
-        </button>
-        <button
-          type="button"
-          class="url-open-button url-previous-button"
-          data-url-previous-button="true"
-          ${disabledAttribute}
-        >
-          ${state.isRewinding ? "Previous..." : "Previous"}
-        </button>
-        <button
-          type="button"
-          class="url-open-button url-next-button"
-          data-url-next-button="true"
-          ${disabledAttribute}
-        >
-          ${state.isAdvancing ? "Next..." : "Next"}
-        </button>
-      </div>
-    </section>
-  `;
+  return h(
+    "section",
+    { className: "url-input-panel", "aria-labelledby": "url-input-title" },
+    h(
+      "div",
+      { className: "url-input-copy" },
+      h("p", { className: "url-input-eyebrow" }, "Navigation"),
+      h("h2", { id: "url-input-title" }, "URL input"),
+      h(
+        "p",
+        { className: "url-input-description" },
+        "Stage the next destination here. This keeps the nearby UI ready for direct navigation controls while voice-first command entry remains the primary path.",
+      ),
+      state.currentUrl
+        ? h("p", { className: "url-input-current" }, h("strong", null, "Current URL:"), ` ${state.currentUrl}`)
+        : h("p", { className: "url-input-current" }, "No page URL is loaded yet."),
+      h(
+        "p",
+        { className: "url-input-status", role: "status", "aria-live": "polite", "aria-atomic": "true" },
+        state.hasUnsubmittedChanges
+          ? "Draft URL updated. Open controls can use this value next."
+          : "The field mirrors the current page URL until you edit it.",
+      ),
+      state.error ? h("p", { className: "url-input-error", role: "alert" }, state.error) : null,
+    ),
+    h(
+      "div",
+      { className: "url-input-actions" },
+      h(
+        "label",
+        { className: "url-input-field", htmlFor: "url-input-control" },
+        h("span", { className: "url-input-label" }, "Page URL"),
+        h("input", {
+          id: "url-input-control",
+          className: "url-input-control",
+          "data-url-input": "true",
+          type: "url",
+          inputMode: "url",
+          autoComplete: "url",
+          spellCheck: false,
+          placeholder: "https://example.com",
+          value: state.draftValue,
+          disabled: actionsDisabled || undefined,
+          "aria-disabled": actionsDisabled ? "true" : undefined,
+          readOnly: true,
+        }),
+      ),
+      h("button", { type: "button", className: "url-open-button", "data-url-open-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined }, state.isOpening ? "Opening..." : "Open"),
+      h("button", { type: "button", className: "url-open-button url-read-button", "data-url-read-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined }, state.isReading ? "Reading..." : "Read"),
+      h("button", { type: "button", className: "url-open-button url-stop-button", "data-url-stop-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined }, state.isStopping ? "Stopping..." : "Stop"),
+      h("button", { type: "button", className: "url-open-button url-previous-button", "data-url-previous-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined }, state.isRewinding ? "Previous..." : "Previous"),
+      h("button", { type: "button", className: "url-open-button url-next-button", "data-url-next-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined }, state.isAdvancing ? "Next..." : "Next"),
+    ),
+  );
 }
 
-export function renderStatusPanel(state: StatusPanelState): string {
+export function renderStatusPanelNode(state: StatusPanelState): ReactNode {
   const title = state.pageTitle ?? "No page open yet";
   const region = state.currentRegionLabel ?? "No current region";
   const transcript = state.lastTranscript ?? "No spoken command captured yet";
-  const errorCopy = state.error
-    ? `<p class="status-panel-error" role="alert">${escapeHtml(state.error)}</p>`
-    : "";
   const visiblePressed = state.browserVisibility === "Visible";
   const headlessPressed = state.browserVisibility === "Headless";
-  const visibilityDisabled = state.isUpdatingVisibility ? " disabled aria-disabled=\"true\"" : "";
-
-  return `
-    <section class="status-panel" aria-labelledby="status-panel-title">
-      <div class="status-panel-copy">
-        <p class="status-panel-eyebrow">Runtime status</p>
-        <h2 id="status-panel-title">Current browser state</h2>
-        <p class="status-panel-description">
-          This panel mirrors the live runtime so the nearby UI stays aligned with what the browser,
-          narration, and listening tools are doing right now.
-        </p>
-        ${errorCopy}
-      </div>
-      <dl class="status-panel-grid">
-        <div class="status-card status-card-wide">
-          <dt>Page title</dt>
-          <dd>${escapeHtml(title)}</dd>
-        </div>
-        <div class="status-card">
-          <dt>Current region</dt>
-            <dd aria-live="polite" aria-atomic="true">${escapeHtml(region)}</dd>
-        </div>
-        <div class="status-card status-card-wide status-card-transcript">
-          <dt>Last transcript</dt>
-            <dd aria-live="polite" aria-atomic="true">${escapeHtml(transcript)}</dd>
-        </div>
-        <div class="status-card">
-          <dt>Listening</dt>
-          <dd>
-            <span class="status-indicator${state.listening ? " status-indicator-active" : ""}" role="status" aria-live="polite" aria-atomic="true">
-              ${state.listening ? "Active" : "Idle"}
-            </span>
-          </dd>
-        </div>
-        <div class="status-card">
-          <dt>Speaking</dt>
-          <dd>
-            <span class="status-indicator${state.speaking ? " status-indicator-active" : ""}" role="status" aria-live="polite" aria-atomic="true">
-              ${state.speaking ? "Active" : "Idle"}
-            </span>
-          </dd>
-        </div>
-        <div class="status-card">
-          <dt>Browser mode</dt>
-          <dd>
-            <span class="status-mode-label" role="status" aria-live="polite" aria-atomic="true">${escapeHtml(state.browserVisibility)}</span>
-            <div class="status-toggle-group" role="group" aria-label="Browser visibility mode">
-              <button
-                type="button"
-                class="status-toggle-button${visiblePressed ? " status-toggle-button-active" : ""}"
-                data-browser-visibility-mode="Visible"
-                aria-label="Browser visibility mode: Visible"
-                aria-pressed="${visiblePressed}"
-                ${visibilityDisabled}
-              >
-                Visible
-              </button>
-              <button
-                type="button"
-                class="status-toggle-button${headlessPressed ? " status-toggle-button-active" : ""}"
-                data-browser-visibility-mode="Headless"
-                aria-label="Browser visibility mode: Headless"
-                aria-pressed="${headlessPressed}"
-                ${visibilityDisabled}
-              >
-                Headless
-              </button>
-            </div>
-          </dd>
-        </div>
-        <div class="status-card">
-          <dt>History</dt>
-          <dd>
-            Back: ${state.canGoBack ? "Available" : "Unavailable"}.
-            Forward: ${state.canGoForward ? "Available" : "Unavailable"}.
-          </dd>
-        </div>
-      </dl>
-    </section>
-  `;
+  return h(
+    "section",
+    { className: "status-panel", "aria-labelledby": "status-panel-title" },
+    h(
+      "div",
+      { className: "status-panel-copy" },
+      h("p", { className: "status-panel-eyebrow" }, "Runtime status"),
+      h("h2", { id: "status-panel-title" }, "Current browser state"),
+      h("p", { className: "status-panel-description" }, "This panel mirrors the live runtime so the nearby UI stays aligned with what the browser, narration, and listening tools are doing right now."),
+      state.error ? h("p", { className: "status-panel-error", role: "alert" }, state.error) : null,
+    ),
+    h(
+      "dl",
+      { className: "status-panel-grid" },
+      h("div", { className: "status-card status-card-wide" }, h("dt", null, "Page title"), h("dd", null, title)),
+      h("div", { className: "status-card" }, h("dt", null, "Current region"), h("dd", { "aria-live": "polite", "aria-atomic": "true" }, region)),
+      h("div", { className: "status-card status-card-wide status-card-transcript" }, h("dt", null, "Last transcript"), h("dd", { "aria-live": "polite", "aria-atomic": "true" }, transcript)),
+      h("div", { className: "status-card" }, h("dt", null, "Listening"), h("dd", null, h("span", { className: `status-indicator${state.listening ? " status-indicator-active" : ""}`, role: "status", "aria-live": "polite", "aria-atomic": "true" }, state.listening ? "Active" : "Idle"))),
+      h("div", { className: "status-card" }, h("dt", null, "Speaking"), h("dd", null, h("span", { className: `status-indicator${state.speaking ? " status-indicator-active" : ""}`, role: "status", "aria-live": "polite", "aria-atomic": "true" }, state.speaking ? "Active" : "Idle"))),
+      h(
+        "div",
+        { className: "status-card" },
+        h("dt", null, "Browser mode"),
+        h(
+          "dd",
+          null,
+          h("span", { className: "status-mode-label", role: "status", "aria-live": "polite", "aria-atomic": "true" }, state.browserVisibility),
+          h(
+            "div",
+            { className: "status-toggle-group", role: "group", "aria-label": "Browser visibility mode" },
+            h("button", { type: "button", className: `status-toggle-button${visiblePressed ? " status-toggle-button-active" : ""}`, "data-browser-visibility-mode": "Visible", "aria-label": "Browser visibility mode: Visible", "aria-pressed": String(visiblePressed), disabled: state.isUpdatingVisibility || undefined, "aria-disabled": state.isUpdatingVisibility ? "true" : undefined }, "Visible"),
+            h("button", { type: "button", className: `status-toggle-button${headlessPressed ? " status-toggle-button-active" : ""}`, "data-browser-visibility-mode": "Headless", "aria-label": "Browser visibility mode: Headless", "aria-pressed": String(headlessPressed), disabled: state.isUpdatingVisibility || undefined, "aria-disabled": state.isUpdatingVisibility ? "true" : undefined }, "Headless"),
+          ),
+        ),
+      ),
+      h("div", { className: "status-card" }, h("dt", null, "History"), h("dd", null, `Back: ${state.canGoBack ? "Available" : "Unavailable"}. Forward: ${state.canGoForward ? "Available" : "Unavailable"}.`)),
+    ),
+  );
 }
+

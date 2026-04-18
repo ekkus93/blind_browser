@@ -1,30 +1,190 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { isValidElement } from "react";
 
 import {
-  renderAudioControlsPanel,
-  renderConfirmationPanel,
-  renderPushToTalkPanel,
-  renderSettingsAsrProviderPanel,
-  renderSettingsConfirmationPanel,
-  renderSettingsGuidancePanel,
-  renderSettingsLocalAsrModelPanel,
-  renderSettingsLocalTtsModelPanel,
-  renderSettingsModelManagementPanel,
-  renderSettingsOcrThresholdPanel,
-  renderSettingsProviderFailoverPanel,
-  renderSettingsRemoteAsrPanel,
-  renderSettingsRemotePlannerPanel,
-  renderSettingsRemoteTtsPanel,
-  renderSettingsTtsProviderPanel,
-  renderSettingsTtsModelPanel,
-  renderSettingsTtsVoicePanel,
+  renderAudioControlsPanelNode,
+  renderConfirmationPanelNode,
+  renderPushToTalkPanelNode,
+  renderSettingsAsrProviderPanelNode,
+  renderSettingsConfirmationPanelNode,
+  renderSettingsGuidancePanelNode,
+  renderSettingsLocalAsrModelPanelNode,
+  renderSettingsLocalTtsModelPanelNode,
+  renderSettingsModelManagementPanelNode,
+  renderSettingsOcrThresholdPanelNode,
+  renderSettingsProviderFailoverPanelNode,
+  renderSettingsRemoteAsrPanelNode,
+  renderSettingsRemotePlannerPanelNode,
+  renderSettingsRemoteTtsPanelNode,
+  renderSettingsTtsProviderPanelNode,
+  renderSettingsTtsModelPanelNode,
+  renderSettingsTtsVoicePanelNode,
   renderSettingsSpeedPanel,
   renderSettingsVolumePanel,
-  renderStatusPanel,
+  renderStatusPanelNode,
   statusPanelStateFromAgentState,
-  renderUrlInputPanel,
+  renderUrlInputPanelNode,
 } from "./confirmation-panel.ts";
+
+const VOID_ELEMENTS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function mapAttributeName(name) {
+  switch (name) {
+    case "className":
+      return "class";
+    case "htmlFor":
+      return "for";
+    case "inputMode":
+      return "inputmode";
+    case "autoComplete":
+      return "autocomplete";
+    case "spellCheck":
+      return "spellcheck";
+    default:
+      return name;
+  }
+}
+
+function renderNodeMarkup(node, parentContext = {}) {
+  if (node === null || node === undefined || typeof node === "boolean") {
+    return "";
+  }
+
+  if (typeof node === "string" || typeof node === "number") {
+    return escapeHtml(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map((child) => renderNodeMarkup(child, parentContext)).join("");
+  }
+
+  if (!isValidElement(node)) {
+    return "";
+  }
+
+  if (typeof node.type !== "string") {
+    return renderNodeMarkup(node.props.children, parentContext);
+  }
+
+  const { children, ...rawProps } = node.props ?? {};
+  const props = { ...rawProps };
+  if (
+    node.type === "option"
+    && props.selected === undefined
+    && parentContext.selectedValue !== undefined
+    && props.value === parentContext.selectedValue
+  ) {
+    props.selected = true;
+  }
+
+  const attributes = Object.entries(props)
+    .filter(([name, value]) => name !== "key" && name !== "ref" && name !== "children" && name !== "dangerouslySetInnerHTML" && name !== "onChange" && name !== "readOnly" && value !== undefined && value !== null && value !== false)
+    .map(([name, value]) => {
+      const attributeName = mapAttributeName(name);
+      if (value === true) {
+        return ` ${attributeName}`;
+      }
+
+      return ` ${attributeName}="${escapeHtml(value)}"`;
+    })
+    .join("");
+
+  if (VOID_ELEMENTS.has(node.type)) {
+    return `<${node.type}${attributes}>`;
+  }
+
+  const nextContext = node.type === "select"
+    ? { ...parentContext, selectedValue: props.value }
+    : parentContext;
+
+  return `<${node.type}${attributes}>${renderNodeMarkup(children, nextContext)}</${node.type}>`;
+}
+
+function renderConfirmationPanel(state) {
+  return renderNodeMarkup(renderConfirmationPanelNode(state));
+}
+
+function renderPushToTalkPanel(state) {
+  return renderNodeMarkup(renderPushToTalkPanelNode(state));
+}
+
+function renderAudioControlsPanel(state) {
+  return renderNodeMarkup(renderAudioControlsPanelNode(state));
+}
+
+function renderSettingsAsrProviderPanel(state) {
+  return renderNodeMarkup(renderSettingsAsrProviderPanelNode(state));
+}
+
+function renderSettingsConfirmationPanel(state) {
+  return renderNodeMarkup(renderSettingsConfirmationPanelNode(state));
+}
+
+function renderSettingsGuidancePanel(state) {
+  return renderNodeMarkup(renderSettingsGuidancePanelNode(state));
+}
+
+function renderSettingsLocalAsrModelPanel(state) {
+  return renderNodeMarkup(renderSettingsLocalAsrModelPanelNode(state));
+}
+
+function renderSettingsLocalTtsModelPanel(state) {
+  return renderNodeMarkup(renderSettingsLocalTtsModelPanelNode(state));
+}
+
+function renderSettingsModelManagementPanel(state) {
+  return renderNodeMarkup(renderSettingsModelManagementPanelNode(state));
+}
+
+function renderSettingsOcrThresholdPanel(state) {
+  return renderNodeMarkup(renderSettingsOcrThresholdPanelNode(state));
+}
+
+function renderSettingsProviderFailoverPanel(state) {
+  return renderNodeMarkup(renderSettingsProviderFailoverPanelNode(state));
+}
+
+function renderSettingsRemoteAsrPanel(state) {
+  return renderNodeMarkup(renderSettingsRemoteAsrPanelNode(state));
+}
+
+function renderSettingsRemotePlannerPanel(state) {
+  return renderNodeMarkup(renderSettingsRemotePlannerPanelNode(state));
+}
+
+function renderSettingsRemoteTtsPanel(state) {
+  return renderNodeMarkup(renderSettingsRemoteTtsPanelNode(state));
+}
+
+function renderSettingsTtsProviderPanel(state) {
+  return renderNodeMarkup(renderSettingsTtsProviderPanelNode(state));
+}
+
+function renderSettingsTtsModelPanel(state) {
+  return renderNodeMarkup(renderSettingsTtsModelPanelNode(state));
+}
+
+function renderSettingsTtsVoicePanel(state) {
+  return renderNodeMarkup(renderSettingsTtsVoicePanelNode(state));
+}
+
+function renderStatusPanel(state) {
+  return renderNodeMarkup(renderStatusPanelNode(state));
+}
+
+function renderUrlInputPanel(state) {
+  return renderNodeMarkup(renderUrlInputPanelNode(state));
+}
 
 function renderFixtures() {
   const nonRetryableHtml = renderConfirmationPanel({

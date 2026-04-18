@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 
 import { renderAppShell } from "./app-shell.ts";
 
-test("workspace shell uses plain-language overview copy", () => {
-  const html = renderAppShell();
+test("workspace shell uses plain-language overview copy", async () => {
+  const html = await renderAppShell();
 
   assert.ok(html.includes("<h1>Workspace</h1>"));
   assert.match(html, /Open pages, speak commands, control reading, and check the current state here\./);
@@ -14,8 +14,8 @@ test("workspace shell uses plain-language overview copy", () => {
   assert.match(html, /<h2>Status<\/h2>/);
 });
 
-test("settings shell groups related sections in a logical order", () => {
-  const html = renderAppShell();
+test("settings shell groups related sections in a logical order", async () => {
+  const html = await renderAppShell();
 
   assert.ok(html.includes("<h1>Settings</h1>"));
   assert.ok(html.includes('data-settings-view-section="overview"'));
@@ -33,6 +33,8 @@ test("settings shell groups related sections in a logical order", () => {
   assert.ok(html.includes('data-settings-view-button="asr"'));
   assert.ok(html.includes('data-settings-view-button="runtime"'));
   assert.ok(html.includes('data-settings-view-button="overview"'));
+  assert.match(html, /aria-label="Back to settings"/);
+  assert.ok(html.includes('data-settings-subpage-back="true"'));
 
   assert.ok(!html.includes('data-panel-root="settings-volume"'));
   assert.ok(!html.includes('data-panel-root="settings-speed"'));

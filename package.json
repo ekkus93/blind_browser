@@ -14,11 +14,21 @@
     "tauri:dev:full": "tauri dev --features full"
   },
   "dependencies": {
-    "@tauri-apps/api": "2.10.1"
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.0.0",
+    "@mui/material": "^9.0.0",
+    "@reduxjs/toolkit": "^2.11.2",
+    "@tauri-apps/api": "2.10.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-redux": "^9.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tauri-apps/cli": "2.10.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "eslint": "^10.2.1",
     "globals": "^17.5.0",
     "typescript": "5.9.3",

@@ -1,3 +1,10 @@
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import { Button, CssBaseline, IconButton } from "@mui/material";
+import { StyledEngineProvider, ThemeProvider, createTheme } from "@mui/material/styles";
+import { createElement, type ComponentProps, type ReactNode } from "react";
+import { flushSync } from "react-dom";
+import { createRoot, type Root } from "react-dom/client";
+
 export type PanelRootKey =
   | "push-to-talk"
   | "url-input"
@@ -24,221 +31,392 @@ export type SettingsView = "overview" | "planner" | "tts" | "asr" | "runtime";
 
 export type PanelRootMap = Record<PanelRootKey, HTMLDivElement>;
 
-function renderPanelRootPlaceholder(rootKey: PanelRootKey): string {
-  return `<div data-panel-root="${rootKey}"></div>`;
+const h = createElement;
+
+const appShellTheme = createTheme({
+  palette: {
+    mode: "light",
+    primary: {
+      main: "#29583f",
+      dark: "#1f7f5c",
+      contrastText: "#fffdf8",
+    },
+    secondary: {
+      main: "#7a5727",
+    },
+    background: {
+      default: "#f7f4ec",
+      paper: "rgba(255, 252, 247, 0.9)",
+    },
+    text: {
+      primary: "#1d1a16",
+      secondary: "#433d37",
+    },
+  },
+  shape: {
+    borderRadius: 18,
+  },
+  typography: {
+    fontFamily: '"IBM Plex Sans", "Segoe UI", sans-serif',
+    button: {
+      textTransform: "none",
+      fontWeight: 700,
+    },
+  },
+});
+
+const mountedShellRoots = new WeakMap<HTMLDivElement, Root>();
+const mountedPanelRoots = new WeakMap<HTMLDivElement, Root>();
+
+type DataAttributes = {
+  [key: `data-${string}`]: string;
+};
+
+type ButtonWithDataProps = ComponentProps<typeof Button> & DataAttributes;
+type IconButtonWithDataProps = ComponentProps<typeof IconButton> & DataAttributes;
+
+function renderPanelRootPlaceholderElement(rootKey: PanelRootKey) {
+  return h("div", {
+    "data-panel-root": rootKey,
+  });
 }
 
-export function renderAppShell(): string {
-  return `
-    <main class="shell">
-      <header class="shell-toolbar">
-        <nav class="shell-nav" aria-label="App pages">
-          <button
-            type="button"
-            class="shell-nav-button shell-nav-button-active"
-            data-app-view-button="workspace"
-            aria-pressed="true"
-          >
-            Workspace
-          </button>
-          <button
-            type="button"
-            class="shell-nav-button"
-            data-app-view-button="settings"
-            aria-pressed="false"
-          >
-            Settings
-          </button>
-        </nav>
-      </header>
+function renderShellNavButton(view: AppView, label: string, isActive: boolean) {
+  const buttonProps: ButtonWithDataProps = {
+    type: "button",
+    className: `shell-nav-button${isActive ? " shell-nav-button-active" : ""}`,
+    disableElevation: true,
+    variant: isActive ? "contained" : "text",
+    "data-app-view-button": view,
+    "aria-pressed": isActive,
+    sx: {
+      minWidth: 0,
+      px: 2.25,
+      py: 1.4,
+    },
+  };
 
-      <section class="app-view app-view-active" data-app-view-section="workspace">
-        <section class="hero">
-          <p class="eyebrow">Voice-first browser</p>
-          <h1>Workspace</h1>
-          <p class="lede">
-            Open pages, speak commands, control reading, and check the current state here. Settings
-            stay on a separate page so this workflow stays focused.
-          </p>
-        </section>
+  return h(
+    Button,
+    buttonProps,
+    label,
+  );
+}
 
-        <section class="panels" aria-label="Workspace sections">
-          <article class="panel">
-            <h2>Voice input</h2>
-            <p>Speak commands here, then keep moving through listening, reading, and confirmation.</p>
-          </article>
-          <article class="panel">
-            <h2>Page actions</h2>
-            <p>Open a page, start reading, move forward or back, and stop without leaving the workspace.</p>
-          </article>
-          <article class="panel">
-            <h2>Status</h2>
-            <p>See what the browser, narration, and listening state are doing right now.</p>
-          </article>
-        </section>
+function renderSettingsSubpageBackButton(showBackButton: boolean) {
+  const buttonProps: IconButtonWithDataProps = {
+    type: "button",
+    className: "settings-subpage-back",
+    "data-settings-subpage-back": "true",
+    "data-settings-view-button": "overview",
+    "aria-label": "Back to settings",
+    title: "Back to settings",
+    hidden: !showBackButton,
+    "aria-hidden": !showBackButton,
+    size: "large",
+  };
 
-        ${renderPanelRootPlaceholder("push-to-talk")}
-        ${renderPanelRootPlaceholder("url-input")}
-        ${renderPanelRootPlaceholder("status")}
-        ${renderPanelRootPlaceholder("confirmation-panel")}
-      </section>
+  return h(
+    IconButton,
+    buttonProps,
+    h(ArrowBackRoundedIcon, {
+      className: "settings-subpage-back-icon",
+      fontSize: "small",
+      "aria-hidden": true,
+    }),
+  );
+}
 
-      <section class="app-view" data-app-view-section="settings" hidden aria-hidden="true">
-        <div class="settings-view settings-view-active" data-settings-view-section="overview">
-          <section class="hero hero-settings">
-            <h1>Settings</h1>
-          </section>
+function renderWorkspaceOverviewCard(title: string, copy: string) {
+  return h(
+    "article",
+    { className: "panel" },
+    h("h2", null, title),
+    h("p", null, copy),
+  );
+}
 
-          ${renderPanelRootPlaceholder("settings-guidance")}
+function renderSettingsSubpageLink(view: Exclude<SettingsView, "overview">, label: string) {
+  const buttonProps: ButtonWithDataProps = {
+    type: "button",
+    className: "settings-subpage-link",
+    variant: "text",
+    disableRipple: true,
+    "data-settings-view-button": view,
+    sx: {
+      justifyContent: "flex-start",
+      minWidth: 0,
+      p: 0,
+    },
+  };
 
-          <section class="settings-group" aria-labelledby="settings-group-playback-title">
-            <div class="settings-group-copy">
-              <p class="settings-group-eyebrow">Listening</p>
-              <h2 id="settings-group-playback-title">Playback</h2>
-            </div>
-            ${renderPanelRootPlaceholder("audio-controls")}
-          </section>
+  return h(
+    "div",
+    { className: "settings-subpage-card" },
+    h(
+      Button,
+      buttonProps,
+      label,
+    ),
+  );
+}
 
-          <section class="settings-group settings-group-link" aria-labelledby="settings-group-planner-title">
-            <div class="settings-group-copy">
-              <p class="settings-group-eyebrow">Command interpretation</p>
-              <h2 id="settings-group-planner-title">Planner</h2>
-            </div>
-            <div class="settings-subpage-card">
-              <button
-                type="button"
-                class="settings-subpage-link"
-                data-settings-view-button="planner"
-              >
-                Open planner setup
-              </button>
-            </div>
-          </section>
+interface AppShellMarkupProps {
+  initialAppView: AppView;
+  initialSettingsView: SettingsView;
+}
 
-          <section class="settings-group settings-group-link" aria-labelledby="settings-group-tts-title">
-            <div class="settings-group-copy">
-              <p class="settings-group-eyebrow">Speech output</p>
-              <h2 id="settings-group-tts-title">Text to speech</h2>
-            </div>
-            <div class="settings-subpage-card">
-              <button
-                type="button"
-                class="settings-subpage-link"
-                data-settings-view-button="tts"
-              >
-                Open TTS setup
-              </button>
-            </div>
-          </section>
+function AppShellMarkup({ initialAppView, initialSettingsView }: AppShellMarkupProps) {
+  const workspaceActive = initialAppView === "workspace";
+  const settingsActive = initialAppView === "settings";
+  const showBackButton = settingsActive && initialSettingsView !== "overview";
 
-          <section class="settings-group settings-group-link" aria-labelledby="settings-group-asr-title">
-            <div class="settings-group-copy">
-              <p class="settings-group-eyebrow">Speech input</p>
-              <h2 id="settings-group-asr-title">Automatic speech recognition</h2>
-            </div>
-            <div class="settings-subpage-card">
-              <button
-                type="button"
-                class="settings-subpage-link"
-                data-settings-view-button="asr"
-              >
-                Open ASR setup
-              </button>
-            </div>
-          </section>
+  return h(
+    "main",
+    { className: "shell" },
+    h(
+      "header",
+      { className: "shell-toolbar" },
+      h(
+        "nav",
+        {
+          className: "shell-nav",
+          "aria-label": "App pages",
+        },
+        renderShellNavButton("workspace", "Workspace", workspaceActive),
+        renderShellNavButton("settings", "Settings", settingsActive),
+      ),
+      renderSettingsSubpageBackButton(showBackButton),
+    ),
+    h(
+      "section",
+      {
+        className: `app-view${workspaceActive ? " app-view-active" : ""}`,
+        "data-app-view-section": "workspace",
+        hidden: !workspaceActive,
+        "aria-hidden": String(!workspaceActive),
+      },
+      h(
+        "section",
+        { className: "hero" },
+        h("p", { className: "eyebrow" }, "Voice-first browser"),
+        h("h1", null, "Workspace"),
+        h(
+          "p",
+          { className: "lede" },
+          "Open pages, speak commands, control reading, and check the current state here. Settings stay on a separate page so this workflow stays focused.",
+        ),
+      ),
+      h(
+        "section",
+        { className: "panels", "aria-label": "Workspace sections" },
+        renderWorkspaceOverviewCard(
+          "Voice input",
+          "Speak commands here, then keep moving through listening, reading, and confirmation.",
+        ),
+        renderWorkspaceOverviewCard(
+          "Page actions",
+          "Open a page, start reading, move forward or back, and stop without leaving the workspace.",
+        ),
+        renderWorkspaceOverviewCard(
+          "Status",
+          "See what the browser, narration, and listening state are doing right now.",
+        ),
+      ),
+      renderPanelRootPlaceholderElement("push-to-talk"),
+      renderPanelRootPlaceholderElement("url-input"),
+      renderPanelRootPlaceholderElement("status"),
+      renderPanelRootPlaceholderElement("confirmation-panel"),
+    ),
+    h(
+      "section",
+      {
+        className: `app-view${settingsActive ? " app-view-active" : ""}`,
+        "data-app-view-section": "settings",
+        hidden: !settingsActive,
+        "aria-hidden": String(!settingsActive),
+      },
+      h(
+        "div",
+        {
+          className: `settings-view${initialSettingsView === "overview" ? " settings-view-active" : ""}`,
+          "data-settings-view-section": "overview",
+          hidden: initialSettingsView !== "overview",
+          "aria-hidden": String(initialSettingsView !== "overview"),
+        },
+        h(
+          "section",
+          { className: "hero hero-settings" },
+          h("h1", null, "Settings"),
+        ),
+        renderPanelRootPlaceholderElement("settings-guidance"),
+        h(
+          "section",
+          {
+            className: "settings-group",
+            "aria-labelledby": "settings-group-playback-title",
+          },
+          h(
+            "div",
+            { className: "settings-group-copy" },
+            h("p", { className: "settings-group-eyebrow" }, "Listening"),
+            h("h2", { id: "settings-group-playback-title" }, "Playback"),
+          ),
+          renderPanelRootPlaceholderElement("audio-controls"),
+        ),
+        h(
+          "section",
+          {
+            className: "settings-group settings-group-link",
+            "aria-labelledby": "settings-group-planner-title",
+          },
+          h(
+            "div",
+            { className: "settings-group-copy" },
+            h("p", { className: "settings-group-eyebrow" }, "Command interpretation"),
+            h("h2", { id: "settings-group-planner-title" }, "Planner"),
+          ),
+          renderSettingsSubpageLink("planner", "Open planner setup"),
+        ),
+        h(
+          "section",
+          {
+            className: "settings-group settings-group-link",
+            "aria-labelledby": "settings-group-tts-title",
+          },
+          h(
+            "div",
+            { className: "settings-group-copy" },
+            h("p", { className: "settings-group-eyebrow" }, "Speech output"),
+            h("h2", { id: "settings-group-tts-title" }, "Text to speech"),
+          ),
+          renderSettingsSubpageLink("tts", "Open TTS setup"),
+        ),
+        h(
+          "section",
+          {
+            className: "settings-group settings-group-link",
+            "aria-labelledby": "settings-group-asr-title",
+          },
+          h(
+            "div",
+            { className: "settings-group-copy" },
+            h("p", { className: "settings-group-eyebrow" }, "Speech input"),
+            h("h2", { id: "settings-group-asr-title" }, "Automatic speech recognition"),
+          ),
+          renderSettingsSubpageLink("asr", "Open ASR setup"),
+        ),
+        h(
+          "section",
+          {
+            className: "settings-group settings-group-link",
+            "aria-labelledby": "settings-group-runtime-title",
+          },
+          h(
+            "div",
+            { className: "settings-group-copy" },
+            h("p", { className: "settings-group-eyebrow" }, "Runtime behavior"),
+            h("h2", { id: "settings-group-runtime-title" }, "Runtime"),
+          ),
+          renderSettingsSubpageLink("runtime", "Open Runtime setup"),
+        ),
+      ),
+      h(
+        "div",
+        {
+          className: `settings-view${initialSettingsView === "planner" ? " settings-view-active" : ""}`,
+          "data-settings-view-section": "planner",
+          hidden: initialSettingsView !== "planner",
+          "aria-hidden": String(initialSettingsView !== "planner"),
+        },
+        h(
+          "section",
+          { className: "hero hero-settings hero-settings-subpage" },
+          h("p", { className: "settings-group-eyebrow" }, "Command interpretation"),
+          h("h2", null, "Planner setup"),
+        ),
+        renderPanelRootPlaceholderElement("settings-remote-planner"),
+      ),
+      h(
+        "div",
+        {
+          className: `settings-view${initialSettingsView === "tts" ? " settings-view-active" : ""}`,
+          "data-settings-view-section": "tts",
+          hidden: initialSettingsView !== "tts",
+          "aria-hidden": String(initialSettingsView !== "tts"),
+        },
+        h(
+          "section",
+          { className: "hero hero-settings hero-settings-subpage" },
+          h("p", { className: "settings-group-eyebrow" }, "Speech output"),
+          h("h2", null, "TTS setup"),
+        ),
+        renderPanelRootPlaceholderElement("settings-tts-provider"),
+        renderPanelRootPlaceholderElement("settings-tts-model"),
+        renderPanelRootPlaceholderElement("settings-local-tts-model"),
+        renderPanelRootPlaceholderElement("settings-remote-tts"),
+        renderPanelRootPlaceholderElement("settings-tts-voice"),
+      ),
+      h(
+        "div",
+        {
+          className: `settings-view${initialSettingsView === "asr" ? " settings-view-active" : ""}`,
+          "data-settings-view-section": "asr",
+          hidden: initialSettingsView !== "asr",
+          "aria-hidden": String(initialSettingsView !== "asr"),
+        },
+        h(
+          "section",
+          { className: "hero hero-settings hero-settings-subpage" },
+          h("p", { className: "settings-group-eyebrow" }, "Speech input"),
+          h("h2", null, "ASR setup"),
+        ),
+        renderPanelRootPlaceholderElement("settings-asr-provider"),
+        renderPanelRootPlaceholderElement("settings-local-asr-model"),
+        renderPanelRootPlaceholderElement("settings-remote-asr"),
+      ),
+      h(
+        "div",
+        {
+          className: `settings-view${initialSettingsView === "runtime" ? " settings-view-active" : ""}`,
+          "data-settings-view-section": "runtime",
+          hidden: initialSettingsView !== "runtime",
+          "aria-hidden": String(initialSettingsView !== "runtime"),
+        },
+        h(
+          "section",
+          { className: "hero hero-settings hero-settings-subpage" },
+          h("p", { className: "settings-group-eyebrow" }, "Runtime behavior"),
+          h("h2", null, "Runtime setup"),
+        ),
+        renderPanelRootPlaceholderElement("settings-model-management"),
+        renderPanelRootPlaceholderElement("settings-provider-failover"),
+        renderPanelRootPlaceholderElement("settings-confirmation"),
+        renderPanelRootPlaceholderElement("settings-ocr-threshold"),
+      ),
+    ),
+  );
+}
 
-          <section class="settings-group settings-group-link" aria-labelledby="settings-group-runtime-title">
-            <div class="settings-group-copy">
-              <p class="settings-group-eyebrow">Runtime behavior</p>
-              <h2 id="settings-group-runtime-title">Runtime</h2>
-            </div>
-            <div class="settings-subpage-card">
-              <button
-                type="button"
-                class="settings-subpage-link"
-                data-settings-view-button="runtime"
-              >
-                Open Runtime setup
-              </button>
-            </div>
-          </section>
-        </div>
+function renderShellTree(initialAppView: AppView, initialSettingsView: SettingsView) {
+  return h(
+    StyledEngineProvider,
+    { injectFirst: true },
+    h(
+      ThemeProvider,
+      { theme: appShellTheme },
+      h(CssBaseline, null),
+      h(AppShellMarkup, {
+        initialAppView,
+        initialSettingsView,
+      }),
+    ),
+  );
+}
 
-        <div class="settings-view" data-settings-view-section="planner" hidden aria-hidden="true">
-          <section class="hero hero-settings hero-settings-subpage">
-            <button
-              type="button"
-              class="settings-subpage-back"
-              data-settings-view-button="overview"
-            >
-              Back to settings
-            </button>
-            <p class="settings-group-eyebrow">Command interpretation</p>
-            <h2>Planner setup</h2>
-          </section>
-
-          ${renderPanelRootPlaceholder("settings-remote-planner")}
-        </div>
-
-        <div class="settings-view" data-settings-view-section="tts" hidden aria-hidden="true">
-          <section class="hero hero-settings hero-settings-subpage">
-            <button
-              type="button"
-              class="settings-subpage-back"
-              data-settings-view-button="overview"
-            >
-              Back to settings
-            </button>
-            <p class="settings-group-eyebrow">Speech output</p>
-            <h2>TTS setup</h2>
-          </section>
-
-          ${renderPanelRootPlaceholder("settings-tts-provider")}
-          ${renderPanelRootPlaceholder("settings-tts-model")}
-          ${renderPanelRootPlaceholder("settings-local-tts-model")}
-          ${renderPanelRootPlaceholder("settings-remote-tts")}
-          ${renderPanelRootPlaceholder("settings-tts-voice")}
-        </div>
-
-        <div class="settings-view" data-settings-view-section="asr" hidden aria-hidden="true">
-          <section class="hero hero-settings hero-settings-subpage">
-            <button
-              type="button"
-              class="settings-subpage-back"
-              data-settings-view-button="overview"
-            >
-              Back to settings
-            </button>
-            <p class="settings-group-eyebrow">Speech input</p>
-            <h2>ASR setup</h2>
-          </section>
-
-          ${renderPanelRootPlaceholder("settings-asr-provider")}
-          ${renderPanelRootPlaceholder("settings-local-asr-model")}
-          ${renderPanelRootPlaceholder("settings-remote-asr")}
-        </div>
-
-        <div class="settings-view" data-settings-view-section="runtime" hidden aria-hidden="true">
-          <section class="hero hero-settings hero-settings-subpage">
-            <button
-              type="button"
-              class="settings-subpage-back"
-              data-settings-view-button="overview"
-            >
-              Back to settings
-            </button>
-            <p class="settings-group-eyebrow">Runtime behavior</p>
-            <h2>Runtime setup</h2>
-          </section>
-
-          ${renderPanelRootPlaceholder("settings-model-management")}
-          ${renderPanelRootPlaceholder("settings-provider-failover")}
-          ${renderPanelRootPlaceholder("settings-confirmation")}
-          ${renderPanelRootPlaceholder("settings-ocr-threshold")}
-        </div>
-      </section>
-    </main>
-  `;
+export async function renderAppShell(): Promise<string> {
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  return renderToStaticMarkup(renderShellTree("workspace", "overview"));
 }
 
 export function setActiveAppView(appRoot: HTMLDivElement, nextView: AppView) {
@@ -256,6 +434,12 @@ export function setActiveAppView(appRoot: HTMLDivElement, nextView: AppView) {
     button.setAttribute("aria-pressed", String(isActive));
     button.classList.toggle("shell-nav-button-active", isActive);
   });
+
+  const subpageBackButton = appRoot.querySelector<HTMLButtonElement>("[data-settings-subpage-back]");
+  if (subpageBackButton && nextView !== "settings") {
+    subpageBackButton.hidden = true;
+    subpageBackButton.setAttribute("aria-hidden", "true");
+  }
 }
 
 export function setActiveSettingsView(appRoot: HTMLDivElement, nextView: SettingsView) {
@@ -266,6 +450,13 @@ export function setActiveSettingsView(appRoot: HTMLDivElement, nextView: Setting
     section.setAttribute("aria-hidden", String(!isActive));
     section.classList.toggle("settings-view-active", isActive);
   });
+
+  const subpageBackButton = appRoot.querySelector<HTMLButtonElement>("[data-settings-subpage-back]");
+  if (subpageBackButton) {
+    const showBackButton = nextView !== "overview";
+    subpageBackButton.hidden = !showBackButton;
+    subpageBackButton.setAttribute("aria-hidden", String(!showBackButton));
+  }
 }
 
 function requirePanelRoot(appRoot: HTMLDivElement, rootKey: PanelRootKey): HTMLDivElement {
@@ -278,7 +469,16 @@ function requirePanelRoot(appRoot: HTMLDivElement, rootKey: PanelRootKey): HTMLD
 }
 
 export function createPanelRoots(appRoot: HTMLDivElement): PanelRootMap {
-  appRoot.innerHTML = renderAppShell();
+  let root = mountedShellRoots.get(appRoot);
+  if (!root) {
+    root = createRoot(appRoot);
+    mountedShellRoots.set(appRoot, root);
+  }
+
+  flushSync(() => {
+    root.render(renderShellTree("workspace", "overview"));
+  });
+
   return {
     "push-to-talk": requirePanelRoot(appRoot, "push-to-talk"),
     "url-input": requirePanelRoot(appRoot, "url-input"),
@@ -381,5 +581,25 @@ export function renderPanelRoot(
   const root = panelRoots[rootKey];
   const controlState = captureActivePanelControl(root);
   root.innerHTML = html;
+  restoreActivePanelControl(root, controlState);
+}
+
+export function renderPanelRootNode(
+  panelRoots: PanelRootMap,
+  rootKey: PanelRootKey,
+  node: ReactNode,
+) {
+  const root = panelRoots[rootKey];
+  const controlState = captureActivePanelControl(root);
+  let panelRoot = mountedPanelRoots.get(root);
+  if (!panelRoot) {
+    panelRoot = createRoot(root);
+    mountedPanelRoots.set(root, panelRoot);
+  }
+
+  flushSync(() => {
+    panelRoot.render(node);
+  });
+
   restoreActivePanelControl(root, controlState);
 }

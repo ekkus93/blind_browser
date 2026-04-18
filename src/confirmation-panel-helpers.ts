@@ -1,6 +1,9 @@
+import { createElement, type ReactNode } from "react";
 import type { ConfirmationUiState } from "./planner-orchestration";
 
 export const OPENAI_API_KEYS_URL = "https://platform.openai.com/account/api-keys";
+
+const h = createElement;
 
 export function renderTtsModelOptionLabel(profileName: string, modelLabel: string): string {
   return `${modelLabel} (${profileName})`;
@@ -46,6 +49,35 @@ export function renderTextWithKnownLinks(value: string): string {
   return escapeHtml(value).split(OPENAI_API_KEYS_URL).join(renderOpenAiApiKeysLink());
 }
 
+export function renderTextWithKnownLinkNodes(value: string): ReactNode[] {
+  const segments = value.split(OPENAI_API_KEYS_URL);
+  const children: ReactNode[] = [];
+
+  segments.forEach((segment, index) => {
+    if (segment.length > 0) {
+      children.push(segment);
+    }
+
+    if (index < segments.length - 1) {
+      children.push(
+        h(
+          "a",
+          {
+            href: OPENAI_API_KEYS_URL,
+            target: "_blank",
+            rel: "noreferrer",
+            "data-external-link-url": OPENAI_API_KEYS_URL,
+            key: `known-link-${index}`,
+          },
+          OPENAI_API_KEYS_URL,
+        ),
+      );
+    }
+  });
+
+  return children;
+}
+
 export function renderSecretEntryCard(
   kind: "planner" | "tts" | "asr",
   profileName: string | null,
@@ -55,74 +87,95 @@ export function renderSecretEntryCard(
   isTestingApiKey: boolean,
   hasApiKeyReference: boolean,
   apiKeyTestMessage: string | null,
-): string {
-  const disabledAttribute = isSavingApiKey || isTestingApiKey ? " disabled aria-disabled=\"true\"" : "";
-  const saveDisabledAttribute =
-    isSavingApiKey || isTestingApiKey || profileName === null || apiKeyDraft.trim().length === 0
-      ? " disabled aria-disabled=\"true\""
-      : "";
-  const testDisabledAttribute =
+): ReactNode {
+  const controlsDisabled = isSavingApiKey || isTestingApiKey;
+  const saveDisabled =
+    isSavingApiKey || isTestingApiKey || profileName === null || apiKeyDraft.trim().length === 0;
+  const testDisabled =
     isSavingApiKey
     || isTestingApiKey
     || profileName === null
-    || (apiKeyDraft.trim().length === 0 && !hasApiKeyReference)
-      ? " disabled aria-disabled=\"true\""
-      : "";
+    || (apiKeyDraft.trim().length === 0 && !hasApiKeyReference);
   const displayedApiKeyValue = apiKeyDraft.length > 0 ? apiKeyDraft : (apiKeyMaskedValue ?? "");
   const inputType = apiKeyDraft.length > 0 ? "password" : (apiKeyMaskedValue ? "text" : "password");
-  const maskedDisplayAttribute = apiKeyDraft.length === 0 && apiKeyMaskedValue
-    ? ` data-masked-api-key-display="${escapeHtml(apiKeyMaskedValue)}"`
-    : "";
-  const testStatusCopy = apiKeyTestMessage
-    ? `
-      <div class="settings-api-key-test-status" role="status" aria-live="polite">
-        <p class="settings-api-key-test-status-label">Latest test result</p>
-        <p class="settings-api-key-test-status-message">${renderTextWithKnownLinks(apiKeyTestMessage)}</p>
-      </div>
-    `
-    : "";
 
-  return `
-    <div class="settings-control-card settings-secret-entry-card">
-      <span class="settings-control-label">API key</span>
-      <div class="settings-api-key-inline-actions">
-        <input
-          id="settings-remote-${kind}-api-key-input"
-          class="settings-control-select settings-api-key-input"
-          data-remote-api-key-input="${escapeHtml(kind)}"
-          type="${inputType}"
-          value="${escapeHtml(displayedApiKeyValue)}"
-          placeholder="Enter a replacement API key"
-          autocomplete="off"
-          spellcheck="false"
-          ${maskedDisplayAttribute}
-          ${disabledAttribute}
-        />
-        <div class="settings-api-key-button-row">
-          <button
-            type="button"
-            class="settings-control-button"
-            data-remote-api-key-save="${escapeHtml(kind)}"
-            ${saveDisabledAttribute}
-          >
-            Save API key
-          </button>
-          <button
-            type="button"
-            class="settings-control-button settings-control-button-secondary"
-            data-remote-api-key-test="${escapeHtml(kind)}"
-            ${testDisabledAttribute}
-          >
-            ${escapeHtml(isTestingApiKey ? "Testing..." : "Test API key")}
-          </button>
-        </div>
-      </div>
-      <p class="settings-panel-description">
-        Need an OpenAI API key? Get one at ${renderOpenAiApiKeysLink()}.
-      </p>
-      ${testStatusCopy}
-    </div>
-  `;
+  return h(
+    "div",
+    { className: "settings-control-card settings-secret-entry-card" },
+    h("span", { className: "settings-control-label" }, "API key"),
+    h(
+      "div",
+      { className: "settings-api-key-inline-actions" },
+      h("input", {
+        id: `settings-remote-${kind}-api-key-input`,
+        className: "settings-control-select settings-api-key-input",
+        "data-remote-api-key-input": kind,
+        type: inputType,
+        value: displayedApiKeyValue,
+        placeholder: "Enter a replacement API key",
+        autoComplete: "off",
+        spellCheck: false,
+        "data-masked-api-key-display": apiKeyDraft.length === 0 && apiKeyMaskedValue ? apiKeyMaskedValue : undefined,
+        disabled: controlsDisabled || undefined,
+        "aria-disabled": controlsDisabled ? "true" : undefined,
+        readOnly: true,
+      }),
+      h(
+        "div",
+        { className: "settings-api-key-button-row" },
+        h(
+          "button",
+          {
+            type: "button",
+            className: "settings-control-button",
+            "data-remote-api-key-save": kind,
+            disabled: saveDisabled || undefined,
+            "aria-disabled": saveDisabled ? "true" : undefined,
+          },
+          "Save API key",
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            className: "settings-control-button settings-control-button-secondary",
+            "data-remote-api-key-test": kind,
+            disabled: testDisabled || undefined,
+            "aria-disabled": testDisabled ? "true" : undefined,
+          },
+          isTestingApiKey ? "Testing..." : "Test API key",
+        ),
+      ),
+    ),
+    h(
+      "p",
+      { className: "settings-panel-description" },
+      "Need an OpenAI API key? Get one at ",
+      h(
+        "a",
+        {
+          href: OPENAI_API_KEYS_URL,
+          target: "_blank",
+          rel: "noreferrer",
+          "data-external-link-url": OPENAI_API_KEYS_URL,
+        },
+        OPENAI_API_KEYS_URL,
+      ),
+      ".",
+    ),
+    apiKeyTestMessage
+      ? h(
+        "div",
+        { className: "settings-api-key-test-status", role: "status", "aria-live": "polite" },
+        h("p", { className: "settings-api-key-test-status-label" }, "Latest test result"),
+        h(
+          "p",
+          { className: "settings-api-key-test-status-message" },
+          ...renderTextWithKnownLinkNodes(apiKeyTestMessage),
+        ),
+      )
+      : null,
+  );
 }
 
 export function renderConfirmationErrorClassName(

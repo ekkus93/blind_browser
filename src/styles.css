@@ -150,14 +150,31 @@ body {
 .settings-subpage-back {
   appearance: none;
   border: none;
-  background: none;
   color: #29583f;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+}
+
+.settings-subpage-link {
+  background: none;
   padding: 0;
   text-decoration: underline;
   text-underline-offset: 0.2em;
+}
+
+.settings-subpage-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.82);
+  border: 1px solid rgba(41, 88, 63, 0.16);
+  box-shadow: 0 10px 20px rgba(49, 63, 74, 0.08);
 }
 .settings-subpage-link:hover,
 .settings-subpage-link:focus-visible,
@@ -165,6 +182,20 @@ body {
 .settings-subpage-back:focus-visible {
   outline: none;
   color: #1f7f5c;
+}
+
+.settings-subpage-back:hover,
+.settings-subpage-back:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px rgba(31, 127, 92, 0.14);
+}
+
+.settings-subpage-back-icon {
+  display: block;
+}
+
+.settings-subpage-back[hidden] {
+  display: none;
 }
 
 .eyebrow {
