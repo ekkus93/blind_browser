@@ -1,3 +1,8 @@
+## 2026-04-18T23:32:49Z - GPT-5.4 - Workspace header reduced to a single settings icon action
+- Removed the remaining workspace hero copy and heading from `src/app-shell.ts`, so the main page now opens directly on the live voice, page, and status controls.
+- Replaced the old `Workspace`/`Settings` text navigation with a single top-right settings gear on the workspace view plus a matching back-to-workspace icon on the settings overview, while keeping the deeper settings-subpage back arrow behavior unchanged.
+- Updated the shell/layout tests and header styles to match the icon-button navigation, and revalidated with `pnpm lint` plus `pnpm test:ui`.
+
 ## 2026-04-18T23:03:25Z - GPT-5.4 - Settings cleanup is already committed and pushed
 - Verified that `master` is clean with no staged or unstaged changes.
 - Verified that `HEAD` and `origin/master` both point at `3368eb0 Finish React interaction migration`, so the settings cleanup is already checked in and published.

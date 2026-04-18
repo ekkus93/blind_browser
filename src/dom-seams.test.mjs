@@ -211,9 +211,9 @@ test("masked remote API key display clears on focus and restores on blur", () =>
   assert.equal(input.type, "text");
 });
 
-test("view navigation buttons switch between workspace and settings", () => {
+test("header action switches between workspace and settings", () => {
   const calls = [];
-  const tree = AppShellMarkup({
+  const workspaceTree = AppShellMarkup({
     initialAppView: "workspace",
     initialSettingsView: "overview",
     panelContent: {},
@@ -224,8 +224,19 @@ test("view navigation buttons switch between workspace and settings", () => {
     },
   });
 
-  findElement(tree, (element) => element.props?.["data-app-view-button"] === "settings").props.onClick();
-  findElement(tree, (element) => element.props?.["data-app-view-button"] === "workspace").props.onClick();
+  const settingsTree = AppShellMarkup({
+    initialAppView: "settings",
+    initialSettingsView: "overview",
+    panelContent: {},
+    navigationHandlers: {
+      onAppViewSelect: (view) => {
+        calls.push(view);
+      },
+    },
+  });
+
+  findElement(workspaceTree, (element) => element.props?.["data-app-view-button"] === "settings").props.onClick();
+  findElement(settingsTree, (element) => element.props?.["data-app-view-button"] === "workspace").props.onClick();
 
   assert.deepEqual(calls, ["settings", "workspace"]);
 });

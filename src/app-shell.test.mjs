@@ -3,21 +3,26 @@ import assert from "node:assert/strict";
 
 import { renderAppShell } from "./app-shell.ts";
 
-test("workspace shell uses plain-language overview copy", async () => {
+test("workspace shell keeps the main page focused on live panels", async () => {
   const html = await renderAppShell();
 
-  assert.ok(html.includes("<h1>Workspace</h1>"));
-  assert.match(html, /Open pages, speak commands, control reading, and check the current state here\./);
-  assert.match(html, /Speak commands here, then keep moving through listening, reading, and confirmation\./);
-  assert.match(html, /<h2>Page actions<\/h2>/);
-  assert.match(html, /without leaving the workspace\./);
-  assert.match(html, /<h2>Status<\/h2>/);
+  assert.ok(!html.includes("<h1>Workspace</h1>"));
+  assert.match(html, /aria-label="Open settings"/);
+  assert.ok(!html.includes('data-app-view-button="workspace"'));
+  assert.ok(!html.includes("Voice-first browser"));
+  assert.ok(!html.includes("Speak commands here, then keep moving through listening, reading, and confirmation."));
+  assert.ok(!html.includes("Page actions"));
+  assert.ok(!html.includes("See what the browser, narration, and listening state are doing right now."));
+  assert.ok(html.includes('data-panel-root="push-to-talk"'));
+  assert.ok(html.includes('data-panel-root="url-input"'));
+  assert.ok(html.includes('data-panel-root="status"'));
 });
 
 test("settings shell groups related sections in a logical order", async () => {
   const html = await renderAppShell();
 
   assert.ok(html.includes("<h1>Settings</h1>"));
+  assert.ok(!html.includes('data-app-view-button="workspace"'));
   assert.ok(html.includes('data-settings-view-section="overview"'));
   assert.ok(html.includes('data-settings-view-section="planner"'));
   assert.ok(html.includes('data-settings-view-section="tts"'));

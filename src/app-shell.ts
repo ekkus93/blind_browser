@@ -1,4 +1,5 @@
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import { Button, CssBaseline, IconButton } from "@mui/material";
 import { StyledEngineProvider, ThemeProvider, createTheme } from "@mui/material/styles";
 import { createElement, type ComponentProps, type ReactNode } from "react";
@@ -85,36 +86,57 @@ function renderPanelContent(rootKey: PanelRootKey, panelContent?: AppShellPanelC
   return content !== undefined ? content : renderPanelRootPlaceholderElement(rootKey);
 }
 
-function renderShellNavButton(
-  view: AppView,
-  label: string,
-  isActive: boolean,
-  handlers?: AppShellNavigationHandlers,
-) {
-  const buttonProps: ButtonWithDataProps = {
+function renderAppViewActionButton(initialAppView: AppView, handlers?: AppShellNavigationHandlers) {
+  if (initialAppView === "workspace") {
+    const buttonProps: IconButtonWithDataProps = {
+      type: "button",
+      className: "shell-toolbar-action shell-toolbar-action-settings",
+      "data-app-view-button": "settings",
+      "aria-label": "Open settings",
+      title: "Open settings",
+      size: "large",
+    };
+
+    if (handlers?.onAppViewSelect) {
+      buttonProps.onClick = () => {
+        handlers.onAppViewSelect?.("settings");
+      };
+    }
+
+    return h(
+      IconButton,
+      buttonProps,
+      h(SettingsRoundedIcon, {
+        className: "shell-toolbar-action-icon",
+        fontSize: "small",
+        "aria-hidden": true,
+      }),
+    );
+  }
+
+  const buttonProps: IconButtonWithDataProps = {
     type: "button",
-    className: `shell-nav-button${isActive ? " shell-nav-button-active" : ""}`,
-    disableElevation: true,
-    variant: isActive ? "contained" : "text",
-    "data-app-view-button": view,
-    "aria-pressed": isActive,
-    sx: {
-      minWidth: 0,
-      px: 2.25,
-      py: 1.4,
-    },
+    className: "shell-toolbar-action settings-subpage-back",
+    "data-app-view-button": "workspace",
+    "aria-label": "Back to workspace",
+    title: "Back to workspace",
+    size: "large",
   };
 
   if (handlers?.onAppViewSelect) {
     buttonProps.onClick = () => {
-      handlers.onAppViewSelect?.(view);
+      handlers.onAppViewSelect?.("workspace");
     };
   }
 
   return h(
-    Button,
+    IconButton,
     buttonProps,
-    label,
+    h(ArrowBackRoundedIcon, {
+      className: "shell-toolbar-action-icon",
+      fontSize: "small",
+      "aria-hidden": true,
+    }),
   );
 }
 
@@ -145,15 +167,6 @@ function renderSettingsSubpageBackButton(showBackButton: boolean, handlers?: App
       fontSize: "small",
       "aria-hidden": true,
     }),
-  );
-}
-
-function renderWorkspaceOverviewCard(title: string, copy: string) {
-  return h(
-    "article",
-    { className: "panel" },
-    h("h2", null, title),
-    h("p", null, copy),
   );
 }
 
@@ -203,6 +216,7 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
   const workspaceActive = initialAppView === "workspace";
   const settingsActive = initialAppView === "settings";
   const showBackButton = settingsActive && initialSettingsView !== "overview";
+  const showAppViewAction = workspaceActive || (settingsActive && !showBackButton);
 
   return h(
     "main",
@@ -210,15 +224,7 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
     h(
       "header",
       { className: "shell-toolbar" },
-      h(
-        "nav",
-        {
-          className: "shell-nav",
-          "aria-label": "App pages",
-        },
-        renderShellNavButton("workspace", "Workspace", workspaceActive, navigationHandlers),
-        renderShellNavButton("settings", "Settings", settingsActive, navigationHandlers),
-      ),
+      showAppViewAction ? renderAppViewActionButton(initialAppView, navigationHandlers) : null,
       renderSettingsSubpageBackButton(showBackButton, navigationHandlers),
     ),
     h(
@@ -229,33 +235,6 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
         hidden: !workspaceActive,
         "aria-hidden": String(!workspaceActive),
       },
-      h(
-        "section",
-        { className: "hero" },
-        h("p", { className: "eyebrow" }, "Voice-first browser"),
-        h("h1", null, "Workspace"),
-        h(
-          "p",
-          { className: "lede" },
-          "Open pages, speak commands, control reading, and check the current state here. Settings stay on a separate page so this workflow stays focused.",
-        ),
-      ),
-      h(
-        "section",
-        { className: "panels", "aria-label": "Workspace sections" },
-        renderWorkspaceOverviewCard(
-          "Voice input",
-          "Speak commands here, then keep moving through listening, reading, and confirmation.",
-        ),
-        renderWorkspaceOverviewCard(
-          "Page actions",
-          "Open a page, start reading, move forward or back, and stop without leaving the workspace.",
-        ),
-        renderWorkspaceOverviewCard(
-          "Status",
-          "See what the browser, narration, and listening state are doing right now.",
-        ),
-      ),
       renderPanelContent("push-to-talk", panelContent),
       renderPanelContent("url-input", panelContent),
       renderPanelContent("status", panelContent),
