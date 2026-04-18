@@ -33,11 +33,11 @@ This document tracks the remaining frontend follow-up after the settings cleanup
 
 ## Priority 3: Break Up The Frontend Into Smaller React Units
 
-- [ ] Split `src/settings-status-panels.ts` into focused components or modules by domain: playback, planner, TTS, ASR, runtime, and shared controls.
-- [ ] Split `src/confirmation-panel.ts` into focused components so confirmation UI, push-to-talk UI, status UI, and URL entry are easier to reason about independently.
-- [ ] Extract reusable React controls for masked API key entry, slider settings, select-card layouts, and status or error blocks.
-- [ ] Reduce duplicated field-label and card-layout logic by promoting shared component primitives instead of helper-generated markup.
-- [ ] Keep exported prop and state types explicit so panel contracts stay stable while files are decomposed.
+- [x] Split `src/settings-status-panels.ts` into focused components or modules by domain: playback, planner, TTS, ASR, runtime, and shared controls.
+- [x] Split `src/confirmation-panel.ts` into focused components so confirmation UI, push-to-talk UI, status UI, and URL entry are easier to reason about independently.
+- [x] Extract reusable React controls for masked API key entry, slider settings, select-card layouts, and status or error blocks.
+- [x] Reduce duplicated field-label and card-layout logic by promoting shared component primitives instead of helper-generated markup.
+- [x] Keep exported prop and state types explicit so panel contracts stay stable while files are decomposed.
 
 ## Priority 4: Move Interaction Handling Toward React
 
@@ -70,16 +70,16 @@ This document tracks the remaining frontend follow-up after the settings cleanup
 - [x] Move panel state ownership out of `src/main.ts` into Redux or React state.
 - [x] Convert remaining string renderers and retire the HTML seam.
 - [ ] Replace legacy DOM-seam tests with React-centric DOM tests.
-- [ ] Split the large frontend modules after the rendering model is stable.
+- [x] Split the large frontend modules after the rendering model is stable.
 - [ ] Refresh docs once the architecture is settled.
 
 ## Validation Checklist
 
-- [ ] `source ./fix-node-version.sh && pnpm lint`
-- [ ] `source ./fix-node-version.sh && pnpm test:ui`
-- [ ] `source ./fix-node-version.sh && pnpm build`
-- [ ] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
-- [ ] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
+- [x] `source ./fix-node-version.sh && pnpm lint`
+- [x] `source ./fix-node-version.sh && pnpm test:ui`
+- [x] `source ./fix-node-version.sh && pnpm build`
+- [x] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
+- [x] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
 - [x] LLM provider selection behavior
 - [x] Default local model profile selection behavior
 - [x] TTS provider selection behavior

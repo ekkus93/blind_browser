@@ -3,6 +3,11 @@
 - Changed `src/app-shell.ts` so the `renderAppShell()` helper used only by `src/app-shell.test.mjs` loads `react-dom/server` lazily instead of importing it into the live browser bundle.
 - The build warning is now actually gone instead of being masked: `pnpm build` produces a `428.09 kB` main JS chunk instead of the prior `615.81 kB`, and full validation is green with `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features`.
 
+## 2026-04-18T22:02:52Z - GPT-5.4 - Phase 3 split the oversized frontend panel modules into domain files
+- Replaced the monolithic `src/settings-status-panels.ts` implementation with a barrel that re-exports focused domain modules under `src/settings-panels/`: playback, planner, TTS, ASR, runtime, workspace, and shared controls.
+- Split `src/confirmation-panel.ts` into a thin export surface over dedicated confirmation and push-to-talk modules in `src/confirmation-panels/`, while keeping the existing runtime import contract stable.
+- Added shared React control primitives for repeated settings card patterns, then revalidated the full repo successfully with `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features`.
+
 ## 2026-04-18T21:43:40Z - GPT-5.4 - Phase 2 removed the last HTML render seam from the frontend runtime
 - Deleted the legacy string-only playback helpers from `src/settings-status-panels.ts` and dropped their test-only re-exports from `src/confirmation-panel.ts`, so the remaining panel surface is React-node based.
 - Replaced `renderPanelRoot(..., html)` in `src/app-shell.ts` with `preserveActivePanelControl(...)`, which keeps the focus-restoration behavior while removing the last `innerHTML` rendering path from the app shell module.

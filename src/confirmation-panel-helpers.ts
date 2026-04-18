@@ -29,24 +29,12 @@ export function renderOcrThresholdValue(value: number): string {
   return `${value}`;
 }
 
-export function renderReadOnlySettingValue(value: string | number | null): string {
-  if (value === null) {
-    return "Not configured";
-  }
-
-  return escapeHtml(`${value}`);
-}
-
 export function renderModelAvailabilityLabel(available: boolean): string {
   return available ? "Downloaded" : "Missing";
 }
 
 export function renderOpenAiApiKeysLink(label: string = OPENAI_API_KEYS_URL): string {
   return `<a href="${escapeHtml(OPENAI_API_KEYS_URL)}" target="_blank" rel="noreferrer" data-external-link-url="${escapeHtml(OPENAI_API_KEYS_URL)}">${escapeHtml(label)}</a>`;
-}
-
-export function renderTextWithKnownLinks(value: string): string {
-  return escapeHtml(value).split(OPENAI_API_KEYS_URL).join(renderOpenAiApiKeysLink());
 }
 
 export function renderTextWithKnownLinkNodes(value: string): ReactNode[] {
