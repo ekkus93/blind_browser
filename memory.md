@@ -243,6 +243,10 @@
 - Push-to-talk setup failures now map `asr_model_unavailable` and `asr_secret_unavailable` into short user-facing messages instead of surfacing raw backend model-path text in the main UI.
 - `docs/SPECS.md` now documents the remote-first first-run behavior, and the full validation set passed again: clippy, 304 Rust tests, 65 UI tests, and `pnpm build`.
 
+## 2026-04-18T10:20:20Z - GPT-5.4 - Remote-first media defaults pushed to master
+- Committed the remote-first TTS/ASR default change and simplified push-to-talk setup messaging as `e5e4152` (`feat: default voice input and speech to OpenAI`).
+- Pushed `master` to `origin` successfully so GitHub now contains the OpenAI-default first-run behavior and the shorter voice-input setup copy.
+
 ## 2026-03-23T21:23:18Z - GPT-5.4 - ALSA prerequisite documented after Clippy run
 - After the OCR dependency blocker was resolved, `cargo clippy --all-features` advanced to the audio dependency chain and failed in `alsa-sys` because `pkg-config` could not find `alsa.pc`.
 - `README.md` now includes `libasound2-dev` in the Linux prerequisite install command and notes that a missing `alsa.pc` usually means that package is not installed.
