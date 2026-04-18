@@ -112,6 +112,7 @@ function createEventHandlerDeps() {
     updateRemoteApiKeyInput: [],
     loadRemotePlannerModels: 0,
     setAppView: [],
+    setSettingsView: [],
   };
 
   registerAppEventHandlers({
@@ -166,6 +167,9 @@ function createEventHandlerDeps() {
     },
     setAppView: (view) => {
       calls.setAppView.push(view);
+    },
+    setSettingsView: (view) => {
+      calls.setSettingsView.push(view);
     },
     beginPushToTalk: () => {},
     releasePushToTalk: () => {},
@@ -277,6 +281,23 @@ test("settings target click switches to the settings view", () => {
   appRoot.dispatch("click", { target: settingsButton });
 
   assert.deepEqual(calls.setAppView, ["settings"]);
+  assert.deepEqual(calls.setSettingsView, ["overview"]);
+});
+
+test("planner settings target opens the planner subpage", () => {
+  const { appRoot, calls, document } = createEventHandlerDeps();
+  const settingsButton = new FakeButtonElement();
+  settingsButton.selectorMatches.add("[data-settings-target]");
+  settingsButton.dataset.settingsTarget = "settings-remote-planner-api-key-input";
+
+  const targetControl = new FakeInputElement();
+  targetControl.id = "settings-remote-planner-api-key-input";
+  document.register(targetControl);
+
+  appRoot.dispatch("click", { target: settingsButton });
+
+  assert.deepEqual(calls.setAppView, ["settings"]);
+  assert.deepEqual(calls.setSettingsView, ["planner"]);
 });
 
 test("view navigation buttons switch between workspace and settings", () => {
@@ -293,6 +314,23 @@ test("view navigation buttons switch between workspace and settings", () => {
   appRoot.dispatch("click", { target: workspaceButton });
 
   assert.deepEqual(calls.setAppView, ["settings", "workspace"]);
+});
+
+test("settings subpage buttons switch between overview and planner", () => {
+  const { appRoot, calls } = createEventHandlerDeps();
+  const plannerButton = new FakeButtonElement();
+  plannerButton.selectorMatches.add("[data-settings-view-button]");
+  plannerButton.dataset.settingsViewButton = "planner";
+
+  const overviewButton = new FakeButtonElement();
+  overviewButton.selectorMatches.add("[data-settings-view-button]");
+  overviewButton.dataset.settingsViewButton = "overview";
+
+  appRoot.dispatch("click", { target: plannerButton });
+  appRoot.dispatch("click", { target: overviewButton });
+
+  assert.deepEqual(calls.setAppView, ["settings", "settings"]);
+  assert.deepEqual(calls.setSettingsView, ["planner", "overview"]);
 });
 
 test("remote API key test button dispatches the matching kind", () => {

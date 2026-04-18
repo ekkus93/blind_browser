@@ -4,9 +4,11 @@ import {
   createPanelRoots,
   renderPanelRoot as renderPanelRootHtml,
   setActiveAppView,
+  setActiveSettingsView,
   type AppView,
   type PanelRootKey,
   type PanelRootMap,
+  type SettingsView,
 } from "./app-shell";
 import { createInitialPanelStates } from "./panel-state";
 import {
@@ -163,6 +165,7 @@ let urlInputPanelState: UrlInputPanelState = initialPanelStates.urlInputPanelSta
 let activePushToTalkSource: "keyboard" | "pointer" | null = null;
 let continuousListeningLoopActive = false;
 let activeAppView: AppView = "workspace";
+let activeSettingsView: SettingsView = "overview";
 
 if (!app) {
   throw new Error("App root element was not found.");
@@ -177,14 +180,25 @@ function ensurePanelRoots(): PanelRootMap {
 
   panelRoots = createPanelRoots(appRoot);
   setActiveAppView(appRoot, activeAppView);
+  setActiveSettingsView(appRoot, activeSettingsView);
 
   return panelRoots;
 }
 
 function setAppView(nextView: AppView) {
   activeAppView = nextView;
+  if (nextView === "settings") {
+    activeSettingsView = "overview";
+  }
   ensurePanelRoots();
   setActiveAppView(appRoot, activeAppView);
+  setActiveSettingsView(appRoot, activeSettingsView);
+}
+
+function setSettingsView(nextView: SettingsView) {
+  activeSettingsView = nextView;
+  ensurePanelRoots();
+  setActiveSettingsView(appRoot, activeSettingsView);
 }
 
 function renderPanelRoot(rootKey: PanelRootKey, html: string) {
@@ -2007,6 +2021,7 @@ registerAppEventHandlers({
     });
   },
   setAppView,
+  setSettingsView,
   beginPushToTalk: (source) => {
     void beginPushToTalk(source);
   },

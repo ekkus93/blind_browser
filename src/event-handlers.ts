@@ -7,6 +7,7 @@ type OcrThresholdControlKind = "char" | "region";
 type ModelManagementToggleKind = "check-on-startup" | "auto-download-missing";
 type PushToTalkSource = "keyboard" | "pointer";
 type AppView = "workspace" | "settings";
+type SettingsView = "overview" | "planner";
 type SettingsBusyKey =
   | "volume"
   | "speed"
@@ -59,9 +60,18 @@ interface EventHandlerDependencies {
   resetRemotePlannerConnectionSettings: () => void;
   openExternalLink: (url: string) => void;
   setAppView: (view: AppView) => void;
+  setSettingsView: (view: SettingsView) => void;
   beginPushToTalk: (source: PushToTalkSource) => void;
   releasePushToTalk: (source: PushToTalkSource) => void;
   cancelPushToTalk: () => void;
+}
+
+function resolveSettingsViewForTarget(targetId: string): SettingsView {
+  if (targetId.startsWith("settings-remote-planner")) {
+    return "planner";
+  }
+
+  return "overview";
 }
 
 export function registerAppEventHandlers({
@@ -101,6 +111,7 @@ export function registerAppEventHandlers({
   resetRemotePlannerConnectionSettings,
   openExternalLink,
   setAppView,
+  setSettingsView,
   beginPushToTalk,
   releasePushToTalk,
   cancelPushToTalk,
@@ -131,6 +142,7 @@ export function registerAppEventHandlers({
       }
 
       setAppView("settings");
+      setSettingsView(resolveSettingsViewForTarget(targetId));
 
       const targetElement = document.getElementById(targetId);
       if (!targetElement) {
@@ -145,6 +157,16 @@ export function registerAppEventHandlers({
         || targetElement instanceof HTMLTextAreaElement
       ) {
         targetElement.focus({ preventScroll: true });
+      }
+      return;
+    }
+
+    const settingsViewButton = target.closest<HTMLButtonElement>("[data-settings-view-button]");
+    if (settingsViewButton) {
+      const view = settingsViewButton.dataset.settingsViewButton;
+      if (view === "overview" || view === "planner") {
+        setAppView("settings");
+        setSettingsView(view);
       }
       return;
     }

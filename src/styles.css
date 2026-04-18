@@ -97,9 +97,26 @@ body {
 .hero-settings {
   padding-top: 12px;
 }
+.hero-settings-subpage {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.settings-view[hidden] {
+  display: none;
+}
+.settings-view-active {
+  display: block;
+}
 
 .settings-group {
   margin-top: 30px;
+}
+.settings-group-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 18px;
 }
 
 .settings-group-copy {
@@ -124,6 +141,30 @@ body {
   margin-top: 10px;
   line-height: 1.6;
   color: #433d37;
+}
+.settings-subpage-card {
+  display: flex;
+  justify-content: flex-start;
+}
+.settings-subpage-link,
+.settings-subpage-back {
+  appearance: none;
+  border: none;
+  background: none;
+  color: #29583f;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.settings-subpage-link:hover,
+.settings-subpage-link:focus-visible,
+.settings-subpage-back:hover,
+.settings-subpage-back:focus-visible {
+  outline: none;
+  color: #1f7f5c;
 }
 
 .eyebrow {
@@ -1169,6 +1210,10 @@ h1 {
     padding: 40px 18px 56px;
   }
 
+  .settings-group-link {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
   .shell-toolbar {
     flex-direction: column;
     align-items: stretch;

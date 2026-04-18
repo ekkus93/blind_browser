@@ -1,3 +1,8 @@
+## 2026-04-18T18:51:46Z - GPT-5.4 - Planner setup moved to a settings subpage
+- Split the crowded Settings overview in `src/app-shell.ts` by moving the planner configuration panel behind a dedicated in-settings subpage reached through an `Open planner setup` link and a `Back to settings` control.
+- Added nested settings-view state in `src/app-shell.ts`, `src/main.ts`, and `src/event-handlers.ts` so planner-target guidance links open the planner subpage before focusing the requested control.
+- Updated `src/app-shell.test.mjs` and `src/dom-seams.test.mjs`, and validation is green with `pnpm lint` plus `pnpm test:ui`.
+
 ## 2026-04-18T18:40:12Z - GPT-5.4 - Removed leftover verbose settings copy
 - Removed the leftover `Configuration` eyebrow and the long settings intro from `src/app-shell.ts` after the user flagged it as too verbose for a voice-first UI.
 - Removed the playback group description in `src/app-shell.ts` and the narration helper paragraph in `src/settings-status-panels.ts` so the playback section relies on labels instead of explanatory prose.
