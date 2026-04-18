@@ -7,6 +7,7 @@ import {
   renderProviderModeLabel,
   renderReadOnlySettingValue,
   renderSecretEntryCard,
+  renderTextWithKnownLinks,
   renderTtsModelOptionLabel,
   renderTtsVoiceOptionLabel,
 } from "./confirmation-panel-helpers.ts";
@@ -473,7 +474,7 @@ export function renderSettingsGuidancePanel(state: SettingsGuidancePanelState | 
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Guidance</p>
         <h2 id="settings-guidance-title">${escapeHtml(state.title)}</h2>
-        <p class="settings-panel-description">${escapeHtml(state.message)}</p>
+        <p class="settings-panel-description">${renderTextWithKnownLinks(state.message)}</p>
       </div>
       <div class="url-input-actions">
         ${actionsCopy}

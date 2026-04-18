@@ -1,6 +1,8 @@
 import type { SettingsGuidancePanelState } from "./confirmation-panel";
 import type { PanelStates } from "./panel-state";
-import { classifyInvokeFailure } from "./tauri-api";
+import { classifyInvokeFailure } from "./tauri-api.ts";
+
+const OPENAI_API_KEYS_URL = "https://platform.openai.com/account/api-keys";
 
 function describeInvokeFailureMessage(error: unknown): string {
   const failure = classifyInvokeFailure(error);
@@ -18,7 +20,7 @@ export function describePushToTalkFailure(error: unknown): string {
       case "asr_model_unavailable":
         return "Voice input setup is incomplete. Switch ASR to OpenAI or finish the local Whisper setup.";
       case "asr_secret_unavailable":
-        return "Voice input needs an OpenAI API key before it can start.";
+        return `Voice input needs an OpenAI API key before it can start. Get one at ${OPENAI_API_KEYS_URL}.`;
       default:
         return failure.toolError.message;
     }
@@ -110,7 +112,7 @@ export function guidanceStateForErrorMessage(message: string | null): SettingsGu
   ) {
     return {
       title: "Remote planner secret needs attention",
-      message: "The current remote planner secret is unavailable. Review the planner API reference and save a replacement key below.",
+      message: `The current remote planner secret is unavailable. Review the planner API reference, then get an OpenAI API key at ${OPENAI_API_KEYS_URL} if needed and save it below.`,
       actions: [
         { label: "Review planner API reference", targetId: "settings-remote-planner-title" },
         { label: "Enter planner API key", targetId: "settings-remote-planner-api-key-input" },
@@ -125,7 +127,7 @@ export function guidanceStateForErrorMessage(message: string | null): SettingsGu
   ) {
     return {
       title: "Remote TTS secret needs attention",
-      message: "The current remote TTS secret is unavailable. Review the remote TTS profile and save a replacement key below.",
+      message: `The current remote TTS secret is unavailable. Review the remote TTS profile, then get an OpenAI API key at ${OPENAI_API_KEYS_URL} if needed and save it below.`,
       actions: [
         { label: "Review remote TTS profile", targetId: "settings-remote-tts-title" },
         { label: "Enter remote TTS API key", targetId: "settings-remote-tts-api-key-input" },
@@ -141,7 +143,7 @@ export function guidanceStateForErrorMessage(message: string | null): SettingsGu
   ) {
     return {
       title: "Remote ASR secret needs attention",
-      message: "The current remote ASR secret is unavailable. Review the remote ASR profile and save a replacement key below.",
+      message: `The current remote ASR secret is unavailable. Review the remote ASR profile, then get an OpenAI API key at ${OPENAI_API_KEYS_URL} if needed and save it below.`,
       actions: [
         { label: "Review remote ASR profile", targetId: "settings-remote-asr-title" },
         { label: "Enter remote ASR API key", targetId: "settings-remote-asr-api-key-input" },

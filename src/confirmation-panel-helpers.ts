@@ -1,5 +1,7 @@
 import type { ConfirmationUiState } from "./planner-orchestration";
 
+export const OPENAI_API_KEYS_URL = "https://platform.openai.com/account/api-keys";
+
 export function renderTtsModelOptionLabel(profileName: string, modelLabel: string): string {
   return `${modelLabel} (${profileName})`;
 }
@@ -36,6 +38,14 @@ export function renderModelAvailabilityLabel(available: boolean): string {
   return available ? "Downloaded" : "Missing";
 }
 
+export function renderOpenAiApiKeysLink(label: string = OPENAI_API_KEYS_URL): string {
+  return `<a href="${escapeHtml(OPENAI_API_KEYS_URL)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`;
+}
+
+export function renderTextWithKnownLinks(value: string): string {
+  return escapeHtml(value).split(OPENAI_API_KEYS_URL).join(renderOpenAiApiKeysLink());
+}
+
 export function renderSecretEntryCard(
   kind: "planner" | "tts" | "asr",
   profileName: string | null,
@@ -58,7 +68,7 @@ export function renderSecretEntryCard(
       ? " disabled aria-disabled=\"true\""
       : "";
   const testStatusCopy = apiKeyTestMessage
-    ? `<p class="settings-panel-description" role="status">${escapeHtml(apiKeyTestMessage)}</p>`
+    ? `<p class="settings-panel-description" role="status">${renderTextWithKnownLinks(apiKeyTestMessage)}</p>`
     : "";
 
   return `
@@ -100,6 +110,9 @@ export function renderSecretEntryCard(
       <p class="settings-panel-description">
         Testing checks the entered key without saving it. If the field is blank, testing uses the
         configured API key reference.
+      </p>
+      <p class="settings-panel-description">
+        Need an OpenAI API key? Get one at ${renderOpenAiApiKeysLink()}.
       </p>
       ${testStatusCopy}
     </div>

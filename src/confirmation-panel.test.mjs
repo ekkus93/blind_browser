@@ -586,6 +586,7 @@ test("renders remote planner API reference details", () => {
   assert.match(html, /data-remote-api-key-input="planner"/);
   assert.match(html, /data-remote-api-key-save="planner"/);
   assert.match(html, /data-remote-api-key-test="planner"/);
+  assert.match(html, /<a href="https:\/\/platform\.openai\.com\/account\/api-keys" target="_blank" rel="noreferrer">https:\/\/platform\.openai\.com\/account\/api-keys<\/a>/);
 });
 
 test("renders settings provider failover as read-only unavailable controls", () => {
@@ -685,6 +686,16 @@ test("renders settings guidance panel for model-related errors", () => {
   assert.match(html, /could not be loaded/);
   assert.match(html, /data-settings-target="settings-tts-provider-control"/);
   assert.match(html, /data-settings-target="settings-tts-model-control"/);
+});
+
+test("renders settings guidance panel with a clickable OpenAI API key link", () => {
+  const html = renderSettingsGuidancePanel({
+    title: "Remote ASR secret needs attention",
+    message: "Get an OpenAI API key at https://platform.openai.com/account/api-keys if needed.",
+    actions: [{ label: "Enter remote ASR API key", targetId: "settings-remote-asr-api-key-input" }],
+  });
+
+  assert.match(html, /<a href="https:\/\/platform\.openai\.com\/account\/api-keys" target="_blank" rel="noreferrer">https:\/\/platform\.openai\.com\/account\/api-keys<\/a>/);
 });
 
 test("renders settings ASR provider selection for configured modes", () => {
@@ -900,6 +911,29 @@ test("renders remote planner API key test status while testing", () => {
   assert.match(html, /Testing\.\.\./);
   assert.match(html, /OpenAI accepted the configured API key\./);
   assert.match(html, /role="status"/);
+});
+
+test("renders remote planner API key test failures with a clickable OpenAI API key link", () => {
+  const html = renderSettingsRemotePlannerPanel({
+    profileName: "openai-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-5.4-mini",
+    apiKeyReference: "Environment variable: OPENAI_API_KEY",
+    organizationReference: null,
+    project: null,
+    temperatureMilli: 200,
+    maxOutputTokens: 1024,
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: "OpenAI rejected that API key. Check the key and try again, or create one at https://platform.openai.com/account/api-keys.",
+    error: null,
+  });
+
+  assert.match(html, /role="status"/);
+  assert.match(html, /<a href="https:\/\/platform\.openai\.com\/account\/api-keys" target="_blank" rel="noreferrer">https:\/\/platform\.openai\.com\/account\/api-keys<\/a>/);
 });
 
 test("renders settings TTS model errors and disabled state while saving", () => {

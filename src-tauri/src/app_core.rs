@@ -4988,9 +4988,9 @@ fn test_openai_api_key_connectivity(
 
 fn openai_api_key_test_failure_message(status: reqwest::StatusCode) -> String {
     match status {
-        reqwest::StatusCode::UNAUTHORIZED => {
-            String::from("OpenAI rejected that API key. Check the key and try again.")
-        }
+        reqwest::StatusCode::UNAUTHORIZED => String::from(
+            "OpenAI rejected that API key. Check the key and try again, or create one at https://platform.openai.com/account/api-keys.",
+        ),
         reqwest::StatusCode::FORBIDDEN => String::from(
             "OpenAI refused this request. Check that the API key has access to this project.",
         ),
@@ -11406,7 +11406,7 @@ mod tests {
         server.join().expect("test server should exit cleanly");
         assert_eq!(
             error,
-            "OpenAI rejected that API key. Check the key and try again."
+            "OpenAI rejected that API key. Check the key and try again, or create one at https://platform.openai.com/account/api-keys."
         );
         assert!(!error.contains("sk-proj"));
     }

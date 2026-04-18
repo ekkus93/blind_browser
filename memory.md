@@ -219,6 +219,21 @@
 ## 2026-03-23T20:33:26Z - GPT-5.4 - Added focused metadata-block render coverage
 - `src/confirmation-panel.test.mjs` now includes a third focused test that verifies the backend metadata block structure and exact retry-status lines for retryable and non-retryable backend errors.
 
+## 2026-04-18T11:20:35Z - GPT-5.4 - OpenAI API key hint added for missing secrets
+- `src/confirmation-panel-helpers.ts` now tells users where to get an OpenAI API key from the secure API key entry card for remote planner, TTS, and ASR profiles.
+- `src/main-errors.ts` now adds the same OpenAI API key URL to missing-secret guidance, including the push-to-talk ASR secret-unavailable path.
+- Added focused frontend coverage in `src/main-errors.test.mjs` and extended the remote planner settings render test; `pnpm test:ui` and `pnpm build` both pass.
+
+## 2026-04-18T11:25:27Z - GPT-5.4 - Sanitized API key rejection now includes the creation link
+- `src-tauri/src/app_core.rs` now appends `https://platform.openai.com/account/api-keys` to the sanitized 401 OpenAI API key test failure message so the Settings test result gives the user the next action directly.
+- Updated the Rust connectivity test to assert the new sanitized message while still proving no `sk-proj` fragment leaks.
+- Validation after the change: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` and `cargo test --manifest-path src-tauri/Cargo.toml --all-features` both pass.
+
+## 2026-04-18T11:31:29Z - GPT-5.4 - OpenAI API key URL now renders as a clickable link in settings
+- `src/confirmation-panel-helpers.ts` now renders the known OpenAI API key URL as a real anchor in the secure API key entry card and in API key test status text, while still escaping the rest of the message.
+- `src/settings-status-panels.ts` now applies the same link rendering to guidance copy so the missing-secret guidance panel is clickable too.
+- Added focused render coverage in `src/confirmation-panel.test.mjs`; `pnpm test:ui` passed with 74 tests and `pnpm build` passed.
+
 ## 2026-04-18T10:59:52Z - GPT-5.4 - Settings OpenAI API key test added
 - The Settings page remote planner, remote TTS, and remote ASR cards now expose a `Test API key` action that tests either the entered unsaved key or the currently configured secret reference.
 - Backend validation now performs a real OpenAI-compatible `GET /models` request against the configured remote profile base URL, including organization and project headers when configured.
