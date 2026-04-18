@@ -261,6 +261,21 @@ test("testRemotePlannerApiKey forwards the request and unwraps the response", as
   ]]);
 });
 
+test("openExternalUrl forwards the url to the Tauri command", async () => {
+  invokeImplementation = async () => undefined;
+
+  await tauriApi.openExternalUrl({
+    url: "https://platform.openai.com/account/api-keys",
+  });
+
+  assert.deepEqual(invokeCalls, [[
+    "open_external_url",
+    {
+      url: "https://platform.openai.com/account/api-keys",
+    },
+  ]]);
+});
+
 test("classifyInvokeFailure prefers structured tool errors and falls back to transport messages", () => {
   assert.deepEqual(
     tauriApi.classifyInvokeFailure({

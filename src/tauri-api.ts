@@ -603,6 +603,12 @@ export async function openUrl(input: {
   return unwrapToolResult(result);
 }
 
+export async function openExternalUrl(input: { url: string }): Promise<void> {
+  await invokeCommand<void>("open_external_url", {
+    url: input.url,
+  });
+}
+
 export async function setPlaybackVolume(input: {
   requestId: string;
   timeoutMs?: number;

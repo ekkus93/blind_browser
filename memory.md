@@ -1,3 +1,14 @@
+## 2026-04-18T14:37:47Z - GPT-5.4 - Full validation run passed after API key visibility work
+- `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passed with 306 backend tests green.
+- `pnpm test:ui` passed with 76 UI tests green after switching to Node.js 22.12.0 via `fix-node-version.sh`.
+- `pnpm build` passed and produced a successful frontend production build.
+
+## 2026-04-18T12:25:06Z - GPT-5.4 - API key test results are now visually explicit in settings
+- `src/confirmation-panel-helpers.ts` now renders successful `Test API key` results inside a dedicated status block labeled `Latest test result` instead of a plain low-contrast paragraph, so successful checks are visibly acknowledged after saving a key.
+- `src/styles.css` adds distinct success-state styling for that status block, and `src/confirmation-panel.test.mjs` now asserts the explicit status container and label.
+- Validation after the UI fix: `pnpm test:ui` passed with 76 tests and `pnpm build` passed.
+
 ## 2026-03-23T08:51:47Z - GPT-5.4 - Initial project memory
 - Project: blind_browser, a Rust + Tauri voice-first web browser for vision-impaired users.
 - Core architecture: bounded LLM planner over deterministic Rust tools; Pi-style skills guide planning but do not replace tool execution.
@@ -233,6 +244,16 @@
 - `src/confirmation-panel-helpers.ts` now renders the known OpenAI API key URL as a real anchor in the secure API key entry card and in API key test status text, while still escaping the rest of the message.
 - `src/settings-status-panels.ts` now applies the same link rendering to guidance copy so the missing-secret guidance panel is clickable too.
 - Added focused render coverage in `src/confirmation-panel.test.mjs`; `pnpm test:ui` passed with 74 tests and `pnpm build` passed.
+
+## 2026-04-18T11:41:20Z - GPT-5.4 - OpenAI settings links now open the system browser
+- `src/event-handlers.ts`, `src/main.ts`, and `src/tauri-api.ts` now route clicks on `data-external-link-url` anchors through a dedicated `open_external_url` Tauri command instead of relying on inert `_blank` link behavior inside the Tauri webview.
+- `src-tauri/src/lib.rs` now validates HTTPS external URLs and launches the OS browser with `xdg-open`, `open`, or `cmd /C start` depending on the platform.
+- Added focused coverage in `src/dom-seams.test.mjs` and `src/tauri-api.test.mjs`; full validation passed with `cargo clippy`, `cargo test`, `pnpm test:ui` (76 tests), and `pnpm build`.
+
+## 2026-04-18T11:50:44Z - GPT-5.4 - Same-session keyring reads now use a runtime cache
+- `src-tauri/src/config.rs` now caches keyring-backed secrets in process memory after save or successful read, so an immediate Save API Key → Test API Key flow can resolve the newly saved secret even if the OS keyring backend does not return it back reliably in the same app session.
+- The cache sits under the shared `resolve_secret_ref` path, so planner, TTS, ASR, and API key test reads all benefit from the same behavior during the current runtime.
+- Validation after the change: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` and `cargo test --manifest-path src-tauri/Cargo.toml --all-features` both pass.
 
 ## 2026-04-18T10:59:52Z - GPT-5.4 - Settings OpenAI API key test added
 - The Settings page remote planner, remote TTS, and remote ASR cards now expose a `Test API key` action that tests either the entered unsaved key or the currently configured secret reference.

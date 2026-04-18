@@ -747,6 +747,32 @@ h1 {
   gap: 12px;
 }
 
+.settings-api-key-test-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(31, 127, 92, 0.09);
+  border: 1px solid rgba(31, 127, 92, 0.2);
+}
+
+.settings-api-key-test-status-label {
+  margin: 0;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #29583f;
+  font-weight: 700;
+}
+
+.settings-api-key-test-status-message {
+  margin: 0;
+  line-height: 1.55;
+  color: #1f2527;
+  font-weight: 600;
+}
+
 .settings-control-input:disabled {
   cursor: progress;
   opacity: 0.6;

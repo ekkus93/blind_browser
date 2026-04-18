@@ -586,7 +586,7 @@ test("renders remote planner API reference details", () => {
   assert.match(html, /data-remote-api-key-input="planner"/);
   assert.match(html, /data-remote-api-key-save="planner"/);
   assert.match(html, /data-remote-api-key-test="planner"/);
-  assert.match(html, /<a href="https:\/\/platform\.openai\.com\/account\/api-keys" target="_blank" rel="noreferrer">https:\/\/platform\.openai\.com\/account\/api-keys<\/a>/);
+  assert.match(html, /<a href="https:\/\/platform\.openai\.com\/account\/api-keys" target="_blank" rel="noreferrer" data-external-link-url="https:\/\/platform\.openai\.com\/account\/api-keys">https:\/\/platform\.openai\.com\/account\/api-keys<\/a>/);
 });
 
 test("renders settings provider failover as read-only unavailable controls", () => {
@@ -695,7 +695,7 @@ test("renders settings guidance panel with a clickable OpenAI API key link", () 
     actions: [{ label: "Enter remote ASR API key", targetId: "settings-remote-asr-api-key-input" }],
   });
 
-  assert.match(html, /<a href="https:\/\/platform\.openai\.com\/account\/api-keys" target="_blank" rel="noreferrer">https:\/\/platform\.openai\.com\/account\/api-keys<\/a>/);
+  assert.match(html, /<a href="https:\/\/platform\.openai\.com\/account\/api-keys" target="_blank" rel="noreferrer" data-external-link-url="https:\/\/platform\.openai\.com\/account\/api-keys">https:\/\/platform\.openai\.com\/account\/api-keys<\/a>/);
 });
 
 test("renders settings ASR provider selection for configured modes", () => {
@@ -909,7 +909,9 @@ test("renders remote planner API key test status while testing", () => {
   });
 
   assert.match(html, /Testing\.\.\./);
+  assert.match(html, /Latest test result/);
   assert.match(html, /OpenAI accepted the configured API key\./);
+  assert.match(html, /settings-api-key-test-status/);
   assert.match(html, /role="status"/);
 });
 
@@ -933,7 +935,8 @@ test("renders remote planner API key test failures with a clickable OpenAI API k
   });
 
   assert.match(html, /role="status"/);
-  assert.match(html, /<a href="https:\/\/platform\.openai\.com\/account\/api-keys" target="_blank" rel="noreferrer">https:\/\/platform\.openai\.com\/account\/api-keys<\/a>/);
+  assert.match(html, /Latest test result/);
+  assert.match(html, /<a href="https:\/\/platform\.openai\.com\/account\/api-keys" target="_blank" rel="noreferrer" data-external-link-url="https:\/\/platform\.openai\.com\/account\/api-keys">https:\/\/platform\.openai\.com\/account\/api-keys<\/a>/);
 });
 
 test("renders settings TTS model errors and disabled state while saving", () => {

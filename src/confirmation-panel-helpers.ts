@@ -39,7 +39,7 @@ export function renderModelAvailabilityLabel(available: boolean): string {
 }
 
 export function renderOpenAiApiKeysLink(label: string = OPENAI_API_KEYS_URL): string {
-  return `<a href="${escapeHtml(OPENAI_API_KEYS_URL)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`;
+  return `<a href="${escapeHtml(OPENAI_API_KEYS_URL)}" target="_blank" rel="noreferrer" data-external-link-url="${escapeHtml(OPENAI_API_KEYS_URL)}">${escapeHtml(label)}</a>`;
 }
 
 export function renderTextWithKnownLinks(value: string): string {
@@ -68,7 +68,12 @@ export function renderSecretEntryCard(
       ? " disabled aria-disabled=\"true\""
       : "";
   const testStatusCopy = apiKeyTestMessage
-    ? `<p class="settings-panel-description" role="status">${renderTextWithKnownLinks(apiKeyTestMessage)}</p>`
+    ? `
+      <div class="settings-api-key-test-status" role="status" aria-live="polite">
+        <p class="settings-api-key-test-status-label">Latest test result</p>
+        <p class="settings-api-key-test-status-message">${renderTextWithKnownLinks(apiKeyTestMessage)}</p>
+      </div>
+    `
     : "";
 
   return `

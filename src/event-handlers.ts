@@ -52,6 +52,7 @@ interface EventHandlerDependencies {
   persistTtsProvider: (mode: "Local" | "Remote") => void;
   persistTtsModel: (profileName: string) => void;
   persistTtsVoice: (voice: string) => void;
+  openExternalLink: (url: string) => void;
   setAppView: (view: AppView) => void;
   beginPushToTalk: (source: PushToTalkSource) => void;
   releasePushToTalk: (source: PushToTalkSource) => void;
@@ -88,6 +89,7 @@ export function registerAppEventHandlers({
   persistTtsProvider,
   persistTtsModel,
   persistTtsVoice,
+  openExternalLink,
   setAppView,
   beginPushToTalk,
   releasePushToTalk,
@@ -96,6 +98,18 @@ export function registerAppEventHandlers({
   appRoot.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const externalLink = target.closest<HTMLElement>("[data-external-link-url]");
+    if (externalLink) {
+      const url = externalLink.dataset.externalLinkUrl;
+      if (!url) {
+        return;
+      }
+
+      event.preventDefault();
+      openExternalLink(url);
       return;
     }
 

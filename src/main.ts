@@ -74,6 +74,7 @@ import {
   createRuntimeRefreshHandlers,
 } from "./runtime-refresh";
 import {
+  openExternalUrl,
   openUrl,
   resolveCommand,
   downloadActiveLocalAsrModel,
@@ -1871,6 +1872,11 @@ registerAppEventHandlers({
   },
   persistTtsVoice: (voice) => {
     void persistTtsVoiceSelection(voice);
+  },
+  openExternalLink: (url) => {
+    void openExternalUrl({ url }).catch((error) => {
+      console.error("Failed to open external link.", error);
+    });
   },
   setAppView,
   beginPushToTalk: (source) => {

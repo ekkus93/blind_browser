@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-#[cfg(test)]
 use std::sync::{Mutex, OnceLock};
 
 use schemars::JsonSchema;
@@ -850,30 +849,11 @@ pub fn resolve_secret_ref(secret_ref: &SecretRef) -> Result<String, String> {
     })
 }
 
-#[cfg(not(test))]
-fn set_keyring_secret(service: &str, account: &str, secret: &str) -> Result<(), String> {
-    let entry = keyring::Entry::new(service, account)
-        .map_err(|error| format!("failed to open keyring entry '{service}/{account}': {error}"))?;
-    entry
-        .set_password(secret)
-        .map_err(|error| format!("failed to store keyring secret '{service}/{account}': {error}"))
-}
-
-#[cfg(not(test))]
-fn get_keyring_secret(service: &str, account: &str) -> Result<String, String> {
-    let entry = keyring::Entry::new(service, account)
-        .map_err(|error| format!("failed to open keyring entry '{service}/{account}': {error}"))?;
-    entry
-        .get_password()
-        .map_err(|error| format!("failed to read keyring secret '{service}/{account}': {error}"))
-}
-
-#[cfg(test)]
-fn set_keyring_secret(service: &str, account: &str, secret: &str) -> Result<(), String> {
-    let store = test_keyring_store();
+fn cache_keyring_secret(service: &str, account: &str, secret: &str) -> Result<(), String> {
+    let store = session_keyring_store();
     let mut store = store
         .lock()
-        .map_err(|_| String::from("failed to acquire the in-memory test keyring lock"))?;
+        .map_err(|_| String::from("failed to acquire the session keyring cache lock"))?;
     store.insert(
         (String::from(service), String::from(account)),
         String::from(secret),
@@ -881,22 +861,57 @@ fn set_keyring_secret(service: &str, account: &str, secret: &str) -> Result<(), 
     Ok(())
 }
 
-#[cfg(test)]
-fn get_keyring_secret(service: &str, account: &str) -> Result<String, String> {
-    let store = test_keyring_store();
+fn cached_keyring_secret(service: &str, account: &str) -> Result<Option<String>, String> {
+    let store = session_keyring_store();
     let store = store
         .lock()
-        .map_err(|_| String::from("failed to acquire the in-memory test keyring lock"))?;
-    store
+        .map_err(|_| String::from("failed to acquire the session keyring cache lock"))?;
+    Ok(store
         .get(&(String::from(service), String::from(account)))
-        .cloned()
-        .ok_or_else(|| format!("failed to read keyring secret '{service}/{account}': no entry"))
+        .cloned())
+}
+
+fn session_keyring_store() -> &'static Mutex<BTreeMap<(String, String), String>> {
+    static STORE: OnceLock<Mutex<BTreeMap<(String, String), String>>> = OnceLock::new();
+    STORE.get_or_init(|| Mutex::new(BTreeMap::new()))
+}
+
+#[cfg(not(test))]
+fn set_keyring_secret(service: &str, account: &str, secret: &str) -> Result<(), String> {
+    let entry = keyring::Entry::new(service, account)
+        .map_err(|error| format!("failed to open keyring entry '{service}/{account}': {error}"))?;
+    entry
+        .set_password(secret)
+        .map_err(|error| format!("failed to store keyring secret '{service}/{account}': {error}"))?;
+
+    cache_keyring_secret(service, account, secret)
+}
+
+#[cfg(not(test))]
+fn get_keyring_secret(service: &str, account: &str) -> Result<String, String> {
+    if let Some(cached_secret) = cached_keyring_secret(service, account)? {
+        return Ok(cached_secret);
+    }
+
+    let entry = keyring::Entry::new(service, account)
+        .map_err(|error| format!("failed to open keyring entry '{service}/{account}': {error}"))?;
+    let secret = entry
+        .get_password()
+        .map_err(|error| format!("failed to read keyring secret '{service}/{account}': {error}"))?;
+
+    cache_keyring_secret(service, account, &secret)?;
+    Ok(secret)
 }
 
 #[cfg(test)]
-fn test_keyring_store() -> &'static Mutex<BTreeMap<(String, String), String>> {
-    static STORE: OnceLock<Mutex<BTreeMap<(String, String), String>>> = OnceLock::new();
-    STORE.get_or_init(|| Mutex::new(BTreeMap::new()))
+fn set_keyring_secret(service: &str, account: &str, secret: &str) -> Result<(), String> {
+    cache_keyring_secret(service, account, secret)
+}
+
+#[cfg(test)]
+fn get_keyring_secret(service: &str, account: &str) -> Result<String, String> {
+    cached_keyring_secret(service, account)?
+        .ok_or_else(|| format!("failed to read keyring secret '{service}/{account}': no entry"))
 }
 
 fn load_document_table_from_path(path: &Path) -> Result<toml::Table, ConfigError> {

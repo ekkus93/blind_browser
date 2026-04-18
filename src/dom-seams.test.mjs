@@ -107,6 +107,7 @@ function createEventHandlerDeps() {
     runUrlAction: [],
     persistAudioChange: [],
     persistAsrProvider: [],
+    openExternalLink: [],
     testRemoteApiKey: [],
     setAppView: [],
   };
@@ -149,6 +150,9 @@ function createEventHandlerDeps() {
     persistTtsProvider: () => {},
     persistTtsModel: () => {},
     persistTtsVoice: () => {},
+    openExternalLink: (url) => {
+      calls.openExternalLink.push(url);
+    },
     setAppView: (view) => {
       calls.setAppView.push(view);
     },
@@ -264,6 +268,24 @@ test("remote API key test button dispatches the matching kind", () => {
   appRoot.dispatch("click", { target: testButton });
 
   assert.deepEqual(calls.testRemoteApiKey, ["tts"]);
+});
+
+test("external link clicks open the system browser", () => {
+  const { appRoot, calls } = createEventHandlerDeps();
+  const link = new FakeElement();
+  link.selectorMatches.add("[data-external-link-url]");
+  link.dataset.externalLinkUrl = "https://platform.openai.com/account/api-keys";
+
+  let prevented = false;
+  appRoot.dispatch("click", {
+    target: link,
+    preventDefault() {
+      prevented = true;
+    },
+  });
+
+  assert.equal(prevented, true);
+  assert.deepEqual(calls.openExternalLink, ["https://platform.openai.com/account/api-keys"]);
 });
 
 test("busy change guards block only the matching settings control", () => {
