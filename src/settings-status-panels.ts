@@ -75,10 +75,6 @@ export function renderAudioControlsPanel(state: AudioControlsPanelState): string
       <div class="audio-controls-copy">
         <p class="audio-controls-eyebrow">Speech output</p>
         <h2 id="audio-controls-title">Playback controls</h2>
-        <p class="audio-controls-description">
-          Adjust the nearby volume and speed controls when you want spoken feedback louder, quieter,
-          faster, or slower.
-        </p>
         ${errorCopy}
       </div>
       <div class="audio-controls-grid">

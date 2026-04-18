@@ -34,10 +34,6 @@ export function renderAppShell(): string {
   return `
     <main class="shell">
       <header class="shell-toolbar">
-        <div class="shell-toolbar-copy">
-          <p class="eyebrow">Voice-first desktop runtime</p>
-          <p class="shell-toolbar-title">blind_browser</p>
-        </div>
         <nav class="shell-nav" aria-label="App pages">
           <button
             type="button"
@@ -90,14 +86,6 @@ export function renderAppShell(): string {
       </section>
 
       <section class="app-view" data-app-view-section="settings" hidden aria-hidden="true">
-        <section class="hero hero-settings">
-          <p class="eyebrow">Configuration</p>
-          <h1>Settings</h1>
-          <p class="lede">
-            Provider selection, model references, playback defaults, OCR thresholds, and runtime configuration live here.
-          </p>
-        </section>
-
         ${renderPanelRootPlaceholder("audio-controls")}
         ${renderPanelRootPlaceholder("settings-guidance")}
         ${renderPanelRootPlaceholder("settings-planner-provider")}

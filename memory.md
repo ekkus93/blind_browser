@@ -1,3 +1,8 @@
+## 2026-04-18T14:45:12Z - GPT-5.4 - Settings UI copy trimmed further
+- `src/app-shell.ts` no longer renders the top branding copy or the Settings hero text, so the Settings page opens directly on actionable controls.
+- `src/settings-status-panels.ts` no longer renders the descriptive sentence above the nearby playback volume and speed controls.
+- Validation after the cleanup: `pnpm test:ui` passed with 76 UI tests and `pnpm build` passed.
+
 ## 2026-04-18T14:37:47Z - GPT-5.4 - Full validation run passed after API key visibility work
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed.
 - `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passed with 306 backend tests green.
