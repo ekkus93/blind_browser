@@ -9,7 +9,7 @@ name = "blind_browser_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.5.6" }
+tauri-build = { version = "2.5.6", features = [] }
 
 [dependencies]
 futures = "0.3"
