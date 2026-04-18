@@ -233,11 +233,16 @@ test("renders slider controls with screen-reader value text", () => {
 });
 
 test("renders described settings inputs and grouped confirmation actions", () => {
-  const plannerHtml = renderSettingsRemotePlannerPanel({
+  renderSettingsRemotePlannerPanel({
     profileName: "remote-default",
     provider: "OpenAI",
     baseUrl: "https://api.example.com",
     model: "gpt-test",
+    availableModels: ["gpt-test", "gpt-next"],
+    loadedModelsEndpoint: "https://api.example.com",
+    isLoadingModels: false,
+    isSavingConnection: false,
+    isResettingConnection: false,
     apiKeyReference: "keyring:planner",
     organizationReference: null,
     project: null,
@@ -246,6 +251,8 @@ test("renders described settings inputs and grouped confirmation actions", () =>
     timeoutMs: 30000,
     apiKeyDraft: "secret",
     isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
     error: null,
   });
   const modelManagementHtml = renderSettingsModelManagementPanel({
@@ -275,7 +282,6 @@ test("renders described settings inputs and grouped confirmation actions", () =>
     queuedStepIds: ["step-2"],
   });
 
-  assert.match(plannerHtml, /aria-describedby="settings-remote-planner-api-key-description"/);
   assert.match(modelManagementHtml, /aria-describedby="settings-models-dir-description"/);
   assert.match(confirmationHtml, /role="group" aria-label="Confirmation actions"/);
 });
@@ -549,6 +555,11 @@ test("renders remote planner API reference details", () => {
     provider: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-5.4-mini",
+    availableModels: ["gpt-5.4-mini", "gpt-5.4"],
+    loadedModelsEndpoint: "https://api.openai.com/v1",
+    isLoadingModels: false,
+    isSavingConnection: false,
+    isResettingConnection: false,
     apiKeyReference: "Environment variable: OPENAI_API_KEY",
     organizationReference: null,
     project: null,
@@ -562,11 +573,22 @@ test("renders remote planner API reference details", () => {
     error: null,
   });
 
-  assert.match(html, /Remote planner API reference/);
-  assert.match(html, /stored in the OS keyring/i);
-  assert.match(html, /openai-default/);
-  assert.match(html, /OPENAI_API_KEY/);
-  assert.match(html, /1024/);
+  assert.match(html, /Remote planner/);
+  assert.match(html, /Model/);
+  assert.match(html, /Endpoint/);
+  assert.match(html, /data-remote-planner-endpoint-input="true"/);
+  assert.match(html, /data-remote-planner-model-select="true"/);
+  assert.match(html, /data-remote-planner-models-refresh="true"/);
+  assert.match(html, /data-remote-planner-settings-save="true"/);
+  assert.match(html, /data-remote-planner-settings-reset="true"/);
+  assert.match(html, /Load models/);
+  assert.match(html, /Reset to defaults/);
+  assert.match(html, /aria-label="Models are loaded for the current endpoint"/);
+  assert.doesNotMatch(html, /Planner remote profile/);
+  assert.doesNotMatch(html, /Service/);
+  assert.doesNotMatch(html, /Temperature \(milli\)/);
+  assert.doesNotMatch(html, /Max output tokens/);
+  assert.doesNotMatch(html, /Timeout \(ms\)/);
   assert.match(html, /data-remote-api-key-input="planner"/);
   assert.match(html, /data-remote-api-key-save="planner"/);
   assert.match(html, /data-remote-api-key-test="planner"/);
@@ -734,6 +756,7 @@ test("renders remote ASR API reference details", () => {
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-4o-mini-transcribe",
     apiKeyReference: "Environment variable: OPENAI_API_KEY",
+    apiKeyMaskedValue: null,
     organizationReference: null,
     project: null,
     language: "en",
@@ -754,6 +777,31 @@ test("renders remote ASR API reference details", () => {
   assert.match(html, /data-remote-api-key-input="asr"/);
   assert.match(html, /Save API key/);
   assert.match(html, /Test API key/);
+});
+
+test("renders a masked remote ASR API key value when a key is already configured", () => {
+  const html = renderSettingsRemoteAsrPanel({
+    profileName: "openai-transcribe-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini-transcribe",
+    apiKeyReference: "OS keyring entry: blind_browser / remote_asr:openai-transcribe-default:api_key",
+    apiKeyMaskedValue: "***2468",
+    organizationReference: null,
+    project: null,
+    language: "en",
+    temperatureMilli: 0,
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  assert.match(html, /type="text"/);
+  assert.match(html, /value="\*\*\*2468"/);
+  assert.match(html, /data-masked-api-key-display="\*\*\*2468"/);
 });
 
 test("renders settings TTS provider selection for configured modes", () => {
@@ -827,6 +875,7 @@ test("renders remote TTS API reference details", () => {
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-4o-mini-tts",
     apiKeyReference: "Environment variable: OPENAI_API_KEY",
+    apiKeyMaskedValue: null,
     organizationReference: null,
     project: null,
     voice: "alloy",
@@ -845,8 +894,32 @@ test("renders remote TTS API reference details", () => {
   assert.match(html, /OPENAI_API_KEY/);
   assert.match(html, /alloy/);
   assert.match(html, /data-remote-api-key-input="tts"/);
-  assert.match(html, /OS keyring/i);
   assert.match(html, /Test API key/);
+});
+
+test("renders a masked remote TTS API key value when a key is already configured", () => {
+  const html = renderSettingsRemoteTtsPanel({
+    profileName: "openai-tts-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini-tts",
+    apiKeyReference: "OS keyring entry: blind_browser / remote_tts:openai-tts-default:api_key",
+    apiKeyMaskedValue: "***1357",
+    organizationReference: null,
+    project: null,
+    voice: "alloy",
+    audioFormat: "wav",
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  assert.match(html, /type="text"/);
+  assert.match(html, /value="\*\*\*1357"/);
+  assert.match(html, /data-masked-api-key-display="\*\*\*1357"/);
 });
 
 test("renders remote planner API key save errors and disabled state while saving", () => {
@@ -855,7 +928,12 @@ test("renders remote planner API key save errors and disabled state while saving
     provider: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-5.4-mini",
-    apiKeyReference: "OS keyring entry: blind_browser \/ remote_planner:openai-default:api_key",
+    availableModels: ["gpt-5.4-mini"],
+    loadedModelsEndpoint: "https://api.openai.com/v1",
+    isLoadingModels: false,
+    isSavingConnection: false,
+    isResettingConnection: false,
+    apiKeyReference: "OS keyring entry: blind_browser / remote_planner:openai-default:api_key",
     organizationReference: null,
     project: null,
     temperatureMilli: 200,
@@ -879,7 +957,13 @@ test("renders remote planner API key test status while testing", () => {
     provider: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-5.4-mini",
+    availableModels: ["gpt-5.4-mini"],
+    loadedModelsEndpoint: "https://api.openai.com/v1",
+    isLoadingModels: false,
+    isSavingConnection: false,
+    isResettingConnection: false,
     apiKeyReference: "Environment variable: OPENAI_API_KEY",
+    apiKeyMaskedValue: null,
     organizationReference: null,
     project: null,
     temperatureMilli: 200,
@@ -897,6 +981,37 @@ test("renders remote planner API key test status while testing", () => {
   assert.match(html, /OpenAI accepted the configured API key\./);
   assert.match(html, /settings-api-key-test-status/);
   assert.match(html, /role="status"/);
+  assert.match(html, /aria-label="Models are loaded for the current endpoint"/);
+});
+
+test("renders a masked planner API key value when a key is already configured", () => {
+  const html = renderSettingsRemotePlannerPanel({
+    profileName: "openai-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-5.4-mini",
+    availableModels: ["gpt-5.4-mini"],
+    loadedModelsEndpoint: "https://api.openai.com/v1",
+    isLoadingModels: false,
+    isSavingConnection: false,
+    isResettingConnection: false,
+    apiKeyReference: "OS keyring entry: blind_browser / remote_planner:openai-default:api_key",
+    apiKeyMaskedValue: "***7890",
+    organizationReference: null,
+    project: null,
+    temperatureMilli: 200,
+    maxOutputTokens: 1024,
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  assert.match(html, /type="text"/);
+  assert.match(html, /value="\*\*\*7890"/);
+  assert.match(html, /data-masked-api-key-display="\*\*\*7890"/);
 });
 
 test("renders remote planner API key test failures with a clickable OpenAI API key link", () => {
@@ -905,6 +1020,11 @@ test("renders remote planner API key test failures with a clickable OpenAI API k
     provider: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-5.4-mini",
+    availableModels: ["gpt-5.4-mini"],
+    loadedModelsEndpoint: "https://api.openai.com/v1",
+    isLoadingModels: false,
+    isSavingConnection: false,
+    isResettingConnection: false,
     apiKeyReference: "Environment variable: OPENAI_API_KEY",
     organizationReference: null,
     project: null,
@@ -921,6 +1041,33 @@ test("renders remote planner API key test failures with a clickable OpenAI API k
   assert.match(html, /role="status"/);
   assert.match(html, /Latest test result/);
   assert.match(html, /<a href="https:\/\/platform\.openai\.com\/account\/api-keys" target="_blank" rel="noreferrer" data-external-link-url="https:\/\/platform\.openai\.com\/account\/api-keys">https:\/\/platform\.openai\.com\/account\/api-keys<\/a>/);
+});
+
+test("renders stale planner model indicator when endpoint models need reload", () => {
+  const html = renderSettingsRemotePlannerPanel({
+    profileName: "openai-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.example.com/v1",
+    model: "gpt-5.4-mini",
+    availableModels: [],
+    loadedModelsEndpoint: null,
+    isLoadingModels: false,
+    isSavingConnection: false,
+    isResettingConnection: false,
+    apiKeyReference: "Environment variable: OPENAI_API_KEY",
+    organizationReference: null,
+    project: null,
+    temperatureMilli: 200,
+    maxOutputTokens: 1024,
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  assert.match(html, /aria-label="Models need to be reloaded for the current endpoint"/);
 });
 
 test("renders settings TTS model errors and disabled state while saving", () => {

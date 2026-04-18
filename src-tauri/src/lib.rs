@@ -19,7 +19,10 @@ pub mod tts;
 
 use tauri::Manager;
 
-use crate::app_core::{AppCore, DownloadedLocalModelData, ModelManagementSettingsData};
+use crate::app_core::{
+    AppCore, DownloadedLocalModelData, ModelManagementSettingsData,
+    RemotePlannerConnectionSettingsData, RemotePlannerModelListData,
+};
 use crate::browser::BrowserVisibilityMode;
 use crate::commands::{
     AgentStateData, ConfirmActionResolution, ExecutionOutcome, GetAgentStateInput, OpenUrlData,
@@ -534,6 +537,141 @@ fn set_remote_planner_api_key(
 }
 
 #[tauri::command]
+fn set_remote_planner_connection_settings(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    profile_name: String,
+    base_url: String,
+    model: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<RemotePlannerConnectionSettingsData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let profile_name = profile_name.trim().to_string();
+    let base_url = base_url.trim().to_string();
+    let model = model.trim().to_string();
+    if profile_name.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_planner_profile"),
+            message: String::from(
+                "Remote planner settings require a configured profile name.",
+            ),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    app_core
+        .set_remote_planner_connection_settings(&profile_name, &base_url, &model)
+        .map_err(|error| ToolError {
+            code: String::from("remote_planner_settings_persist_failed"),
+            message: format!("Failed to persist the requested remote planner settings: {error}"),
+            retryable: false,
+            details: None,
+        })?;
+
+    let settings = app_core.current_remote_planner_settings();
+    Ok(RemotePlannerConnectionSettingsData {
+        profile_name,
+        base_url: settings.base_url.unwrap_or_default(),
+        model: settings.model.unwrap_or_default(),
+    })
+}
+
+#[tauri::command]
+fn reset_remote_planner_connection_settings(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    profile_name: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<RemotePlannerConnectionSettingsData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let profile_name = profile_name.trim().to_string();
+    if profile_name.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_planner_profile"),
+            message: String::from(
+                "Remote planner settings reset requires a configured profile name.",
+            ),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    app_core
+        .reset_remote_planner_connection_settings_to_defaults(&profile_name)
+        .map_err(|error| ToolError {
+            code: String::from("remote_planner_settings_reset_failed"),
+            message: format!("Failed to reset the remote planner settings: {error}"),
+            retryable: false,
+            details: None,
+        })?;
+
+    let settings = app_core.current_remote_planner_settings();
+    Ok(RemotePlannerConnectionSettingsData {
+        profile_name,
+        base_url: settings.base_url.unwrap_or_default(),
+        model: settings.model.unwrap_or_default(),
+    })
+}
+
+#[tauri::command]
+fn list_remote_planner_models(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    profile_name: String,
+    base_url: String,
+    api_key: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<RemotePlannerModelListData, ToolError> {
+    let _ = request_id;
+    let app_core = lock_app_core(&app_core)?;
+    let profile_name = profile_name.trim().to_string();
+    let base_url = base_url.trim().to_string();
+    if profile_name.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_planner_profile"),
+            message: String::from(
+                "Remote planner model loading requires a configured profile name.",
+            ),
+            retryable: false,
+            details: None,
+        });
+    }
+    if base_url.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_planner_endpoint"),
+            message: String::from("Remote planner model loading requires a non-empty endpoint."),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    let models = app_core
+        .list_remote_planner_models(
+            &profile_name,
+            Some(&base_url),
+            (!api_key.trim().is_empty()).then_some(api_key.as_str()),
+            timeout_ms,
+        )
+        .map_err(|error| ToolError {
+            code: String::from("remote_planner_models_load_failed"),
+            message: error,
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(RemotePlannerModelListData {
+        profile_name,
+        base_url,
+        models,
+    })
+}
+
+#[tauri::command]
 fn set_remote_tts_api_key(
     request_id: String,
     timeout_ms: Option<u64>,
@@ -906,6 +1044,9 @@ pub fn run() {
             set_confirmation_threshold,
             set_allow_click_without_confirmation,
             set_ocr_thresholds,
+            set_remote_planner_connection_settings,
+            reset_remote_planner_connection_settings,
+            list_remote_planner_models,
             set_remote_planner_api_key,
             set_remote_tts_api_key,
             set_remote_asr_api_key,

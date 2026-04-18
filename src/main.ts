@@ -81,8 +81,11 @@ import {
   setModelManagementSettings,
   setRemoteAsrApiKey,
   setRemotePlannerApiKey,
+  setRemotePlannerConnectionSettings,
   setRemoteTtsApiKey,
   testRemoteAsrApiKey,
+  listRemotePlannerModels,
+  resetRemotePlannerConnectionSettings,
   testRemotePlannerApiKey,
   testRemoteTtsApiKey,
   setBrowserVisibility,
@@ -1183,6 +1186,152 @@ async function persistRemotePlannerApiKey() {
   }
 }
 
+async function loadRemotePlannerModels() {
+  const profileName = remotePlannerPanelState.profileName;
+  const baseUrl = remotePlannerPanelState.baseUrl?.trim() ?? "";
+  const apiKey = remotePlannerPanelState.apiKeyDraft.trim();
+  if (!profileName) {
+    setRemotePlannerPanelState({
+      error: "No remote planner profile is configured for model loading.",
+    });
+    return;
+  }
+  if (baseUrl.length === 0) {
+    setRemotePlannerPanelState({
+      error: "Enter an endpoint before loading models.",
+    });
+    return;
+  }
+
+  setRemotePlannerPanelState({
+    isLoadingModels: true,
+    error: null,
+  });
+
+  try {
+    const result = await listRemotePlannerModels({
+      requestId: createRequestId("list-remote-planner-models"),
+      profileName,
+      baseUrl,
+      apiKey,
+    });
+    const nextModel = result.models.includes(remotePlannerPanelState.model ?? "")
+      ? remotePlannerPanelState.model
+      : (result.models[0] ?? null);
+    setRemotePlannerPanelState({
+      baseUrl: result.base_url,
+      availableModels: result.models,
+      loadedModelsEndpoint: result.base_url,
+      model: nextModel,
+      isLoadingModels: false,
+      error: null,
+    });
+  } catch (error: unknown) {
+    setRemotePlannerPanelState({
+      isLoadingModels: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function persistRemotePlannerConnection() {
+  const profileName = remotePlannerPanelState.profileName;
+  const baseUrl = remotePlannerPanelState.baseUrl?.trim() ?? "";
+  const model = remotePlannerPanelState.model?.trim() ?? "";
+  if (!profileName) {
+    setRemotePlannerPanelState({
+      error: "No remote planner profile is configured for endpoint and model changes.",
+    });
+    return;
+  }
+  if (baseUrl.length === 0) {
+    setRemotePlannerPanelState({
+      error: "Enter an endpoint before saving the planner settings.",
+    });
+    return;
+  }
+  if (model.length === 0) {
+    setRemotePlannerPanelState({
+      error: "Choose a model before saving the planner settings.",
+    });
+    return;
+  }
+  if (remotePlannerPanelState.loadedModelsEndpoint !== baseUrl) {
+    setRemotePlannerPanelState({
+      error: "Load models for the current endpoint before saving the planner settings.",
+    });
+    return;
+  }
+
+  setRemotePlannerPanelState({
+    isSavingConnection: true,
+    error: null,
+  });
+
+  try {
+    const result = await setRemotePlannerConnectionSettings({
+      requestId: createRequestId("save-remote-planner-settings"),
+      profileName,
+      baseUrl,
+      model,
+    });
+    setRemotePlannerPanelState({
+      profileName: result.profile_name,
+      baseUrl: result.base_url,
+      model: result.model,
+      availableModels: remotePlannerPanelState.availableModels.includes(result.model)
+        ? remotePlannerPanelState.availableModels
+        : [result.model, ...remotePlannerPanelState.availableModels],
+      loadedModelsEndpoint: result.base_url,
+      isSavingConnection: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setRemotePlannerPanelState({
+      isSavingConnection: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function resetRemotePlannerConnectionToDefaults() {
+  const profileName = remotePlannerPanelState.profileName;
+  if (!profileName) {
+    setRemotePlannerPanelState({
+      error: "No remote planner profile is configured for reset.",
+    });
+    return;
+  }
+
+  setRemotePlannerPanelState({
+    isResettingConnection: true,
+    error: null,
+  });
+
+  try {
+    const result = await resetRemotePlannerConnectionSettings({
+      requestId: createRequestId("reset-remote-planner-settings"),
+      profileName,
+    });
+    setRemotePlannerPanelState({
+      profileName: result.profile_name,
+      baseUrl: result.base_url,
+      model: result.model,
+      availableModels: [result.model],
+      loadedModelsEndpoint: result.base_url,
+      isResettingConnection: false,
+      error: null,
+    });
+    await refreshRuntimePanelsFromRuntime();
+  } catch (error: unknown) {
+    setRemotePlannerPanelState({
+      isResettingConnection: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
 async function persistRemoteTtsApiKey() {
   const profileName = remoteTtsPanelState.profileName;
   const apiKey = remoteTtsPanelState.apiKeyDraft.trim();
@@ -1789,6 +1938,20 @@ registerAppEventHandlers({
       error: null,
     });
   },
+  updateRemotePlannerEndpointInput: (value) => {
+    setRemotePlannerPanelState({
+      baseUrl: value,
+      availableModels: [],
+      loadedModelsEndpoint: null,
+      error: null,
+    });
+  },
+  updateRemotePlannerModelSelection: (value) => {
+    setRemotePlannerPanelState({
+      model: value,
+      error: null,
+    });
+  },
   updateModelManagementInput: (value) => {
     setModelManagementPanelState({
       modelsDir: value,
@@ -1850,6 +2013,15 @@ registerAppEventHandlers({
   },
   persistTtsVoice: (voice) => {
     void persistTtsVoiceSelection(voice);
+  },
+  loadRemotePlannerModels: () => {
+    void loadRemotePlannerModels();
+  },
+  persistRemotePlannerConnectionSettings: () => {
+    void persistRemotePlannerConnection();
+  },
+  resetRemotePlannerConnectionSettings: () => {
+    void resetRemotePlannerConnectionToDefaults();
   },
   openExternalLink: (url) => {
     void openExternalUrl({ url }).catch((error) => {

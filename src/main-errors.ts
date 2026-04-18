@@ -98,7 +98,7 @@ export function guidanceStateForErrorMessage(message: string | null): SettingsGu
       title: "Planner setup needs attention",
       message: "Command interpretation is unavailable until a remote planner profile is configured. Review the remote planner settings below.",
       actions: [
-        { label: "Review planner API reference", targetId: "settings-remote-planner-title" },
+        { label: "Review planner settings", targetId: "settings-remote-planner-title" },
       ],
     };
   }
@@ -111,9 +111,9 @@ export function guidanceStateForErrorMessage(message: string | null): SettingsGu
   ) {
     return {
       title: "Remote planner secret needs attention",
-      message: `The current remote planner secret is unavailable. Review the planner API reference, then get an OpenAI API key at ${OPENAI_API_KEYS_URL} if needed and save it below.`,
+      message: `The current remote planner secret is unavailable. Review the planner settings, then get an OpenAI API key at ${OPENAI_API_KEYS_URL} if needed and save it below.`,
       actions: [
-        { label: "Review planner API reference", targetId: "settings-remote-planner-title" },
+        { label: "Review planner settings", targetId: "settings-remote-planner-title" },
         { label: "Enter planner API key", targetId: "settings-remote-planner-api-key-input" },
       ],
     };

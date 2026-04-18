@@ -168,6 +168,20 @@ pub struct DownloadedLocalModelData {
     pub source_url: String,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RemotePlannerConnectionSettingsData {
+    pub profile_name: String,
+    pub base_url: String,
+    pub model: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RemotePlannerModelListData {
+    pub profile_name: String,
+    pub base_url: String,
+    pub models: Vec<String>,
+}
+
 pub struct AppCore {
     pub app_handle: AppHandle,
     pub config: AppConfig,
@@ -480,6 +494,32 @@ impl AppCore {
         Ok(())
     }
 
+    pub fn set_remote_planner_connection_settings(
+        &mut self,
+        profile_name: &str,
+        base_url: &str,
+        model: &str,
+    ) -> Result<(), ConfigError> {
+        self.config = AppConfig::persist_remote_planner_connection_settings_for_app(
+            &self.app_handle,
+            profile_name,
+            base_url,
+            model,
+        )?;
+        Ok(())
+    }
+
+    pub fn reset_remote_planner_connection_settings_to_defaults(
+        &mut self,
+        profile_name: &str,
+    ) -> Result<(), ConfigError> {
+        self.config = AppConfig::reset_remote_planner_connection_settings_to_defaults_for_app(
+            &self.app_handle,
+            profile_name,
+        )?;
+        Ok(())
+    }
+
     pub fn set_remote_tts_api_key(
         &mut self,
         profile_name: &str,
@@ -523,6 +563,43 @@ impl AppCore {
                 timeout_ms: timeout_ms_override.unwrap_or(profile.timeout_ms),
             },
             api_key_override,
+        )
+    }
+
+    pub fn list_remote_planner_models(
+        &self,
+        profile_name: &str,
+        base_url_override: Option<&str>,
+        api_key_override: Option<&str>,
+        timeout_ms_override: Option<u64>,
+    ) -> Result<Vec<String>, String> {
+        let profile = self
+            .config
+            .remote_planner_profiles
+            .get(profile_name)
+            .ok_or_else(|| format!("unknown remote planner profile '{profile_name}'"))?;
+
+        let api_key = match api_key_override.map(str::trim) {
+            Some(override_value) if !override_value.is_empty() => Some(override_value.to_string()),
+            _ => resolve_secret_ref(&profile.api_key).ok(),
+        };
+        let organization = profile
+            .organization
+            .as_ref()
+            .map(resolve_secret_ref)
+            .transpose()
+            .map_err(|reason| {
+                format!(
+                    "Remote planner model list could not read the configured organization secret: {reason}"
+                )
+            })?;
+
+        fetch_openai_compatible_models(
+            base_url_override.unwrap_or(&profile.base_url),
+            api_key.as_deref(),
+            organization.as_deref(),
+            profile.project.as_deref(),
+            timeout_ms_override.unwrap_or(profile.timeout_ms),
         )
     }
 
@@ -4807,6 +4884,24 @@ fn remote_provider_label(provider: &RemoteProviderKind) -> RemoteProviderLabel {
     }
 }
 
+fn masked_secret_value(secret_ref: &crate::config::SecretRef) -> Option<String> {
+    let secret = crate::config::resolve_secret_ref(secret_ref).ok()?;
+    let trimmed_secret = secret.trim();
+    if trimmed_secret.is_empty() {
+        return None;
+    }
+
+    let suffix = trimmed_secret
+        .chars()
+        .rev()
+        .take(4)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<String>();
+    Some(format!("***{suffix}"))
+}
+
 fn build_remote_planner_settings(config: &AppConfig) -> RemotePlannerSettings {
     let profile_name = config.providers.planner.remote_profile.clone();
     let profile = profile_name
@@ -4821,6 +4916,8 @@ fn build_remote_planner_settings(config: &AppConfig) -> RemotePlannerSettings {
         model: profile.map(|configured_profile| configured_profile.model.clone()),
         api_key_reference: profile
             .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
+        api_key_masked_value: profile
+            .and_then(|configured_profile| masked_secret_value(&configured_profile.api_key)),
         organization_reference: profile
             .and_then(|configured_profile| configured_profile.organization.as_ref())
             .map(secret_ref_reference),
@@ -4845,6 +4942,8 @@ fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings {
         model: profile.map(|configured_profile| configured_profile.model.clone()),
         api_key_reference: profile
             .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
+        api_key_masked_value: profile
+            .and_then(|configured_profile| masked_secret_value(&configured_profile.api_key)),
         organization_reference: profile
             .and_then(|configured_profile| configured_profile.organization.as_ref())
             .map(secret_ref_reference),
@@ -4869,6 +4968,8 @@ fn build_remote_asr_settings(config: &AppConfig) -> RemoteAsrSettings {
         model: profile.map(|configured_profile| configured_profile.model.clone()),
         api_key_reference: profile
             .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
+        api_key_masked_value: profile
+            .and_then(|configured_profile| masked_secret_value(&configured_profile.api_key)),
         organization_reference: profile
             .and_then(|configured_profile| configured_profile.organization.as_ref())
             .map(secret_ref_reference),
@@ -4970,6 +5071,77 @@ fn test_openai_api_key_connectivity(
 
     let status = response.status();
     Err(openai_api_key_test_failure_message(status))
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct OpenAiCompatibleModelsResponse {
+    data: Vec<OpenAiCompatibleModelEntry>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct OpenAiCompatibleModelEntry {
+    id: String,
+}
+
+fn fetch_openai_compatible_models(
+    base_url: &str,
+    api_key: Option<&str>,
+    organization: Option<&str>,
+    project: Option<&str>,
+    timeout_ms: u64,
+) -> Result<Vec<String>, String> {
+    let endpoint = format!("{}/models", base_url.trim().trim_end_matches('/'));
+    let client = Client::builder()
+        .timeout(Duration::from_millis(timeout_ms.max(1)))
+        .build()
+        .map_err(|error| format!("failed to build the remote model list client: {error}"))?;
+
+    let mut request = client.get(endpoint);
+    if let Some(api_key) = api_key.filter(|value| !value.trim().is_empty()) {
+        request = request.bearer_auth(api_key.trim());
+    }
+    if let Some(organization) = organization {
+        request = request.header("OpenAI-Organization", organization);
+    }
+    if let Some(project) = project {
+        request = request.header("OpenAI-Project", project);
+    }
+
+    let response = request
+        .send()
+        .map_err(|error| format!("remote model list request failed: {error}"))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(match status {
+            reqwest::StatusCode::UNAUTHORIZED => String::from(
+                "The endpoint rejected the current API key while loading models.",
+            ),
+            reqwest::StatusCode::FORBIDDEN => String::from(
+                "The endpoint refused this model list request. Check that the current API key has access.",
+            ),
+            _ => format!("The endpoint returned {} while loading models.", status),
+        });
+    }
+
+    let mut models = response
+        .json::<OpenAiCompatibleModelsResponse>()
+        .map_err(|error| format!("failed to parse the remote model list response: {error}"))?
+        .data
+        .into_iter()
+        .map(|entry| entry.id.trim().to_string())
+        .filter(|model| !model.is_empty())
+        .collect::<Vec<_>>();
+    models.sort();
+    models.dedup();
+
+    if models.is_empty() {
+        return Err(String::from(
+            "The endpoint responded successfully but did not return any models.",
+        ));
+    }
+
+    Ok(models)
 }
 
 fn openai_api_key_test_failure_message(status: reqwest::StatusCode) -> String {
@@ -7869,6 +8041,7 @@ mod tests {
         resolve_direct_focus_field_command, resolve_direct_submit_form_command,
         resolve_form_element, resolve_recent_fill_correction_command, resolve_typeable_element,
         should_trigger_extract_page_model_ocr_fallback, test_openai_api_key_connectivity,
+        fetch_openai_compatible_models,
         RecentFieldContext, ReplanningRuntime,
     };
     use crate::audio_io::RuntimeAudioState;
@@ -8387,6 +8560,9 @@ mod tests {
             settings.api_key_reference.as_deref(),
             Some("Environment variable: OPENAI_API_KEY")
         );
+        if let Some(masked_value) = settings.api_key_masked_value.as_deref() {
+            assert!(masked_value.starts_with("***"));
+        }
         assert_eq!(settings.organization_reference, None);
         assert_eq!(settings.project, None);
         assert_eq!(settings.voice.as_deref(), Some("alloy"));
@@ -8420,6 +8596,9 @@ mod tests {
             settings.api_key_reference.as_deref(),
             Some("Environment variable: OPENAI_API_KEY")
         );
+        if let Some(masked_value) = settings.api_key_masked_value.as_deref() {
+            assert!(masked_value.starts_with("***"));
+        }
         assert_eq!(settings.organization_reference, None);
         assert_eq!(settings.project, None);
         assert_eq!(settings.language.as_deref(), Some("en"));
@@ -11381,5 +11560,48 @@ mod tests {
             "OpenAI rejected that API key. Check the key and try again, or create one at https://platform.openai.com/account/api-keys."
         );
         assert!(!error.contains("sk-proj"));
+    }
+
+    #[test]
+    fn fetch_openai_compatible_models_returns_sorted_model_ids() {
+        let (base_url, server) = spawn_openai_models_test_server(
+            "200 OK",
+            r#"{"object":"list","data":[{"id":"gpt-4o-mini"},{"id":"gpt-5.4-mini"},{"id":"gpt-4o-mini"}]}"#,
+        );
+
+        let models = fetch_openai_compatible_models(
+            &base_url,
+            Some("blind-browser-test-key"),
+            Some("org_test"),
+            Some("proj_test"),
+            5_000,
+        )
+        .expect("model list should load");
+
+        server.join().expect("test server should exit cleanly");
+        assert_eq!(models, vec![String::from("gpt-4o-mini"), String::from("gpt-5.4-mini")]);
+    }
+
+    #[test]
+    fn fetch_openai_compatible_models_rejects_empty_lists() {
+        let (base_url, server) = spawn_openai_models_test_server(
+            "200 OK",
+            r#"{"object":"list","data":[]}"#,
+        );
+
+        let error = fetch_openai_compatible_models(
+            &base_url,
+            Some("blind-browser-test-key"),
+            Some("org_test"),
+            Some("proj_test"),
+            5_000,
+        )
+        .expect_err("empty model lists should be rejected");
+
+        server.join().expect("test server should exit cleanly");
+        assert_eq!(
+            error,
+            "The endpoint responded successfully but did not return any models."
+        );
     }
 }

@@ -662,6 +662,14 @@ h1 {
   margin-top: 18px;
 }
 
+.settings-grid-single {
+  grid-template-columns: 1fr;
+}
+
+.settings-grid-compact {
+  margin-top: 14px;
+}
+
 .settings-control-card {
   display: flex;
   flex-direction: column;
@@ -745,6 +753,82 @@ h1 {
 
 .settings-secret-entry-card {
   gap: 12px;
+}
+
+.settings-planner-connection-card {
+  gap: 14px;
+}
+
+.settings-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-inline-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-status-light {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 1px rgba(31, 37, 39, 0.14), 0 0 10px rgba(31, 37, 39, 0.12);
+}
+
+.settings-status-light-fresh {
+  background: #2d9b57;
+}
+
+.settings-status-light-stale {
+  background: #c84c3a;
+}
+
+.settings-inline-control-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-inline-control-row-wrap {
+  flex-wrap: wrap;
+}
+
+.settings-inline-control-fill {
+  flex: 1 1 320px;
+  min-width: min(320px, 100%);
+}
+
+.settings-button-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.settings-button-row-wrap {
+  flex-wrap: wrap;
+}
+
+.settings-api-key-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-api-key-input {
+  min-width: min(320px, 100%);
+  flex: 1 1 320px;
+}
+
+.settings-api-key-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
 }
 
 .settings-api-key-test-status {

@@ -89,7 +89,13 @@ export interface RemotePlannerPanelState {
   provider: string | null;
   baseUrl: string | null;
   model: string | null;
+  availableModels: string[];
+  loadedModelsEndpoint: string | null;
+  isLoadingModels: boolean;
+  isSavingConnection: boolean;
+  isResettingConnection: boolean;
   apiKeyReference: string | null;
+  apiKeyMaskedValue: string | null;
   organizationReference: string | null;
   project: string | null;
   temperatureMilli: number | null;
@@ -108,6 +114,7 @@ export interface RemoteTtsPanelState {
   baseUrl: string | null;
   model: string | null;
   apiKeyReference: string | null;
+  apiKeyMaskedValue: string | null;
   organizationReference: string | null;
   project: string | null;
   voice: string | null;
@@ -126,6 +133,7 @@ export interface RemoteAsrPanelState {
   baseUrl: string | null;
   model: string | null;
   apiKeyReference: string | null;
+  apiKeyMaskedValue: string | null;
   organizationReference: string | null;
   project: string | null;
   language: string | null;

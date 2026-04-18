@@ -50,6 +50,7 @@ export function renderSecretEntryCard(
   kind: "planner" | "tts" | "asr",
   profileName: string | null,
   apiKeyDraft: string,
+  apiKeyMaskedValue: string | null,
   isSavingApiKey: boolean,
   isTestingApiKey: boolean,
   hasApiKeyReference: boolean,
@@ -67,6 +68,11 @@ export function renderSecretEntryCard(
     || (apiKeyDraft.trim().length === 0 && !hasApiKeyReference)
       ? " disabled aria-disabled=\"true\""
       : "";
+  const displayedApiKeyValue = apiKeyDraft.length > 0 ? apiKeyDraft : (apiKeyMaskedValue ?? "");
+  const inputType = apiKeyDraft.length > 0 ? "password" : (apiKeyMaskedValue ? "text" : "password");
+  const maskedDisplayAttribute = apiKeyDraft.length === 0 && apiKeyMaskedValue
+    ? ` data-masked-api-key-display="${escapeHtml(apiKeyMaskedValue)}"`
+    : "";
   const testStatusCopy = apiKeyTestMessage
     ? `
       <div class="settings-api-key-test-status" role="status" aria-live="polite">
@@ -78,44 +84,39 @@ export function renderSecretEntryCard(
 
   return `
     <div class="settings-control-card settings-secret-entry-card">
-      <span class="settings-control-label">Secure API key entry</span>
-      <span class="settings-control-value">Store in OS keyring</span>
-      <input
-        id="settings-remote-${kind}-api-key-input"
-        class="settings-control-select"
-        data-remote-api-key-input="${escapeHtml(kind)}"
-        type="password"
-        value="${escapeHtml(apiKeyDraft)}"
-        placeholder="Enter a replacement API key"
-        autocomplete="off"
-        spellcheck="false"
-        aria-describedby="settings-remote-${kind}-api-key-description"
-        ${disabledAttribute}
-      />
-      <button
-        type="button"
-        class="settings-control-button"
-        data-remote-api-key-save="${escapeHtml(kind)}"
-        ${saveDisabledAttribute}
-      >
-        Save API key
-      </button>
-      <button
-        type="button"
-        class="settings-control-button settings-control-button-secondary"
-        data-remote-api-key-test="${escapeHtml(kind)}"
-        ${testDisabledAttribute}
-      >
-        ${escapeHtml(isTestingApiKey ? "Testing..." : "Test API key")}
-      </button>
-      <p id="settings-remote-${kind}-api-key-description" class="settings-panel-description">
-        Saving stores the secret in the OS keyring and updates the config to keep only a masked
-        keyring reference.
-      </p>
-      <p class="settings-panel-description">
-        Testing checks the entered key without saving it. If the field is blank, testing uses the
-        configured API key reference.
-      </p>
+      <span class="settings-control-label">API key</span>
+      <div class="settings-api-key-inline-actions">
+        <input
+          id="settings-remote-${kind}-api-key-input"
+          class="settings-control-select settings-api-key-input"
+          data-remote-api-key-input="${escapeHtml(kind)}"
+          type="${inputType}"
+          value="${escapeHtml(displayedApiKeyValue)}"
+          placeholder="Enter a replacement API key"
+          autocomplete="off"
+          spellcheck="false"
+          ${maskedDisplayAttribute}
+          ${disabledAttribute}
+        />
+        <div class="settings-api-key-button-row">
+          <button
+            type="button"
+            class="settings-control-button"
+            data-remote-api-key-save="${escapeHtml(kind)}"
+            ${saveDisabledAttribute}
+          >
+            Save API key
+          </button>
+          <button
+            type="button"
+            class="settings-control-button settings-control-button-secondary"
+            data-remote-api-key-test="${escapeHtml(kind)}"
+            ${testDisabledAttribute}
+          >
+            ${escapeHtml(isTestingApiKey ? "Testing..." : "Test API key")}
+          </button>
+        </div>
+      </div>
       <p class="settings-panel-description">
         Need an OpenAI API key? Get one at ${renderOpenAiApiKeysLink()}.
       </p>
@@ -186,6 +187,6 @@ export function escapeHtml(value: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
+    .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }

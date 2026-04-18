@@ -336,6 +336,29 @@ impl AppConfig {
         Self::persist_remote_api_key_at_path(&config_path, profile_name, api_key, "planner")
     }
 
+    pub fn persist_remote_planner_connection_settings_for_app(
+        app_handle: &AppHandle,
+        profile_name: &str,
+        base_url: &str,
+        model: &str,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::persist_remote_planner_connection_settings_at_path(
+            &config_path,
+            profile_name,
+            base_url,
+            model,
+        )
+    }
+
+    pub fn reset_remote_planner_connection_settings_to_defaults_for_app(
+        app_handle: &AppHandle,
+        profile_name: &str,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::reset_remote_planner_connection_settings_to_defaults_at_path(&config_path, profile_name)
+    }
+
     pub fn persist_remote_tts_api_key_for_app(
         app_handle: &AppHandle,
         profile_name: &str,
@@ -583,6 +606,105 @@ impl AppConfig {
         })?;
 
         Self::load_from_path(path)
+    }
+
+    pub fn persist_remote_planner_connection_settings_at_path(
+        path: impl AsRef<Path>,
+        profile_name: &str,
+        base_url: &str,
+        model: &str,
+    ) -> Result<Self, ConfigError> {
+        let path = path.as_ref();
+        let normalized_profile_name = profile_name.trim();
+        if normalized_profile_name.is_empty() {
+            return Err(ConfigError::Validation(String::from(
+                "remote planner settings persistence requires a non-empty configured profile name",
+            )));
+        }
+
+        let normalized_base_url = normalize_remote_endpoint(base_url)?;
+        let normalized_model = model.trim();
+        if normalized_model.is_empty() {
+            return Err(ConfigError::Validation(String::from(
+                "remote planner settings persistence requires a non-empty model",
+            )));
+        }
+
+        let mut document = if path.exists() {
+            load_document_table_from_path(path)?
+        } else {
+            load_document_table_from_str(Self::default_template())?
+        };
+
+        let remote_profiles_value = document
+            .entry(String::from("remote_profiles"))
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        let Some(remote_profiles_table) = remote_profiles_value.as_table_mut() else {
+            return Err(ConfigError::Validation(String::from(
+                "remote_profiles must remain a TOML table",
+            )));
+        };
+
+        let Some(profile_value) = remote_profiles_table.get_mut(normalized_profile_name) else {
+            return Err(ConfigError::Validation(format!(
+                "remote_profiles.{normalized_profile_name} is not configured"
+            )));
+        };
+        let Some(profile_table) = profile_value.as_table_mut() else {
+            return Err(ConfigError::Validation(format!(
+                "remote_profiles.{normalized_profile_name} must remain a TOML table"
+            )));
+        };
+
+        profile_table.insert(
+            String::from("base_url"),
+            toml::Value::String(normalized_base_url),
+        );
+        profile_table.insert(
+            String::from("model"),
+            toml::Value::String(String::from(normalized_model)),
+        );
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
+                path: parent.to_path_buf(),
+                source,
+            })?;
+        }
+
+        let serialized = toml::to_string_pretty(&document)?;
+        fs::write(path, serialized).map_err(|source| ConfigError::Write {
+            path: path.to_path_buf(),
+            source,
+        })?;
+
+        Self::load_from_path(path)
+    }
+
+    pub fn reset_remote_planner_connection_settings_to_defaults_at_path(
+        path: impl AsRef<Path>,
+        profile_name: &str,
+    ) -> Result<Self, ConfigError> {
+        let normalized_profile_name = profile_name.trim();
+        if normalized_profile_name.is_empty() {
+            return Err(ConfigError::Validation(String::from(
+                "remote planner defaults reset requires a non-empty configured profile name",
+            )));
+        }
+
+        let default_config = Self::load_from_str(Self::default_template())?;
+        let Some(default_profile) = default_config.remote_planner_profiles.get(normalized_profile_name) else {
+            return Err(ConfigError::Validation(format!(
+                "remote planner defaults are not defined for profile '{normalized_profile_name}'"
+            )));
+        };
+
+        Self::persist_remote_planner_connection_settings_at_path(
+            path,
+            normalized_profile_name,
+            &default_profile.base_url,
+            &default_profile.model,
+        )
     }
 
     pub fn persist_local_model_path_at_path(
@@ -1085,6 +1207,23 @@ fn validate_model_settings(models: &ModelManagementSettings, issues: &mut Vec<St
     if models.models_dir.trim().is_empty() {
         issues.push(String::from("models.models_dir must not be empty"));
     }
+}
+
+fn normalize_remote_endpoint(base_url: &str) -> Result<String, ConfigError> {
+    let normalized_base_url = base_url.trim().trim_end_matches('/').to_string();
+    if normalized_base_url.is_empty() {
+        return Err(ConfigError::Validation(String::from(
+            "remote planner settings persistence requires a non-empty endpoint",
+        )));
+    }
+
+    reqwest::Url::parse(&normalized_base_url).map_err(|error| {
+        ConfigError::Validation(format!(
+            "remote planner endpoint must be a valid absolute URL: {error}"
+        ))
+    })?;
+
+    Ok(normalized_base_url)
 }
 
 impl Default for AppConfig {
@@ -2262,6 +2401,88 @@ timeout_ms = 30000
                 assert!(message.contains("non-empty API key value"));
             }
             other => panic!("expected validation error, got {other}"),
+        }
+    }
+
+    #[test]
+    fn persists_remote_planner_connection_settings_and_reloads_them() {
+        let path = test_config_path("persist_remote_planner_connection_settings");
+
+        let persisted = AppConfig::persist_remote_planner_connection_settings_at_path(
+            &path,
+            "openai-default",
+            " https://example.invalid/v1/ ",
+            "gpt-custom",
+        )
+        .expect("remote planner connection settings should persist successfully");
+        let reloaded =
+            AppConfig::load_from_path(&path).expect("persisted planner config should reload");
+
+        assert_eq!(
+            persisted
+                .remote_planner_profiles
+                .get("openai-default")
+                .expect("planner profile should remain present")
+                .base_url,
+            "https://example.invalid/v1"
+        );
+        assert_eq!(
+            persisted
+                .remote_planner_profiles
+                .get("openai-default")
+                .expect("planner profile should remain present")
+                .model,
+            "gpt-custom"
+        );
+        assert_eq!(
+            reloaded
+                .remote_planner_profiles
+                .get("openai-default")
+                .expect("planner profile should reload")
+                .base_url,
+            "https://example.invalid/v1"
+        );
+        assert_eq!(
+            reloaded
+                .remote_planner_profiles
+                .get("openai-default")
+                .expect("planner profile should reload")
+                .model,
+            "gpt-custom"
+        );
+
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::remove_dir_all(parent);
+        }
+    }
+
+    #[test]
+    fn resets_remote_planner_connection_settings_to_defaults() {
+        let path = test_config_path("reset_remote_planner_connection_settings");
+
+        AppConfig::persist_remote_planner_connection_settings_at_path(
+            &path,
+            "openai-default",
+            "https://example.invalid/v1",
+            "gpt-custom",
+        )
+        .expect("custom planner settings should persist");
+
+        let reset = AppConfig::reset_remote_planner_connection_settings_to_defaults_at_path(
+            &path,
+            "openai-default",
+        )
+        .expect("planner settings should reset to defaults");
+
+        let profile = reset
+            .remote_planner_profiles
+            .get("openai-default")
+            .expect("planner profile should still exist after reset");
+        assert_eq!(profile.base_url, "https://api.openai.com/v1");
+        assert_eq!(profile.model, "gpt-5.4-mini");
+
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::remove_dir_all(parent);
         }
     }
 }

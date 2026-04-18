@@ -1,3 +1,43 @@
+## 2026-04-18T17:49:31Z - GPT-5.4 - CI now includes the frontend lint gate
+- Updated `.github/workflows/ci.yml` so the existing `validate` job now runs `pnpm lint` before the UI tests and frontend build.
+- The new CI lint step reuses the already-installed JavaScript dependencies and existing Node/pnpm setup in the workflow; no other CI behavior was changed.
+- Local revalidation after the workflow update confirmed the new step payload still passes with `source ./fix-node-version.sh && pnpm lint`.
+
+## 2026-04-18T17:47:47Z - GPT-5.4 - Frontend ESLint gate added and passing
+- Added a dedicated frontend lint script in `package.json` and a minimal flat ESLint config in `eslint.config.js` for `src/**/*.ts` and `src/**/*.test.mjs`.
+- The lint setup uses `eslint`, `@eslint/js`, `typescript-eslint`, and `globals`, with no formatting rules and no type-aware project config, to keep the change minimal and aligned with the existing TypeScript/Vite repo.
+- Initial lint findings were fixed in `src/confirmation-panel-helpers.ts` and `src/confirmation-panel.test.mjs` rather than weakening the config.
+- Validation after the lint setup is green: `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features` all pass.
+
+## 2026-04-18T17:42:44Z - GPT-5.4 - Full repo validation is currently green
+- Rust lint passes with `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`.
+- Frontend validation passes with `source ./fix-node-version.sh && pnpm test:ui && pnpm build`, including 84 UI tests green and a successful TypeScript/Vite build.
+- Backend validation passes with `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, including 309 Rust tests green.
+- There is no separate frontend lint script in `package.json`; the current frontend gate is the UI test suite plus the strict `tsc && vite build` path.
+
+## 2026-04-18T16:50:15Z - GPT-5.4 - TTS and ASR API key inputs now share the masked last-4 preview
+- The remote TTS and remote ASR API key textboxes now mirror the planner behavior by showing a display-only masked value in the form `***1234` when a key is already configured.
+- Their masked values are derived from resolved configured secrets on the backend and passed through runtime state as `api_key_masked_value`, without exposing raw keys to the frontend.
+- The shared input behavior remains the same across planner, TTS, and ASR: clear the mask on focus, restore it on blur if no replacement was entered, and never treat the mask itself as a real draft key.
+- Validation after the extension is green: `pnpm test:ui` passed with 84 UI tests, `pnpm build` passed, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passed with 309 backend tests.
+
+## 2026-04-18T16:36:32Z - GPT-5.4 - Planner API key input now shows a masked last-4 preview
+- The remote planner API key textbox now shows a display-only masked value in the form `***1234` when a key is already configured, instead of staying blank.
+- The mask is derived from the resolved configured secret on the backend and passed through runtime state as `api_key_masked_value`, without exposing the raw key.
+- Frontend input handling clears the mask on focus and restores it on blur if the user does not type a replacement, so the masked display never gets treated as a real draft value.
+- Validation after the change is green: `pnpm test:ui` passed with 82 UI tests, `pnpm build` passed, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passed with 309 backend tests.
+
+## 2026-04-18T16:12:23Z - GPT-5.4 - Remote planner settings are now editable with model discovery and reset
+- The remote planner Settings panel now lets the user edit the endpoint, load available models from the current OpenAI-compatible `/models` endpoint, select a returned model, save the endpoint/model pair, and reset those two fields back to the shipped defaults.
+- The planner panel no longer shows the `Service` card; the user-facing flow is now centered on endpoint, model, and API key actions instead of provider implementation details.
+- Backend support was added for persisting planner endpoint/model changes, resetting them to the default template values for the active planner profile, and loading models from OpenAI-compatible endpoints using the entered or configured API key.
+- Validation after the feature landed is green: `pnpm test:ui` passed with 79 UI tests, `pnpm build` passed, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passed with 309 tests, and `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed.
+
+## 2026-04-18T15:49:56Z - GPT-5.4 - API key settings stripped down to user actions only
+- `src/settings-status-panels.ts` no longer renders the `Current API key source` card in the remote planner panel, keeping the screen focused on user-relevant fields and actions.
+- `src/confirmation-panel-helpers.ts` now shows only the `API key` label and the save/test controls, without any storage implementation or reassurance copy.
+- Validation after the simplification: `pnpm test:ui` passed with 75 UI tests and `pnpm build` passed.
+
 ## 2026-04-18T15:23:01Z - GPT-5.4 - Planner-provider panel and contract path removed
 - Removed the dead-end `Planner provider selection` panel from the Settings UI along with its frontend panel state, render plumbing, guidance link, and API typing.
 - Removed the matching backend `planner_provider_settings` field from `AgentStateData`, deleted the unused builder/helper path, and cleaned up the Rust/JS tests and fixtures that only existed for that panel.

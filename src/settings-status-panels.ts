@@ -196,68 +196,121 @@ export function renderSettingsRemotePlannerPanel(state: RemotePlannerPanelState)
   const errorCopy = state.error
     ? `<p class="settings-panel-error" role="alert">${escapeHtml(state.error)}</p>`
     : "";
+  const modelsAreFresh = (state.baseUrl?.trim().length ?? 0) > 0
+    && state.loadedModelsEndpoint === state.baseUrl
+    && state.availableModels.length > 0;
+  const isConnectionBusy = state.isLoadingModels || state.isSavingConnection || state.isResettingConnection;
+  const endpointDisabledAttribute = isConnectionBusy ? " disabled aria-disabled=\"true\"" : "";
+  const modelDisabledAttribute = isConnectionBusy || state.availableModels.length === 0
+    ? " disabled aria-disabled=\"true\""
+    : "";
+  const loadModelsDisabledAttribute = isConnectionBusy || (state.baseUrl?.trim().length ?? 0) === 0
+    ? " disabled aria-disabled=\"true\""
+    : "";
+  const saveSettingsDisabledAttribute = isConnectionBusy
+    || !state.profileName
+    || (state.baseUrl?.trim().length ?? 0) === 0
+    || (state.model?.trim().length ?? 0) === 0
+    || state.loadedModelsEndpoint !== state.baseUrl
+      ? " disabled aria-disabled=\"true\""
+      : "";
+  const resetSettingsDisabledAttribute = isConnectionBusy || !state.profileName
+    ? " disabled aria-disabled=\"true\""
+    : "";
+  const modelOptions = state.availableModels.length > 0
+    ? state.availableModels
+        .map(
+          (model) => `<option value="${escapeHtml(model)}"${model === state.model ? " selected" : ""}>${escapeHtml(model)}</option>`,
+        )
+        .join("")
+    : `<option value="">${escapeHtml(state.loadedModelsEndpoint === state.baseUrl && state.model ? state.model : "Load models for this endpoint")}</option>`;
 
   return `
     <section class="settings-panel" aria-labelledby="settings-remote-planner-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-remote-planner-title">Remote planner API reference</h2>
-        <p class="settings-panel-description">
-          Review the configured remote planner profile and API references. Secret values stay masked
-          here, and replacement API keys are stored in the OS keyring instead of the config file.
-        </p>
+        <h2 id="settings-remote-planner-title">Remote planner</h2>
         ${errorCopy}
       </div>
-      <div class="settings-grid">
-        <div class="settings-control-card">
-          <span class="settings-control-label">Planner remote profile</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Provider</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.provider)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Base URL</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.baseUrl)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Model</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.model)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">API key reference</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.apiKeyReference)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Organization reference</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.organizationReference)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Project</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.project)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Temperature (milli)</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.temperatureMilli)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Max output tokens</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.maxOutputTokens)}</span>
-        </div>
-        <div class="settings-control-card">
-          <span class="settings-control-label">Timeout (ms)</span>
-          <span class="settings-control-value">${renderReadOnlySettingValue(state.timeoutMs)}</span>
-        </div>
+      <div class="settings-grid settings-grid-single">
         ${renderSecretEntryCard(
           "planner",
           state.profileName,
           state.apiKeyDraft,
+          state.apiKeyMaskedValue,
           state.isSavingApiKey,
           state.isTestingApiKey,
           state.apiKeyReference !== null,
           state.apiKeyTestMessage,
         )}
+      </div>
+      <div class="settings-grid settings-grid-single settings-grid-compact">
+        <div class="settings-control-card settings-planner-connection-card">
+          <label class="settings-field-group" for="settings-remote-planner-endpoint-input">
+            <span class="settings-control-label">Endpoint</span>
+            <input
+              id="settings-remote-planner-endpoint-input"
+              class="settings-control-select"
+              data-remote-planner-endpoint-input="true"
+              type="text"
+              value="${escapeHtml(state.baseUrl ?? "")}"
+              placeholder="https://api.openai.com/v1"
+              spellcheck="false"
+              autocomplete="off"
+              ${endpointDisabledAttribute}
+            />
+          </label>
+        </div>
+      </div>
+      <div class="settings-grid settings-grid-single settings-grid-compact">
+        <div class="settings-control-card settings-planner-connection-card">
+          <label class="settings-field-group" for="settings-remote-planner-model-select">
+            <span class="settings-control-label settings-inline-label-row">
+              <span>Model</span>
+              <span
+                class="settings-status-light ${modelsAreFresh ? "settings-status-light-fresh" : "settings-status-light-stale"}"
+                role="img"
+                aria-label="${escapeHtml(modelsAreFresh ? "Models are loaded for the current endpoint" : "Models need to be reloaded for the current endpoint")}" 
+              ></span>
+            </span>
+            <div class="settings-inline-control-row settings-inline-control-row-wrap">
+              <select
+                id="settings-remote-planner-model-select"
+                class="settings-control-select settings-inline-control-fill"
+                data-remote-planner-model-select="true"
+                ${modelDisabledAttribute}
+              >
+                ${modelOptions}
+              </select>
+              <button
+                type="button"
+                class="settings-control-button settings-control-button-secondary"
+                data-remote-planner-models-refresh="true"
+                ${loadModelsDisabledAttribute}
+              >
+                ${escapeHtml(state.isLoadingModels ? "Loading models..." : "Load models")}
+              </button>
+            </div>
+          </label>
+          <div class="settings-button-row settings-button-row-wrap">
+            <button
+              type="button"
+              class="settings-control-button"
+              data-remote-planner-settings-save="true"
+              ${saveSettingsDisabledAttribute}
+            >
+              ${escapeHtml(state.isSavingConnection ? "Saving..." : "Save settings")}
+            </button>
+            <button
+              type="button"
+              class="settings-control-button settings-control-button-secondary"
+              data-remote-planner-settings-reset="true"
+              ${resetSettingsDisabledAttribute}
+            >
+              ${escapeHtml(state.isResettingConnection ? "Resetting..." : "Reset to defaults")}
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   `;
@@ -682,6 +735,7 @@ export function renderSettingsRemoteTtsPanel(state: RemoteTtsPanelState): string
           "tts",
           state.profileName,
           state.apiKeyDraft,
+          state.apiKeyMaskedValue,
           state.isSavingApiKey,
           state.isTestingApiKey,
           state.apiKeyReference !== null,
@@ -836,6 +890,7 @@ export function renderSettingsRemoteAsrPanel(state: RemoteAsrPanelState): string
           "asr",
           state.profileName,
           state.apiKeyDraft,
+          state.apiKeyMaskedValue,
           state.isSavingApiKey,
           state.isTestingApiKey,
           state.apiKeyReference !== null,

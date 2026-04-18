@@ -91,6 +91,7 @@ test("getAgentState requests includeLastTranscript and unwraps the backend tool 
         base_url: null,
         model: null,
         api_key_reference: null,
+        api_key_masked_value: null,
         organization_reference: null,
         project: null,
         temperature_milli: null,
@@ -130,6 +131,7 @@ test("getAgentState requests includeLastTranscript and unwraps the backend tool 
         base_url: null,
         model: null,
         api_key_reference: null,
+        api_key_masked_value: null,
         organization_reference: null,
         project: null,
         language: null,
@@ -159,6 +161,7 @@ test("getAgentState requests includeLastTranscript and unwraps the backend tool 
         base_url: null,
         model: null,
         api_key_reference: null,
+        api_key_masked_value: null,
         organization_reference: null,
         project: null,
         voice: null,
@@ -252,6 +255,98 @@ test("testRemotePlannerApiKey forwards the request and unwraps the response", as
       timeoutMs: 750,
       profileName: "openai-default",
       apiKey: "sk-test",
+    },
+  ]]);
+});
+
+test("setRemotePlannerConnectionSettings forwards the request and unwraps the response", async () => {
+  invokeImplementation = async () => ({
+    profile_name: "openai-default",
+    base_url: "https://api.example.com/v1",
+    model: "gpt-custom",
+  });
+
+  const result = await tauriApi.setRemotePlannerConnectionSettings({
+    requestId: "req-planner-save",
+    timeoutMs: 800,
+    profileName: "openai-default",
+    baseUrl: "https://api.example.com/v1",
+    model: "gpt-custom",
+  });
+
+  assert.deepEqual(result, {
+    profile_name: "openai-default",
+    base_url: "https://api.example.com/v1",
+    model: "gpt-custom",
+  });
+  assert.deepEqual(invokeCalls, [[
+    "set_remote_planner_connection_settings",
+    {
+      requestId: "req-planner-save",
+      timeoutMs: 800,
+      profileName: "openai-default",
+      baseUrl: "https://api.example.com/v1",
+      model: "gpt-custom",
+    },
+  ]]);
+});
+
+test("listRemotePlannerModels forwards the request and unwraps the response", async () => {
+  invokeImplementation = async () => ({
+    profile_name: "openai-default",
+    base_url: "https://api.example.com/v1",
+    models: ["gpt-custom", "gpt-mini"],
+  });
+
+  const result = await tauriApi.listRemotePlannerModels({
+    requestId: "req-planner-models",
+    timeoutMs: 500,
+    profileName: "openai-default",
+    baseUrl: "https://api.example.com/v1",
+    apiKey: "sk-test",
+  });
+
+  assert.deepEqual(result, {
+    profile_name: "openai-default",
+    base_url: "https://api.example.com/v1",
+    models: ["gpt-custom", "gpt-mini"],
+  });
+  assert.deepEqual(invokeCalls, [[
+    "list_remote_planner_models",
+    {
+      requestId: "req-planner-models",
+      timeoutMs: 500,
+      profileName: "openai-default",
+      baseUrl: "https://api.example.com/v1",
+      apiKey: "sk-test",
+    },
+  ]]);
+});
+
+test("resetRemotePlannerConnectionSettings forwards the request and unwraps the response", async () => {
+  invokeImplementation = async () => ({
+    profile_name: "openai-default",
+    base_url: "https://api.openai.com/v1",
+    model: "gpt-5.4-mini",
+  });
+
+  const result = await tauriApi.resetRemotePlannerConnectionSettings({
+    requestId: "req-planner-reset",
+    timeoutMs: 500,
+    profileName: "openai-default",
+  });
+
+  assert.deepEqual(result, {
+    profile_name: "openai-default",
+    base_url: "https://api.openai.com/v1",
+    model: "gpt-5.4-mini",
+  });
+  assert.deepEqual(invokeCalls, [[
+    "reset_remote_planner_connection_settings",
+    {
+      requestId: "req-planner-reset",
+      timeoutMs: 500,
+      profileName: "openai-default",
     },
   ]]);
 });

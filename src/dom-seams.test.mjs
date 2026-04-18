@@ -109,6 +109,8 @@ function createEventHandlerDeps() {
     persistAsrProvider: [],
     openExternalLink: [],
     testRemoteApiKey: [],
+    updateRemoteApiKeyInput: [],
+    loadRemotePlannerModels: 0,
     setAppView: [],
   };
 
@@ -133,7 +135,11 @@ function createEventHandlerDeps() {
     updateAudioInput: () => {},
     updateConfirmationThresholdInput: () => {},
     updateOcrThresholdInput: () => {},
-    updateRemoteApiKeyInput: () => {},
+    updateRemoteApiKeyInput: (kind, value) => {
+      calls.updateRemoteApiKeyInput.push([kind, value]);
+    },
+    updateRemotePlannerEndpointInput: () => {},
+    updateRemotePlannerModelSelection: () => {},
     updateModelManagementInput: () => {},
     updateUrlInput: () => {},
     persistAudioChange: (kind, value) => {
@@ -150,6 +156,11 @@ function createEventHandlerDeps() {
     persistTtsProvider: () => {},
     persistTtsModel: () => {},
     persistTtsVoice: () => {},
+    loadRemotePlannerModels: () => {
+      calls.loadRemotePlannerModels += 1;
+    },
+    persistRemotePlannerConnectionSettings: () => {},
+    resetRemotePlannerConnectionSettings: () => {},
     openExternalLink: (url) => {
       calls.openExternalLink.push(url);
     },
@@ -212,6 +223,31 @@ test("event delegation keeps handling newly replaced URL buttons", () => {
   assert.deepEqual(calls.runUrlAction, ["open", "open"]);
 });
 
+test("masked remote API key display clears on focus and restores on blur", () => {
+  const { appRoot, calls } = createEventHandlerDeps();
+  const input = new FakeInputElement();
+  input.dataset.remoteApiKeyInput = "planner";
+  input.dataset.maskedApiKeyDisplay = "***7890";
+  input.value = "***7890";
+  input.type = "text";
+
+  appRoot.dispatch("focusin", { target: input });
+
+  assert.equal(input.value, "");
+  assert.equal(input.type, "password");
+
+  input.value = "new-secret";
+  appRoot.dispatch("input", { target: input });
+
+  assert.deepEqual(calls.updateRemoteApiKeyInput, [["planner", "new-secret"]]);
+
+  input.value = "";
+  appRoot.dispatch("focusout", { target: input });
+
+  assert.equal(input.value, "***7890");
+  assert.equal(input.type, "text");
+});
+
 test("settings target click scrolls and focuses the matching control", () => {
   const { appRoot, document } = createEventHandlerDeps();
   const settingsButton = new FakeButtonElement();
@@ -268,6 +304,17 @@ test("remote API key test button dispatches the matching kind", () => {
   appRoot.dispatch("click", { target: testButton });
 
   assert.deepEqual(calls.testRemoteApiKey, ["tts"]);
+});
+
+test("remote planner load models button dispatches the load action", () => {
+  const { appRoot, calls } = createEventHandlerDeps();
+  const button = new FakeButtonElement();
+  button.selectorMatches.add("[data-remote-planner-models-refresh]");
+  button.dataset.remotePlannerModelsRefresh = "true";
+
+  appRoot.dispatch("click", { target: button });
+
+  assert.equal(calls.loadRemotePlannerModels, 1);
 });
 
 test("external link clicks open the system browser", () => {

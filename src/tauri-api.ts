@@ -280,6 +280,7 @@ export interface RemotePlannerSettings {
   base_url: string | null;
   model: string | null;
   api_key_reference: string | null;
+  api_key_masked_value: string | null;
   organization_reference: string | null;
   project: string | null;
   temperature_milli: number | null;
@@ -293,6 +294,7 @@ export interface RemoteTtsSettings {
   base_url: string | null;
   model: string | null;
   api_key_reference: string | null;
+  api_key_masked_value: string | null;
   organization_reference: string | null;
   project: string | null;
   voice: string | null;
@@ -306,6 +308,7 @@ export interface RemoteAsrSettings {
   base_url: string | null;
   model: string | null;
   api_key_reference: string | null;
+  api_key_masked_value: string | null;
   organization_reference: string | null;
   project: string | null;
   language: string | null;
@@ -316,6 +319,18 @@ export interface RemoteAsrSettings {
 export interface SetRemoteApiKeyData {
   profile_name: string;
   api_key_reference: string;
+}
+
+export interface RemotePlannerConnectionSettingsData {
+  profile_name: string;
+  base_url: string;
+  model: string;
+}
+
+export interface RemotePlannerModelListData {
+  profile_name: string;
+  base_url: string;
+  models: string[];
 }
 
 export interface TestRemoteApiKeyData {
@@ -752,6 +767,50 @@ export async function setRemotePlannerApiKey(input: {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     profileName: input.profileName,
+    apiKey: input.apiKey,
+  });
+}
+
+export async function setRemotePlannerConnectionSettings(input: {
+  requestId: string;
+  timeoutMs?: number;
+  profileName: string;
+  baseUrl: string;
+  model: string;
+}): Promise<RemotePlannerConnectionSettingsData> {
+  return invokeCommand<RemotePlannerConnectionSettingsData>("set_remote_planner_connection_settings", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    profileName: input.profileName,
+    baseUrl: input.baseUrl,
+    model: input.model,
+  });
+}
+
+export async function resetRemotePlannerConnectionSettings(input: {
+  requestId: string;
+  timeoutMs?: number;
+  profileName: string;
+}): Promise<RemotePlannerConnectionSettingsData> {
+  return invokeCommand<RemotePlannerConnectionSettingsData>("reset_remote_planner_connection_settings", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    profileName: input.profileName,
+  });
+}
+
+export async function listRemotePlannerModels(input: {
+  requestId: string;
+  timeoutMs?: number;
+  profileName: string;
+  baseUrl: string;
+  apiKey: string;
+}): Promise<RemotePlannerModelListData> {
+  return invokeCommand<RemotePlannerModelListData>("list_remote_planner_models", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    profileName: input.profileName,
+    baseUrl: input.baseUrl,
     apiKey: input.apiKey,
   });
 }

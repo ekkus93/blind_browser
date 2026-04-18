@@ -65,6 +65,9 @@ jobs:
       - name: Run Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
 
+      - name: Run frontend lint
+        run: pnpm lint
+
       - name: Run UI tests
         run: pnpm test:ui
 

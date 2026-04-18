@@ -40,6 +40,8 @@ interface EventHandlerDependencies {
   updateConfirmationThresholdInput: (value: number) => void;
   updateOcrThresholdInput: (kind: OcrThresholdControlKind, value: number) => void;
   updateRemoteApiKeyInput: (kind: RemoteApiKeyKind, value: string) => void;
+  updateRemotePlannerEndpointInput: (value: string) => void;
+  updateRemotePlannerModelSelection: (value: string) => void;
   updateModelManagementInput: (value: string) => void;
   updateUrlInput: (value: string) => void;
   persistAudioChange: (kind: AudioControlKind, value: number) => void;
@@ -52,6 +54,9 @@ interface EventHandlerDependencies {
   persistTtsProvider: (mode: "Local" | "Remote") => void;
   persistTtsModel: (profileName: string) => void;
   persistTtsVoice: (voice: string) => void;
+  loadRemotePlannerModels: () => void;
+  persistRemotePlannerConnectionSettings: () => void;
+  resetRemotePlannerConnectionSettings: () => void;
   openExternalLink: (url: string) => void;
   setAppView: (view: AppView) => void;
   beginPushToTalk: (source: PushToTalkSource) => void;
@@ -77,6 +82,8 @@ export function registerAppEventHandlers({
   updateConfirmationThresholdInput,
   updateOcrThresholdInput,
   updateRemoteApiKeyInput,
+  updateRemotePlannerEndpointInput,
+  updateRemotePlannerModelSelection,
   updateModelManagementInput,
   updateUrlInput,
   persistAudioChange,
@@ -89,6 +96,9 @@ export function registerAppEventHandlers({
   persistTtsProvider,
   persistTtsModel,
   persistTtsVoice,
+  loadRemotePlannerModels,
+  persistRemotePlannerConnectionSettings,
+  resetRemotePlannerConnectionSettings,
   openExternalLink,
   setAppView,
   beginPushToTalk,
@@ -158,6 +168,36 @@ export function registerAppEventHandlers({
       if (kind === "planner" || kind === "tts" || kind === "asr") {
         saveRemoteApiKey(kind);
       }
+      return;
+    }
+
+    const loadPlannerModelsButton = target.closest<HTMLButtonElement>("[data-remote-planner-models-refresh]");
+    if (loadPlannerModelsButton) {
+      if (loadPlannerModelsButton.disabled) {
+        return;
+      }
+
+      loadRemotePlannerModels();
+      return;
+    }
+
+    const savePlannerSettingsButton = target.closest<HTMLButtonElement>("[data-remote-planner-settings-save]");
+    if (savePlannerSettingsButton) {
+      if (savePlannerSettingsButton.disabled) {
+        return;
+      }
+
+      persistRemotePlannerConnectionSettings();
+      return;
+    }
+
+    const resetPlannerSettingsButton = target.closest<HTMLButtonElement>("[data-remote-planner-settings-reset]");
+    if (resetPlannerSettingsButton) {
+      if (resetPlannerSettingsButton.disabled) {
+        return;
+      }
+
+      resetRemotePlannerConnectionSettings();
       return;
     }
 
@@ -235,6 +275,36 @@ export function registerAppEventHandlers({
     submitConfirmationAction(action, confirmationId);
   });
 
+  appRoot.addEventListener("focusin", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const maskedDisplayValue = target.dataset.maskedApiKeyDisplay;
+    if (!target.dataset.remoteApiKeyInput || !maskedDisplayValue || target.value !== maskedDisplayValue) {
+      return;
+    }
+
+    target.value = "";
+    target.type = "password";
+  });
+
+  appRoot.addEventListener("focusout", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const maskedDisplayValue = target.dataset.maskedApiKeyDisplay;
+    if (!target.dataset.remoteApiKeyInput || !maskedDisplayValue || target.value.length > 0) {
+      return;
+    }
+
+    target.value = maskedDisplayValue;
+    target.type = "text";
+  });
+
   appRoot.addEventListener("input", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) {
@@ -278,6 +348,11 @@ export function registerAppEventHandlers({
 
     if (target.dataset.remoteApiKeyInput === "asr") {
       updateRemoteApiKeyInput("asr", target.value);
+      return;
+    }
+
+    if (target.dataset.remotePlannerEndpointInput === "true") {
+      updateRemotePlannerEndpointInput(target.value);
       return;
     }
 
@@ -342,6 +417,11 @@ export function registerAppEventHandlers({
         return;
       }
       persistOcrThresholdChange("region", Number.parseInt(target.value, 10));
+      return;
+    }
+
+    if (target instanceof HTMLSelectElement && target.dataset.remotePlannerModelSelect === "true") {
+      updateRemotePlannerModelSelection(target.value);
       return;
     }
 
