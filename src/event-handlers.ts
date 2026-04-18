@@ -6,6 +6,7 @@ type AudioControlKind = "volume" | "speed";
 type OcrThresholdControlKind = "char" | "region";
 type ModelManagementToggleKind = "check-on-startup" | "auto-download-missing";
 type PushToTalkSource = "keyboard" | "pointer";
+type AppView = "workspace" | "settings";
 type SettingsBusyKey =
   | "volume"
   | "speed"
@@ -50,6 +51,7 @@ interface EventHandlerDependencies {
   persistTtsProvider: (mode: "Local" | "Remote") => void;
   persistTtsModel: (profileName: string) => void;
   persistTtsVoice: (voice: string) => void;
+  setAppView: (view: AppView) => void;
   beginPushToTalk: (source: PushToTalkSource) => void;
   releasePushToTalk: (source: PushToTalkSource) => void;
   cancelPushToTalk: () => void;
@@ -84,6 +86,7 @@ export function registerAppEventHandlers({
   persistTtsProvider,
   persistTtsModel,
   persistTtsVoice,
+  setAppView,
   beginPushToTalk,
   releasePushToTalk,
   cancelPushToTalk,
@@ -101,6 +104,8 @@ export function registerAppEventHandlers({
         return;
       }
 
+      setAppView("settings");
+
       const targetElement = document.getElementById(targetId);
       if (!targetElement) {
         return;
@@ -114,6 +119,15 @@ export function registerAppEventHandlers({
         || targetElement instanceof HTMLTextAreaElement
       ) {
         targetElement.focus({ preventScroll: true });
+      }
+      return;
+    }
+
+    const appViewButton = target.closest<HTMLButtonElement>("[data-app-view-button]");
+    if (appViewButton) {
+      const view = appViewButton.dataset.appViewButton;
+      if (view === "workspace" || view === "settings") {
+        setAppView(view);
       }
       return;
     }

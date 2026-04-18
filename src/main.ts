@@ -3,6 +3,8 @@ import "./styles.css";
 import {
   createPanelRoots,
   renderPanelRoot as renderPanelRootHtml,
+  setActiveAppView,
+  type AppView,
   type PanelRootKey,
   type PanelRootMap,
 } from "./app-shell";
@@ -158,6 +160,7 @@ let statusPanelState: StatusPanelState = initialPanelStates.statusPanelState;
 let urlInputPanelState: UrlInputPanelState = initialPanelStates.urlInputPanelState;
 let activePushToTalkSource: "keyboard" | "pointer" | null = null;
 let continuousListeningLoopActive = false;
+let activeAppView: AppView = "workspace";
 
 if (!app) {
   throw new Error("App root element was not found.");
@@ -171,8 +174,15 @@ function ensurePanelRoots(): PanelRootMap {
   }
 
   panelRoots = createPanelRoots(appRoot);
+  setActiveAppView(appRoot, activeAppView);
 
   return panelRoots;
+}
+
+function setAppView(nextView: AppView) {
+  activeAppView = nextView;
+  ensurePanelRoots();
+  setActiveAppView(appRoot, activeAppView);
 }
 
 function renderPanelRoot(rootKey: PanelRootKey, html: string) {
@@ -1704,6 +1714,7 @@ registerAppEventHandlers({
   persistTtsVoice: (voice) => {
     void persistTtsVoiceSelection(voice);
   },
+  setAppView,
   beginPushToTalk: (source) => {
     void beginPushToTalk(source);
   },

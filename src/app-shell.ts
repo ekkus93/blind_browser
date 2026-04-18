@@ -22,6 +22,8 @@ export type PanelRootKey =
   | "settings-speed"
   | "confirmation-panel";
 
+export type AppView = "workspace" | "settings";
+
 export type PanelRootMap = Record<PanelRootKey, HTMLDivElement>;
 
 function renderPanelRootPlaceholder(rootKey: PanelRootKey): string {
@@ -31,62 +33,109 @@ function renderPanelRootPlaceholder(rootKey: PanelRootKey): string {
 export function renderAppShell(): string {
   return `
     <main class="shell">
-      <section class="hero">
-        <p class="eyebrow">Voice-first desktop runtime</p>
-        <h1>Voice-first browser workspace</h1>
-        <p class="lede">
-          Thin Tauri frontend for the live blind_browser runtime. Browser control,
-          narration, voice input, settings, and confirmation flows stay lightweight
-          here while deterministic tools and runtime state live in Rust.
-        </p>
-      </section>
+      <header class="shell-toolbar">
+        <div class="shell-toolbar-copy">
+          <p class="eyebrow">Voice-first desktop runtime</p>
+          <p class="shell-toolbar-title">blind_browser</p>
+        </div>
+        <nav class="shell-nav" aria-label="App pages">
+          <button
+            type="button"
+            class="shell-nav-button shell-nav-button-active"
+            data-app-view-button="workspace"
+            aria-pressed="true"
+          >
+            Workspace
+          </button>
+          <button
+            type="button"
+            class="shell-nav-button"
+            data-app-view-button="settings"
+            aria-pressed="false"
+          >
+            Settings
+          </button>
+        </nav>
+      </header>
 
-      <section class="panels" aria-label="Application sections">
-        <article class="panel">
-          <h2>Current runtime</h2>
-          <p>Deterministic browser, audio, extraction, and planner state still live in Rust.</p>
-        </article>
-        <article class="panel">
-          <h2>Remaining gaps</h2>
-          <p>Provider failover and some internal cleanup work remain, but the core voice-first runtime is already wired.</p>
-        </article>
-        <article class="panel">
-          <h2>UI stance</h2>
-          <p>The UI remains intentionally light so voice-first behavior stays the primary product path.</p>
-        </article>
-        <article class="panel">
-          <h2>Confirmation flow</h2>
-          <p>
-            Frontend orchestration now opens a dedicated confirmation UI state whenever a planner
-            execution returns <strong>AwaitingConfirmation</strong>.
+      <section class="app-view app-view-active" data-app-view-section="workspace">
+        <section class="hero">
+          <p class="eyebrow">Voice-first browser</p>
+          <h1>Workspace</h1>
+          <p class="lede">
+            Use voice input, open pages, control reading, and review the current runtime state here.
+            Settings live on a separate page so the main workflow stays simpler.
           </p>
-        </article>
+        </section>
+
+        <section class="panels" aria-label="Workspace sections">
+          <article class="panel">
+            <h2>Voice input</h2>
+            <p>Start commands here, then keep the browser flow focused on listening, reading, and confirmation.</p>
+          </article>
+          <article class="panel">
+            <h2>Page control</h2>
+            <p>Open a page, start reading, move forward or backward, and stop without digging through settings.</p>
+          </article>
+          <article class="panel">
+            <h2>Runtime status</h2>
+            <p>See what the live browser, narration, and listening state are doing right now.</p>
+          </article>
+        </section>
+
+        ${renderPanelRootPlaceholder("push-to-talk")}
+        ${renderPanelRootPlaceholder("url-input")}
+        ${renderPanelRootPlaceholder("status")}
+        ${renderPanelRootPlaceholder("confirmation-panel")}
       </section>
 
-      ${renderPanelRootPlaceholder("push-to-talk")}
-      ${renderPanelRootPlaceholder("url-input")}
-      ${renderPanelRootPlaceholder("status")}
-      ${renderPanelRootPlaceholder("audio-controls")}
-      ${renderPanelRootPlaceholder("settings-guidance")}
-      ${renderPanelRootPlaceholder("settings-planner-provider")}
-      ${renderPanelRootPlaceholder("settings-remote-planner")}
-      ${renderPanelRootPlaceholder("settings-provider-failover")}
-      ${renderPanelRootPlaceholder("settings-confirmation")}
-      ${renderPanelRootPlaceholder("settings-ocr-threshold")}
-      ${renderPanelRootPlaceholder("settings-asr-provider")}
-      ${renderPanelRootPlaceholder("settings-local-asr-model")}
-      ${renderPanelRootPlaceholder("settings-model-management")}
-      ${renderPanelRootPlaceholder("settings-remote-asr")}
-      ${renderPanelRootPlaceholder("settings-tts-provider")}
-      ${renderPanelRootPlaceholder("settings-tts-model")}
-      ${renderPanelRootPlaceholder("settings-local-tts-model")}
-      ${renderPanelRootPlaceholder("settings-remote-tts")}
-      ${renderPanelRootPlaceholder("settings-tts-voice")}
-      ${renderPanelRootPlaceholder("settings-volume")}
-      ${renderPanelRootPlaceholder("settings-speed")}
-      ${renderPanelRootPlaceholder("confirmation-panel")}
+      <section class="app-view" data-app-view-section="settings" hidden aria-hidden="true">
+        <section class="hero hero-settings">
+          <p class="eyebrow">Configuration</p>
+          <h1>Settings</h1>
+          <p class="lede">
+            Provider selection, model references, playback defaults, OCR thresholds, and runtime configuration live here.
+          </p>
+        </section>
+
+        ${renderPanelRootPlaceholder("audio-controls")}
+        ${renderPanelRootPlaceholder("settings-guidance")}
+        ${renderPanelRootPlaceholder("settings-planner-provider")}
+        ${renderPanelRootPlaceholder("settings-remote-planner")}
+        ${renderPanelRootPlaceholder("settings-provider-failover")}
+        ${renderPanelRootPlaceholder("settings-confirmation")}
+        ${renderPanelRootPlaceholder("settings-ocr-threshold")}
+        ${renderPanelRootPlaceholder("settings-asr-provider")}
+        ${renderPanelRootPlaceholder("settings-local-asr-model")}
+        ${renderPanelRootPlaceholder("settings-model-management")}
+        ${renderPanelRootPlaceholder("settings-remote-asr")}
+        ${renderPanelRootPlaceholder("settings-tts-provider")}
+        ${renderPanelRootPlaceholder("settings-tts-model")}
+        ${renderPanelRootPlaceholder("settings-local-tts-model")}
+        ${renderPanelRootPlaceholder("settings-remote-tts")}
+        ${renderPanelRootPlaceholder("settings-tts-voice")}
+        ${renderPanelRootPlaceholder("settings-volume")}
+        ${renderPanelRootPlaceholder("settings-speed")}
+      </section>
     </main>
   `;
+}
+
+export function setActiveAppView(appRoot: HTMLDivElement, nextView: AppView) {
+  const sections = appRoot.querySelectorAll<HTMLElement>("[data-app-view-section]");
+  sections.forEach((section) => {
+    const isActive = section.dataset.appViewSection === nextView;
+    section.hidden = !isActive;
+    section.setAttribute("aria-hidden", String(!isActive));
+    section.classList.toggle("app-view-active", isActive);
+  });
+
+  const buttons = appRoot.querySelectorAll<HTMLButtonElement>("[data-app-view-button]");
+  buttons.forEach((button) => {
+    const isActive = button.dataset.appViewButton === nextView;
+    button.setAttribute("aria-pressed", String(isActive));
+    button.classList.toggle("shell-nav-button-active", isActive);
+  });
 }
 
 function requirePanelRoot(appRoot: HTMLDivElement, rootKey: PanelRootKey): HTMLDivElement {

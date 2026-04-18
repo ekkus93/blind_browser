@@ -247,6 +247,11 @@
 - Committed the remote-first TTS/ASR default change and simplified push-to-talk setup messaging as `e5e4152` (`feat: default voice input and speech to OpenAI`).
 - Pushed `master` to `origin` successfully so GitHub now contains the OpenAI-default first-run behavior and the shorter voice-input setup copy.
 
+## 2026-04-18T10:31:09Z - GPT-5.4 - Separate settings page added
+- The frontend shell now has two in-app views: `Workspace` for push-to-talk, URL control, runtime status, and confirmation; `Settings` for all provider, model, playback, OCR, and model-management panels.
+- The top-level nav switches between the two views, and existing `data-settings-target` buttons now force the settings view open before scrolling/focusing the requested control.
+- Validation stayed green after the split: clippy, 304 Rust tests, 67 UI tests, and `pnpm build` all passed.
+
 ## 2026-03-23T21:23:18Z - GPT-5.4 - ALSA prerequisite documented after Clippy run
 - After the OCR dependency blocker was resolved, `cargo clippy --all-features` advanced to the audio dependency chain and failed in `alsa-sys` because `pkg-config` could not find `alsa.pc`.
 - `README.md` now includes `libasound2-dev` in the Linux prerequisite install command and notes that a missing `alsa.pc` usually means that package is not installed.

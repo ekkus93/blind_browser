@@ -107,6 +107,7 @@ function createEventHandlerDeps() {
     runUrlAction: [],
     persistAudioChange: [],
     persistAsrProvider: [],
+    setAppView: [],
   };
 
   registerAppEventHandlers({
@@ -144,6 +145,9 @@ function createEventHandlerDeps() {
     persistTtsProvider: () => {},
     persistTtsModel: () => {},
     persistTtsVoice: () => {},
+    setAppView: (view) => {
+      calls.setAppView.push(view);
+    },
     beginPushToTalk: () => {},
     releasePushToTalk: () => {},
     cancelPushToTalk: () => {},
@@ -214,6 +218,37 @@ test("settings target click scrolls and focuses the matching control", () => {
 
   assert.deepEqual(targetControl.scrollOptions, { behavior: "smooth", block: "center" });
   assert.deepEqual(targetControl.focusOptions, { preventScroll: true });
+});
+
+test("settings target click switches to the settings view", () => {
+  const { appRoot, calls, document } = createEventHandlerDeps();
+  const settingsButton = new FakeButtonElement();
+  settingsButton.selectorMatches.add("[data-settings-target]");
+  settingsButton.dataset.settingsTarget = "settings-tts-provider-control";
+
+  const targetControl = new FakeInputElement();
+  targetControl.id = "settings-tts-provider-control";
+  document.register(targetControl);
+
+  appRoot.dispatch("click", { target: settingsButton });
+
+  assert.deepEqual(calls.setAppView, ["settings"]);
+});
+
+test("view navigation buttons switch between workspace and settings", () => {
+  const { appRoot, calls } = createEventHandlerDeps();
+  const settingsButton = new FakeButtonElement();
+  settingsButton.selectorMatches.add("[data-app-view-button]");
+  settingsButton.dataset.appViewButton = "settings";
+
+  const workspaceButton = new FakeButtonElement();
+  workspaceButton.selectorMatches.add("[data-app-view-button]");
+  workspaceButton.dataset.appViewButton = "workspace";
+
+  appRoot.dispatch("click", { target: settingsButton });
+  appRoot.dispatch("click", { target: workspaceButton });
+
+  assert.deepEqual(calls.setAppView, ["settings", "workspace"]);
 });
 
 test("busy change guards block only the matching settings control", () => {
