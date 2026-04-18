@@ -1,3 +1,7 @@
+## 2026-04-18T23:03:25Z - GPT-5.4 - Settings cleanup is already committed and pushed
+- Verified that `master` is clean with no staged or unstaged changes.
+- Verified that `HEAD` and `origin/master` both point at `3368eb0 Finish React interaction migration`, so the settings cleanup is already checked in and published.
+
 ## 2026-04-18T22:54:51Z - GPT-5.4 - Finished the React-owned frontend cleanup plan end to end
 - `src/main.ts` now passes explicit React-owned handlers into the live shell and panel renderers, so runtime URL actions, settings actions, confirmation actions, and shell navigation no longer depend on broad delegated app-root events.
 - `src/dom-seams.test.mjs` now covers shell navigation, settings subpage navigation, URL controls, masked API-key focus behavior, guidance links, and Redux view or panel updates through React-centric element trees and store actions instead of the retired delegated-event seam.
