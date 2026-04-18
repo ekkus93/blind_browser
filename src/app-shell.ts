@@ -84,12 +84,7 @@ export function renderAppShell(): string {
 
       <section class="app-view" data-app-view-section="settings" hidden aria-hidden="true">
         <section class="hero hero-settings">
-          <p class="eyebrow">Configuration</p>
           <h1>Settings</h1>
-          <p class="lede">
-            Review playback defaults first, then configure planner, speech output, speech input,
-            and the advanced runtime safeguards that support them.
-          </p>
         </section>
 
         ${renderPanelRootPlaceholder("settings-guidance")}
@@ -98,10 +93,6 @@ export function renderAppShell(): string {
           <div class="settings-group-copy">
             <p class="settings-group-eyebrow">Listening</p>
             <h2 id="settings-group-playback-title">Playback</h2>
-            <p class="settings-group-description">
-              Adjust playback volume and speed here. Changes apply immediately and remain the saved
-              defaults for future narration.
-            </p>
           </div>
           ${renderPanelRootPlaceholder("audio-controls")}
         </section>

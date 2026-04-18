@@ -74,10 +74,6 @@ export function renderAudioControlsPanel(state: AudioControlsPanelState): string
       <div class="audio-controls-copy">
         <p class="audio-controls-eyebrow">Speech output</p>
         <h2 id="audio-controls-title">Playback volume and speed</h2>
-        <p class="audio-controls-description">
-          Adjust narration volume and speed here. Changes apply to the current playback flow and
-          remain the saved defaults for future narration.
-        </p>
         ${errorCopy}
       </div>
       <div class="audio-controls-grid">

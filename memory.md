@@ -1,3 +1,8 @@
+## 2026-04-18T18:40:12Z - GPT-5.4 - Removed leftover verbose settings copy
+- Removed the leftover `Configuration` eyebrow and the long settings intro from `src/app-shell.ts` after the user flagged it as too verbose for a voice-first UI.
+- Removed the playback group description in `src/app-shell.ts` and the narration helper paragraph in `src/settings-status-panels.ts` so the playback section relies on labels instead of explanatory prose.
+- Updated `src/confirmation-panel.test.mjs` and revalidated with `pnpm lint` plus `pnpm test:ui`.
+
 ## 2026-04-18T18:34:01Z - GPT-5.4 - Workspace page copy simplified
 - Simplified the workspace hero and overview-card copy in `src/app-shell.ts` to use shorter, more direct language for the main workflow.
 - Renamed the overview cards from `Page control` to `Page actions` and from `Runtime status` to `Status` to match the broader plain-language cleanup across the app shell.
