@@ -1,3 +1,13 @@
+## 2026-04-18T18:18:49Z - GPT-5.4 - Playback settings collapsed into one clearer section
+- Removed the redundant `settings-volume` and `settings-speed` shell sections so the Settings page now has a single playback block instead of separate duplicated volume/speed settings panels.
+- Updated the remaining playback panel copy to state clearly that volume and speed changes apply to current playback and remain the saved defaults for future narration.
+- Updated shell and panel tests to lock the simpler structure, and validation is green with `pnpm lint` and `pnpm test:ui`.
+
+## 2026-04-18T18:12:23Z - GPT-5.4 - Settings page reorganized into logical groups
+- Reworked the settings shell in `src/app-shell.ts` so the page now flows as: guidance, playback, planner, TTS, ASR, then models/safeguards instead of interleaving unrelated sections.
+- Added explicit group headings and intro copy plus supporting styles in `src/styles.css` so playback defaults no longer appear detached from playback controls and provider failover no longer sits ahead of TTS/ASR setup.
+- Added `src/app-shell.test.mjs` to lock the new settings-page ordering, and validation is green with `pnpm lint` and `pnpm test:ui`.
+
 ## 2026-04-18T17:58:44Z - GPT-5.4 - Type-aware ESLint added for frontend TypeScript
 - `eslint.config.js` now applies `typescript-eslint`'s `recommendedTypeChecked` rules to `src/**/*.ts` using `parserOptions.projectService` with the existing `tsconfig.json`.
 - The first type-aware lint pass surfaced three real issues in `src/tauri-api.ts`: two redundant `unknown | null` unions and one plain-object throw path; those were fixed instead of weakening the rules.

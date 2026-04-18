@@ -17,8 +17,6 @@ export type PanelRootKey =
   | "settings-local-tts-model"
   | "settings-remote-tts"
   | "settings-tts-voice"
-  | "settings-volume"
-  | "settings-speed"
   | "confirmation-panel";
 
 export type AppView = "workspace" | "settings";
@@ -85,23 +83,81 @@ export function renderAppShell(): string {
       </section>
 
       <section class="app-view" data-app-view-section="settings" hidden aria-hidden="true">
-        ${renderPanelRootPlaceholder("audio-controls")}
+        <section class="hero hero-settings">
+          <p class="eyebrow">Configuration</p>
+          <h1>Settings</h1>
+          <p class="lede">
+            Review playback defaults first, then configure planner, speech output, speech input,
+            and the advanced runtime safeguards that support them.
+          </p>
+        </section>
+
         ${renderPanelRootPlaceholder("settings-guidance")}
-        ${renderPanelRootPlaceholder("settings-remote-planner")}
-        ${renderPanelRootPlaceholder("settings-provider-failover")}
-        ${renderPanelRootPlaceholder("settings-confirmation")}
-        ${renderPanelRootPlaceholder("settings-ocr-threshold")}
-        ${renderPanelRootPlaceholder("settings-asr-provider")}
-        ${renderPanelRootPlaceholder("settings-local-asr-model")}
-        ${renderPanelRootPlaceholder("settings-model-management")}
-        ${renderPanelRootPlaceholder("settings-remote-asr")}
-        ${renderPanelRootPlaceholder("settings-tts-provider")}
-        ${renderPanelRootPlaceholder("settings-tts-model")}
-        ${renderPanelRootPlaceholder("settings-local-tts-model")}
-        ${renderPanelRootPlaceholder("settings-remote-tts")}
-        ${renderPanelRootPlaceholder("settings-tts-voice")}
-        ${renderPanelRootPlaceholder("settings-volume")}
-        ${renderPanelRootPlaceholder("settings-speed")}
+
+        <section class="settings-group" aria-labelledby="settings-group-playback-title">
+          <div class="settings-group-copy">
+            <p class="settings-group-eyebrow">Listening</p>
+            <h2 id="settings-group-playback-title">Playback</h2>
+            <p class="settings-group-description">
+              Adjust playback volume and speed here. Changes apply immediately and remain the saved
+              defaults for future narration.
+            </p>
+          </div>
+          ${renderPanelRootPlaceholder("audio-controls")}
+        </section>
+
+        <section class="settings-group" aria-labelledby="settings-group-planner-title">
+          <div class="settings-group-copy">
+            <p class="settings-group-eyebrow">Command interpretation</p>
+            <h2 id="settings-group-planner-title">Planner</h2>
+            <p class="settings-group-description">
+              Configure the remote planner endpoint, model, and API key before the voice providers.
+            </p>
+          </div>
+          ${renderPanelRootPlaceholder("settings-remote-planner")}
+        </section>
+
+        <section class="settings-group" aria-labelledby="settings-group-tts-title">
+          <div class="settings-group-copy">
+            <p class="settings-group-eyebrow">Speech output</p>
+            <h2 id="settings-group-tts-title">Text to speech</h2>
+            <p class="settings-group-description">
+              Pick the TTS provider, model, voice, and any local or remote profile details in one place.
+            </p>
+          </div>
+          ${renderPanelRootPlaceholder("settings-tts-provider")}
+          ${renderPanelRootPlaceholder("settings-tts-model")}
+          ${renderPanelRootPlaceholder("settings-local-tts-model")}
+          ${renderPanelRootPlaceholder("settings-remote-tts")}
+          ${renderPanelRootPlaceholder("settings-tts-voice")}
+        </section>
+
+        <section class="settings-group" aria-labelledby="settings-group-asr-title">
+          <div class="settings-group-copy">
+            <p class="settings-group-eyebrow">Speech input</p>
+            <h2 id="settings-group-asr-title">Automatic speech recognition</h2>
+            <p class="settings-group-description">
+              Keep ASR provider selection and its local or remote runtime details grouped together.
+            </p>
+          </div>
+          ${renderPanelRootPlaceholder("settings-asr-provider")}
+          ${renderPanelRootPlaceholder("settings-local-asr-model")}
+          ${renderPanelRootPlaceholder("settings-remote-asr")}
+        </section>
+
+        <section class="settings-group" aria-labelledby="settings-group-runtime-title">
+          <div class="settings-group-copy">
+            <p class="settings-group-eyebrow">Runtime behavior</p>
+            <h2 id="settings-group-runtime-title">Models and safeguards</h2>
+            <p class="settings-group-description">
+              Manage local model downloads, failover availability, confirmation safety, and OCR fallback thresholds.
+            </p>
+          </div>
+          ${renderPanelRootPlaceholder("settings-model-management")}
+          ${renderPanelRootPlaceholder("settings-provider-failover")}
+          ${renderPanelRootPlaceholder("settings-confirmation")}
+          ${renderPanelRootPlaceholder("settings-ocr-threshold")}
+        </section>
       </section>
     </main>
   `;
@@ -154,8 +210,6 @@ export function createPanelRoots(appRoot: HTMLDivElement): PanelRootMap {
     "settings-local-tts-model": requirePanelRoot(appRoot, "settings-local-tts-model"),
     "settings-remote-tts": requirePanelRoot(appRoot, "settings-remote-tts"),
     "settings-tts-voice": requirePanelRoot(appRoot, "settings-tts-voice"),
-    "settings-volume": requirePanelRoot(appRoot, "settings-volume"),
-    "settings-speed": requirePanelRoot(appRoot, "settings-speed"),
     "confirmation-panel": requirePanelRoot(appRoot, "confirmation-panel"),
   };
 }

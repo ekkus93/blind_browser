@@ -482,7 +482,8 @@ test("renders nearby playback controls with volume and speed values", () => {
     error: null,
   });
 
-  assert.match(html, /Playback controls/);
+  assert.match(html, /Playback volume and speed/);
+  assert.match(html, /saved defaults for future narration/);
   assert.match(html, /Volume/);
   assert.match(html, /70%/);
   assert.match(html, /Speed/);

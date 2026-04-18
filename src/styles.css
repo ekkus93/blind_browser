@@ -98,6 +98,34 @@ body {
   padding-top: 12px;
 }
 
+.settings-group {
+  margin-top: 30px;
+}
+
+.settings-group-copy {
+  max-width: 62ch;
+}
+
+.settings-group-eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.76rem;
+  color: #7b6246;
+}
+
+.settings-group h2 {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  line-height: 1.05;
+}
+
+.settings-group-description {
+  margin-top: 10px;
+  line-height: 1.6;
+  color: #433d37;
+}
+
 .eyebrow {
   margin: 0 0 12px;
   text-transform: uppercase;

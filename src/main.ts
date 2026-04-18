@@ -27,8 +27,6 @@ import {
   renderSettingsTtsProviderPanel,
   renderSettingsTtsModelPanel,
   renderSettingsTtsVoicePanel,
-  renderSettingsSpeedPanel,
-  renderSettingsVolumePanel,
   renderStatusPanel,
   renderUrlInputPanel,
   type AudioControlsPanelState,
@@ -227,8 +225,6 @@ function rerenderPushToTalkPanel() {
 
 function rerenderAudioPanels() {
   renderPanelRoot("audio-controls", renderAudioControlsPanel(audioControlsState));
-  renderPanelRoot("settings-volume", renderSettingsVolumePanel(audioControlsState));
-  renderPanelRoot("settings-speed", renderSettingsSpeedPanel(audioControlsState));
 }
 
 function rerenderRemotePlannerPanel() {
