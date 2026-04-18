@@ -1,3 +1,8 @@
+## 2026-04-18T17:58:44Z - GPT-5.4 - Type-aware ESLint added for frontend TypeScript
+- `eslint.config.js` now applies `typescript-eslint`'s `recommendedTypeChecked` rules to `src/**/*.ts` using `parserOptions.projectService` with the existing `tsconfig.json`.
+- The first type-aware lint pass surfaced three real issues in `src/tauri-api.ts`: two redundant `unknown | null` unions and one plain-object throw path; those were fixed instead of weakening the rules.
+- Validation after adding the type-aware layer is green: `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features` all pass.
+
 ## 2026-04-18T17:54:33Z - GPT-5.4 - Frontend ESLint expanded to a moderate quality ruleset
 - Expanded `eslint.config.js` beyond the minimal baseline by adding moderate correctness and maintainability rules for frontend files: `curly`, `eqeqeq`, `no-console` (allowing only `warn` and `error`), `no-useless-concat`, `object-shorthand`, `prefer-const`, `prefer-template`, and `reportUnusedDisableDirectives`.
 - The stricter lint pass surfaced debug-only `console.debug` calls in `src/main.ts`; those were removed instead of relaxing the rule.

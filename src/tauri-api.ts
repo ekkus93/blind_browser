@@ -87,7 +87,7 @@ export interface ToolError {
   code: string;
   message: string;
   retryable: boolean;
-  details: unknown | null;
+  details: unknown;
 }
 
 export interface BackendToolErrorFailure {
@@ -459,7 +459,7 @@ export interface PlannerInput {
   active_skill_names: string[];
   relevant_skill_summaries: SkillSummary[];
   page_snapshot: PageSnapshotData | null;
-  page_model: unknown | null;
+  page_model: unknown;
   recent_tool_results: ToolHistoryEntry[];
 }
 
@@ -987,7 +987,11 @@ function unwrapToolResult<T>(result: ToolResult<T>): T {
     return result.data;
   }
 
-  throw result.error ?? new Error("The runtime returned an invalid tool result.");
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  throw new Error("The runtime returned an invalid tool result.");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

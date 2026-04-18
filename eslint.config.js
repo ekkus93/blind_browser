@@ -11,12 +11,20 @@ export default tseslint.config(
   },
   {
     files: ["src/**/*.ts"],
-    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    extends: [
+      js.configs.recommended,
+      ...tseslint.configs.recommended,
+      ...tseslint.configs.recommendedTypeChecked,
+    ],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
       globals: {
         ...globals.browser,
+      },
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     rules: {
