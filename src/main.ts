@@ -825,10 +825,6 @@ async function persistTtsProviderSelection(nextMode: "Local" | "Remote") {
   const previousProviderState = ttsProviderPanelState;
   const previousModelState = ttsModelPanelState;
   const previousVoiceState = ttsVoicePanelState;
-  console.debug("TTS provider transition started", {
-    from: previousProviderState.activeMode,
-    to: nextMode,
-  });
   setTtsProviderPanelState({
     activeMode: nextMode,
     isBusy: true,
@@ -847,29 +843,15 @@ async function persistTtsProviderSelection(nextMode: "Local" | "Remote") {
       isBusy: false,
       error: null,
     });
-    console.debug("TTS provider transition succeeded", {
-      from: previousProviderState.activeMode,
-      to: result.mode,
-    });
     await refreshRuntimePanelsFromRuntime();
   } catch (error: unknown) {
     const message = describeAudioControlFailure(error);
-    console.debug("TTS provider transition rolling back", {
-      from: previousProviderState.activeMode,
-      to: nextMode,
-      error: message,
-    });
     const rollbackState = buildTtsProviderFailureRollbackState(
       previousProviderState,
       previousModelState,
       previousVoiceState,
       message,
     );
-    console.debug("TTS provider transition propagated failure", {
-      providerError: rollbackState.provider.error,
-      modelError: rollbackState.model.error,
-      voiceError: rollbackState.voice.error,
-    });
     setTtsProviderPanelState(rollbackState.provider);
     setTtsModelPanelState(rollbackState.model);
     setTtsVoicePanelState(rollbackState.voice);

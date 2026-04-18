@@ -5,6 +5,9 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     ignores: ["dist/**", "node_modules/**"],
+    linterOptions: {
+      reportUnusedDisableDirectives: "error",
+    },
   },
   {
     files: ["src/**/*.ts"],
@@ -16,6 +19,15 @@ export default tseslint.config(
         ...globals.browser,
       },
     },
+    rules: {
+      curly: ["error", "all"],
+      eqeqeq: ["error", "always", { null: "ignore" }],
+      "no-console": ["error", { allow: ["warn", "error"] }],
+      "no-useless-concat": "error",
+      "object-shorthand": ["error", "always"],
+      "prefer-const": ["error", { destructuring: "all" }],
+      "prefer-template": "error",
+    },
   },
   {
     files: ["src/**/*.test.mjs"],
@@ -26,6 +38,15 @@ export default tseslint.config(
       globals: {
         ...globals.node,
       },
+    },
+    rules: {
+      curly: ["error", "all"],
+      eqeqeq: ["error", "always", { null: "ignore" }],
+      "no-console": ["error", { allow: ["warn", "error"] }],
+      "no-useless-concat": "error",
+      "object-shorthand": ["error", "always"],
+      "prefer-const": ["error", { destructuring: "all" }],
+      "prefer-template": "error",
     },
   },
 );

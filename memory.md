@@ -1,3 +1,8 @@
+## 2026-04-18T17:54:33Z - GPT-5.4 - Frontend ESLint expanded to a moderate quality ruleset
+- Expanded `eslint.config.js` beyond the minimal baseline by adding moderate correctness and maintainability rules for frontend files: `curly`, `eqeqeq`, `no-console` (allowing only `warn` and `error`), `no-useless-concat`, `object-shorthand`, `prefer-const`, `prefer-template`, and `reportUnusedDisableDirectives`.
+- The stricter lint pass surfaced debug-only `console.debug` calls in `src/main.ts`; those were removed instead of relaxing the rule.
+- Validation after the expansion is green: `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features` all pass.
+
 ## 2026-04-18T17:49:31Z - GPT-5.4 - CI now includes the frontend lint gate
 - Updated `.github/workflows/ci.yml` so the existing `validate` job now runs `pnpm lint` before the UI tests and frontend build.
 - The new CI lint step reuses the already-installed JavaScript dependencies and existing Node/pnpm setup in the workflow; no other CI behavior was changed.
