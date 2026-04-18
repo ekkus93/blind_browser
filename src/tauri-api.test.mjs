@@ -85,11 +85,6 @@ test("getAgentState requests includeLastTranscript and unwraps the backend tool 
         playback_speed: 1,
         muted: false,
       },
-      planner_provider_settings: {
-        active_mode: "Remote",
-        available_modes: ["Remote"],
-        summary: "remote only",
-      },
       remote_planner_settings: {
         profile_name: null,
         provider: null,

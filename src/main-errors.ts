@@ -96,9 +96,8 @@ export function guidanceStateForErrorMessage(message: string | null): SettingsGu
   ) {
     return {
       title: "Planner setup needs attention",
-      message: "Command interpretation is unavailable until a remote planner profile is configured. Review the planner provider and remote planner settings below.",
+      message: "Command interpretation is unavailable until a remote planner profile is configured. Review the remote planner settings below.",
       actions: [
-        { label: "Review planner provider", targetId: "settings-planner-provider-control" },
         { label: "Review planner API reference", targetId: "settings-remote-planner-title" },
       ],
     };

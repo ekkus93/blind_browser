@@ -259,11 +259,6 @@ fn fixture_agent_state() -> AgentStateData {
             language: Some(String::from("en")),
             threads: Some(4),
         },
-        planner_provider_settings: PlannerProviderSettings {
-            active_mode: ProviderMode::Remote,
-            available_modes: vec![ProviderMode::Remote],
-            summary: String::from("Planner currently uses configured remote profiles only."),
-        },
         remote_planner_settings: RemotePlannerSettings {
             profile_name: Some(String::from("openai-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -1263,11 +1258,6 @@ impl DeterministicToolExecutor for MockExecutor {
                     model_path: Some(String::from("/path/to/whisper/model")),
                     language: Some(String::from("en")),
                     threads: Some(4),
-                },
-                planner_provider_settings: PlannerProviderSettings {
-                    active_mode: ProviderMode::Remote,
-                    available_modes: vec![ProviderMode::Remote],
-                    summary: String::from("Planner currently uses configured remote profiles only."),
                 },
                 remote_planner_settings: RemotePlannerSettings {
                     profile_name: Some(String::from("openai-default")),
@@ -5201,11 +5191,6 @@ fn planner_input_serializes_safety_settings_for_click_policy() {
                 language: Some(String::from("en")),
                 threads: Some(4),
             },
-            planner_provider_settings: PlannerProviderSettings {
-                active_mode: ProviderMode::Remote,
-                available_modes: vec![ProviderMode::Remote],
-                summary: String::from("Planner currently uses configured remote profiles only."),
-            },
             remote_planner_settings: RemotePlannerSettings {
                 profile_name: Some(String::from("openai-default")),
                 provider: Some(RemoteProviderLabel::OpenAi),
@@ -7227,11 +7212,6 @@ fn resolve_direct_read_page_command_reads_from_first_region_when_available() {
             language: Some(String::from("en")),
             threads: Some(4),
         },
-        planner_provider_settings: PlannerProviderSettings {
-            active_mode: ProviderMode::Remote,
-            available_modes: vec![ProviderMode::Remote],
-            summary: String::from("Planner currently uses configured remote profiles only."),
-        },
         remote_planner_settings: RemotePlannerSettings {
             profile_name: Some(String::from("openai-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -7381,11 +7361,6 @@ fn resolve_direct_read_page_command_extracts_then_reads_when_regions_missing() {
             language: Some(String::from("en")),
             threads: Some(4),
         },
-        planner_provider_settings: PlannerProviderSettings {
-            active_mode: ProviderMode::Remote,
-            available_modes: vec![ProviderMode::Remote],
-            summary: String::from("Planner currently uses configured remote profiles only."),
-        },
         remote_planner_settings: RemotePlannerSettings {
             profile_name: Some(String::from("openai-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -7528,11 +7503,6 @@ fn resolve_direct_read_page_command_reports_missing_active_page() {
             language: Some(String::from("en")),
             threads: Some(4),
         },
-        planner_provider_settings: PlannerProviderSettings {
-            active_mode: ProviderMode::Remote,
-            available_modes: vec![ProviderMode::Remote],
-            summary: String::from("Planner currently uses configured remote profiles only."),
-        },
         remote_planner_settings: RemotePlannerSettings {
             profile_name: Some(String::from("openai-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -7666,11 +7636,6 @@ fn resolve_direct_status_query_command_reports_current_url() {
             model_path: Some(String::from("/path/to/whisper/model")),
             language: Some(String::from("en")),
             threads: Some(4),
-        },
-        planner_provider_settings: PlannerProviderSettings {
-            active_mode: ProviderMode::Remote,
-            available_modes: vec![ProviderMode::Remote],
-            summary: String::from("Planner currently uses configured remote profiles only."),
         },
         remote_planner_settings: RemotePlannerSettings {
             profile_name: Some(String::from("openai-default")),
@@ -7830,11 +7795,6 @@ fn resolve_direct_status_query_command_reports_back_history_availability() {
             language: Some(String::from("en")),
             threads: Some(4),
         },
-        planner_provider_settings: PlannerProviderSettings {
-            active_mode: ProviderMode::Remote,
-            available_modes: vec![ProviderMode::Remote],
-            summary: String::from("Planner currently uses configured remote profiles only."),
-        },
         remote_planner_settings: RemotePlannerSettings {
             profile_name: Some(String::from("openai-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -7987,11 +7947,6 @@ fn resolve_direct_status_query_command_reports_listening_state() {
             model_path: Some(String::from("/path/to/whisper/model")),
             language: Some(String::from("en")),
             threads: Some(4),
-        },
-        planner_provider_settings: PlannerProviderSettings {
-            active_mode: ProviderMode::Remote,
-            available_modes: vec![ProviderMode::Remote],
-            summary: String::from("Planner currently uses configured remote profiles only."),
         },
         remote_planner_settings: RemotePlannerSettings {
             profile_name: Some(String::from("openai-default")),
@@ -8157,11 +8112,6 @@ fn resolve_direct_repeat_command_replays_current_region() {
             language: Some(String::from("en")),
             threads: Some(4),
         },
-        planner_provider_settings: PlannerProviderSettings {
-            active_mode: ProviderMode::Remote,
-            available_modes: vec![ProviderMode::Remote],
-            summary: String::from("Planner currently uses configured remote profiles only."),
-        },
         remote_planner_settings: RemotePlannerSettings {
             profile_name: Some(String::from("openai-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -8300,11 +8250,6 @@ fn resolve_direct_repeat_command_reports_missing_current_region() {
             model_path: Some(String::from("/path/to/whisper/model")),
             language: Some(String::from("en")),
             threads: Some(4),
-        },
-        planner_provider_settings: PlannerProviderSettings {
-            active_mode: ProviderMode::Remote,
-            available_modes: vec![ProviderMode::Remote],
-            summary: String::from("Planner currently uses configured remote profiles only."),
         },
         remote_planner_settings: RemotePlannerSettings {
             profile_name: Some(String::from("openai-default")),
@@ -8450,11 +8395,6 @@ fn resolve_direct_read_title_command_reports_current_title() {
             language: Some(String::from("en")),
             threads: Some(4),
         },
-        planner_provider_settings: PlannerProviderSettings {
-            active_mode: ProviderMode::Remote,
-            available_modes: vec![ProviderMode::Remote],
-            summary: String::from("Planner currently uses configured remote profiles only."),
-        },
         remote_planner_settings: RemotePlannerSettings {
             profile_name: Some(String::from("openai-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -8592,11 +8532,6 @@ fn resolve_direct_read_title_command_reports_missing_title() {
             model_path: Some(String::from("/path/to/whisper/model")),
             language: Some(String::from("en")),
             threads: Some(4),
-        },
-        planner_provider_settings: PlannerProviderSettings {
-            active_mode: ProviderMode::Remote,
-            available_modes: vec![ProviderMode::Remote],
-            summary: String::from("Planner currently uses configured remote profiles only."),
         },
         remote_planner_settings: RemotePlannerSettings {
             profile_name: Some(String::from("openai-default")),

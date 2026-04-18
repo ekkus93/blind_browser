@@ -32,7 +32,7 @@ use crate::commands::{
     ListInteractiveElementsInput, LocalAsrModelSettings, LocalTtsModelSettings,
     MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput, OcrThresholdSettings, OpenUrlData,
     OpenUrlInput, PageSnapshotData, PlannedStep, PlannerInput, PlannerOutput,
-    PlannerProviderSettings, PlannerStatus, PlannerToolHistoryEntry, ProviderFailoverSettings,
+    PlannerStatus, PlannerToolHistoryEntry, ProviderFailoverSettings,
     ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
     ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
     RemoteAsrSettings, RemotePlannerSettings, RemoteProviderLabel, RemoteTtsSettings,
@@ -3374,10 +3374,6 @@ impl AppCore {
         build_local_asr_model_settings(&self.config)
     }
 
-    fn current_planner_provider_settings(&self) -> PlannerProviderSettings {
-        build_planner_provider_settings(&self.config)
-    }
-
     pub fn current_remote_planner_settings(&self) -> RemotePlannerSettings {
         build_remote_planner_settings(&self.config)
     }
@@ -4165,7 +4161,6 @@ impl AppCore {
             tts_provider_settings: self.current_tts_provider_settings(),
             asr_provider_settings: self.current_asr_provider_settings(),
             local_asr_model_settings: self.current_local_asr_model_settings(),
-            planner_provider_settings: self.current_planner_provider_settings(),
             remote_planner_settings: self.current_remote_planner_settings(),
             remote_tts_settings: self.current_remote_tts_settings(),
             remote_asr_settings: self.current_remote_asr_settings(),
@@ -4802,15 +4797,6 @@ fn build_tts_provider_settings(config: &AppConfig) -> TtsProviderSettings {
     TtsProviderSettings {
         active_mode: config.providers.tts.mode.clone(),
         available_modes,
-    }
-}
-
-fn build_planner_provider_settings(config: &AppConfig) -> PlannerProviderSettings {
-    let active_mode = config.providers.planner.mode.clone();
-    PlannerProviderSettings {
-        active_mode,
-        available_modes: vec![crate::config::ProviderMode::Remote],
-        summary: String::from("Planner currently uses configured remote profiles only."),
     }
 }
 
@@ -7869,7 +7855,7 @@ mod tests {
         browser_error_to_tool_error, build_asr_provider_settings, build_confirmation_settings,
         build_extracted_page_model, build_find_element_query, build_local_asr_model_settings,
         build_local_tts_model_settings, build_ocr_threshold_settings,
-        build_planner_provider_settings, build_provider_failover_settings,
+        build_provider_failover_settings,
         build_remote_asr_settings, build_remote_planner_settings, build_remote_tts_settings,
         build_tts_model_settings, build_tts_provider_settings, build_tts_voice_settings,
         build_visible_text_excerpt, clear_navigation_follow_up_state,
@@ -8308,20 +8294,6 @@ mod tests {
             fixture.name
         );
     }
-    #[test]
-    fn build_planner_provider_settings_reports_remote_only_mode() {
-        let config = AppConfig::default();
-
-        let settings = build_planner_provider_settings(&config);
-
-        assert_eq!(settings.active_mode, ProviderMode::Remote);
-        assert_eq!(settings.available_modes, vec![ProviderMode::Remote]);
-        assert_eq!(
-            settings.summary,
-            String::from("Planner currently uses configured remote profiles only.")
-        );
-    }
-
     #[test]
     fn planner_interpretation_unavailable_error_wraps_reason_for_voice_feedback() {
         let error = planner_interpretation_unavailable_error(

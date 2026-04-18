@@ -18,7 +18,6 @@ export interface RuntimeRefreshDependencies {
   getPanelStates: () => PanelStates;
   setPushToTalkState: (nextState: Partial<PanelStates["pushToTalkState"]>) => void;
   setAudioControlsState: (nextState: Partial<PanelStates["audioControlsState"]>) => void;
-  setPlannerProviderPanelState: (nextState: Partial<PanelStates["plannerProviderPanelState"]>) => void;
   setRemotePlannerPanelState: (nextState: Partial<PanelStates["remotePlannerPanelState"]>) => void;
   setProviderFailoverPanelState: (nextState: Partial<PanelStates["providerFailoverPanelState"]>) => void;
   setConfirmationSettingsPanelState: (
@@ -53,11 +52,6 @@ export function createRuntimeRefreshHandlers(dependencies: RuntimeRefreshDepende
       playbackVolume: agentState.audio.playback_volume,
       playbackSpeed: agentState.audio.playback_speed,
       error: null,
-    });
-    dependencies.setPlannerProviderPanelState({
-      activeMode: agentState.planner_provider_settings.active_mode,
-      availableModes: agentState.planner_provider_settings.available_modes,
-      summary: agentState.planner_provider_settings.summary,
     });
     dependencies.setRemotePlannerPanelState({
       profileName: agentState.remote_planner_settings.profile_name,

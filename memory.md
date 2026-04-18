@@ -1,3 +1,8 @@
+## 2026-04-18T15:23:01Z - GPT-5.4 - Planner-provider panel and contract path removed
+- Removed the dead-end `Planner provider selection` panel from the Settings UI along with its frontend panel state, render plumbing, guidance link, and API typing.
+- Removed the matching backend `planner_provider_settings` field from `AgentStateData`, deleted the unused builder/helper path, and cleaned up the Rust/JS tests and fixtures that only existed for that panel.
+- Full validation after the removal is green: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features` (305 tests), `pnpm test:ui` (75 tests), and `pnpm build` all pass.
+
 ## 2026-04-18T14:45:12Z - GPT-5.4 - Settings UI copy trimmed further
 - `src/app-shell.ts` no longer renders the top branding copy or the Settings hero text, so the Settings page opens directly on actionable controls.
 - `src/settings-status-panels.ts` no longer renders the descriptive sentence above the nearby playback volume and speed controls.

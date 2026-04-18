@@ -21,7 +21,6 @@ import {
   renderSettingsModelManagementPanel,
   renderSettingsOcrThresholdPanel,
   renderSettingsProviderFailoverPanel,
-  renderSettingsPlannerProviderPanel,
   renderSettingsRemoteAsrPanel,
   renderSettingsRemotePlannerPanel,
   renderSettingsRemoteTtsPanel,
@@ -39,7 +38,6 @@ import {
   type LocalTtsModelPanelState,
   type ModelManagementPanelState,
   type OcrThresholdSettingsPanelState,
-  type PlannerProviderPanelState,
   type ProviderFailoverPanelState,
   type RemoteAsrPanelState,
   type RemotePlannerPanelState,
@@ -143,7 +141,6 @@ const initialPanelStates = createInitialPanelStates();
 let currentExecutionUiState = uiStore.getState();
 let pushToTalkState: PushToTalkPanelState = initialPanelStates.pushToTalkState;
 let audioControlsState: AudioControlsPanelState = initialPanelStates.audioControlsState;
-let plannerProviderPanelState: PlannerProviderPanelState = initialPanelStates.plannerProviderPanelState;
 let remotePlannerPanelState: RemotePlannerPanelState = initialPanelStates.remotePlannerPanelState;
 let providerFailoverPanelState: ProviderFailoverPanelState = initialPanelStates.providerFailoverPanelState;
 let confirmationSettingsPanelState: ConfirmationSettingsPanelState =
@@ -200,7 +197,6 @@ function rerenderSettingsGuidancePanel() {
       currentSettingsGuidanceState({
         pushToTalkState,
         audioControlsState,
-        plannerProviderPanelState,
         remotePlannerPanelState,
         providerFailoverPanelState,
         confirmationSettingsPanelState,
@@ -230,13 +226,6 @@ function rerenderAudioPanels() {
   renderPanelRoot("audio-controls", renderAudioControlsPanel(audioControlsState));
   renderPanelRoot("settings-volume", renderSettingsVolumePanel(audioControlsState));
   renderPanelRoot("settings-speed", renderSettingsSpeedPanel(audioControlsState));
-}
-
-function rerenderPlannerProviderPanel() {
-  renderPanelRoot(
-    "settings-planner-provider",
-    renderSettingsPlannerProviderPanel(plannerProviderPanelState),
-  );
 }
 
 function rerenderRemotePlannerPanel() {
@@ -315,7 +304,6 @@ function rerender() {
   rerenderUrlInputPanel();
   rerenderStatusPanel();
   rerenderAudioPanels();
-  rerenderPlannerProviderPanel();
   rerenderRemotePlannerPanel();
   rerenderProviderFailoverPanel();
   rerenderConfirmationSettingsPanel();
@@ -340,14 +328,6 @@ function setAudioControlsState(nextState: Partial<AudioControlsPanelState>) {
     ...nextState,
   };
   rerenderAudioPanels();
-}
-
-function setPlannerProviderPanelState(nextState: Partial<PlannerProviderPanelState>) {
-  plannerProviderPanelState = {
-    ...plannerProviderPanelState,
-    ...nextState,
-  };
-  rerenderPlannerProviderPanel();
 }
 
 function setRemotePlannerPanelState(nextState: Partial<RemotePlannerPanelState>) {
@@ -603,7 +583,6 @@ const { refreshRuntimePanelsFromRuntime } = createRuntimeRefreshHandlers({
   getPanelStates: () => ({
     pushToTalkState,
     audioControlsState,
-    plannerProviderPanelState,
     remotePlannerPanelState,
     providerFailoverPanelState,
     confirmationSettingsPanelState,
@@ -622,7 +601,6 @@ const { refreshRuntimePanelsFromRuntime } = createRuntimeRefreshHandlers({
   }),
   setPushToTalkState,
   setAudioControlsState,
-  setPlannerProviderPanelState,
   setRemotePlannerPanelState,
   setProviderFailoverPanelState,
   setConfirmationSettingsPanelState,

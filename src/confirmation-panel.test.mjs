@@ -13,7 +13,6 @@ import {
   renderSettingsModelManagementPanel,
   renderSettingsOcrThresholdPanel,
   renderSettingsProviderFailoverPanel,
-  renderSettingsPlannerProviderPanel,
   renderSettingsRemoteAsrPanel,
   renderSettingsRemotePlannerPanel,
   renderSettingsRemoteTtsPanel,
@@ -542,21 +541,6 @@ test("renders settings speed errors and disabled state while saving", () => {
   assert.match(html, /The playback speed could not be saved\./);
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /role="alert"/);
-});
-
-test("renders settings planner provider as remote-only", () => {
-  const html = renderSettingsPlannerProviderPanel({
-    activeMode: "Remote",
-    availableModes: ["Remote"],
-    summary: "Planner currently uses configured remote profiles only.",
-  });
-
-  assert.match(html, /Planner provider selection/);
-  assert.match(html, /remote profiles only/);
-  assert.match(html, /data-planner-provider-select="true"/);
-  assert.match(html, /disabled/);
-  assert.match(html, /aria-disabled="true"/);
-  assert.doesNotMatch(html, /Local provider/);
 });
 
 test("renders remote planner API reference details", () => {

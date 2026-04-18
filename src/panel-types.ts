@@ -84,12 +84,6 @@ export interface ModelManagementPanelState {
   error: string | null;
 }
 
-export interface PlannerProviderPanelState {
-  activeMode: "Remote";
-  availableModes: ["Remote"] | "Remote"[];
-  summary: string;
-}
-
 export interface RemotePlannerPanelState {
   profileName: string | null;
   provider: string | null;

@@ -6,7 +6,6 @@ import type {
   LocalTtsModelPanelState,
   ModelManagementPanelState,
   OcrThresholdSettingsPanelState,
-  PlannerProviderPanelState,
   ProviderFailoverPanelState,
   PushToTalkPanelState,
   RemoteAsrPanelState,
@@ -22,7 +21,6 @@ import type {
 export interface PanelStates {
   pushToTalkState: PushToTalkPanelState;
   audioControlsState: AudioControlsPanelState;
-  plannerProviderPanelState: PlannerProviderPanelState;
   remotePlannerPanelState: RemotePlannerPanelState;
   providerFailoverPanelState: ProviderFailoverPanelState;
   confirmationSettingsPanelState: ConfirmationSettingsPanelState;
@@ -55,11 +53,6 @@ export function createInitialPanelStates(): PanelStates {
       playbackSpeed: 1,
       isBusy: false,
       error: null,
-    },
-    plannerProviderPanelState: {
-      activeMode: "Remote",
-      availableModes: ["Remote"],
-      summary: "Planner currently uses configured remote profiles only.",
     },
     remotePlannerPanelState: {
       profileName: null,

@@ -4,7 +4,6 @@ export type PanelRootKey =
   | "status"
   | "audio-controls"
   | "settings-guidance"
-  | "settings-planner-provider"
   | "settings-remote-planner"
   | "settings-provider-failover"
   | "settings-confirmation"
@@ -88,7 +87,6 @@ export function renderAppShell(): string {
       <section class="app-view" data-app-view-section="settings" hidden aria-hidden="true">
         ${renderPanelRootPlaceholder("audio-controls")}
         ${renderPanelRootPlaceholder("settings-guidance")}
-        ${renderPanelRootPlaceholder("settings-planner-provider")}
         ${renderPanelRootPlaceholder("settings-remote-planner")}
         ${renderPanelRootPlaceholder("settings-provider-failover")}
         ${renderPanelRootPlaceholder("settings-confirmation")}
@@ -143,7 +141,6 @@ export function createPanelRoots(appRoot: HTMLDivElement): PanelRootMap {
     status: requirePanelRoot(appRoot, "status"),
     "audio-controls": requirePanelRoot(appRoot, "audio-controls"),
     "settings-guidance": requirePanelRoot(appRoot, "settings-guidance"),
-    "settings-planner-provider": requirePanelRoot(appRoot, "settings-planner-provider"),
     "settings-remote-planner": requirePanelRoot(appRoot, "settings-remote-planner"),
     "settings-provider-failover": requirePanelRoot(appRoot, "settings-provider-failover"),
     "settings-confirmation": requirePanelRoot(appRoot, "settings-confirmation"),

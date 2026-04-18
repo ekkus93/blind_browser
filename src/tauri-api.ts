@@ -274,12 +274,6 @@ export interface DownloadedLocalModelData {
   source_url: string;
 }
 
-export interface PlannerProviderSettings {
-  active_mode: "Remote";
-  available_modes: ["Remote"] | "Remote"[];
-  summary: string;
-}
-
 export interface RemotePlannerSettings {
   profile_name: string | null;
   provider: RemoteProviderLabel | null;
@@ -408,7 +402,6 @@ export interface AgentStateData {
   tts_provider_settings: TtsProviderSettings;
   asr_provider_settings: AsrProviderSettings;
   local_asr_model_settings: LocalAsrModelSettings;
-  planner_provider_settings: PlannerProviderSettings;
   remote_planner_settings: RemotePlannerSettings;
   remote_tts_settings: RemoteTtsSettings;
   remote_asr_settings: RemoteAsrSettings;

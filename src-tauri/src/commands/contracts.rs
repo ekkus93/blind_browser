@@ -244,7 +244,6 @@ pub struct AgentStateData {
     pub tts_provider_settings: TtsProviderSettings,
     pub asr_provider_settings: AsrProviderSettings,
     pub local_asr_model_settings: LocalAsrModelSettings,
-    pub planner_provider_settings: PlannerProviderSettings,
     pub remote_planner_settings: RemotePlannerSettings,
     pub remote_tts_settings: RemoteTtsSettings,
     pub remote_asr_settings: RemoteAsrSettings,
@@ -346,13 +345,6 @@ pub struct LocalAsrModelSettings {
     pub model_path: Option<String>,
     pub language: Option<String>,
     pub threads: Option<u16>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
-pub struct PlannerProviderSettings {
-    pub active_mode: ProviderMode,
-    pub available_modes: Vec<ProviderMode>,
-    pub summary: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
