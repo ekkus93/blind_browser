@@ -3,6 +3,17 @@ import assert from "node:assert/strict";
 
 import { renderAppShell } from "./app-shell.ts";
 
+test("workspace shell uses plain-language overview copy", () => {
+  const html = renderAppShell();
+
+  assert.ok(html.includes("<h1>Workspace</h1>"));
+  assert.match(html, /Open pages, speak commands, control reading, and check the current state here\./);
+  assert.match(html, /Speak commands here, then keep moving through listening, reading, and confirmation\./);
+  assert.match(html, /<h2>Page actions<\/h2>/);
+  assert.match(html, /without leaving the workspace\./);
+  assert.match(html, /<h2>Status<\/h2>/);
+});
+
 test("settings shell groups related sections in a logical order", () => {
   const html = renderAppShell();
 

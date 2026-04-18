@@ -56,23 +56,23 @@ export function renderAppShell(): string {
           <p class="eyebrow">Voice-first browser</p>
           <h1>Workspace</h1>
           <p class="lede">
-            Use voice input, open pages, control reading, and review the current runtime state here.
-            Settings live on a separate page so the main workflow stays simpler.
+            Open pages, speak commands, control reading, and check the current state here. Settings
+            stay on a separate page so this workflow stays focused.
           </p>
         </section>
 
         <section class="panels" aria-label="Workspace sections">
           <article class="panel">
             <h2>Voice input</h2>
-            <p>Start commands here, then keep the browser flow focused on listening, reading, and confirmation.</p>
+            <p>Speak commands here, then keep moving through listening, reading, and confirmation.</p>
           </article>
           <article class="panel">
-            <h2>Page control</h2>
-            <p>Open a page, start reading, move forward or backward, and stop without digging through settings.</p>
+            <h2>Page actions</h2>
+            <p>Open a page, start reading, move forward or back, and stop without leaving the workspace.</p>
           </article>
           <article class="panel">
-            <h2>Runtime status</h2>
-            <p>See what the live browser, narration, and listening state are doing right now.</p>
+            <h2>Status</h2>
+            <p>See what the browser, narration, and listening state are doing right now.</p>
           </article>
         </section>
 
@@ -148,9 +148,9 @@ export function renderAppShell(): string {
         <section class="settings-group" aria-labelledby="settings-group-runtime-title">
           <div class="settings-group-copy">
             <p class="settings-group-eyebrow">Runtime behavior</p>
-            <h2 id="settings-group-runtime-title">Models and safeguards</h2>
+            <h2 id="settings-group-runtime-title">Runtime</h2>
             <p class="settings-group-description">
-              Manage local model downloads, failover availability, confirmation safety, and OCR fallback thresholds.
+              Manage local models, failover status, confirmation safety, and OCR fallback.
             </p>
           </div>
           ${renderPanelRootPlaceholder("settings-model-management")}

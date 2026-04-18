@@ -422,7 +422,9 @@ test("renders model management controls and download actions", () => {
     error: null,
   });
 
-  assert.match(html, /Local model management/);
+  assert.match(html, /Local models/);
+  assert.match(html, /whether startup checks them/i);
+  assert.match(html, /Model folder/);
   assert.match(html, /data-model-management-input="models-dir"/);
   assert.match(html, /data-model-management-toggle="check-on-startup"/);
   assert.match(html, /data-model-management-toggle="auto-download-missing"/);
@@ -574,7 +576,8 @@ test("renders remote planner API reference details", () => {
     error: null,
   });
 
-  assert.match(html, /Remote planner/);
+  assert.match(html, /Planner setup/);
+  assert.match(html, /endpoint, model, and API key used to interpret commands/i);
   assert.match(html, /Model/);
   assert.match(html, /Endpoint/);
   assert.match(html, /data-remote-planner-endpoint-input="true"/);
@@ -604,11 +607,11 @@ test("renders settings provider failover as read-only unavailable controls", () 
     summary: "Automatic provider failover is not currently available in the live runtime.",
   });
 
-  assert.match(html, /Provider failover/);
-  assert.match(html, /not currently available in the live runtime/);
-  assert.match(html, /Planner failover/);
-  assert.match(html, /TTS failover/);
-  assert.match(html, /ASR failover/);
+  assert.match(html, /Failover/);
+  assert.match(html, /not available yet/i);
+  assert.match(html, />Planner</);
+  assert.match(html, />TTS</);
+  assert.match(html, />ASR</);
   assert.match(html, /data-provider-failover-toggle="planner"/);
   assert.match(html, /data-provider-failover-toggle="tts"/);
   assert.match(html, /data-provider-failover-toggle="asr"/);
@@ -625,9 +628,9 @@ test("renders settings confirmation behavior controls", () => {
     error: null,
   });
 
-  assert.match(html, /Confirmation behavior/);
-  assert.match(html, /Form submission still always requires confirmation/);
-  assert.match(html, /Click confirmation threshold/);
+  assert.match(html, /Confirmation/);
+  assert.match(html, /Form submits\s+still always require confirmation/i);
+  assert.match(html, /Click threshold/);
   assert.match(html, /82%/);
   assert.match(html, /data-confirmation-threshold-control="true"/);
   assert.match(html, /data-click-without-confirmation-toggle="true"/);
@@ -656,10 +659,10 @@ test("renders OCR threshold settings controls", () => {
     error: null,
   });
 
-  assert.match(html, /OCR thresholds/);
-  assert.match(html, /trigger OCR fallback/);
-  assert.match(html, /Sparse text character threshold/);
-  assert.match(html, /Sparse text region threshold/);
+  assert.match(html, /OCR fallback/);
+  assert.match(html, /fall back to OCR/i);
+  assert.match(html, /Character threshold/);
+  assert.match(html, /Region threshold/);
   assert.match(html, /data-ocr-threshold-control="char"/);
   assert.match(html, /data-ocr-threshold-control="region"/);
   assert.match(html, /value="120"/);
@@ -713,8 +716,8 @@ test("renders settings ASR provider selection for configured modes", () => {
     error: null,
   });
 
-  assert.match(html, /ASR provider selection/);
-  assert.match(html, /configured local or remote ASR provider/);
+  assert.match(html, /ASR provider/);
+  assert.match(html, /local or remote speech-to-text provider/i);
   assert.match(html, /Local provider/);
   assert.match(html, /Remote provider/);
   assert.match(html, /data-asr-provider-select="true"/);
@@ -743,11 +746,11 @@ test("renders local ASR model reference details", () => {
     threads: 4,
   });
 
-  assert.match(html, /Local ASR model reference/);
-  assert.match(html, /configured local ASR profile/);
+  assert.match(html, /Local ASR profile/);
+  assert.match(html, /speech-to-text profile used when ASR runs in local mode/i);
   assert.match(html, /whisper-default/);
   assert.match(html, /\/models\/whisper\/tiny\.bin/);
-  assert.match(html, /edit the app config directly/i);
+  assert.match(html, /edit the app config/i);
 });
 
 test("renders remote ASR API reference details", () => {
@@ -770,8 +773,8 @@ test("renders remote ASR API reference details", () => {
     error: null,
   });
 
-  assert.match(html, /Remote ASR API reference/);
-  assert.match(html, /configured remote ASR profile/i);
+  assert.match(html, /Remote ASR profile/);
+  assert.match(html, /speech-to-text profile used when ASR runs in remote mode/i);
   assert.match(html, /openai-transcribe-default/);
   assert.match(html, /OPENAI_API_KEY/);
   assert.match(html, /gpt-4o-mini-transcribe/);
@@ -813,8 +816,8 @@ test("renders settings TTS provider selection for configured modes", () => {
     error: null,
   });
 
-  assert.match(html, /TTS provider selection/);
-  assert.match(html, /configured local or remote TTS provider/);
+  assert.match(html, /TTS provider/);
+  assert.match(html, /local or remote speech output provider/i);
   assert.match(html, /Local provider/);
   assert.match(html, /Remote provider/);
   assert.match(html, /data-tts-provider-select="true"/);
@@ -845,8 +848,8 @@ test("renders settings TTS model selection for configured profiles", () => {
     error: null,
   });
 
-  assert.match(html, /TTS model selection/);
-  assert.match(html, /configured local TTS models/);
+  assert.match(html, /TTS model/);
+  assert.match(html, /local TTS model for the current mode/i);
   assert.match(html, /default \(kitten-default\)/);
   assert.match(html, /large-v1 \(kitten-large\)/);
   assert.match(html, /data-tts-model-select="true"/);
@@ -862,8 +865,8 @@ test("renders local TTS model reference details", () => {
     sampleRate: 24000,
   });
 
-  assert.match(html, /Local TTS model reference/);
-  assert.match(html, /configured local TTS profile/);
+  assert.match(html, /Local TTS profile/);
+  assert.match(html, /local speech profile used when TTS runs in local mode/i);
   assert.match(html, /kitten-default/);
   assert.match(html, /\/models\/kitten\/default/);
   assert.match(html, /24000/);
@@ -889,8 +892,8 @@ test("renders remote TTS API reference details", () => {
     error: null,
   });
 
-  assert.match(html, /Remote TTS API reference/);
-  assert.match(html, /configured remote TTS profile/i);
+  assert.match(html, /Remote TTS profile/);
+  assert.match(html, /speech profile used when TTS runs in remote mode/i);
   assert.match(html, /openai-tts-default/);
   assert.match(html, /OPENAI_API_KEY/);
   assert.match(html, /alloy/);
@@ -1080,7 +1083,7 @@ test("renders settings TTS model errors and disabled state while saving", () => 
     error: "The TTS model selection could not be saved.",
   });
 
-  assert.match(html, /configured remote TTS models/);
+  assert.match(html, /remote TTS model for the current mode/i);
   assert.match(html, /The TTS model selection could not be saved\./);
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /role="alert"/);
@@ -1098,9 +1101,9 @@ test("renders settings voice selection for configured voices", () => {
     error: null,
   });
 
-  assert.match(html, /Voice selection/);
-  assert.match(html, /Choose from the configured local TTS voices/);
-  assert.match(html, /Configured TTS voice/);
+  assert.match(html, /Voice/);
+  assert.match(html, /local TTS voice for the current mode/i);
+  assert.match(html, /Selected voice/);
   assert.match(html, /Bruno/);
   assert.match(html, /data-tts-voice-select="true"/);
   assert.match(html, /<option value="Bruno" selected>Bruno<\/option>/);
@@ -1116,7 +1119,7 @@ test("renders settings voice errors and disabled state while saving", () => {
   });
 
   assert.match(html, /The runtime could not save that voice\./);
-  assert.match(html, /Choose from the configured remote TTS voices/);
+  assert.match(html, /remote TTS voice for the current mode/i);
   assert.match(html, /disabled aria-disabled="true"/);
 });
 

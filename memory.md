@@ -1,3 +1,18 @@
+## 2026-04-18T18:34:01Z - GPT-5.4 - Workspace page copy simplified
+- Simplified the workspace hero and overview-card copy in `src/app-shell.ts` to use shorter, more direct language for the main workflow.
+- Renamed the overview cards from `Page control` to `Page actions` and from `Runtime status` to `Status` to match the broader plain-language cleanup across the app shell.
+- Added a workspace copy assertion to `src/app-shell.test.mjs`, and validation is green with `pnpm lint` and `pnpm test:ui`.
+
+## 2026-04-18T18:29:08Z - GPT-5.4 - Advanced/runtime settings wording simplified
+- Simplified the runtime group heading in `src/app-shell.ts` from a more abstract “Models and safeguards” label to “Runtime”, with shorter supporting copy.
+- Simplified advanced panel titles and labels in `src/settings-status-panels.ts`, including shorter wording for local models, failover, confirmation, and OCR fallback controls.
+- Updated `src/confirmation-panel.test.mjs` to match the shorter wording, and validation is green with `pnpm lint` and `pnpm test:ui`.
+
+## 2026-04-18T18:23:53Z - GPT-5.4 - Planner TTS ASR settings copy simplified further
+- Shortened planner, TTS, and ASR section titles in `src/settings-status-panels.ts` so they read more like user-facing settings and less like internal schema names.
+- Trimmed repetitive descriptions and repeated field labels inside the local/remote TTS and ASR panels, while keeping the key distinction that API keys remain masked and stored via the OS keyring.
+- Updated `src/confirmation-panel.test.mjs` to match the simpler wording, and validation is green with `pnpm lint` and `pnpm test:ui`.
+
 ## 2026-04-18T18:18:49Z - GPT-5.4 - Playback settings collapsed into one clearer section
 - Removed the redundant `settings-volume` and `settings-speed` shell sections so the Settings page now has a single playback block instead of separate duplicated volume/speed settings panels.
 - Updated the remaining playback panel copy to state clearly that volume and speed changes apply to current playback and remain the saved defaults for future narration.

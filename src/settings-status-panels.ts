@@ -233,7 +233,10 @@ export function renderSettingsRemotePlannerPanel(state: RemotePlannerPanelState)
     <section class="settings-panel" aria-labelledby="settings-remote-planner-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-remote-planner-title">Remote planner</h2>
+        <h2 id="settings-remote-planner-title">Planner setup</h2>
+        <p class="settings-panel-description">
+          Set the endpoint, model, and API key used to interpret commands.
+        </p>
         ${errorCopy}
       </div>
       <div class="settings-grid settings-grid-single">
@@ -344,17 +347,16 @@ export function renderSettingsProviderFailoverPanel(state: ProviderFailoverPanel
     <section class="settings-panel" aria-labelledby="settings-provider-failover-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-provider-failover-title">Provider failover</h2>
+        <h2 id="settings-provider-failover-title">Failover</h2>
         <p class="settings-panel-description">
-          Automatic remote-to-local provider failover is not currently available in the live runtime.
-          These toggles stay read-only until real failover support is implemented.
+          Remote-to-local failover is not available yet. These toggles stay read-only until it is.
         </p>
         <p class="settings-panel-description">${escapeHtml(state.summary)}</p>
       </div>
       <div class="settings-grid">
-        ${renderFailoverCard("planner", "Planner failover", state.plannerAvailable)}
-        ${renderFailoverCard("tts", "TTS failover", state.ttsAvailable)}
-        ${renderFailoverCard("asr", "ASR failover", state.asrAvailable)}
+        ${renderFailoverCard("planner", "Planner", state.plannerAvailable)}
+        ${renderFailoverCard("tts", "TTS", state.ttsAvailable)}
+        ${renderFailoverCard("asr", "ASR", state.asrAvailable)}
       </div>
     </section>
   `;
@@ -371,16 +373,16 @@ export function renderSettingsConfirmationPanel(state: ConfirmationSettingsPanel
     <section class="settings-panel" aria-labelledby="settings-confirmation-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-confirmation-title">Confirmation behavior</h2>
+        <h2 id="settings-confirmation-title">Confirmation</h2>
         <p class="settings-panel-description">
-          Adjust how confidently the runtime can resolve a click before it asks for confirmation.
-          Form submission still always requires confirmation.
+          Choose how confident a click must be before the app asks for confirmation. Form submits
+          still always require confirmation.
         </p>
         ${errorCopy}
       </div>
       <div class="settings-grid">
         <label class="settings-control-card" for="settings-confirmation-threshold-control">
-          <span class="settings-control-label">Click confirmation threshold</span>
+          <span class="settings-control-label">Click threshold</span>
           <span class="settings-control-value">${renderConfirmationThresholdValue(state.confirmationConfidenceThreshold)}</span>
           <input
             id="settings-confirmation-threshold-control"
@@ -396,7 +398,7 @@ export function renderSettingsConfirmationPanel(state: ConfirmationSettingsPanel
           />
         </label>
         <label class="settings-control-card" for="settings-click-without-confirmation-toggle">
-          <span class="settings-control-label">Allow confident clicks without confirmation</span>
+          <span class="settings-control-label">Skip confirmation for confident clicks</span>
           <span class="settings-control-value">${state.allowClickWithoutConfirmation ? "Enabled" : "Disabled"}</span>
           <input
             id="settings-click-without-confirmation-toggle"
@@ -426,16 +428,15 @@ export function renderSettingsOcrThresholdPanel(state: OcrThresholdSettingsPanel
     <section class="settings-panel" aria-labelledby="settings-ocr-thresholds-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-ocr-thresholds-title">OCR thresholds</h2>
+        <h2 id="settings-ocr-thresholds-title">OCR fallback</h2>
         <p class="settings-panel-description">
-          Adjust when sparse DOM extraction should trigger OCR fallback. Existing OCR fallback
-          toggles remain unchanged by this panel.
+          Choose when sparse DOM extraction should fall back to OCR.
         </p>
         ${errorCopy}
       </div>
       <div class="settings-grid">
         <label class="settings-control-card" for="settings-ocr-char-threshold-control">
-          <span class="settings-control-label">Sparse text character threshold</span>
+          <span class="settings-control-label">Character threshold</span>
           <span class="settings-control-value">${renderOcrThresholdValue(state.sparseTextCharThreshold)}</span>
           <input
             id="settings-ocr-char-threshold-control"
@@ -449,7 +450,7 @@ export function renderSettingsOcrThresholdPanel(state: OcrThresholdSettingsPanel
           />
         </label>
         <label class="settings-control-card" for="settings-ocr-region-threshold-control">
-          <span class="settings-control-label">Sparse text region threshold</span>
+          <span class="settings-control-label">Region threshold</span>
           <span class="settings-control-value">${renderOcrThresholdValue(state.sparseTextRegionThreshold)}</span>
           <input
             id="settings-ocr-region-threshold-control"
@@ -516,16 +517,15 @@ export function renderSettingsAsrProviderPanel(state: AsrProviderPanelState): st
     <section class="settings-panel" aria-labelledby="settings-asr-provider-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-asr-provider-title">ASR provider selection</h2>
+        <h2 id="settings-asr-provider-title">ASR provider</h2>
         <p class="settings-panel-description">
-          Choose whether spoken command transcription uses the configured local or remote ASR provider.
-          Changes apply to the next listening request and preserve the current provider profiles.
+          Choose the local or remote speech-to-text provider. Changes apply to the next listening request.
         </p>
         ${errorCopy}
       </div>
       <div class="settings-grid">
         <label class="settings-control-card" for="settings-asr-provider-control">
-          <span class="settings-control-label">ASR provider</span>
+          <span class="settings-control-label">Provider</span>
           <span class="settings-control-value">${escapeHtml(renderProviderModeLabel(state.activeMode))}</span>
           <select
             id="settings-asr-provider-control"
@@ -546,15 +546,15 @@ export function renderSettingsLocalTtsModelPanel(state: LocalTtsModelPanelState)
     <section class="settings-panel" aria-labelledby="settings-local-tts-model-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-local-tts-model-title">Local TTS model reference</h2>
+        <h2 id="settings-local-tts-model-title">Local TTS profile</h2>
         <p class="settings-panel-description">
-          Review the configured local TTS profile that will be used whenever TTS runs in local
-          mode. To change these references, edit the app config directly.
+          Review the local speech profile used when TTS runs in local mode. Edit the app config to
+          change it.
         </p>
       </div>
       <div class="settings-grid">
         <div class="settings-control-card">
-          <span class="settings-control-label">Local TTS profile</span>
+          <span class="settings-control-label">Profile</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
         </div>
         <div class="settings-control-card">
@@ -600,16 +600,16 @@ export function renderSettingsModelManagementPanel(state: ModelManagementPanelSt
     <section class="settings-panel" aria-labelledby="settings-model-management-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-model-management-title">Local model management</h2>
+        <h2 id="settings-model-management-title">Local models</h2>
         <p class="settings-panel-description">
-          Choose where local speech models live, whether startup checks should verify them, and
-          trigger explicit downloads for the configured local TTS and ASR profiles.
+          Choose where local speech models live, whether startup checks them, and whether missing
+          models download automatically.
         </p>
         ${errorCopy}
       </div>
       <div class="settings-grid">
         <label class="settings-control-card" for="settings-models-dir-input">
-          <span class="settings-control-label">Models directory</span>
+          <span class="settings-control-label">Model folder</span>
           <span class="settings-control-value">${escapeHtml(state.modelsDir || "Not configured")}</span>
           <input
             id="settings-models-dir-input"
@@ -623,11 +623,11 @@ export function renderSettingsModelManagementPanel(state: ModelManagementPanelSt
             ${disabledAttribute}
           />
           <span id="settings-models-dir-description" class="settings-panel-description">
-            Updates here change where local model downloads and startup checks look for speech models.
+            Updates here change where downloads and startup checks look for speech models.
           </span>
         </label>
         <label class="settings-control-card" for="settings-model-check-on-startup-toggle">
-          <span class="settings-control-label">Check models on startup</span>
+          <span class="settings-control-label">Check on startup</span>
           <span class="settings-control-value">${state.checkOnStartup ? "Enabled" : "Disabled"}</span>
           <input
             id="settings-model-check-on-startup-toggle"
@@ -638,7 +638,7 @@ export function renderSettingsModelManagementPanel(state: ModelManagementPanelSt
           />
         </label>
         <label class="settings-control-card" for="settings-model-auto-download-toggle">
-          <span class="settings-control-label">Auto-download missing models</span>
+          <span class="settings-control-label">Auto-download missing</span>
           <span class="settings-control-value">${state.autoDownloadMissing ? "Enabled" : "Disabled"}</span>
           <input
             id="settings-model-auto-download-toggle"
@@ -649,7 +649,7 @@ export function renderSettingsModelManagementPanel(state: ModelManagementPanelSt
           />
         </label>
         <div class="settings-control-card">
-          <span class="settings-control-label">Local TTS model status</span>
+          <span class="settings-control-label">Local TTS</span>
           <span class="settings-control-value">${renderModelAvailabilityLabel(state.localTtsAvailable)}</span>
           <button
             type="button"
@@ -661,7 +661,7 @@ export function renderSettingsModelManagementPanel(state: ModelManagementPanelSt
           </button>
         </div>
         <div class="settings-control-card">
-          <span class="settings-control-label">Local ASR model status</span>
+          <span class="settings-control-label">Local ASR</span>
           <span class="settings-control-value">${renderModelAvailabilityLabel(state.localAsrAvailable)}</span>
           <button
             type="button"
@@ -686,17 +686,16 @@ export function renderSettingsRemoteTtsPanel(state: RemoteTtsPanelState): string
     <section class="settings-panel" aria-labelledby="settings-remote-tts-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-remote-tts-title">Remote TTS API reference</h2>
+        <h2 id="settings-remote-tts-title">Remote TTS profile</h2>
         <p class="settings-panel-description">
-          Review the configured remote TTS profile that will be used whenever TTS runs in remote
-          mode. Secret values stay masked here, and replacement API keys are stored in the OS
-          keyring instead of the config file.
+          Review the speech profile used when TTS runs in remote mode. API keys stay masked here,
+          and replacements are stored in the OS keyring instead of the config file.
         </p>
         ${errorCopy}
       </div>
       <div class="settings-grid">
         <div class="settings-control-card">
-          <span class="settings-control-label">Remote TTS profile</span>
+          <span class="settings-control-label">Profile</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
         </div>
         <div class="settings-control-card">
@@ -712,11 +711,11 @@ export function renderSettingsRemoteTtsPanel(state: RemoteTtsPanelState): string
           <span class="settings-control-value">${renderReadOnlySettingValue(state.model)}</span>
         </div>
         <div class="settings-control-card">
-          <span class="settings-control-label">API key reference</span>
+          <span class="settings-control-label">API key source</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.apiKeyReference)}</span>
         </div>
         <div class="settings-control-card">
-          <span class="settings-control-label">Organization reference</span>
+          <span class="settings-control-label">Organization source</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.organizationReference)}</span>
         </div>
         <div class="settings-control-card">
@@ -766,16 +765,15 @@ export function renderSettingsTtsProviderPanel(state: TtsProviderPanelState): st
     <section class="settings-panel" aria-labelledby="settings-tts-provider-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-tts-provider-title">TTS provider selection</h2>
+        <h2 id="settings-tts-provider-title">TTS provider</h2>
         <p class="settings-panel-description">
-          Choose whether spoken output uses the configured local or remote TTS provider. Changes
-          apply to the next utterance and preserve the current provider profiles.
+          Choose the local or remote speech output provider. Changes apply to the next utterance.
         </p>
         ${errorCopy}
       </div>
       <div class="settings-grid">
         <label class="settings-control-card" for="settings-tts-provider-control">
-          <span class="settings-control-label">TTS provider</span>
+          <span class="settings-control-label">Provider</span>
           <span class="settings-control-value">${escapeHtml(renderProviderModeLabel(state.activeMode))}</span>
           <select
             id="settings-tts-provider-control"
@@ -796,15 +794,15 @@ export function renderSettingsLocalAsrModelPanel(state: LocalAsrModelPanelState)
     <section class="settings-panel" aria-labelledby="settings-local-asr-model-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-local-asr-model-title">Local ASR model reference</h2>
+        <h2 id="settings-local-asr-model-title">Local ASR profile</h2>
         <p class="settings-panel-description">
-          Review the configured local ASR profile that will be used whenever ASR runs in local
-          mode. To change these references, edit the app config directly.
+          Review the speech-to-text profile used when ASR runs in local mode. Edit the app config
+          to change it.
         </p>
       </div>
       <div class="settings-grid">
         <div class="settings-control-card">
-          <span class="settings-control-label">Local ASR profile</span>
+          <span class="settings-control-label">Profile</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
         </div>
         <div class="settings-control-card">
@@ -841,17 +839,16 @@ export function renderSettingsRemoteAsrPanel(state: RemoteAsrPanelState): string
     <section class="settings-panel" aria-labelledby="settings-remote-asr-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-remote-asr-title">Remote ASR API reference</h2>
+        <h2 id="settings-remote-asr-title">Remote ASR profile</h2>
         <p class="settings-panel-description">
-          Review the configured remote ASR profile that will be used whenever ASR runs in remote
-          mode. Secret values stay masked here, and replacement API keys are stored in the OS
-          keyring instead of the config file.
+          Review the speech-to-text profile used when ASR runs in remote mode. API keys stay
+          masked here, and replacements are stored in the OS keyring instead of the config file.
         </p>
         ${errorCopy}
       </div>
       <div class="settings-grid">
         <div class="settings-control-card">
-          <span class="settings-control-label">Remote ASR profile</span>
+          <span class="settings-control-label">Profile</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.profileName)}</span>
         </div>
         <div class="settings-control-card">
@@ -867,11 +864,11 @@ export function renderSettingsRemoteAsrPanel(state: RemoteAsrPanelState): string
           <span class="settings-control-value">${renderReadOnlySettingValue(state.model)}</span>
         </div>
         <div class="settings-control-card">
-          <span class="settings-control-label">API key reference</span>
+          <span class="settings-control-label">API key source</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.apiKeyReference)}</span>
         </div>
         <div class="settings-control-card">
-          <span class="settings-control-label">Organization reference</span>
+          <span class="settings-control-label">Organization source</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.organizationReference)}</span>
         </div>
         <div class="settings-control-card">
@@ -926,16 +923,15 @@ export function renderSettingsTtsModelPanel(state: TtsModelPanelState): string {
     <section class="settings-panel" aria-labelledby="settings-tts-model-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-tts-model-title">TTS model selection</h2>
+        <h2 id="settings-tts-model-title">TTS model</h2>
         <p class="settings-panel-description">
-          Choose from the configured ${modeCopy} TTS models for the current TTS mode. Changes apply
-          to the next utterance and persist across app restarts.
+          Choose the ${modeCopy} TTS model for the current mode. Changes apply to the next utterance.
         </p>
         ${errorCopy}
       </div>
       <div class="settings-grid">
         <label class="settings-control-card" for="settings-tts-model-control">
-          <span class="settings-control-label">Configured TTS model</span>
+          <span class="settings-control-label">Selected model</span>
           <span class="settings-control-value">${
             activeOption
               ? escapeHtml(renderTtsModelOptionLabel(activeOption.profileName, activeOption.modelLabel))
@@ -976,16 +972,15 @@ export function renderSettingsTtsVoicePanel(state: TtsVoicePanelState): string {
     <section class="settings-panel" aria-labelledby="settings-tts-voice-title">
       <div class="settings-panel-copy">
         <p class="settings-panel-eyebrow">Settings</p>
-        <h2 id="settings-tts-voice-title">Voice selection</h2>
+        <h2 id="settings-tts-voice-title">Voice</h2>
         <p class="settings-panel-description">
-          Choose from the configured ${modeCopy} TTS voices for the current TTS mode. Changes apply
-          to the next utterance and persist across app restarts.
+          Choose the ${modeCopy} TTS voice for the current mode. Changes apply to the next utterance.
         </p>
         ${errorCopy}
       </div>
       <div class="settings-grid">
         <label class="settings-control-card" for="settings-tts-voice-control">
-          <span class="settings-control-label">Configured TTS voice</span>
+          <span class="settings-control-label">Selected voice</span>
           <span class="settings-control-value">${
             activeOption
               ? escapeHtml(renderTtsVoiceOptionLabel(activeOption.displayLabel, activeOption.voiceName))
