@@ -20,7 +20,7 @@ export type PanelRootKey =
   | "confirmation-panel";
 
 export type AppView = "workspace" | "settings";
-export type SettingsView = "overview" | "planner" | "tts";
+export type SettingsView = "overview" | "planner" | "tts" | "asr";
 
 export type PanelRootMap = Record<PanelRootKey, HTMLDivElement>;
 
@@ -131,17 +131,20 @@ export function renderAppShell(): string {
             </div>
           </section>
 
-          <section class="settings-group" aria-labelledby="settings-group-asr-title">
+          <section class="settings-group settings-group-link" aria-labelledby="settings-group-asr-title">
             <div class="settings-group-copy">
               <p class="settings-group-eyebrow">Speech input</p>
               <h2 id="settings-group-asr-title">Automatic speech recognition</h2>
-              <p class="settings-group-description">
-                Keep ASR provider selection and its local or remote runtime details grouped together.
-              </p>
             </div>
-            ${renderPanelRootPlaceholder("settings-asr-provider")}
-            ${renderPanelRootPlaceholder("settings-local-asr-model")}
-            ${renderPanelRootPlaceholder("settings-remote-asr")}
+            <div class="settings-subpage-card">
+              <button
+                type="button"
+                class="settings-subpage-link"
+                data-settings-view-button="asr"
+              >
+                Open ASR setup
+              </button>
+            </div>
           </section>
 
           <section class="settings-group" aria-labelledby="settings-group-runtime-title">
@@ -193,6 +196,24 @@ export function renderAppShell(): string {
           ${renderPanelRootPlaceholder("settings-local-tts-model")}
           ${renderPanelRootPlaceholder("settings-remote-tts")}
           ${renderPanelRootPlaceholder("settings-tts-voice")}
+        </div>
+
+        <div class="settings-view" data-settings-view-section="asr" hidden aria-hidden="true">
+          <section class="hero hero-settings hero-settings-subpage">
+            <button
+              type="button"
+              class="settings-subpage-back"
+              data-settings-view-button="overview"
+            >
+              Back to settings
+            </button>
+            <p class="settings-group-eyebrow">Speech input</p>
+            <h2>ASR setup</h2>
+          </section>
+
+          ${renderPanelRootPlaceholder("settings-asr-provider")}
+          ${renderPanelRootPlaceholder("settings-local-asr-model")}
+          ${renderPanelRootPlaceholder("settings-remote-asr")}
         </div>
       </section>
     </main>

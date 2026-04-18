@@ -316,6 +316,22 @@ test("planner settings target opens the planner subpage", () => {
   assert.deepEqual(calls.setSettingsView, ["planner"]);
 });
 
+test("asr settings target opens the asr subpage", () => {
+  const { appRoot, calls, document } = createEventHandlerDeps();
+  const settingsButton = new FakeButtonElement();
+  settingsButton.selectorMatches.add("[data-settings-target]");
+  settingsButton.dataset.settingsTarget = "settings-asr-provider-control";
+
+  const targetControl = new FakeInputElement();
+  targetControl.id = "settings-asr-provider-control";
+  document.register(targetControl);
+
+  appRoot.dispatch("click", { target: settingsButton });
+
+  assert.deepEqual(calls.setAppView, ["settings"]);
+  assert.deepEqual(calls.setSettingsView, ["asr"]);
+});
+
 test("view navigation buttons switch between workspace and settings", () => {
   const { appRoot, calls } = createEventHandlerDeps();
   const settingsButton = new FakeButtonElement();
@@ -332,7 +348,7 @@ test("view navigation buttons switch between workspace and settings", () => {
   assert.deepEqual(calls.setAppView, ["settings", "workspace"]);
 });
 
-test("settings subpage buttons switch between planner, tts, and overview", () => {
+test("settings subpage buttons switch between planner, tts, asr, and overview", () => {
   const { appRoot, calls } = createEventHandlerDeps();
   const plannerButton = new FakeButtonElement();
   plannerButton.selectorMatches.add("[data-settings-view-button]");
@@ -342,16 +358,21 @@ test("settings subpage buttons switch between planner, tts, and overview", () =>
   ttsButton.selectorMatches.add("[data-settings-view-button]");
   ttsButton.dataset.settingsViewButton = "tts";
 
+  const asrButton = new FakeButtonElement();
+  asrButton.selectorMatches.add("[data-settings-view-button]");
+  asrButton.dataset.settingsViewButton = "asr";
+
   const overviewButton = new FakeButtonElement();
   overviewButton.selectorMatches.add("[data-settings-view-button]");
   overviewButton.dataset.settingsViewButton = "overview";
 
   appRoot.dispatch("click", { target: plannerButton });
   appRoot.dispatch("click", { target: ttsButton });
+  appRoot.dispatch("click", { target: asrButton });
   appRoot.dispatch("click", { target: overviewButton });
 
-  assert.deepEqual(calls.setAppView, ["settings", "settings", "settings"]);
-  assert.deepEqual(calls.setSettingsView, ["planner", "tts", "overview"]);
+  assert.deepEqual(calls.setAppView, ["settings", "settings", "settings", "settings"]);
+  assert.deepEqual(calls.setSettingsView, ["planner", "tts", "asr", "overview"]);
 });
 
 test("remote API key test button dispatches the matching kind", () => {
