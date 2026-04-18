@@ -74,11 +74,17 @@ type DataAttributes = {
 
 type ButtonWithDataProps = ComponentProps<typeof Button> & DataAttributes;
 type IconButtonWithDataProps = ComponentProps<typeof IconButton> & DataAttributes;
+export type AppShellPanelContent = Partial<Record<PanelRootKey, ReactNode>>;
 
 function renderPanelRootPlaceholderElement(rootKey: PanelRootKey) {
   return h("div", {
     "data-panel-root": rootKey,
   });
+}
+
+function renderPanelContent(rootKey: PanelRootKey, panelContent?: AppShellPanelContent) {
+  const content = panelContent?.[rootKey];
+  return content !== undefined ? content : renderPanelRootPlaceholderElement(rootKey);
 }
 
 function renderShellNavButton(view: AppView, label: string, isActive: boolean) {
@@ -164,9 +170,10 @@ function renderSettingsSubpageLink(view: Exclude<SettingsView, "overview">, labe
 interface AppShellMarkupProps {
   initialAppView: AppView;
   initialSettingsView: SettingsView;
+  panelContent?: AppShellPanelContent;
 }
 
-function AppShellMarkup({ initialAppView, initialSettingsView }: AppShellMarkupProps) {
+function AppShellMarkup({ initialAppView, initialSettingsView, panelContent }: AppShellMarkupProps) {
   const workspaceActive = initialAppView === "workspace";
   const settingsActive = initialAppView === "settings";
   const showBackButton = settingsActive && initialSettingsView !== "overview";
@@ -223,10 +230,10 @@ function AppShellMarkup({ initialAppView, initialSettingsView }: AppShellMarkupP
           "See what the browser, narration, and listening state are doing right now.",
         ),
       ),
-      renderPanelRootPlaceholderElement("push-to-talk"),
-      renderPanelRootPlaceholderElement("url-input"),
-      renderPanelRootPlaceholderElement("status"),
-      renderPanelRootPlaceholderElement("confirmation-panel"),
+      renderPanelContent("push-to-talk", panelContent),
+      renderPanelContent("url-input", panelContent),
+      renderPanelContent("status", panelContent),
+      renderPanelContent("confirmation-panel", panelContent),
     ),
     h(
       "section",
@@ -249,7 +256,7 @@ function AppShellMarkup({ initialAppView, initialSettingsView }: AppShellMarkupP
           { className: "hero hero-settings" },
           h("h1", null, "Settings"),
         ),
-        renderPanelRootPlaceholderElement("settings-guidance"),
+        renderPanelContent("settings-guidance", panelContent),
         h(
           "section",
           {
@@ -262,7 +269,7 @@ function AppShellMarkup({ initialAppView, initialSettingsView }: AppShellMarkupP
             h("p", { className: "settings-group-eyebrow" }, "Listening"),
             h("h2", { id: "settings-group-playback-title" }, "Playback"),
           ),
-          renderPanelRootPlaceholderElement("audio-controls"),
+          renderPanelContent("audio-controls", panelContent),
         ),
         h(
           "section",
@@ -335,7 +342,7 @@ function AppShellMarkup({ initialAppView, initialSettingsView }: AppShellMarkupP
           h("p", { className: "settings-group-eyebrow" }, "Command interpretation"),
           h("h2", null, "Planner setup"),
         ),
-        renderPanelRootPlaceholderElement("settings-remote-planner"),
+        renderPanelContent("settings-remote-planner", panelContent),
       ),
       h(
         "div",
@@ -351,11 +358,11 @@ function AppShellMarkup({ initialAppView, initialSettingsView }: AppShellMarkupP
           h("p", { className: "settings-group-eyebrow" }, "Speech output"),
           h("h2", null, "TTS setup"),
         ),
-        renderPanelRootPlaceholderElement("settings-tts-provider"),
-        renderPanelRootPlaceholderElement("settings-tts-model"),
-        renderPanelRootPlaceholderElement("settings-local-tts-model"),
-        renderPanelRootPlaceholderElement("settings-remote-tts"),
-        renderPanelRootPlaceholderElement("settings-tts-voice"),
+        renderPanelContent("settings-tts-provider", panelContent),
+        renderPanelContent("settings-tts-model", panelContent),
+        renderPanelContent("settings-local-tts-model", panelContent),
+        renderPanelContent("settings-remote-tts", panelContent),
+        renderPanelContent("settings-tts-voice", panelContent),
       ),
       h(
         "div",
@@ -371,9 +378,9 @@ function AppShellMarkup({ initialAppView, initialSettingsView }: AppShellMarkupP
           h("p", { className: "settings-group-eyebrow" }, "Speech input"),
           h("h2", null, "ASR setup"),
         ),
-        renderPanelRootPlaceholderElement("settings-asr-provider"),
-        renderPanelRootPlaceholderElement("settings-local-asr-model"),
-        renderPanelRootPlaceholderElement("settings-remote-asr"),
+        renderPanelContent("settings-asr-provider", panelContent),
+        renderPanelContent("settings-local-asr-model", panelContent),
+        renderPanelContent("settings-remote-asr", panelContent),
       ),
       h(
         "div",
@@ -389,16 +396,20 @@ function AppShellMarkup({ initialAppView, initialSettingsView }: AppShellMarkupP
           h("p", { className: "settings-group-eyebrow" }, "Runtime behavior"),
           h("h2", null, "Runtime setup"),
         ),
-        renderPanelRootPlaceholderElement("settings-model-management"),
-        renderPanelRootPlaceholderElement("settings-provider-failover"),
-        renderPanelRootPlaceholderElement("settings-confirmation"),
-        renderPanelRootPlaceholderElement("settings-ocr-threshold"),
+        renderPanelContent("settings-model-management", panelContent),
+        renderPanelContent("settings-provider-failover", panelContent),
+        renderPanelContent("settings-confirmation", panelContent),
+        renderPanelContent("settings-ocr-threshold", panelContent),
       ),
     ),
   );
 }
 
-function renderShellTree(initialAppView: AppView, initialSettingsView: SettingsView) {
+function renderShellTree(
+  initialAppView: AppView,
+  initialSettingsView: SettingsView,
+  panelContent?: AppShellPanelContent,
+) {
   return h(
     StyledEngineProvider,
     { injectFirst: true },
@@ -409,9 +420,18 @@ function renderShellTree(initialAppView: AppView, initialSettingsView: SettingsV
       h(AppShellMarkup, {
         initialAppView,
         initialSettingsView,
+        panelContent,
       }),
     ),
   );
+}
+
+export function AppShellRuntime(props: {
+  appView: AppView;
+  settingsView: SettingsView;
+  panelContent: AppShellPanelContent;
+}) {
+  return renderShellTree(props.appView, props.settingsView, props.panelContent);
 }
 
 export async function renderAppShell(): Promise<string> {

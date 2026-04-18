@@ -1,22 +1,40 @@
 import "./styles.css";
 
 import {
-  createPanelRoots,
-  renderPanelRootNode,
-  setActiveAppView,
-  setActiveSettingsView,
+  AppShellRuntime,
   type AppView,
-  type PanelRootKey,
-  type PanelRootMap,
   type SettingsView,
 } from "./app-shell";
-import type { ReactNode } from "react";
+import { createElement } from "react";
+import { createRoot } from "react-dom/client";
+import { Provider, useSelector } from "react-redux";
 import {
+  applyExecutionOutcome as applyExecutionUiOutcome,
   createAppShellStore,
+  setAsrProviderPanelState as setAsrProviderPanelStoreState,
   setAppView as setAppShellView,
+  setAudioControlsPanelState as setAudioControlsPanelStoreState,
+  setConfirmationError as setConfirmationUiError,
+  setConfirmationSettingsPanelState as setConfirmationSettingsPanelStoreState,
+  setConfirmationSubmitting as setConfirmationUiSubmitting,
+  setExecutionUiState,
+  setLocalAsrModelPanelState as setLocalAsrModelPanelStoreState,
+  setLocalTtsModelPanelState as setLocalTtsModelPanelStoreState,
+  setModelManagementPanelState as setModelManagementPanelStoreState,
+  setOcrThresholdSettingsPanelState as setOcrThresholdSettingsPanelStoreState,
+  setProviderFailoverPanelState as setProviderFailoverPanelStoreState,
+  setPushToTalkPanelState as setPushToTalkPanelStoreState,
+  setRemoteAsrPanelState as setRemoteAsrPanelStoreState,
+  setRemotePlannerPanelState as setRemotePlannerPanelStoreState,
+  setRemoteTtsPanelState as setRemoteTtsPanelStoreState,
   setSettingsView as setAppShellSettingsView,
+  setStatusPanelState as setStatusPanelStoreState,
+  setTtsModelPanelState as setTtsModelPanelStoreState,
+  setTtsProviderPanelState as setTtsProviderPanelStoreState,
+  setTtsVoicePanelState as setTtsVoicePanelStoreState,
+  setUrlInputPanelState as setUrlInputPanelStoreState,
+  type AppShellState,
 } from "./app-shell-store";
-import { createInitialPanelStates } from "./panel-state";
 import {
   renderAudioControlsPanelNode,
   renderConfirmationPanelNode,
@@ -56,8 +74,8 @@ import {
   type UrlInputPanelState,
 } from "./confirmation-panel";
 import {
-  createExecutionUiStore,
   describeConfirmationSubmissionFailure,
+  type ExecutionUiStore,
   resolveConfirmationResponse,
   runPlannerExecution,
 } from "./planner-orchestration";
@@ -143,53 +161,117 @@ export {
 } from "./tauri-api";
 
 const app = document.querySelector<HTMLDivElement>("#app");
-const uiStore = createExecutionUiStore();
 const PUSH_TO_TALK_RELEASE_CAPTURE_MS = 1;
 const CONTINUOUS_LISTEN_CAPTURE_MS = 3_000;
-const initialPanelStates = createInitialPanelStates();
 const appShellStore = createAppShellStore();
-let currentExecutionUiState = uiStore.getState();
-let pushToTalkState: PushToTalkPanelState = initialPanelStates.pushToTalkState;
-let audioControlsState: AudioControlsPanelState = initialPanelStates.audioControlsState;
-let remotePlannerPanelState: RemotePlannerPanelState = initialPanelStates.remotePlannerPanelState;
-let providerFailoverPanelState: ProviderFailoverPanelState = initialPanelStates.providerFailoverPanelState;
-let confirmationSettingsPanelState: ConfirmationSettingsPanelState =
-  initialPanelStates.confirmationSettingsPanelState;
-let ocrThresholdSettingsPanelState: OcrThresholdSettingsPanelState =
-  initialPanelStates.ocrThresholdSettingsPanelState;
-let asrProviderPanelState: AsrProviderPanelState = initialPanelStates.asrProviderPanelState;
-let localAsrModelPanelState: LocalAsrModelPanelState = initialPanelStates.localAsrModelPanelState;
-let modelManagementPanelState: ModelManagementPanelState =
-  initialPanelStates.modelManagementPanelState;
-let remoteAsrPanelState: RemoteAsrPanelState = initialPanelStates.remoteAsrPanelState;
-let ttsProviderPanelState: TtsProviderPanelState = initialPanelStates.ttsProviderPanelState;
-let ttsModelPanelState: TtsModelPanelState = initialPanelStates.ttsModelPanelState;
-let localTtsModelPanelState: LocalTtsModelPanelState = initialPanelStates.localTtsModelPanelState;
-let remoteTtsPanelState: RemoteTtsPanelState = initialPanelStates.remoteTtsPanelState;
-let ttsVoicePanelState: TtsVoicePanelState = initialPanelStates.ttsVoicePanelState;
-let statusPanelState: StatusPanelState = initialPanelStates.statusPanelState;
-let urlInputPanelState: UrlInputPanelState = initialPanelStates.urlInputPanelState;
 let activePushToTalkSource: "keyboard" | "pointer" | null = null;
 let continuousListeningLoopActive = false;
-let currentShellViewState = appShellStore.getState();
 
 if (!app) {
   throw new Error("App root element was not found.");
 }
 const appRoot: HTMLDivElement = app;
+const h = createElement;
+const runtimeRoot = createRoot(appRoot);
 
-let panelRoots: PanelRootMap | null = null;
-function ensurePanelRoots(): PanelRootMap {
-  if (panelRoots) {
-    return panelRoots;
-  }
+let pushToTalkState: PushToTalkPanelState;
+let audioControlsState: AudioControlsPanelState;
+let remotePlannerPanelState: RemotePlannerPanelState;
+let providerFailoverPanelState: ProviderFailoverPanelState;
+let confirmationSettingsPanelState: ConfirmationSettingsPanelState;
+let ocrThresholdSettingsPanelState: OcrThresholdSettingsPanelState;
+let asrProviderPanelState: AsrProviderPanelState;
+let localAsrModelPanelState: LocalAsrModelPanelState;
+let modelManagementPanelState: ModelManagementPanelState;
+let remoteAsrPanelState: RemoteAsrPanelState;
+let ttsProviderPanelState: TtsProviderPanelState;
+let ttsModelPanelState: TtsModelPanelState;
+let localTtsModelPanelState: LocalTtsModelPanelState;
+let remoteTtsPanelState: RemoteTtsPanelState;
+let ttsVoicePanelState: TtsVoicePanelState;
+let statusPanelState: StatusPanelState;
+let urlInputPanelState: UrlInputPanelState;
 
-  panelRoots = createPanelRoots(appRoot);
-  setActiveAppView(appRoot, currentShellViewState.appView);
-  setActiveSettingsView(appRoot, currentShellViewState.settingsView);
-
-  return panelRoots;
+function syncLocalStateFromStore(state: AppShellState) {
+  pushToTalkState = state.panelStates.pushToTalkState;
+  audioControlsState = state.panelStates.audioControlsState;
+  remotePlannerPanelState = state.panelStates.remotePlannerPanelState;
+  providerFailoverPanelState = state.panelStates.providerFailoverPanelState;
+  confirmationSettingsPanelState = state.panelStates.confirmationSettingsPanelState;
+  ocrThresholdSettingsPanelState = state.panelStates.ocrThresholdSettingsPanelState;
+  asrProviderPanelState = state.panelStates.asrProviderPanelState;
+  localAsrModelPanelState = state.panelStates.localAsrModelPanelState;
+  modelManagementPanelState = state.panelStates.modelManagementPanelState;
+  remoteAsrPanelState = state.panelStates.remoteAsrPanelState;
+  ttsProviderPanelState = state.panelStates.ttsProviderPanelState;
+  ttsModelPanelState = state.panelStates.ttsModelPanelState;
+  localTtsModelPanelState = state.panelStates.localTtsModelPanelState;
+  remoteTtsPanelState = state.panelStates.remoteTtsPanelState;
+  ttsVoicePanelState = state.panelStates.ttsVoicePanelState;
+  statusPanelState = state.panelStates.statusPanelState;
+  urlInputPanelState = state.panelStates.urlInputPanelState;
 }
+
+syncLocalStateFromStore(appShellStore.getState());
+
+function BlindBrowserApp() {
+  const shellView = useSelector((state: AppShellState) => state.shellView);
+  const panelStates = useSelector((state: AppShellState) => state.panelStates);
+  const confirmationState = useSelector((state: AppShellState) => state.executionUi.confirmation);
+
+  return h(AppShellRuntime, {
+    appView: shellView.appView,
+    settingsView: shellView.settingsView,
+    panelContent: {
+      "push-to-talk": renderPushToTalkPanelNode(panelStates.pushToTalkState),
+      "url-input": renderUrlInputPanelNode(panelStates.urlInputPanelState),
+      status: renderStatusPanelNode(panelStates.statusPanelState),
+      "audio-controls": renderAudioControlsPanelNode(panelStates.audioControlsState),
+      "settings-guidance": renderSettingsGuidancePanelNode(currentSettingsGuidanceState(panelStates)),
+      "settings-remote-planner": renderSettingsRemotePlannerPanelNode(panelStates.remotePlannerPanelState),
+      "settings-provider-failover": renderSettingsProviderFailoverPanelNode(panelStates.providerFailoverPanelState),
+      "settings-confirmation": renderSettingsConfirmationPanelNode(panelStates.confirmationSettingsPanelState),
+      "settings-ocr-threshold": renderSettingsOcrThresholdPanelNode(panelStates.ocrThresholdSettingsPanelState),
+      "settings-asr-provider": renderSettingsAsrProviderPanelNode(panelStates.asrProviderPanelState),
+      "settings-local-asr-model": renderSettingsLocalAsrModelPanelNode(panelStates.localAsrModelPanelState),
+      "settings-model-management": renderSettingsModelManagementPanelNode(panelStates.modelManagementPanelState),
+      "settings-remote-asr": renderSettingsRemoteAsrPanelNode(panelStates.remoteAsrPanelState),
+      "settings-tts-provider": renderSettingsTtsProviderPanelNode(panelStates.ttsProviderPanelState),
+      "settings-tts-model": renderSettingsTtsModelPanelNode(panelStates.ttsModelPanelState),
+      "settings-local-tts-model": renderSettingsLocalTtsModelPanelNode(panelStates.localTtsModelPanelState),
+      "settings-remote-tts": renderSettingsRemoteTtsPanelNode(panelStates.remoteTtsPanelState),
+      "settings-tts-voice": renderSettingsTtsVoicePanelNode(panelStates.ttsVoicePanelState),
+      "confirmation-panel": renderConfirmationPanelNode(confirmationState),
+    },
+  });
+}
+
+runtimeRoot.render(h(Provider, { store: appShellStore, children: h(BlindBrowserApp) }));
+appShellStore.subscribe(() => {
+  syncLocalStateFromStore(appShellStore.getState());
+});
+
+const uiStore: ExecutionUiStore = {
+  getState: () => appShellStore.getState().executionUi,
+  setState: (nextState) => {
+    appShellStore.dispatch(setExecutionUiState(nextState));
+  },
+  applyOutcome: (outcome) => {
+    appShellStore.dispatch(applyExecutionUiOutcome(outcome));
+    return appShellStore.getState().executionUi;
+  },
+  setConfirmationSubmitting: (confirmationId, isSubmitting) => {
+    appShellStore.dispatch(setConfirmationUiSubmitting({ confirmationId, isSubmitting }));
+    return appShellStore.getState().executionUi;
+  },
+  setConfirmationError: (confirmationId, submissionError) => {
+    appShellStore.dispatch(setConfirmationUiError({ confirmationId, submissionError }));
+    return appShellStore.getState().executionUi;
+  },
+  subscribe: (listener) => appShellStore.subscribe(() => {
+    listener(appShellStore.getState().executionUi);
+  }),
+};
 
 function setAppView(nextView: AppView) {
   appShellStore.dispatch(setAppShellView(nextView));
@@ -199,284 +281,72 @@ function setSettingsView(nextView: SettingsView) {
   appShellStore.dispatch(setAppShellSettingsView(nextView));
 }
 
-appShellStore.subscribe(() => {
-  const nextShellViewState = appShellStore.getState();
-  if (
-    nextShellViewState.appView === currentShellViewState.appView
-    && nextShellViewState.settingsView === currentShellViewState.settingsView
-  ) {
-    return;
-  }
-
-  currentShellViewState = nextShellViewState;
-  if (!panelRoots) {
-    return;
-  }
-
-  setActiveAppView(appRoot, currentShellViewState.appView);
-  setActiveSettingsView(appRoot, currentShellViewState.settingsView);
-});
-
-function renderPanelRoot(rootKey: PanelRootKey, node: ReactNode) {
-  renderPanelRootNode(ensurePanelRoots(), rootKey, node);
-}
-
-function rerenderSettingsGuidancePanel() {
-  renderPanelRoot(
-    "settings-guidance",
-    renderSettingsGuidancePanelNode(
-      currentSettingsGuidanceState({
-        pushToTalkState,
-        audioControlsState,
-        remotePlannerPanelState,
-        providerFailoverPanelState,
-        confirmationSettingsPanelState,
-        ocrThresholdSettingsPanelState,
-        asrProviderPanelState,
-        localAsrModelPanelState,
-        modelManagementPanelState,
-        remoteAsrPanelState,
-        ttsProviderPanelState,
-        ttsModelPanelState,
-        localTtsModelPanelState,
-        remoteTtsPanelState,
-        ttsVoicePanelState,
-        statusPanelState,
-        urlInputPanelState,
-      }),
-    ),
-  );
-}
-
-function rerenderPushToTalkPanel() {
-  renderPanelRoot("push-to-talk", renderPushToTalkPanelNode(pushToTalkState));
-  rerenderSettingsGuidancePanel();
-}
-
-function rerenderAudioPanels() {
-  renderPanelRoot("audio-controls", renderAudioControlsPanelNode(audioControlsState));
-}
-
-function rerenderRemotePlannerPanel() {
-  renderPanelRoot("settings-remote-planner", renderSettingsRemotePlannerPanelNode(remotePlannerPanelState));
-  rerenderSettingsGuidancePanel();
-}
-
-function rerenderProviderFailoverPanel() {
-  renderPanelRoot(
-    "settings-provider-failover",
-    renderSettingsProviderFailoverPanelNode(providerFailoverPanelState),
-  );
-}
-
-function rerenderConfirmationSettingsPanel() {
-  renderPanelRoot(
-    "settings-confirmation",
-    renderSettingsConfirmationPanelNode(confirmationSettingsPanelState),
-  );
-}
-
-function rerenderOcrThresholdPanel() {
-  renderPanelRoot(
-    "settings-ocr-threshold",
-    renderSettingsOcrThresholdPanelNode(ocrThresholdSettingsPanelState),
-  );
-}
-
-function rerenderAsrPanels() {
-  renderPanelRoot("settings-asr-provider", renderSettingsAsrProviderPanelNode(asrProviderPanelState));
-  renderPanelRoot(
-    "settings-local-asr-model",
-    renderSettingsLocalAsrModelPanelNode(localAsrModelPanelState),
-  );
-  renderPanelRoot("settings-remote-asr", renderSettingsRemoteAsrPanelNode(remoteAsrPanelState));
-  rerenderSettingsGuidancePanel();
-}
-
-function rerenderModelManagementPanel() {
-  renderPanelRoot(
-    "settings-model-management",
-    renderSettingsModelManagementPanelNode(modelManagementPanelState),
-  );
-  rerenderSettingsGuidancePanel();
-}
-
-function rerenderTtsPanels() {
-  renderPanelRoot("settings-tts-provider", renderSettingsTtsProviderPanelNode(ttsProviderPanelState));
-  renderPanelRoot("settings-tts-model", renderSettingsTtsModelPanelNode(ttsModelPanelState));
-  renderPanelRoot(
-    "settings-local-tts-model",
-    renderSettingsLocalTtsModelPanelNode(localTtsModelPanelState),
-  );
-  renderPanelRoot("settings-remote-tts", renderSettingsRemoteTtsPanelNode(remoteTtsPanelState));
-  renderPanelRoot("settings-tts-voice", renderSettingsTtsVoicePanelNode(ttsVoicePanelState));
-  rerenderSettingsGuidancePanel();
-}
-
-function rerenderStatusPanel() {
-  renderPanelRoot("status", renderStatusPanelNode(statusPanelState));
-  rerenderSettingsGuidancePanel();
-}
-
-function rerenderUrlInputPanel() {
-  renderPanelRoot("url-input", renderUrlInputPanelNode(urlInputPanelState));
-  rerenderSettingsGuidancePanel();
-}
-
-function rerenderConfirmationPanel() {
-  renderPanelRoot("confirmation-panel", renderConfirmationPanelNode(currentExecutionUiState.confirmation));
-}
-
-function rerender() {
-  ensurePanelRoots();
-  rerenderPushToTalkPanel();
-  rerenderUrlInputPanel();
-  rerenderStatusPanel();
-  rerenderAudioPanels();
-  rerenderRemotePlannerPanel();
-  rerenderProviderFailoverPanel();
-  rerenderConfirmationSettingsPanel();
-  rerenderOcrThresholdPanel();
-  rerenderAsrPanels();
-  rerenderModelManagementPanel();
-  rerenderTtsPanels();
-  rerenderConfirmationPanel();
-}
-
 function setPushToTalkState(nextState: Partial<PushToTalkPanelState>) {
-  pushToTalkState = {
-    ...pushToTalkState,
-    ...nextState,
-  };
-  rerenderPushToTalkPanel();
+  appShellStore.dispatch(setPushToTalkPanelStoreState(nextState));
 }
 
 function setAudioControlsState(nextState: Partial<AudioControlsPanelState>) {
-  audioControlsState = {
-    ...audioControlsState,
-    ...nextState,
-  };
-  rerenderAudioPanels();
+  appShellStore.dispatch(setAudioControlsPanelStoreState(nextState));
 }
 
 function setRemotePlannerPanelState(nextState: Partial<RemotePlannerPanelState>) {
-  remotePlannerPanelState = {
-    ...remotePlannerPanelState,
-    ...nextState,
-  };
-  rerenderRemotePlannerPanel();
+  appShellStore.dispatch(setRemotePlannerPanelStoreState(nextState));
 }
 
 function setProviderFailoverPanelState(nextState: Partial<ProviderFailoverPanelState>) {
-  providerFailoverPanelState = {
-    ...providerFailoverPanelState,
-    ...nextState,
-  };
-  rerenderProviderFailoverPanel();
+  appShellStore.dispatch(setProviderFailoverPanelStoreState(nextState));
 }
 
 function setConfirmationSettingsPanelState(nextState: Partial<ConfirmationSettingsPanelState>) {
-  confirmationSettingsPanelState = {
-    ...confirmationSettingsPanelState,
-    ...nextState,
-  };
-  rerenderConfirmationSettingsPanel();
+  appShellStore.dispatch(setConfirmationSettingsPanelStoreState(nextState));
 }
 
 function setOcrThresholdSettingsPanelState(nextState: Partial<OcrThresholdSettingsPanelState>) {
-  ocrThresholdSettingsPanelState = {
-    ...ocrThresholdSettingsPanelState,
-    ...nextState,
-  };
-  rerenderOcrThresholdPanel();
+  appShellStore.dispatch(setOcrThresholdSettingsPanelStoreState(nextState));
 }
 
 function setAsrProviderPanelState(nextState: Partial<AsrProviderPanelState>) {
-  asrProviderPanelState = {
-    ...asrProviderPanelState,
-    ...nextState,
-  };
-  rerenderAsrPanels();
+  appShellStore.dispatch(setAsrProviderPanelStoreState(nextState));
 }
 
 function setLocalAsrModelPanelState(nextState: Partial<LocalAsrModelPanelState>) {
-  localAsrModelPanelState = {
-    ...localAsrModelPanelState,
-    ...nextState,
-  };
-  rerenderAsrPanels();
+  appShellStore.dispatch(setLocalAsrModelPanelStoreState(nextState));
 }
 
 function setRemoteAsrPanelState(nextState: Partial<RemoteAsrPanelState>) {
-  remoteAsrPanelState = {
-    ...remoteAsrPanelState,
-    ...nextState,
-  };
-  rerenderAsrPanels();
+  appShellStore.dispatch(setRemoteAsrPanelStoreState(nextState));
 }
 
 function setModelManagementPanelState(nextState: Partial<ModelManagementPanelState>) {
-  modelManagementPanelState = {
-    ...modelManagementPanelState,
-    ...nextState,
-  };
-  rerenderModelManagementPanel();
+  appShellStore.dispatch(setModelManagementPanelStoreState(nextState));
 }
 
 function setTtsProviderPanelState(nextState: Partial<TtsProviderPanelState>) {
-  ttsProviderPanelState = {
-    ...ttsProviderPanelState,
-    ...nextState,
-  };
-  rerenderTtsPanels();
+  appShellStore.dispatch(setTtsProviderPanelStoreState(nextState));
 }
 
 function setTtsModelPanelState(nextState: Partial<TtsModelPanelState>) {
-  ttsModelPanelState = {
-    ...ttsModelPanelState,
-    ...nextState,
-  };
-  rerenderTtsPanels();
+  appShellStore.dispatch(setTtsModelPanelStoreState(nextState));
 }
 
 function setLocalTtsModelPanelState(nextState: Partial<LocalTtsModelPanelState>) {
-  localTtsModelPanelState = {
-    ...localTtsModelPanelState,
-    ...nextState,
-  };
-  rerenderTtsPanels();
+  appShellStore.dispatch(setLocalTtsModelPanelStoreState(nextState));
 }
 
 function setRemoteTtsPanelState(nextState: Partial<RemoteTtsPanelState>) {
-  remoteTtsPanelState = {
-    ...remoteTtsPanelState,
-    ...nextState,
-  };
-  rerenderTtsPanels();
+  appShellStore.dispatch(setRemoteTtsPanelStoreState(nextState));
 }
 
 function setTtsVoicePanelState(nextState: Partial<TtsVoicePanelState>) {
-  ttsVoicePanelState = {
-    ...ttsVoicePanelState,
-    ...nextState,
-  };
-  rerenderTtsPanels();
+  appShellStore.dispatch(setTtsVoicePanelStoreState(nextState));
 }
 
 function setStatusPanelState(nextState: Partial<StatusPanelState>) {
-  statusPanelState = {
-    ...statusPanelState,
-    ...nextState,
-  };
-  rerenderStatusPanel();
+  appShellStore.dispatch(setStatusPanelStoreState(nextState));
 }
 
 function setUrlInputPanelState(nextState: Partial<UrlInputPanelState>) {
-  urlInputPanelState = {
-    ...urlInputPanelState,
-    ...nextState,
-  };
-  rerenderUrlInputPanel();
+  appShellStore.dispatch(setUrlInputPanelStoreState(nextState));
 }
 
 function createRequestId(prefix: string): string {
@@ -1825,12 +1695,7 @@ function submitConfirmationAction(action: "approve" | "reject", confirmationId: 
     });
 }
 
-rerender();
 void refreshRuntimePanelsFromRuntime();
-uiStore.subscribe((uiState) => {
-  currentExecutionUiState = uiState;
-  rerenderConfirmationPanel();
-});
 registerAppEventHandlers({
   appRoot,
   document,

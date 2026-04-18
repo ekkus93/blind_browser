@@ -3,6 +3,16 @@
 - Changed `src/app-shell.ts` so the `renderAppShell()` helper used only by `src/app-shell.test.mjs` loads `react-dom/server` lazily instead of importing it into the live browser bundle.
 - The build warning is now actually gone instead of being masked: `pnpm build` produces a `428.09 kB` main JS chunk instead of the prior `615.81 kB`, and full validation is green with `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features`.
 
+## 2026-04-18T21:34:10Z - GPT-5.4 - Phase 1 of the React follow-up moved runtime rendering onto a single Redux-backed tree
+- `src/main.ts` no longer imperatively rerenders panel roots; it now mounts one React app tree and renders shell views and panel content from the Redux-backed frontend state.
+- `src/app-shell-store.ts` is now the source of truth for shell view state, panel state, and execution UI state, which let the runtime replace the old `rerender*Panel()` orchestration with state-driven rendering.
+- `docs/TODO.md` now marks the full Priority 1 React ownership phase complete, and the full validation gate passed after the refactor: `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features`.
+
+## 2026-04-18T21:16:58Z - GPT-5.4 - Replaced the stale docs TODO with a current React follow-up checklist
+- Rewrote `docs/TODO.md` so it now reflects the current frontend state after the settings cleanup instead of the original scaffold-era phase plan.
+- The new TODO is organized around the actual remaining React work: moving ownership out of `src/main.ts`, removing the last HTML rendering seams, splitting oversized UI modules, tightening React-side event handling, and strengthening frontend tests.
+- Kept a validation checklist in the doc so each remaining migration slice continues to run the same frontend and Rust gates.
+
 ## 2026-04-18T20:44:21Z - GPT-5.4 - Migrated panel tests off the string compatibility layer
 - Removed the source-level string compatibility wrappers for the already-migrated panel builders in `src/confirmation-panel.ts` and `src/settings-status-panels.ts`, so the runtime and exported API now prefer React-node renderers directly.
 - Updated `src/confirmation-panel.test.mjs` to render those panel node builders through a test-local serializer instead of depending on the app's SSR compatibility bridge, including local prop-to-attribute mapping and `<select>`/`<option>` selection inference to preserve existing DOM assertions.
