@@ -74,6 +74,8 @@ export function createInitialPanelStates(): PanelStates {
       timeoutMs: null,
       apiKeyDraft: "",
       isSavingApiKey: false,
+      isTestingApiKey: false,
+      apiKeyTestMessage: null,
       error: null,
     },
     providerFailoverPanelState: {
@@ -138,6 +140,8 @@ export function createInitialPanelStates(): PanelStates {
       timeoutMs: null,
       apiKeyDraft: "",
       isSavingApiKey: false,
+      isTestingApiKey: false,
+      apiKeyTestMessage: null,
       error: null,
     },
     ttsProviderPanelState: {
@@ -174,6 +178,8 @@ export function createInitialPanelStates(): PanelStates {
       timeoutMs: null,
       apiKeyDraft: "",
       isSavingApiKey: false,
+      isTestingApiKey: false,
+      apiKeyTestMessage: null,
       error: null,
     },
     ttsVoicePanelState: {

@@ -83,6 +83,9 @@ import {
   setRemoteAsrApiKey,
   setRemotePlannerApiKey,
   setRemoteTtsApiKey,
+  testRemoteAsrApiKey,
+  testRemotePlannerApiKey,
+  testRemoteTtsApiKey,
   setBrowserVisibility,
   setAsrProviderSelection,
   setConfirmationThreshold,
@@ -1174,6 +1177,7 @@ async function persistRemotePlannerApiKey() {
 
   setRemotePlannerPanelState({
     isSavingApiKey: true,
+    apiKeyTestMessage: null,
     error: null,
   });
 
@@ -1188,6 +1192,7 @@ async function persistRemotePlannerApiKey() {
       apiKeyReference: result.api_key_reference,
       apiKeyDraft: "",
       isSavingApiKey: false,
+      apiKeyTestMessage: null,
       error: null,
     });
     await refreshRuntimePanelsFromRuntime();
@@ -1217,6 +1222,7 @@ async function persistRemoteTtsApiKey() {
 
   setRemoteTtsPanelState({
     isSavingApiKey: true,
+    apiKeyTestMessage: null,
     error: null,
   });
 
@@ -1231,6 +1237,7 @@ async function persistRemoteTtsApiKey() {
       apiKeyReference: result.api_key_reference,
       apiKeyDraft: "",
       isSavingApiKey: false,
+      apiKeyTestMessage: null,
       error: null,
     });
     await refreshRuntimePanelsFromRuntime();
@@ -1260,6 +1267,7 @@ async function persistRemoteAsrApiKey() {
 
   setRemoteAsrPanelState({
     isSavingApiKey: true,
+    apiKeyTestMessage: null,
     error: null,
   });
 
@@ -1274,12 +1282,148 @@ async function persistRemoteAsrApiKey() {
       apiKeyReference: result.api_key_reference,
       apiKeyDraft: "",
       isSavingApiKey: false,
+      apiKeyTestMessage: null,
       error: null,
     });
     await refreshRuntimePanelsFromRuntime();
   } catch (error: unknown) {
     setRemoteAsrPanelState({
       isSavingApiKey: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function testConfiguredRemotePlannerApiKey() {
+  const profileName = remotePlannerPanelState.profileName;
+  const apiKey = remotePlannerPanelState.apiKeyDraft.trim();
+  if (!profileName) {
+    setRemotePlannerPanelState({
+      error: "No remote planner profile is configured for API key testing.",
+      apiKeyTestMessage: null,
+    });
+    return;
+  }
+  if (apiKey.length === 0 && !remotePlannerPanelState.apiKeyReference) {
+    setRemotePlannerPanelState({
+      error: "Enter a remote planner API key or save one before testing.",
+      apiKeyTestMessage: null,
+    });
+    return;
+  }
+
+  setRemotePlannerPanelState({
+    isTestingApiKey: true,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  try {
+    const result = await testRemotePlannerApiKey({
+      requestId: createRequestId("test-remote-planner-api-key"),
+      profileName,
+      apiKey,
+    });
+    setRemotePlannerPanelState({
+      profileName: result.profile_name,
+      isTestingApiKey: false,
+      apiKeyTestMessage: result.message,
+      error: null,
+    });
+  } catch (error: unknown) {
+    setRemotePlannerPanelState({
+      isTestingApiKey: false,
+      apiKeyTestMessage: null,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function testConfiguredRemoteTtsApiKey() {
+  const profileName = remoteTtsPanelState.profileName;
+  const apiKey = remoteTtsPanelState.apiKeyDraft.trim();
+  if (!profileName) {
+    setRemoteTtsPanelState({
+      error: "No remote TTS profile is configured for API key testing.",
+      apiKeyTestMessage: null,
+    });
+    return;
+  }
+  if (apiKey.length === 0 && !remoteTtsPanelState.apiKeyReference) {
+    setRemoteTtsPanelState({
+      error: "Enter a remote TTS API key or save one before testing.",
+      apiKeyTestMessage: null,
+    });
+    return;
+  }
+
+  setRemoteTtsPanelState({
+    isTestingApiKey: true,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  try {
+    const result = await testRemoteTtsApiKey({
+      requestId: createRequestId("test-remote-tts-api-key"),
+      profileName,
+      apiKey,
+    });
+    setRemoteTtsPanelState({
+      profileName: result.profile_name,
+      isTestingApiKey: false,
+      apiKeyTestMessage: result.message,
+      error: null,
+    });
+  } catch (error: unknown) {
+    setRemoteTtsPanelState({
+      isTestingApiKey: false,
+      apiKeyTestMessage: null,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+async function testConfiguredRemoteAsrApiKey() {
+  const profileName = remoteAsrPanelState.profileName;
+  const apiKey = remoteAsrPanelState.apiKeyDraft.trim();
+  if (!profileName) {
+    setRemoteAsrPanelState({
+      error: "No remote ASR profile is configured for API key testing.",
+      apiKeyTestMessage: null,
+    });
+    return;
+  }
+  if (apiKey.length === 0 && !remoteAsrPanelState.apiKeyReference) {
+    setRemoteAsrPanelState({
+      error: "Enter a remote ASR API key or save one before testing.",
+      apiKeyTestMessage: null,
+    });
+    return;
+  }
+
+  setRemoteAsrPanelState({
+    isTestingApiKey: true,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  try {
+    const result = await testRemoteAsrApiKey({
+      requestId: createRequestId("test-remote-asr-api-key"),
+      profileName,
+      apiKey,
+    });
+    setRemoteAsrPanelState({
+      profileName: result.profile_name,
+      isTestingApiKey: false,
+      apiKeyTestMessage: result.message,
+      error: null,
+    });
+  } catch (error: unknown) {
+    setRemoteAsrPanelState({
+      isTestingApiKey: false,
+      apiKeyTestMessage: null,
       error: describeAudioControlFailure(error),
     });
   }
@@ -1570,6 +1714,17 @@ registerAppEventHandlers({
     }
     void persistRemoteAsrApiKey();
   },
+  testRemoteApiKey: (kind) => {
+    if (kind === "planner") {
+      void testConfiguredRemotePlannerApiKey();
+      return;
+    }
+    if (kind === "tts") {
+      void testConfiguredRemoteTtsApiKey();
+      return;
+    }
+    void testConfiguredRemoteAsrApiKey();
+  },
   downloadModel: (kind) => {
     if (kind === "tts") {
       void downloadManagedLocalTtsModel();
@@ -1636,6 +1791,7 @@ registerAppEventHandlers({
     if (kind === "planner") {
       setRemotePlannerPanelState({
         apiKeyDraft: value,
+        apiKeyTestMessage: null,
         error: null,
       });
       return;
@@ -1643,12 +1799,14 @@ registerAppEventHandlers({
     if (kind === "tts") {
       setRemoteTtsPanelState({
         apiKeyDraft: value,
+        apiKeyTestMessage: null,
         error: null,
       });
       return;
     }
     setRemoteAsrPanelState({
       apiKeyDraft: value,
+      apiKeyTestMessage: null,
       error: null,
     });
   },

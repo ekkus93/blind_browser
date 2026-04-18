@@ -41,12 +41,25 @@ export function renderSecretEntryCard(
   profileName: string | null,
   apiKeyDraft: string,
   isSavingApiKey: boolean,
+  isTestingApiKey: boolean,
+  hasApiKeyReference: boolean,
+  apiKeyTestMessage: string | null,
 ): string {
-  const disabledAttribute = isSavingApiKey ? " disabled aria-disabled=\"true\"" : "";
+  const disabledAttribute = isSavingApiKey || isTestingApiKey ? " disabled aria-disabled=\"true\"" : "";
   const saveDisabledAttribute =
-    isSavingApiKey || profileName === null || apiKeyDraft.trim().length === 0
+    isSavingApiKey || isTestingApiKey || profileName === null || apiKeyDraft.trim().length === 0
       ? " disabled aria-disabled=\"true\""
       : "";
+  const testDisabledAttribute =
+    isSavingApiKey
+    || isTestingApiKey
+    || profileName === null
+    || (apiKeyDraft.trim().length === 0 && !hasApiKeyReference)
+      ? " disabled aria-disabled=\"true\""
+      : "";
+  const testStatusCopy = apiKeyTestMessage
+    ? `<p class="settings-panel-description" role="status">${escapeHtml(apiKeyTestMessage)}</p>`
+    : "";
 
   return `
     <div class="settings-control-card settings-secret-entry-card">
@@ -72,10 +85,23 @@ export function renderSecretEntryCard(
       >
         Save API key
       </button>
+      <button
+        type="button"
+        class="settings-control-button settings-control-button-secondary"
+        data-remote-api-key-test="${escapeHtml(kind)}"
+        ${testDisabledAttribute}
+      >
+        ${escapeHtml(isTestingApiKey ? "Testing..." : "Test API key")}
+      </button>
       <p id="settings-remote-${kind}-api-key-description" class="settings-panel-description">
         Saving stores the secret in the OS keyring and updates the config to keep only a masked
         keyring reference.
       </p>
+      <p class="settings-panel-description">
+        Testing checks the entered key without saving it. If the field is blank, testing uses the
+        configured API key reference.
+      </p>
+      ${testStatusCopy}
     </div>
   `;
 }

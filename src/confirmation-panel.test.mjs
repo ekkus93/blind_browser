@@ -573,6 +573,8 @@ test("renders remote planner API reference details", () => {
     timeoutMs: 30000,
     apiKeyDraft: "",
     isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
     error: null,
   });
 
@@ -583,6 +585,7 @@ test("renders remote planner API reference details", () => {
   assert.match(html, /1024/);
   assert.match(html, /data-remote-api-key-input="planner"/);
   assert.match(html, /data-remote-api-key-save="planner"/);
+  assert.match(html, /data-remote-api-key-test="planner"/);
 });
 
 test("renders settings provider failover as read-only unavailable controls", () => {
@@ -743,6 +746,8 @@ test("renders remote ASR API reference details", () => {
     timeoutMs: 30000,
     apiKeyDraft: "",
     isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
     error: null,
   });
 
@@ -753,6 +758,7 @@ test("renders remote ASR API reference details", () => {
   assert.match(html, /gpt-4o-mini-transcribe/);
   assert.match(html, /data-remote-api-key-input="asr"/);
   assert.match(html, /Save API key/);
+  assert.match(html, /Test API key/);
 });
 
 test("renders settings TTS provider selection for configured modes", () => {
@@ -833,6 +839,8 @@ test("renders remote TTS API reference details", () => {
     timeoutMs: 30000,
     apiKeyDraft: "",
     isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
     error: null,
   });
 
@@ -843,6 +851,7 @@ test("renders remote TTS API reference details", () => {
   assert.match(html, /alloy/);
   assert.match(html, /data-remote-api-key-input="tts"/);
   assert.match(html, /OS keyring/i);
+  assert.match(html, /Test API key/);
 });
 
 test("renders remote planner API key save errors and disabled state while saving", () => {
@@ -859,12 +868,38 @@ test("renders remote planner API key save errors and disabled state while saving
     timeoutMs: 30000,
     apiKeyDraft: "secret-value",
     isSavingApiKey: true,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
     error: "The remote planner API key could not be saved.",
   });
 
   assert.match(html, /The remote planner API key could not be saved\./);
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /role="alert"/);
+});
+
+test("renders remote planner API key test status while testing", () => {
+  const html = renderSettingsRemotePlannerPanel({
+    profileName: "openai-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-5.4-mini",
+    apiKeyReference: "Environment variable: OPENAI_API_KEY",
+    organizationReference: null,
+    project: null,
+    temperatureMilli: 200,
+    maxOutputTokens: 1024,
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: true,
+    apiKeyTestMessage: "OpenAI accepted the configured API key.",
+    error: null,
+  });
+
+  assert.match(html, /Testing\.\.\./);
+  assert.match(html, /OpenAI accepted the configured API key\./);
+  assert.match(html, /role="status"/);
 });
 
 test("renders settings TTS model errors and disabled state while saving", () => {

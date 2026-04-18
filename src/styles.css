@@ -737,6 +737,12 @@ h1 {
   box-shadow: none;
 }
 
+.settings-control-button-secondary {
+  background: linear-gradient(135deg, #d9e5dd, #eef5ef);
+  color: #1f2527;
+  border: 1px solid rgba(41, 88, 63, 0.16);
+}
+
 .settings-secret-entry-card {
   gap: 12px;
 }

@@ -365,6 +365,12 @@ struct SetRemoteApiKeyData {
     api_key_reference: String,
 }
 
+#[derive(serde::Serialize)]
+struct TestRemoteApiKeyData {
+    profile_name: String,
+    message: String,
+}
+
 #[tauri::command]
 fn set_allow_click_without_confirmation(
     request_id: String,
@@ -572,6 +578,128 @@ fn set_remote_asr_api_key(
 }
 
 #[tauri::command]
+fn test_remote_planner_api_key(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    profile_name: String,
+    api_key: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<TestRemoteApiKeyData, ToolError> {
+    let _ = request_id;
+    let app_core = lock_app_core(&app_core)?;
+    let profile_name = profile_name.trim().to_string();
+    if profile_name.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_planner_profile"),
+            message: String::from(
+                "Remote planner API key test requires a configured profile name.",
+            ),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    let api_key = api_key.trim().to_string();
+    let message = app_core
+        .test_remote_planner_api_key(
+            &profile_name,
+            (!api_key.is_empty()).then_some(api_key.as_str()),
+            timeout_ms,
+        )
+        .map_err(|error| ToolError {
+            code: String::from("remote_planner_api_key_test_failed"),
+            message: error,
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(TestRemoteApiKeyData {
+        profile_name,
+        message,
+    })
+}
+
+#[tauri::command]
+fn test_remote_tts_api_key(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    profile_name: String,
+    api_key: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<TestRemoteApiKeyData, ToolError> {
+    let _ = request_id;
+    let app_core = lock_app_core(&app_core)?;
+    let profile_name = profile_name.trim().to_string();
+    if profile_name.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_tts_profile"),
+            message: String::from("Remote TTS API key test requires a configured profile name."),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    let api_key = api_key.trim().to_string();
+    let message = app_core
+        .test_remote_tts_api_key(
+            &profile_name,
+            (!api_key.is_empty()).then_some(api_key.as_str()),
+            timeout_ms,
+        )
+        .map_err(|error| ToolError {
+            code: String::from("remote_tts_api_key_test_failed"),
+            message: error,
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(TestRemoteApiKeyData {
+        profile_name,
+        message,
+    })
+}
+
+#[tauri::command]
+fn test_remote_asr_api_key(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    profile_name: String,
+    api_key: String,
+    app_core: tauri::State<'_, Mutex<AppCore>>,
+) -> Result<TestRemoteApiKeyData, ToolError> {
+    let _ = request_id;
+    let app_core = lock_app_core(&app_core)?;
+    let profile_name = profile_name.trim().to_string();
+    if profile_name.is_empty() {
+        return Err(ToolError {
+            code: String::from("invalid_remote_asr_profile"),
+            message: String::from("Remote ASR API key test requires a configured profile name."),
+            retryable: false,
+            details: None,
+        });
+    }
+
+    let api_key = api_key.trim().to_string();
+    let message = app_core
+        .test_remote_asr_api_key(
+            &profile_name,
+            (!api_key.is_empty()).then_some(api_key.as_str()),
+            timeout_ms,
+        )
+        .map_err(|error| ToolError {
+            code: String::from("remote_asr_api_key_test_failed"),
+            message: error,
+            retryable: false,
+            details: None,
+        })?;
+
+    Ok(TestRemoteApiKeyData {
+        profile_name,
+        message,
+    })
+}
+
+#[tauri::command]
 fn get_model_management_settings(
     request_id: String,
     timeout_ms: Option<u64>,
@@ -728,6 +856,9 @@ pub fn run() {
             set_remote_planner_api_key,
             set_remote_tts_api_key,
             set_remote_asr_api_key,
+            test_remote_planner_api_key,
+            test_remote_tts_api_key,
+            test_remote_asr_api_key,
             get_model_management_settings,
             set_model_management_settings,
             download_active_local_tts_model,

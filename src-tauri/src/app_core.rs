@@ -2,7 +2,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::asr::{
     AsrController, AsrRuntimeError, DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS,
@@ -78,6 +78,33 @@ const MAX_HISTORY_STEPS: u8 = crate::commands::MAX_HISTORY_STEPS;
 const MAX_SCROLL_AMOUNT_PX: f32 = crate::commands::MAX_SCROLL_AMOUNT_PX;
 const MAX_COMMAND_REPLAN_CYCLES: usize = 1;
 const MAX_DIRECT_FIELD_CANDIDATE_NAMES: usize = 2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RemoteApiKeyTarget {
+    Planner,
+    Tts,
+    Asr,
+}
+
+impl RemoteApiKeyTarget {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Planner => "planner",
+            Self::Tts => "TTS",
+            Self::Asr => "ASR",
+        }
+    }
+}
+
+struct RemoteOpenAiApiKeyTestProfile<'a> {
+    profile_name: &'a str,
+    provider: &'a RemoteProviderKind,
+    base_url: &'a str,
+    configured_api_key: &'a crate::config::SecretRef,
+    organization: Option<&'a crate::config::SecretRef>,
+    project: Option<&'a str>,
+    timeout_ms: u64,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PendingRecentFieldContext {
@@ -471,6 +498,84 @@ impl AppCore {
         self.config =
             AppConfig::persist_remote_asr_api_key_for_app(&self.app_handle, profile_name, api_key)?;
         Ok(())
+    }
+
+    pub fn test_remote_planner_api_key(
+        &self,
+        profile_name: &str,
+        api_key_override: Option<&str>,
+        timeout_ms_override: Option<u64>,
+    ) -> Result<String, String> {
+        let profile = self
+            .config
+            .remote_planner_profiles
+            .get(profile_name)
+            .ok_or_else(|| format!("unknown remote planner profile '{profile_name}'"))?;
+        test_remote_openai_profile_api_key(
+            RemoteApiKeyTarget::Planner,
+            RemoteOpenAiApiKeyTestProfile {
+                profile_name,
+                provider: &profile.provider,
+                base_url: &profile.base_url,
+                configured_api_key: &profile.api_key,
+                organization: profile.organization.as_ref(),
+                project: profile.project.as_deref(),
+                timeout_ms: timeout_ms_override.unwrap_or(profile.timeout_ms),
+            },
+            api_key_override,
+        )
+    }
+
+    pub fn test_remote_tts_api_key(
+        &self,
+        profile_name: &str,
+        api_key_override: Option<&str>,
+        timeout_ms_override: Option<u64>,
+    ) -> Result<String, String> {
+        let profile = self
+            .config
+            .remote_tts_profiles
+            .get(profile_name)
+            .ok_or_else(|| format!("unknown remote TTS profile '{profile_name}'"))?;
+        test_remote_openai_profile_api_key(
+            RemoteApiKeyTarget::Tts,
+            RemoteOpenAiApiKeyTestProfile {
+                profile_name,
+                provider: &profile.provider,
+                base_url: &profile.base_url,
+                configured_api_key: &profile.api_key,
+                organization: profile.organization.as_ref(),
+                project: profile.project.as_deref(),
+                timeout_ms: timeout_ms_override.unwrap_or(profile.timeout_ms),
+            },
+            api_key_override,
+        )
+    }
+
+    pub fn test_remote_asr_api_key(
+        &self,
+        profile_name: &str,
+        api_key_override: Option<&str>,
+        timeout_ms_override: Option<u64>,
+    ) -> Result<String, String> {
+        let profile = self
+            .config
+            .remote_asr_profiles
+            .get(profile_name)
+            .ok_or_else(|| format!("unknown remote ASR profile '{profile_name}'"))?;
+        test_remote_openai_profile_api_key(
+            RemoteApiKeyTarget::Asr,
+            RemoteOpenAiApiKeyTestProfile {
+                profile_name,
+                provider: &profile.provider,
+                base_url: &profile.base_url,
+                configured_api_key: &profile.api_key,
+                organization: profile.organization.as_ref(),
+                project: profile.project.as_deref(),
+                timeout_ms: timeout_ms_override.unwrap_or(profile.timeout_ms),
+            },
+            api_key_override,
+        )
     }
 
     pub fn current_model_management_settings(&self) -> ModelManagementSettingsData {
@@ -4799,6 +4904,110 @@ fn build_provider_failover_settings(_config: &AppConfig) -> ProviderFailoverSett
     }
 }
 
+fn test_remote_openai_profile_api_key(
+    target: RemoteApiKeyTarget,
+    profile: RemoteOpenAiApiKeyTestProfile<'_>,
+    api_key_override: Option<&str>,
+) -> Result<String, String> {
+    if *profile.provider != RemoteProviderKind::OpenAi {
+        return Err(format!(
+            "Remote {} profile '{}' is not using OpenAI.",
+            target.label(),
+            profile.profile_name
+        ));
+    }
+
+    let api_key = match api_key_override.map(str::trim) {
+        Some(override_value) if !override_value.is_empty() => override_value.to_string(),
+        _ => resolve_secret_ref(profile.configured_api_key).map_err(|reason| {
+            format!(
+                "Remote {} API key test could not read the configured secret: {reason}",
+                target.label()
+            )
+        })?,
+    };
+    let organization = profile
+        .organization
+        .map(resolve_secret_ref)
+        .transpose()
+        .map_err(|reason| {
+            format!(
+                "Remote {} API key test could not read the configured organization secret: {reason}",
+                target.label()
+            )
+        })?;
+
+    test_openai_api_key_connectivity(
+        profile.base_url,
+        &api_key,
+        organization.as_deref(),
+        profile.project,
+        profile.timeout_ms,
+    )?;
+
+    Ok(match api_key_override.map(str::trim) {
+        Some(override_value) if !override_value.is_empty() => {
+            String::from("OpenAI accepted the entered API key.")
+        }
+        _ => String::from("OpenAI accepted the configured API key."),
+    })
+}
+
+fn test_openai_api_key_connectivity(
+    base_url: &str,
+    api_key: &str,
+    organization: Option<&str>,
+    project: Option<&str>,
+    timeout_ms: u64,
+) -> Result<(), String> {
+    let endpoint = format!("{}/models", base_url.trim_end_matches('/'));
+    let client = Client::builder()
+        .timeout(Duration::from_millis(timeout_ms.max(1)))
+        .build()
+        .map_err(|error| format!("failed to build the OpenAI API key test client: {error}"))?;
+
+    let mut request = client.get(endpoint).bearer_auth(api_key);
+    if let Some(organization) = organization {
+        request = request.header("OpenAI-Organization", organization);
+    }
+    if let Some(project) = project {
+        request = request.header("OpenAI-Project", project);
+    }
+
+    let response = request
+        .send()
+        .map_err(|error| format!("OpenAI API key test request failed: {error}"))?;
+
+    if response.status().is_success() {
+        return Ok(());
+    }
+
+    let status = response.status();
+    let body = response.text().unwrap_or_default();
+    let detail = abbreviate_openai_error_body(&body);
+    if detail.is_empty() {
+        return Err(format!(
+            "OpenAI API key test failed with HTTP {}.",
+            status.as_u16()
+        ));
+    }
+
+    Err(format!(
+        "OpenAI API key test failed with HTTP {}: {}",
+        status.as_u16(), detail
+    ))
+}
+
+fn abbreviate_openai_error_body(body: &str) -> String {
+    let normalized = body.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.chars().count() <= 240 {
+        return normalized;
+    }
+
+    let truncated = normalized.chars().take(237).collect::<String>();
+    format!("{truncated}...")
+}
+
 fn build_confirmation_settings(config: &AppConfig) -> ConfirmationSettings {
     ConfirmationSettings {
         confirmation_confidence_threshold: config.safety.confirmation_confidence_threshold,
@@ -7671,7 +7880,8 @@ mod tests {
         resolve_direct_fill_and_submit_command, resolve_direct_fill_field_command,
         resolve_direct_focus_field_command, resolve_direct_submit_form_command,
         resolve_form_element, resolve_recent_fill_correction_command, resolve_typeable_element,
-        should_trigger_extract_page_model_ocr_fallback, RecentFieldContext, ReplanningRuntime,
+        should_trigger_extract_page_model_ocr_fallback, test_openai_api_key_connectivity,
+        RecentFieldContext, ReplanningRuntime,
     };
     use crate::audio_io::RuntimeAudioState;
     use crate::browser::BrowserError;
@@ -7687,6 +7897,68 @@ mod tests {
         RegionSource,
     };
     use crate::state::AppState;
+
+    fn spawn_openai_models_test_server(
+        status_line: &str,
+        response_body: &str,
+    ) -> (String, std::thread::JoinHandle<()>) {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let listener =
+            TcpListener::bind("127.0.0.1:0").expect("test server should bind an ephemeral port");
+        let address = listener
+            .local_addr()
+            .expect("test server should expose its bound address");
+        let base_url = format!("http://{address}/v1");
+        let body = response_body.to_string();
+        let status_line = status_line.to_string();
+
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener
+                .accept()
+                .expect("test server should accept one request");
+            let mut buffer = [0_u8; 8192];
+            let bytes_read = stream
+                .read(&mut buffer)
+                .expect("test server should read request bytes");
+            let request = String::from_utf8_lossy(&buffer[..bytes_read]);
+
+            assert!(
+                request.starts_with("GET /v1/models HTTP/1.1\r\n"),
+                "expected GET /v1/models request: {request}"
+            );
+            assert!(
+                request.contains("authorization: Bearer blind-browser-test-key")
+                    || request.contains("Authorization: Bearer blind-browser-test-key"),
+                "expected bearer auth header in request: {request}"
+            );
+            assert!(
+                request.contains("openai-organization: org_test")
+                    || request.contains("OpenAI-Organization: org_test"),
+                "expected organization header in request: {request}"
+            );
+            assert!(
+                request.contains("openai-project: proj_test")
+                    || request.contains("OpenAI-Project: proj_test"),
+                "expected project header in request: {request}"
+            );
+
+            let headers = format!(
+                "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            stream
+                .write_all(headers.as_bytes())
+                .expect("test server should write response headers");
+            stream
+                .write_all(body.as_bytes())
+                .expect("test server should write response body");
+            stream.flush().expect("test server should flush response");
+        });
+
+        (base_url, handle)
+    }
 
     fn fixture_page(interactive_elements: Vec<InteractiveElement>) -> PageModel {
         PageModel {
@@ -11092,5 +11364,45 @@ mod tests {
             unknown_error.details,
             Some(serde_json::json!({ "element_id": "missing-button" }))
         );
+    }
+
+    #[test]
+    fn test_openai_api_key_connectivity_accepts_valid_response() {
+        let (base_url, server) = spawn_openai_models_test_server(
+            "200 OK",
+            r#"{"object":"list","data":[]}"#,
+        );
+
+        let result = test_openai_api_key_connectivity(
+            &base_url,
+            "blind-browser-test-key",
+            Some("org_test"),
+            Some("proj_test"),
+            5_000,
+        );
+
+        server.join().expect("test server should exit cleanly");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_openai_api_key_connectivity_reports_http_failures() {
+        let (base_url, server) = spawn_openai_models_test_server(
+            "401 Unauthorized",
+            r#"{"error":{"message":"bad key"}}"#,
+        );
+
+        let error = test_openai_api_key_connectivity(
+            &base_url,
+            "blind-browser-test-key",
+            Some("org_test"),
+            Some("proj_test"),
+            5_000,
+        )
+        .expect_err("request should fail with an HTTP error");
+
+        server.join().expect("test server should exit cleanly");
+        assert!(error.contains("HTTP 401"));
+        assert!(error.contains("bad key"));
     }
 }

@@ -288,7 +288,15 @@ export function renderSettingsRemotePlannerPanel(state: RemotePlannerPanelState)
           <span class="settings-control-label">Timeout (ms)</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.timeoutMs)}</span>
         </div>
-        ${renderSecretEntryCard("planner", state.profileName, state.apiKeyDraft, state.isSavingApiKey)}
+        ${renderSecretEntryCard(
+          "planner",
+          state.profileName,
+          state.apiKeyDraft,
+          state.isSavingApiKey,
+          state.isTestingApiKey,
+          state.apiKeyReference !== null,
+          state.apiKeyTestMessage,
+        )}
       </div>
     </section>
   `;
@@ -709,7 +717,15 @@ export function renderSettingsRemoteTtsPanel(state: RemoteTtsPanelState): string
           <span class="settings-control-label">Timeout (ms)</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.timeoutMs)}</span>
         </div>
-        ${renderSecretEntryCard("tts", state.profileName, state.apiKeyDraft, state.isSavingApiKey)}
+        ${renderSecretEntryCard(
+          "tts",
+          state.profileName,
+          state.apiKeyDraft,
+          state.isSavingApiKey,
+          state.isTestingApiKey,
+          state.apiKeyReference !== null,
+          state.apiKeyTestMessage,
+        )}
       </div>
     </section>
   `;
@@ -855,7 +871,15 @@ export function renderSettingsRemoteAsrPanel(state: RemoteAsrPanelState): string
           <span class="settings-control-label">Timeout (ms)</span>
           <span class="settings-control-value">${renderReadOnlySettingValue(state.timeoutMs)}</span>
         </div>
-        ${renderSecretEntryCard("asr", state.profileName, state.apiKeyDraft, state.isSavingApiKey)}
+        ${renderSecretEntryCard(
+          "asr",
+          state.profileName,
+          state.apiKeyDraft,
+          state.isSavingApiKey,
+          state.isTestingApiKey,
+          state.apiKeyReference !== null,
+          state.apiKeyTestMessage,
+        )}
       </div>
     </section>
   `;

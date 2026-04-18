@@ -103,6 +103,8 @@ export interface RemotePlannerPanelState {
   timeoutMs: number | null;
   apiKeyDraft: string;
   isSavingApiKey: boolean;
+  isTestingApiKey: boolean;
+  apiKeyTestMessage: string | null;
   error: string | null;
 }
 
@@ -119,6 +121,8 @@ export interface RemoteTtsPanelState {
   timeoutMs: number | null;
   apiKeyDraft: string;
   isSavingApiKey: boolean;
+  isTestingApiKey: boolean;
+  apiKeyTestMessage: string | null;
   error: string | null;
 }
 
@@ -135,6 +139,8 @@ export interface RemoteAsrPanelState {
   timeoutMs: number | null;
   apiKeyDraft: string;
   isSavingApiKey: boolean;
+  isTestingApiKey: boolean;
+  apiKeyTestMessage: string | null;
   error: string | null;
 }
 

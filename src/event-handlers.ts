@@ -31,6 +31,7 @@ interface EventHandlerDependencies {
   isSettingsActionBusy: (key: SettingsBusyKey) => boolean;
   isPushToTalkKeyEvent: (event: KeyboardEvent) => boolean;
   saveRemoteApiKey: (kind: RemoteApiKeyKind) => void;
+  testRemoteApiKey: (kind: RemoteApiKeyKind) => void;
   downloadModel: (kind: ModelDownloadKind) => void;
   setBrowserVisibility: (mode: BrowserVisibilityMode) => void;
   runUrlAction: (action: UrlAction) => void;
@@ -66,6 +67,7 @@ export function registerAppEventHandlers({
   isSettingsActionBusy,
   isPushToTalkKeyEvent,
   saveRemoteApiKey,
+  testRemoteApiKey,
   downloadModel,
   setBrowserVisibility,
   runUrlAction,
@@ -141,6 +143,19 @@ export function registerAppEventHandlers({
       const kind = remoteApiKeySaveButton.dataset.remoteApiKeySave;
       if (kind === "planner" || kind === "tts" || kind === "asr") {
         saveRemoteApiKey(kind);
+      }
+      return;
+    }
+
+    const remoteApiKeyTestButton = target.closest<HTMLButtonElement>("[data-remote-api-key-test]");
+    if (remoteApiKeyTestButton) {
+      if (remoteApiKeyTestButton.disabled) {
+        return;
+      }
+
+      const kind = remoteApiKeyTestButton.dataset.remoteApiKeyTest;
+      if (kind === "planner" || kind === "tts" || kind === "asr") {
+        testRemoteApiKey(kind);
       }
       return;
     }

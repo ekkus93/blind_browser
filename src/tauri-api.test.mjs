@@ -233,6 +233,34 @@ test("setModelManagementSettings forwards camelCase frontend fields to the Tauri
   ]]);
 });
 
+test("testRemotePlannerApiKey forwards the request and unwraps the response", async () => {
+  invokeImplementation = async () => ({
+    profile_name: "openai-default",
+    message: "OpenAI accepted the entered API key.",
+  });
+
+  const result = await tauriApi.testRemotePlannerApiKey({
+    requestId: "req-test-key",
+    timeoutMs: 750,
+    profileName: "openai-default",
+    apiKey: "sk-test",
+  });
+
+  assert.deepEqual(result, {
+    profile_name: "openai-default",
+    message: "OpenAI accepted the entered API key.",
+  });
+  assert.deepEqual(invokeCalls, [[
+    "test_remote_planner_api_key",
+    {
+      requestId: "req-test-key",
+      timeoutMs: 750,
+      profileName: "openai-default",
+      apiKey: "sk-test",
+    },
+  ]]);
+});
+
 test("classifyInvokeFailure prefers structured tool errors and falls back to transport messages", () => {
   assert.deepEqual(
     tauriApi.classifyInvokeFailure({

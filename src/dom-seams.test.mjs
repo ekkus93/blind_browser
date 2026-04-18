@@ -107,6 +107,7 @@ function createEventHandlerDeps() {
     runUrlAction: [],
     persistAudioChange: [],
     persistAsrProvider: [],
+    testRemoteApiKey: [],
     setAppView: [],
   };
 
@@ -119,6 +120,9 @@ function createEventHandlerDeps() {
     isSettingsActionBusy: (key) => key === "volume",
     isPushToTalkKeyEvent: () => false,
     saveRemoteApiKey: () => {},
+    testRemoteApiKey: (kind) => {
+      calls.testRemoteApiKey.push(kind);
+    },
     downloadModel: () => {},
     setBrowserVisibility: () => {},
     runUrlAction: (action) => {
@@ -249,6 +253,17 @@ test("view navigation buttons switch between workspace and settings", () => {
   appRoot.dispatch("click", { target: workspaceButton });
 
   assert.deepEqual(calls.setAppView, ["settings", "workspace"]);
+});
+
+test("remote API key test button dispatches the matching kind", () => {
+  const { appRoot, calls } = createEventHandlerDeps();
+  const testButton = new FakeButtonElement();
+  testButton.selectorMatches.add("[data-remote-api-key-test]");
+  testButton.dataset.remoteApiKeyTest = "tts";
+
+  appRoot.dispatch("click", { target: testButton });
+
+  assert.deepEqual(calls.testRemoteApiKey, ["tts"]);
 });
 
 test("busy change guards block only the matching settings control", () => {

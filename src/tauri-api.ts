@@ -324,6 +324,11 @@ export interface SetRemoteApiKeyData {
   api_key_reference: string;
 }
 
+export interface TestRemoteApiKeyData {
+  profile_name: string;
+  message: string;
+}
+
 export interface ProviderFailoverSettings {
   planner_available: boolean;
   tts_available: boolean;
@@ -773,6 +778,48 @@ export async function setRemoteAsrApiKey(input: {
   apiKey: string;
 }): Promise<SetRemoteApiKeyData> {
   return invokeCommand<SetRemoteApiKeyData>("set_remote_asr_api_key", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    profileName: input.profileName,
+    apiKey: input.apiKey,
+  });
+}
+
+export async function testRemotePlannerApiKey(input: {
+  requestId: string;
+  timeoutMs?: number;
+  profileName: string;
+  apiKey: string;
+}): Promise<TestRemoteApiKeyData> {
+  return invokeCommand<TestRemoteApiKeyData>("test_remote_planner_api_key", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    profileName: input.profileName,
+    apiKey: input.apiKey,
+  });
+}
+
+export async function testRemoteTtsApiKey(input: {
+  requestId: string;
+  timeoutMs?: number;
+  profileName: string;
+  apiKey: string;
+}): Promise<TestRemoteApiKeyData> {
+  return invokeCommand<TestRemoteApiKeyData>("test_remote_tts_api_key", {
+    requestId: input.requestId,
+    timeoutMs: input.timeoutMs,
+    profileName: input.profileName,
+    apiKey: input.apiKey,
+  });
+}
+
+export async function testRemoteAsrApiKey(input: {
+  requestId: string;
+  timeoutMs?: number;
+  profileName: string;
+  apiKey: string;
+}): Promise<TestRemoteApiKeyData> {
+  return invokeCommand<TestRemoteApiKeyData>("test_remote_asr_api_key", {
     requestId: input.requestId,
     timeoutMs: input.timeoutMs,
     profileName: input.profileName,

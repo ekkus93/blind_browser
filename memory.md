@@ -219,6 +219,11 @@
 ## 2026-03-23T20:33:26Z - GPT-5.4 - Added focused metadata-block render coverage
 - `src/confirmation-panel.test.mjs` now includes a third focused test that verifies the backend metadata block structure and exact retry-status lines for retryable and non-retryable backend errors.
 
+## 2026-04-18T10:59:52Z - GPT-5.4 - Settings OpenAI API key test added
+- The Settings page remote planner, remote TTS, and remote ASR cards now expose a `Test API key` action that tests either the entered unsaved key or the currently configured secret reference.
+- Backend validation now performs a real OpenAI-compatible `GET /models` request against the configured remote profile base URL, including organization and project headers when configured.
+- Validation after the feature change is green: `pnpm test:ui`, `cargo test --manifest-path src-tauri/Cargo.toml --all-features`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `pnpm build` all pass.
+
 ## 2026-04-18T09:53:56Z - GPT-5.4 - Full validation run passed
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passed.
 - `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passed with 304 backend tests green.
