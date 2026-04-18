@@ -22,6 +22,7 @@ test("settings shell groups related sections in a logical order", () => {
   assert.ok(html.includes('data-settings-view-section="planner"'));
   assert.ok(html.includes('data-settings-view-section="tts"'));
   assert.ok(html.includes('data-settings-view-section="asr"'));
+  assert.ok(html.includes('data-settings-view-section="runtime"'));
   assert.ok(html.includes("settings-group-playback-title"));
   assert.ok(html.includes("settings-group-planner-title"));
   assert.ok(html.includes("settings-group-tts-title"));
@@ -30,6 +31,7 @@ test("settings shell groups related sections in a logical order", () => {
   assert.ok(html.includes('data-settings-view-button="planner"'));
   assert.ok(html.includes('data-settings-view-button="tts"'));
   assert.ok(html.includes('data-settings-view-button="asr"'));
+  assert.ok(html.includes('data-settings-view-button="runtime"'));
   assert.ok(html.includes('data-settings-view-button="overview"'));
 
   assert.ok(!html.includes('data-panel-root="settings-volume"'));
@@ -37,5 +39,5 @@ test("settings shell groups related sections in a logical order", () => {
   assert.ok(html.indexOf('data-panel-root="settings-remote-planner"') < html.indexOf('data-panel-root="settings-asr-provider"'));
   assert.ok(html.indexOf('data-panel-root="settings-tts-provider"') < html.indexOf('data-panel-root="settings-asr-provider"'));
   assert.ok(html.indexOf('data-panel-root="settings-remote-planner"') < html.indexOf('data-panel-root="settings-tts-provider"'));
-  assert.ok(html.indexOf('data-panel-root="settings-provider-failover"') < html.indexOf('data-panel-root="settings-remote-asr"'));
+  assert.ok(html.indexOf('data-panel-root="settings-remote-asr"') < html.indexOf('data-panel-root="settings-model-management"'));
 });

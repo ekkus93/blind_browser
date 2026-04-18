@@ -1,3 +1,8 @@
+## 2026-04-18T19:03:24Z - GPT-5.4 - Runtime setup moved to a settings subpage
+- Continued the Settings declutter pass by moving the Runtime controls out of the overview in `src/app-shell.ts` and behind an `Open Runtime setup` link with a matching back control.
+- Extended nested settings-view routing in `src/app-shell.ts` and `src/event-handlers.ts` so Runtime-targeted guidance and control links open the Runtime subpage before focusing the requested element.
+- Updated `src/app-shell.test.mjs` and `src/dom-seams.test.mjs`, and validation is green with `pnpm lint` plus `pnpm test:ui`.
+
 ## 2026-04-18T19:00:12Z - GPT-5.4 - ASR setup moved to a settings subpage
 - Continued the Settings declutter pass by moving the ASR controls out of the overview in `src/app-shell.ts` and behind an `Open ASR setup` link with a matching back control.
 - Extended nested settings-view routing in `src/app-shell.ts` and `src/event-handlers.ts` so ASR-targeted guidance and control links open the ASR subpage before focusing the requested element.

@@ -20,7 +20,7 @@ export type PanelRootKey =
   | "confirmation-panel";
 
 export type AppView = "workspace" | "settings";
-export type SettingsView = "overview" | "planner" | "tts" | "asr";
+export type SettingsView = "overview" | "planner" | "tts" | "asr" | "runtime";
 
 export type PanelRootMap = Record<PanelRootKey, HTMLDivElement>;
 
@@ -147,18 +147,20 @@ export function renderAppShell(): string {
             </div>
           </section>
 
-          <section class="settings-group" aria-labelledby="settings-group-runtime-title">
+          <section class="settings-group settings-group-link" aria-labelledby="settings-group-runtime-title">
             <div class="settings-group-copy">
               <p class="settings-group-eyebrow">Runtime behavior</p>
               <h2 id="settings-group-runtime-title">Runtime</h2>
-              <p class="settings-group-description">
-                Manage local models, failover status, confirmation safety, and OCR fallback.
-              </p>
             </div>
-            ${renderPanelRootPlaceholder("settings-model-management")}
-            ${renderPanelRootPlaceholder("settings-provider-failover")}
-            ${renderPanelRootPlaceholder("settings-confirmation")}
-            ${renderPanelRootPlaceholder("settings-ocr-threshold")}
+            <div class="settings-subpage-card">
+              <button
+                type="button"
+                class="settings-subpage-link"
+                data-settings-view-button="runtime"
+              >
+                Open Runtime setup
+              </button>
+            </div>
           </section>
         </div>
 
@@ -214,6 +216,25 @@ export function renderAppShell(): string {
           ${renderPanelRootPlaceholder("settings-asr-provider")}
           ${renderPanelRootPlaceholder("settings-local-asr-model")}
           ${renderPanelRootPlaceholder("settings-remote-asr")}
+        </div>
+
+        <div class="settings-view" data-settings-view-section="runtime" hidden aria-hidden="true">
+          <section class="hero hero-settings hero-settings-subpage">
+            <button
+              type="button"
+              class="settings-subpage-back"
+              data-settings-view-button="overview"
+            >
+              Back to settings
+            </button>
+            <p class="settings-group-eyebrow">Runtime behavior</p>
+            <h2>Runtime setup</h2>
+          </section>
+
+          ${renderPanelRootPlaceholder("settings-model-management")}
+          ${renderPanelRootPlaceholder("settings-provider-failover")}
+          ${renderPanelRootPlaceholder("settings-confirmation")}
+          ${renderPanelRootPlaceholder("settings-ocr-threshold")}
         </div>
       </section>
     </main>

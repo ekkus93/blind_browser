@@ -7,7 +7,7 @@ type OcrThresholdControlKind = "char" | "region";
 type ModelManagementToggleKind = "check-on-startup" | "auto-download-missing";
 type PushToTalkSource = "keyboard" | "pointer";
 type AppView = "workspace" | "settings";
-type SettingsView = "overview" | "planner" | "tts" | "asr";
+type SettingsView = "overview" | "planner" | "tts" | "asr" | "runtime";
 type SettingsBusyKey =
   | "volume"
   | "speed"
@@ -77,6 +77,15 @@ function resolveSettingsViewForTarget(targetId: string): SettingsView {
 
   if (targetId.startsWith("settings-asr-") || targetId.startsWith("settings-remote-asr")) {
     return "asr";
+  }
+
+  if (
+    targetId.startsWith("settings-model-management")
+    || targetId.startsWith("settings-provider-failover")
+    || targetId.startsWith("settings-confirmation")
+    || targetId.startsWith("settings-ocr-")
+  ) {
+    return "runtime";
   }
 
   return "overview";
@@ -172,7 +181,7 @@ export function registerAppEventHandlers({
     const settingsViewButton = target.closest<HTMLButtonElement>("[data-settings-view-button]");
     if (settingsViewButton) {
       const view = settingsViewButton.dataset.settingsViewButton;
-      if (view === "overview" || view === "planner" || view === "tts" || view === "asr") {
+      if (view === "overview" || view === "planner" || view === "tts" || view === "asr" || view === "runtime") {
         setAppView("settings");
         setSettingsView(view);
       }
