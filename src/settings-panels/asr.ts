@@ -17,7 +17,21 @@ import {
 
 const h = createElement;
 
-export function renderSettingsAsrProviderPanelNode(state: AsrProviderPanelState): ReactNode {
+export interface AsrProviderPanelHandlers {
+  onProviderSelect?: (mode: "Local" | "Remote") => void;
+}
+
+export interface RemoteAsrPanelHandlers {
+  onApiKeyInput?: (value: string) => void;
+  onSaveApiKey?: () => void;
+  onTestApiKey?: () => void;
+  onOpenExternalLink?: (url: string) => void;
+}
+
+export function renderSettingsAsrProviderPanelNode(
+  state: AsrProviderPanelState,
+  handlers?: AsrProviderPanelHandlers,
+): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-asr-provider-title",
     title: "ASR provider",
@@ -34,6 +48,11 @@ export function renderSettingsAsrProviderPanelNode(state: AsrProviderPanelState)
         disabled: state.isBusy,
         dataAttributes: { "data-asr-provider-select": "true" },
         options: state.availableModes.map((mode) => ({ value: mode, label: renderProviderModeLabel(mode) })),
+        onChange: handlers?.onProviderSelect
+          ? (value) => {
+            handlers.onProviderSelect?.(value as "Local" | "Remote");
+          }
+          : undefined,
       }),
     ),
   });
@@ -57,7 +76,10 @@ export function renderSettingsLocalAsrModelPanelNode(state: LocalAsrModelPanelSt
   });
 }
 
-export function renderSettingsRemoteAsrPanelNode(state: RemoteAsrPanelState): ReactNode {
+export function renderSettingsRemoteAsrPanelNode(
+  state: RemoteAsrPanelState,
+  handlers?: RemoteAsrPanelHandlers,
+): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-remote-asr-title",
     title: "Remote ASR profile",
@@ -85,6 +107,12 @@ export function renderSettingsRemoteAsrPanelNode(state: RemoteAsrPanelState): Re
         state.isTestingApiKey,
         state.apiKeyReference !== null,
         state.apiKeyTestMessage,
+        {
+          onInput: handlers?.onApiKeyInput,
+          onSave: handlers?.onSaveApiKey,
+          onTest: handlers?.onTestApiKey,
+          onOpenExternalLink: handlers?.onOpenExternalLink,
+        },
       ),
     ),
   });

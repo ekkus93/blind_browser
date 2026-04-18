@@ -8,6 +8,19 @@ import type {
 
 const h = createElement;
 
+export interface UrlInputPanelHandlers {
+  onDraftInput?: (value: string) => void;
+  onOpen?: () => void;
+  onRead?: () => void;
+  onStop?: () => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
+}
+
+export interface StatusPanelHandlers {
+  onSetBrowserVisibility?: (mode: "Visible" | "Headless") => void;
+}
+
 export function statusPanelStateFromAgentState(
   agentState: StatusPanelAgentStateLike,
 ): StatusPanelState {
@@ -27,7 +40,10 @@ export function statusPanelStateFromAgentState(
   };
 }
 
-export function renderUrlInputPanelNode(state: UrlInputPanelState): ReactNode {
+export function renderUrlInputPanelNode(
+  state: UrlInputPanelState,
+  handlers?: UrlInputPanelHandlers,
+): ReactNode {
   const actionsDisabled = state.isOpening || state.isReading || state.isStopping || state.isAdvancing || state.isRewinding;
 
   return h(
@@ -74,19 +90,26 @@ export function renderUrlInputPanelNode(state: UrlInputPanelState): ReactNode {
           value: state.draftValue,
           disabled: actionsDisabled || undefined,
           "aria-disabled": actionsDisabled ? "true" : undefined,
-          readOnly: true,
+          onChange: handlers?.onDraftInput
+            ? (event: { currentTarget: { value: string } }) => {
+              handlers.onDraftInput?.(event.currentTarget.value);
+            }
+            : undefined,
         }),
       ),
-      h("button", { type: "button", className: "url-open-button", "data-url-open-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined }, state.isOpening ? "Opening..." : "Open"),
-      h("button", { type: "button", className: "url-open-button url-read-button", "data-url-read-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined }, state.isReading ? "Reading..." : "Read"),
-      h("button", { type: "button", className: "url-open-button url-stop-button", "data-url-stop-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined }, state.isStopping ? "Stopping..." : "Stop"),
-      h("button", { type: "button", className: "url-open-button url-previous-button", "data-url-previous-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined }, state.isRewinding ? "Previous..." : "Previous"),
-      h("button", { type: "button", className: "url-open-button url-next-button", "data-url-next-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined }, state.isAdvancing ? "Next..." : "Next"),
+      h("button", { type: "button", className: "url-open-button", "data-url-open-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined, onClick: handlers?.onOpen }, state.isOpening ? "Opening..." : "Open"),
+      h("button", { type: "button", className: "url-open-button url-read-button", "data-url-read-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined, onClick: handlers?.onRead }, state.isReading ? "Reading..." : "Read"),
+      h("button", { type: "button", className: "url-open-button url-stop-button", "data-url-stop-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined, onClick: handlers?.onStop }, state.isStopping ? "Stopping..." : "Stop"),
+      h("button", { type: "button", className: "url-open-button url-previous-button", "data-url-previous-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined, onClick: handlers?.onPrevious }, state.isRewinding ? "Previous..." : "Previous"),
+      h("button", { type: "button", className: "url-open-button url-next-button", "data-url-next-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined, onClick: handlers?.onNext }, state.isAdvancing ? "Next..." : "Next"),
     ),
   );
 }
 
-export function renderStatusPanelNode(state: StatusPanelState): ReactNode {
+export function renderStatusPanelNode(
+  state: StatusPanelState,
+  handlers?: StatusPanelHandlers,
+): ReactNode {
   const title = state.pageTitle ?? "No page open yet";
   const region = state.currentRegionLabel ?? "No current region";
   const transcript = state.lastTranscript ?? "No spoken command captured yet";
@@ -123,8 +146,8 @@ export function renderStatusPanelNode(state: StatusPanelState): ReactNode {
           h(
             "div",
             { className: "status-toggle-group", role: "group", "aria-label": "Browser visibility mode" },
-            h("button", { type: "button", className: `status-toggle-button${visiblePressed ? " status-toggle-button-active" : ""}`, "data-browser-visibility-mode": "Visible", "aria-label": "Browser visibility mode: Visible", "aria-pressed": String(visiblePressed), disabled: state.isUpdatingVisibility || undefined, "aria-disabled": state.isUpdatingVisibility ? "true" : undefined }, "Visible"),
-            h("button", { type: "button", className: `status-toggle-button${headlessPressed ? " status-toggle-button-active" : ""}`, "data-browser-visibility-mode": "Headless", "aria-label": "Browser visibility mode: Headless", "aria-pressed": String(headlessPressed), disabled: state.isUpdatingVisibility || undefined, "aria-disabled": state.isUpdatingVisibility ? "true" : undefined }, "Headless"),
+            h("button", { type: "button", className: `status-toggle-button${visiblePressed ? " status-toggle-button-active" : ""}`, "data-browser-visibility-mode": "Visible", "aria-label": "Browser visibility mode: Visible", "aria-pressed": String(visiblePressed), disabled: state.isUpdatingVisibility || undefined, "aria-disabled": state.isUpdatingVisibility ? "true" : undefined, onClick: handlers?.onSetBrowserVisibility ? () => { handlers.onSetBrowserVisibility?.("Visible"); } : undefined }, "Visible"),
+            h("button", { type: "button", className: `status-toggle-button${headlessPressed ? " status-toggle-button-active" : ""}`, "data-browser-visibility-mode": "Headless", "aria-label": "Browser visibility mode: Headless", "aria-pressed": String(headlessPressed), disabled: state.isUpdatingVisibility || undefined, "aria-disabled": state.isUpdatingVisibility ? "true" : undefined, onClick: handlers?.onSetBrowserVisibility ? () => { handlers.onSetBrowserVisibility?.("Headless"); } : undefined }, "Headless"),
           ),
         ),
       ),

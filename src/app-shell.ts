@@ -2,8 +2,6 @@ import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import { Button, CssBaseline, IconButton } from "@mui/material";
 import { StyledEngineProvider, ThemeProvider, createTheme } from "@mui/material/styles";
 import { createElement, type ComponentProps, type ReactNode } from "react";
-import { flushSync } from "react-dom";
-import { createRoot, type Root } from "react-dom/client";
 
 export type PanelRootKey =
   | "push-to-talk"
@@ -28,8 +26,6 @@ export type PanelRootKey =
 
 export type AppView = "workspace" | "settings";
 export type SettingsView = "overview" | "planner" | "tts" | "asr" | "runtime";
-
-export type PanelRootMap = Record<PanelRootKey, HTMLDivElement>;
 
 const h = createElement;
 
@@ -65,9 +61,6 @@ const appShellTheme = createTheme({
   },
 });
 
-const mountedShellRoots = new WeakMap<HTMLDivElement, Root>();
-const mountedPanelRoots = new WeakMap<HTMLDivElement, Root>();
-
 type DataAttributes = {
   [key: `data-${string}`]: string;
 };
@@ -75,6 +68,11 @@ type DataAttributes = {
 type ButtonWithDataProps = ComponentProps<typeof Button> & DataAttributes;
 type IconButtonWithDataProps = ComponentProps<typeof IconButton> & DataAttributes;
 export type AppShellPanelContent = Partial<Record<PanelRootKey, ReactNode>>;
+
+export interface AppShellNavigationHandlers {
+  onAppViewSelect?: (view: AppView) => void;
+  onSettingsViewSelect?: (view: SettingsView) => void;
+}
 
 function renderPanelRootPlaceholderElement(rootKey: PanelRootKey) {
   return h("div", {
@@ -87,7 +85,12 @@ function renderPanelContent(rootKey: PanelRootKey, panelContent?: AppShellPanelC
   return content !== undefined ? content : renderPanelRootPlaceholderElement(rootKey);
 }
 
-function renderShellNavButton(view: AppView, label: string, isActive: boolean) {
+function renderShellNavButton(
+  view: AppView,
+  label: string,
+  isActive: boolean,
+  handlers?: AppShellNavigationHandlers,
+) {
   const buttonProps: ButtonWithDataProps = {
     type: "button",
     className: `shell-nav-button${isActive ? " shell-nav-button-active" : ""}`,
@@ -102,6 +105,12 @@ function renderShellNavButton(view: AppView, label: string, isActive: boolean) {
     },
   };
 
+  if (handlers?.onAppViewSelect) {
+    buttonProps.onClick = () => {
+      handlers.onAppViewSelect?.(view);
+    };
+  }
+
   return h(
     Button,
     buttonProps,
@@ -109,7 +118,7 @@ function renderShellNavButton(view: AppView, label: string, isActive: boolean) {
   );
 }
 
-function renderSettingsSubpageBackButton(showBackButton: boolean) {
+function renderSettingsSubpageBackButton(showBackButton: boolean, handlers?: AppShellNavigationHandlers) {
   const buttonProps: IconButtonWithDataProps = {
     type: "button",
     className: "settings-subpage-back",
@@ -121,6 +130,12 @@ function renderSettingsSubpageBackButton(showBackButton: boolean) {
     "aria-hidden": !showBackButton,
     size: "large",
   };
+
+  if (handlers?.onSettingsViewSelect) {
+    buttonProps.onClick = () => {
+      handlers.onSettingsViewSelect?.("overview");
+    };
+  }
 
   return h(
     IconButton,
@@ -142,7 +157,11 @@ function renderWorkspaceOverviewCard(title: string, copy: string) {
   );
 }
 
-function renderSettingsSubpageLink(view: Exclude<SettingsView, "overview">, label: string) {
+function renderSettingsSubpageLink(
+  view: Exclude<SettingsView, "overview">,
+  label: string,
+  handlers?: AppShellNavigationHandlers,
+) {
   const buttonProps: ButtonWithDataProps = {
     type: "button",
     className: "settings-subpage-link",
@@ -155,6 +174,12 @@ function renderSettingsSubpageLink(view: Exclude<SettingsView, "overview">, labe
       p: 0,
     },
   };
+
+  if (handlers?.onSettingsViewSelect) {
+    buttonProps.onClick = () => {
+      handlers.onSettingsViewSelect?.(view);
+    };
+  }
 
   return h(
     "div",
@@ -171,9 +196,10 @@ interface AppShellMarkupProps {
   initialAppView: AppView;
   initialSettingsView: SettingsView;
   panelContent?: AppShellPanelContent;
+  navigationHandlers?: AppShellNavigationHandlers;
 }
 
-function AppShellMarkup({ initialAppView, initialSettingsView, panelContent }: AppShellMarkupProps) {
+export function AppShellMarkup({ initialAppView, initialSettingsView, panelContent, navigationHandlers }: AppShellMarkupProps) {
   const workspaceActive = initialAppView === "workspace";
   const settingsActive = initialAppView === "settings";
   const showBackButton = settingsActive && initialSettingsView !== "overview";
@@ -190,10 +216,10 @@ function AppShellMarkup({ initialAppView, initialSettingsView, panelContent }: A
           className: "shell-nav",
           "aria-label": "App pages",
         },
-        renderShellNavButton("workspace", "Workspace", workspaceActive),
-        renderShellNavButton("settings", "Settings", settingsActive),
+        renderShellNavButton("workspace", "Workspace", workspaceActive, navigationHandlers),
+        renderShellNavButton("settings", "Settings", settingsActive, navigationHandlers),
       ),
-      renderSettingsSubpageBackButton(showBackButton),
+      renderSettingsSubpageBackButton(showBackButton, navigationHandlers),
     ),
     h(
       "section",
@@ -283,7 +309,7 @@ function AppShellMarkup({ initialAppView, initialSettingsView, panelContent }: A
             h("p", { className: "settings-group-eyebrow" }, "Command interpretation"),
             h("h2", { id: "settings-group-planner-title" }, "Planner"),
           ),
-          renderSettingsSubpageLink("planner", "Open planner setup"),
+          renderSettingsSubpageLink("planner", "Open planner setup", navigationHandlers),
         ),
         h(
           "section",
@@ -297,7 +323,7 @@ function AppShellMarkup({ initialAppView, initialSettingsView, panelContent }: A
             h("p", { className: "settings-group-eyebrow" }, "Speech output"),
             h("h2", { id: "settings-group-tts-title" }, "Text to speech"),
           ),
-          renderSettingsSubpageLink("tts", "Open TTS setup"),
+          renderSettingsSubpageLink("tts", "Open TTS setup", navigationHandlers),
         ),
         h(
           "section",
@@ -311,7 +337,7 @@ function AppShellMarkup({ initialAppView, initialSettingsView, panelContent }: A
             h("p", { className: "settings-group-eyebrow" }, "Speech input"),
             h("h2", { id: "settings-group-asr-title" }, "Automatic speech recognition"),
           ),
-          renderSettingsSubpageLink("asr", "Open ASR setup"),
+          renderSettingsSubpageLink("asr", "Open ASR setup", navigationHandlers),
         ),
         h(
           "section",
@@ -325,7 +351,7 @@ function AppShellMarkup({ initialAppView, initialSettingsView, panelContent }: A
             h("p", { className: "settings-group-eyebrow" }, "Runtime behavior"),
             h("h2", { id: "settings-group-runtime-title" }, "Runtime"),
           ),
-          renderSettingsSubpageLink("runtime", "Open Runtime setup"),
+          renderSettingsSubpageLink("runtime", "Open Runtime setup", navigationHandlers),
         ),
       ),
       h(
@@ -409,6 +435,7 @@ function renderShellTree(
   initialAppView: AppView,
   initialSettingsView: SettingsView,
   panelContent?: AppShellPanelContent,
+  navigationHandlers?: AppShellNavigationHandlers,
 ) {
   return h(
     StyledEngineProvider,
@@ -421,6 +448,7 @@ function renderShellTree(
         initialAppView,
         initialSettingsView,
         panelContent,
+        navigationHandlers,
       }),
     ),
   );
@@ -430,96 +458,14 @@ export function AppShellRuntime(props: {
   appView: AppView;
   settingsView: SettingsView;
   panelContent: AppShellPanelContent;
+  navigationHandlers?: AppShellNavigationHandlers;
 }) {
-  return renderShellTree(props.appView, props.settingsView, props.panelContent);
+  return renderShellTree(props.appView, props.settingsView, props.panelContent, props.navigationHandlers);
 }
 
 export async function renderAppShell(): Promise<string> {
   const { renderToStaticMarkup } = await import("react-dom/server");
   return renderToStaticMarkup(renderShellTree("workspace", "overview"));
-}
-
-export function setActiveAppView(appRoot: HTMLDivElement, nextView: AppView) {
-  const sections = appRoot.querySelectorAll<HTMLElement>("[data-app-view-section]");
-  sections.forEach((section) => {
-    const isActive = section.dataset.appViewSection === nextView;
-    section.hidden = !isActive;
-    section.setAttribute("aria-hidden", String(!isActive));
-    section.classList.toggle("app-view-active", isActive);
-  });
-
-  const buttons = appRoot.querySelectorAll<HTMLButtonElement>("[data-app-view-button]");
-  buttons.forEach((button) => {
-    const isActive = button.dataset.appViewButton === nextView;
-    button.setAttribute("aria-pressed", String(isActive));
-    button.classList.toggle("shell-nav-button-active", isActive);
-  });
-
-  const subpageBackButton = appRoot.querySelector<HTMLButtonElement>("[data-settings-subpage-back]");
-  if (subpageBackButton && nextView !== "settings") {
-    subpageBackButton.hidden = true;
-    subpageBackButton.setAttribute("aria-hidden", "true");
-  }
-}
-
-export function setActiveSettingsView(appRoot: HTMLDivElement, nextView: SettingsView) {
-  const sections = appRoot.querySelectorAll<HTMLElement>("[data-settings-view-section]");
-  sections.forEach((section) => {
-    const isActive = section.dataset.settingsViewSection === nextView;
-    section.hidden = !isActive;
-    section.setAttribute("aria-hidden", String(!isActive));
-    section.classList.toggle("settings-view-active", isActive);
-  });
-
-  const subpageBackButton = appRoot.querySelector<HTMLButtonElement>("[data-settings-subpage-back]");
-  if (subpageBackButton) {
-    const showBackButton = nextView !== "overview";
-    subpageBackButton.hidden = !showBackButton;
-    subpageBackButton.setAttribute("aria-hidden", String(!showBackButton));
-  }
-}
-
-function requirePanelRoot(appRoot: HTMLDivElement, rootKey: PanelRootKey): HTMLDivElement {
-  const root = appRoot.querySelector<HTMLDivElement>(`[data-panel-root="${rootKey}"]`);
-  if (!root) {
-    throw new Error(`Panel root ${rootKey} was not found.`);
-  }
-
-  return root;
-}
-
-export function createPanelRoots(appRoot: HTMLDivElement): PanelRootMap {
-  let root = mountedShellRoots.get(appRoot);
-  if (!root) {
-    root = createRoot(appRoot);
-    mountedShellRoots.set(appRoot, root);
-  }
-
-  flushSync(() => {
-    root.render(renderShellTree("workspace", "overview"));
-  });
-
-  return {
-    "push-to-talk": requirePanelRoot(appRoot, "push-to-talk"),
-    "url-input": requirePanelRoot(appRoot, "url-input"),
-    status: requirePanelRoot(appRoot, "status"),
-    "audio-controls": requirePanelRoot(appRoot, "audio-controls"),
-    "settings-guidance": requirePanelRoot(appRoot, "settings-guidance"),
-    "settings-remote-planner": requirePanelRoot(appRoot, "settings-remote-planner"),
-    "settings-provider-failover": requirePanelRoot(appRoot, "settings-provider-failover"),
-    "settings-confirmation": requirePanelRoot(appRoot, "settings-confirmation"),
-    "settings-ocr-threshold": requirePanelRoot(appRoot, "settings-ocr-threshold"),
-    "settings-asr-provider": requirePanelRoot(appRoot, "settings-asr-provider"),
-    "settings-local-asr-model": requirePanelRoot(appRoot, "settings-local-asr-model"),
-    "settings-model-management": requirePanelRoot(appRoot, "settings-model-management"),
-    "settings-remote-asr": requirePanelRoot(appRoot, "settings-remote-asr"),
-    "settings-tts-provider": requirePanelRoot(appRoot, "settings-tts-provider"),
-    "settings-tts-model": requirePanelRoot(appRoot, "settings-tts-model"),
-    "settings-local-tts-model": requirePanelRoot(appRoot, "settings-local-tts-model"),
-    "settings-remote-tts": requirePanelRoot(appRoot, "settings-remote-tts"),
-    "settings-tts-voice": requirePanelRoot(appRoot, "settings-tts-voice"),
-    "confirmation-panel": requirePanelRoot(appRoot, "confirmation-panel"),
-  };
 }
 
 interface PreservedPanelControlState {
@@ -597,23 +543,4 @@ export function preserveActivePanelControl(root: HTMLDivElement, renderPanel: ()
   const controlState = captureActivePanelControl(root);
   renderPanel();
   restoreActivePanelControl(root, controlState);
-}
-
-export function renderPanelRootNode(
-  panelRoots: PanelRootMap,
-  rootKey: PanelRootKey,
-  node: ReactNode,
-) {
-  const root = panelRoots[rootKey];
-  preserveActivePanelControl(root, () => {
-    let panelRoot = mountedPanelRoots.get(root);
-    if (!panelRoot) {
-      panelRoot = createRoot(root);
-      mountedPanelRoots.set(root, panelRoot);
-    }
-
-    flushSync(() => {
-      panelRoot.render(node);
-    });
-  });
 }

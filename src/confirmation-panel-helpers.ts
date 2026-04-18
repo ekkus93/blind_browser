@@ -5,6 +5,13 @@ export const OPENAI_API_KEYS_URL = "https://platform.openai.com/account/api-keys
 
 const h = createElement;
 
+export interface SecretEntryCardHandlers {
+  onInput?: (value: string) => void;
+  onSave?: () => void;
+  onTest?: () => void;
+  onOpenExternalLink?: (url: string) => void;
+}
+
 export function renderTtsModelOptionLabel(profileName: string, modelLabel: string): string {
   return `${modelLabel} (${profileName})`;
 }
@@ -37,7 +44,7 @@ export function renderOpenAiApiKeysLink(label: string = OPENAI_API_KEYS_URL): st
   return `<a href="${escapeHtml(OPENAI_API_KEYS_URL)}" target="_blank" rel="noreferrer" data-external-link-url="${escapeHtml(OPENAI_API_KEYS_URL)}">${escapeHtml(label)}</a>`;
 }
 
-export function renderTextWithKnownLinkNodes(value: string): ReactNode[] {
+export function renderTextWithKnownLinkNodes(value: string, onOpenExternalLink?: (url: string) => void): ReactNode[] {
   const segments = value.split(OPENAI_API_KEYS_URL);
   const children: ReactNode[] = [];
 
@@ -55,6 +62,12 @@ export function renderTextWithKnownLinkNodes(value: string): ReactNode[] {
             target: "_blank",
             rel: "noreferrer",
             "data-external-link-url": OPENAI_API_KEYS_URL,
+            onClick: onOpenExternalLink
+              ? (event: { preventDefault: () => void }) => {
+                event.preventDefault();
+                onOpenExternalLink(OPENAI_API_KEYS_URL);
+              }
+              : undefined,
             key: `known-link-${index}`,
           },
           OPENAI_API_KEYS_URL,
@@ -75,6 +88,7 @@ export function renderSecretEntryCard(
   isTestingApiKey: boolean,
   hasApiKeyReference: boolean,
   apiKeyTestMessage: string | null,
+  handlers: SecretEntryCardHandlers = {},
 ): ReactNode {
   const controlsDisabled = isSavingApiKey || isTestingApiKey;
   const saveDisabled =
@@ -106,7 +120,11 @@ export function renderSecretEntryCard(
         "data-masked-api-key-display": apiKeyDraft.length === 0 && apiKeyMaskedValue ? apiKeyMaskedValue : undefined,
         disabled: controlsDisabled || undefined,
         "aria-disabled": controlsDisabled ? "true" : undefined,
-        readOnly: true,
+        onChange: handlers.onInput
+          ? (event: { currentTarget: { value: string } }) => {
+            handlers.onInput?.(event.currentTarget.value);
+          }
+          : undefined,
       }),
       h(
         "div",
@@ -119,6 +137,7 @@ export function renderSecretEntryCard(
             "data-remote-api-key-save": kind,
             disabled: saveDisabled || undefined,
             "aria-disabled": saveDisabled ? "true" : undefined,
+            onClick: handlers.onSave,
           },
           "Save API key",
         ),
@@ -130,6 +149,7 @@ export function renderSecretEntryCard(
             "data-remote-api-key-test": kind,
             disabled: testDisabled || undefined,
             "aria-disabled": testDisabled ? "true" : undefined,
+            onClick: handlers.onTest,
           },
           isTestingApiKey ? "Testing..." : "Test API key",
         ),
@@ -146,6 +166,12 @@ export function renderSecretEntryCard(
           target: "_blank",
           rel: "noreferrer",
           "data-external-link-url": OPENAI_API_KEYS_URL,
+          onClick: handlers.onOpenExternalLink
+            ? (event: { preventDefault: () => void }) => {
+              event.preventDefault();
+              handlers.onOpenExternalLink?.(OPENAI_API_KEYS_URL);
+            }
+            : undefined,
         },
         OPENAI_API_KEYS_URL,
       ),
@@ -159,7 +185,7 @@ export function renderSecretEntryCard(
         h(
           "p",
           { className: "settings-api-key-test-status-message" },
-          ...renderTextWithKnownLinkNodes(apiKeyTestMessage),
+          ...renderTextWithKnownLinkNodes(apiKeyTestMessage, handlers.onOpenExternalLink),
         ),
       )
       : null,

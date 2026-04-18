@@ -4,7 +4,14 @@ import type { PushToTalkPanelState } from "../panel-types.ts";
 
 const h = createElement;
 
-export function renderPushToTalkPanelNode(state: PushToTalkPanelState): ReactNode {
+export interface PushToTalkPanelHandlers {
+  onPointerDown?: () => void;
+}
+
+export function renderPushToTalkPanelNode(
+  state: PushToTalkPanelState,
+  handlers?: PushToTalkPanelHandlers,
+): ReactNode {
   const statusCopy = state.isHolding
     ? "Listening now. Release to transcribe and run the spoken command."
     : state.isListening && state.isBusy
@@ -48,6 +55,16 @@ export function renderPushToTalkPanelNode(state: PushToTalkPanelState): ReactNod
         "aria-pressed": String(state.isHolding),
         disabled: (!state.enabled || state.isBusy || state.isListening) || undefined,
         "aria-disabled": (!state.enabled || state.isBusy || state.isListening) ? "true" : undefined,
+        onPointerDown: handlers?.onPointerDown
+          ? (event: { button: number; preventDefault: () => void }) => {
+            if (event.button !== 0) {
+              return;
+            }
+
+            event.preventDefault();
+            handlers.onPointerDown?.();
+          }
+          : undefined,
       },
       buttonLabel,
     ),

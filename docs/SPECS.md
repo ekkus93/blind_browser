@@ -19,6 +19,13 @@ Low-resource desktop web-reading assistant for vision-impaired users.
 
 ## Core Components
 
+### Frontend Shell Architecture
+- The desktop frontend mounts as a single React tree from `src/main.ts`; the runtime no longer treats each panel as an independently replaced HTML island.
+- Redux owns shell view routing, settings subpage routing, panel state, and confirmation UI state so the live shell renders from application state instead of imperative DOM toggling.
+- Presentational panel modules under `src/settings-panels/` and `src/confirmation-panels/` accept explicit handler props. They do not call Tauri commands directly.
+- Frontend async effects remain explicit in `src/main.ts`, where React-owned handlers invoke deterministic backend commands through the typed `src/tauri-api.ts` boundary.
+- The remaining imperative browser listeners are intentionally narrow: masked API-key focus/blur handling on the app root and global push-to-talk release or cancel behavior on `window`.
+
 ### App Core
 - Orchestrates modules
 - Handles lifecycle and routing

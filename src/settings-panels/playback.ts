@@ -4,6 +4,11 @@ import type { AudioControlsPanelState } from "../panel-types.ts";
 
 const h = createElement;
 
+export interface AudioControlsPanelHandlers {
+  onVolumeChange?: (value: number) => void;
+  onSpeedChange?: (value: number) => void;
+}
+
 function renderPlaybackVolumeValueText(value: number): string {
   return `${Math.round(value * 100)} percent`;
 }
@@ -12,7 +17,10 @@ function renderPlaybackSpeedValueText(value: number): string {
   return `${value.toFixed(2)} times`;
 }
 
-export function renderAudioControlsPanelNode(state: AudioControlsPanelState): ReactNode {
+export function renderAudioControlsPanelNode(
+  state: AudioControlsPanelState,
+  handlers?: AudioControlsPanelHandlers,
+): ReactNode {
   return h(
     "section",
     { className: "audio-controls-panel", "aria-labelledby": "audio-controls-title" },
@@ -43,7 +51,11 @@ export function renderAudioControlsPanelNode(state: AudioControlsPanelState): Re
           "aria-valuetext": renderPlaybackVolumeValueText(state.playbackVolume),
           disabled: state.isBusy || undefined,
           "aria-disabled": state.isBusy ? "true" : undefined,
-          readOnly: true,
+          onChange: handlers?.onVolumeChange
+            ? (event: { currentTarget: { value: string } }) => {
+              handlers.onVolumeChange?.(Number.parseFloat(event.currentTarget.value));
+            }
+            : undefined,
         }),
       ),
       h(
@@ -63,7 +75,11 @@ export function renderAudioControlsPanelNode(state: AudioControlsPanelState): Re
           "aria-valuetext": renderPlaybackSpeedValueText(state.playbackSpeed),
           disabled: state.isBusy || undefined,
           "aria-disabled": state.isBusy ? "true" : undefined,
-          readOnly: true,
+          onChange: handlers?.onSpeedChange
+            ? (event: { currentTarget: { value: string } }) => {
+              handlers.onSpeedChange?.(Number.parseFloat(event.currentTarget.value));
+            }
+            : undefined,
         }),
       ),
     ),

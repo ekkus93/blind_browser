@@ -21,6 +21,25 @@ import {
 
 const h = createElement;
 
+export interface TtsProviderPanelHandlers {
+  onProviderSelect?: (mode: "Local" | "Remote") => void;
+}
+
+export interface TtsModelPanelHandlers {
+  onModelSelect?: (profileName: string) => void;
+}
+
+export interface TtsVoicePanelHandlers {
+  onVoiceSelect?: (voice: string) => void;
+}
+
+export interface RemoteTtsPanelHandlers {
+  onApiKeyInput?: (value: string) => void;
+  onSaveApiKey?: () => void;
+  onTestApiKey?: () => void;
+  onOpenExternalLink?: (url: string) => void;
+}
+
 export function renderSettingsLocalTtsModelPanelNode(state: LocalTtsModelPanelState): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-local-tts-model-title",
@@ -39,7 +58,10 @@ export function renderSettingsLocalTtsModelPanelNode(state: LocalTtsModelPanelSt
   });
 }
 
-export function renderSettingsRemoteTtsPanelNode(state: RemoteTtsPanelState): ReactNode {
+export function renderSettingsRemoteTtsPanelNode(
+  state: RemoteTtsPanelState,
+  handlers?: RemoteTtsPanelHandlers,
+): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-remote-tts-title",
     title: "Remote TTS profile",
@@ -67,12 +89,21 @@ export function renderSettingsRemoteTtsPanelNode(state: RemoteTtsPanelState): Re
         state.isTestingApiKey,
         state.apiKeyReference !== null,
         state.apiKeyTestMessage,
+        {
+          onInput: handlers?.onApiKeyInput,
+          onSave: handlers?.onSaveApiKey,
+          onTest: handlers?.onTestApiKey,
+          onOpenExternalLink: handlers?.onOpenExternalLink,
+        },
       ),
     ),
   });
 }
 
-export function renderSettingsTtsProviderPanelNode(state: TtsProviderPanelState): ReactNode {
+export function renderSettingsTtsProviderPanelNode(
+  state: TtsProviderPanelState,
+  handlers?: TtsProviderPanelHandlers,
+): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-tts-provider-title",
     title: "TTS provider",
@@ -89,12 +120,20 @@ export function renderSettingsTtsProviderPanelNode(state: TtsProviderPanelState)
         disabled: state.isBusy,
         dataAttributes: { "data-tts-provider-select": "true" },
         options: state.availableModes.map((mode) => ({ value: mode, label: renderProviderModeLabel(mode) })),
+        onChange: handlers?.onProviderSelect
+          ? (value) => {
+            handlers.onProviderSelect?.(value as "Local" | "Remote");
+          }
+          : undefined,
       }),
     ),
   });
 }
 
-export function renderSettingsTtsModelPanelNode(state: TtsModelPanelState): ReactNode {
+export function renderSettingsTtsModelPanelNode(
+  state: TtsModelPanelState,
+  handlers?: TtsModelPanelHandlers,
+): ReactNode {
   const modeCopy = state.mode === "Remote" ? "remote" : state.mode === "Local" ? "local" : "disabled";
   const activeOption = state.availableProfiles.find((option) => option.profileName === state.activeProfile);
 
@@ -119,12 +158,16 @@ export function renderSettingsTtsModelPanelNode(state: TtsModelPanelState): Reac
           value: option.profileName,
           label: renderTtsModelOptionLabel(option.profileName, option.modelLabel),
         })),
+        onChange: handlers?.onModelSelect,
       }),
     ),
   });
 }
 
-export function renderSettingsTtsVoicePanelNode(state: TtsVoicePanelState): ReactNode {
+export function renderSettingsTtsVoicePanelNode(
+  state: TtsVoicePanelState,
+  handlers?: TtsVoicePanelHandlers,
+): ReactNode {
   const modeCopy = state.mode === "Remote" ? "remote" : state.mode === "Local" ? "local" : "disabled";
   const activeOption = state.availableVoices.find((option) => option.voiceName === state.activeVoice);
 
@@ -151,6 +194,7 @@ export function renderSettingsTtsVoicePanelNode(state: TtsVoicePanelState): Reac
           value: option.voiceName,
           label: renderTtsVoiceOptionLabel(option.displayLabel, option.voiceName),
         })),
+        onChange: handlers?.onVoiceSelect,
       }),
     ),
   });

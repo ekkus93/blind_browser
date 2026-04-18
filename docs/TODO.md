@@ -41,37 +41,37 @@ This document tracks the remaining frontend follow-up after the settings cleanup
 
 ## Priority 4: Move Interaction Handling Toward React
 
-- [ ] Replace broad DOM event delegation with React event handlers where practical, while preserving the voice-first interaction model.
-- [ ] Centralize busy, success, and error state transitions for remote settings actions such as save, test, load models, reset, and download.
-- [ ] Preserve focus and selection restoration for active inputs during rerenders without relying on HTML replacement.
-- [ ] Review keyboard, pointer, and push-to-talk interactions after the React ownership shift to ensure there are no regressions in accessibility or control flow.
-- [ ] Keep Tauri command boundaries explicit so React components trigger deterministic actions without embedding backend-specific logic in presentation code.
+- [x] Replace broad DOM event delegation with React event handlers where practical, while preserving the voice-first interaction model.
+- [x] Centralize busy, success, and error state transitions for remote settings actions such as save, test, load models, reset, and download.
+- [x] Preserve focus and selection restoration for active inputs during rerenders without relying on HTML replacement.
+- [x] Review keyboard, pointer, and push-to-talk interactions after the React ownership shift to ensure there are no regressions in accessibility or control flow.
+- [x] Keep Tauri command boundaries explicit so React components trigger deterministic actions without embedding backend-specific logic in presentation code.
 
 ## Priority 5: Strengthen Frontend Test Coverage
 
-- [ ] Add component-level tests for the shell navigation flow between Workspace and Settings.
-- [ ] Add component-level tests for settings subpage navigation, including planner, TTS, ASR, and Runtime transitions.
-- [ ] Add focused tests for masked API key inputs, including focus, blur, replacement, restore, and latest-test-result states.
-- [ ] Add tests for focus preservation during React rerenders so the legacy DOM seam can be removed safely.
-- [ ] Add tests for Redux-driven view changes and panel-state updates without depending on serialized HTML snapshots.
-- [ ] Keep `pnpm lint`, `pnpm test:ui`, and `pnpm build` green after each migration slice.
+- [x] Add component-level tests for the shell navigation flow between Workspace and Settings.
+- [x] Add component-level tests for settings subpage navigation, including planner, TTS, ASR, and Runtime transitions.
+- [x] Add focused tests for masked API key inputs, including focus, blur, replacement, restore, and latest-test-result states.
+- [x] Add tests for focus preservation during React rerenders so the legacy DOM seam can be removed safely.
+- [x] Add tests for Redux-driven view changes and panel-state updates without depending on serialized HTML snapshots.
+- [x] Keep `pnpm lint`, `pnpm test:ui`, and `pnpm build` green after each migration slice.
 
 ## Priority 6: Documentation And Cleanup
 
-- [ ] Update `README.md` to describe the current React plus Redux shell architecture once the app is mounted as a single React tree.
-- [ ] Update `docs/SPECS.md` if the frontend ownership model changes in ways that matter to runtime boundaries, confirmation behavior, or settings flow.
-- [ ] Add a short frontend architecture note describing where state lives, how Tauri actions are invoked, and what remains intentionally imperative.
-- [ ] Record the final removal of the HTML rendering seam in `memory.md` and repo memory when that cleanup lands.
-- [ ] Delete obsolete compatibility helpers, dead exports, and test-only bridges as soon as their callers are gone.
+- [x] Update `README.md` to describe the current React plus Redux shell architecture once the app is mounted as a single React tree.
+- [x] Update `docs/SPECS.md` if the frontend ownership model changes in ways that matter to runtime boundaries, confirmation behavior, or settings flow.
+- [x] Add a short frontend architecture note describing where state lives, how Tauri actions are invoked, and what remains intentionally imperative.
+- [x] Record the final removal of the HTML rendering seam in `memory.md` and repo memory when that cleanup lands.
+- [x] Delete obsolete compatibility helpers, dead exports, and test-only bridges as soon as their callers are gone.
 
 ## Suggested Execution Order
 
 - [x] Introduce a top-level React app component and move shell plus subpage navigation under it.
 - [x] Move panel state ownership out of `src/main.ts` into Redux or React state.
 - [x] Convert remaining string renderers and retire the HTML seam.
-- [ ] Replace legacy DOM-seam tests with React-centric DOM tests.
+- [x] Replace legacy DOM-seam tests with React-centric DOM tests.
 - [x] Split the large frontend modules after the rendering model is stable.
-- [ ] Refresh docs once the architecture is settled.
+- [x] Refresh docs once the architecture is settled.
 
 ## Validation Checklist
 

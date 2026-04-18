@@ -8,7 +8,14 @@ import type { ConfirmationUiState } from "../planner-orchestration";
 
 const h = createElement;
 
-export function renderConfirmationPanelNode(state: ConfirmationUiState): ReactNode {
+export interface ConfirmationPanelHandlers {
+  onRespond?: (action: "approve" | "reject", confirmationId: string) => void;
+}
+
+export function renderConfirmationPanelNode(
+  state: ConfirmationUiState,
+  handlers?: ConfirmationPanelHandlers,
+): ReactNode {
   if (state.kind !== "awaiting-confirmation") {
     return null;
   }
@@ -106,6 +113,11 @@ export function renderConfirmationPanelNode(state: ConfirmationUiState): ReactNo
           "data-confirmation-id": state.confirmationId,
           disabled: state.isSubmitting || undefined,
           "aria-disabled": state.isSubmitting ? "true" : undefined,
+          onClick: handlers?.onRespond
+            ? () => {
+              handlers.onRespond?.("approve", state.confirmationId);
+            }
+            : undefined,
         },
         "Approve action",
       ),
@@ -118,6 +130,11 @@ export function renderConfirmationPanelNode(state: ConfirmationUiState): ReactNo
           "data-confirmation-id": state.confirmationId,
           disabled: state.isSubmitting || undefined,
           "aria-disabled": state.isSubmitting ? "true" : undefined,
+          onClick: handlers?.onRespond
+            ? () => {
+              handlers.onRespond?.("reject", state.confirmationId);
+            }
+            : undefined,
         },
         "Reject action",
       ),

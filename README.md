@@ -7,7 +7,7 @@ Voice-first desktop browser for vision-impaired users, built with Rust and Tauri
 ## Workspace Layout
 
 - `src-tauri/`: Rust application shell, tool contracts, config models, and runtime state.
-- `src/`: thin frontend shell served by Vite.
+- `src/`: React 19 + Redux frontend shell served by Vite.
 - `docs/`: product specs, skill catalog, and implementation plan.
 
 ## Current Status
@@ -15,13 +15,20 @@ Voice-first desktop browser for vision-impaired users, built with Rust and Tauri
 The project is well past scaffold stage. The current repo includes:
 
 - live Rust runtime support for browser control, extraction, narration, OCR, ASR, TTS, deterministic tool execution, and planner orchestration
-- a thin Tauri frontend for voice capture, confirmation flows, URL/navigation actions, runtime status, and settings panels
+- a React + Redux Tauri frontend for voice capture, confirmation flows, URL/navigation actions, runtime status, and settings panels
 - persisted local/remote provider configuration plus model-management controls for local TTS and ASR profiles
 
 Still intentionally incomplete:
 
 - automatic provider failover is configured in schema but remains disabled in the live runtime
-- some review-driven cleanup work is still in progress, especially internal modularization and additional interaction coverage
+
+## Frontend Architecture
+
+- `src/main.ts` mounts a single React app and keeps async runtime effects separate from presentational components.
+- `src/app-shell-store.ts` is the frontend source of truth for shell view routing, settings subpages, panel state, and confirmation UI state.
+- Panel renderers live under `src/settings-panels/` and `src/confirmation-panels/`, with stable barrel exports kept in `src/settings-status-panels.ts` and `src/confirmation-panel.ts`.
+- React-owned handlers now drive live shell, URL, settings, confirmation, and nearby-control interactions. The remaining imperative DOM listeners are limited to masked API-key focus behavior and global push-to-talk release/cancel handling.
+- Tauri commands stay behind the explicit async functions in `src/main.ts` and `src/tauri-api.ts`; presentational components do not call backend APIs directly.
 
 ## Local Development
 

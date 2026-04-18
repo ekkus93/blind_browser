@@ -6,7 +6,22 @@ import { renderSettingsPanelSection } from "./shared-controls.ts";
 
 const h = createElement;
 
-export function renderSettingsRemotePlannerPanelNode(state: RemotePlannerPanelState): ReactNode {
+export interface RemotePlannerPanelHandlers {
+  onApiKeyInput?: (value: string) => void;
+  onSaveApiKey?: () => void;
+  onTestApiKey?: () => void;
+  onOpenExternalLink?: (url: string) => void;
+  onEndpointInput?: (value: string) => void;
+  onModelSelect?: (value: string) => void;
+  onLoadModels?: () => void;
+  onSaveSettings?: () => void;
+  onResetSettings?: () => void;
+}
+
+export function renderSettingsRemotePlannerPanelNode(
+  state: RemotePlannerPanelState,
+  handlers?: RemotePlannerPanelHandlers,
+): ReactNode {
   const modelsAreFresh = (state.baseUrl?.trim().length ?? 0) > 0
     && state.loadedModelsEndpoint === state.baseUrl
     && state.availableModels.length > 0;
@@ -41,6 +56,12 @@ export function renderSettingsRemotePlannerPanelNode(state: RemotePlannerPanelSt
           state.isTestingApiKey,
           state.apiKeyReference !== null,
           state.apiKeyTestMessage,
+          {
+            onInput: handlers?.onApiKeyInput,
+            onSave: handlers?.onSaveApiKey,
+            onTest: handlers?.onTestApiKey,
+            onOpenExternalLink: handlers?.onOpenExternalLink,
+          },
         ),
       ),
       h(
@@ -64,7 +85,11 @@ export function renderSettingsRemotePlannerPanelNode(state: RemotePlannerPanelSt
               autoComplete: "off",
               disabled: isConnectionBusy || undefined,
               "aria-disabled": isConnectionBusy ? "true" : undefined,
-              readOnly: true,
+              onChange: handlers?.onEndpointInput
+                ? (event: { currentTarget: { value: string } }) => {
+                  handlers.onEndpointInput?.(event.currentTarget.value);
+                }
+                : undefined,
             }),
           ),
         ),
@@ -102,7 +127,11 @@ export function renderSettingsRemotePlannerPanelNode(state: RemotePlannerPanelSt
                   value: state.model ?? "",
                   disabled: modelDisabled || undefined,
                   "aria-disabled": modelDisabled ? "true" : undefined,
-                  onChange: () => undefined,
+                  onChange: handlers?.onModelSelect
+                    ? (event: { currentTarget: { value: string } }) => {
+                      handlers.onModelSelect?.(event.currentTarget.value);
+                    }
+                    : () => undefined,
                 },
                 ...modelOptions.map((model) => h("option", { value: model, key: model }, model)),
               ),
@@ -114,6 +143,7 @@ export function renderSettingsRemotePlannerPanelNode(state: RemotePlannerPanelSt
                   "data-remote-planner-models-refresh": "true",
                   disabled: loadModelsDisabled || undefined,
                   "aria-disabled": loadModelsDisabled ? "true" : undefined,
+                  onClick: handlers?.onLoadModels,
                 },
                 state.isLoadingModels ? "Loading models..." : "Load models",
               ),
@@ -130,6 +160,7 @@ export function renderSettingsRemotePlannerPanelNode(state: RemotePlannerPanelSt
                 "data-remote-planner-settings-save": "true",
                 disabled: saveSettingsDisabled || undefined,
                 "aria-disabled": saveSettingsDisabled ? "true" : undefined,
+                onClick: handlers?.onSaveSettings,
               },
               state.isSavingConnection ? "Saving..." : "Save settings",
             ),
@@ -141,6 +172,7 @@ export function renderSettingsRemotePlannerPanelNode(state: RemotePlannerPanelSt
                 "data-remote-planner-settings-reset": "true",
                 disabled: resetSettingsDisabled || undefined,
                 "aria-disabled": resetSettingsDisabled ? "true" : undefined,
+                onClick: handlers?.onResetSettings,
               },
               state.isResettingConnection ? "Resetting..." : "Reset to defaults",
             ),

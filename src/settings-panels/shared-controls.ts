@@ -20,6 +20,7 @@ interface SelectControlCardOptions {
   disabled?: boolean;
   dataAttributes: Record<string, string>;
   options: Array<{ value: string; label: string }>;
+  onChange?: (value: string) => void;
 }
 
 interface CheckboxControlCardOptions {
@@ -29,6 +30,7 @@ interface CheckboxControlCardOptions {
   checked: boolean;
   disabled?: boolean;
   dataAttributes?: Record<string, string>;
+  onChange?: (checked: boolean) => void;
 }
 
 export function renderReadOnlySettingText(value: string | number | null): string {
@@ -82,6 +84,7 @@ export function renderSelectControlCard({
   disabled = false,
   dataAttributes,
   options,
+  onChange,
 }: SelectControlCardOptions): ReactNode {
   return h(
     "label",
@@ -96,7 +99,11 @@ export function renderSelectControlCard({
         value: selectedValue,
         disabled: disabled || undefined,
         "aria-disabled": disabled ? "true" : undefined,
-        onChange: () => undefined,
+        onChange: onChange
+          ? (event: { currentTarget: { value: string } }) => {
+            onChange(event.currentTarget.value);
+          }
+          : () => undefined,
         ...dataAttributes,
       },
       ...options.map((option) => h("option", { value: option.value, key: option.value }, option.label)),
@@ -111,6 +118,7 @@ export function renderCheckboxControlCard({
   checked,
   disabled = false,
   dataAttributes = {},
+  onChange,
 }: CheckboxControlCardOptions): ReactNode {
   return h(
     "label",
@@ -124,7 +132,11 @@ export function renderCheckboxControlCard({
       checked: checked || undefined,
       disabled: disabled || undefined,
       "aria-disabled": disabled ? "true" : undefined,
-      readOnly: true,
+      onChange: onChange
+        ? (event: { currentTarget: { checked: boolean } }) => {
+          onChange(event.currentTarget.checked);
+        }
+        : undefined,
       ...dataAttributes,
     }),
   );

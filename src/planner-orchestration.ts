@@ -7,7 +7,7 @@ import {
   type ExecutionOutcome,
   type InvokeFailure,
   type PlannerOutput,
-} from "./tauri-api";
+} from "./tauri-api.ts";
 
 export {
   executePlannerOutput,
@@ -19,7 +19,7 @@ export {
   type InvokeFailure,
   type PlannerOutput,
   type ToolError,
-} from "./tauri-api";
+} from "./tauri-api.ts";
 
 export type AwaitingConfirmationOutcome = Extract<
   ExecutionOutcome,

@@ -21,6 +21,29 @@ import {
 
 const h = createElement;
 
+export interface SettingsGuidancePanelHandlers {
+  onSelectTarget?: (targetId: string) => void;
+  onOpenExternalLink?: (url: string) => void;
+}
+
+export interface ConfirmationSettingsPanelHandlers {
+  onThresholdChange?: (value: number) => void;
+  onClickWithoutConfirmationChange?: (checked: boolean) => void;
+}
+
+export interface OcrThresholdPanelHandlers {
+  onCharThresholdChange?: (value: number) => void;
+  onRegionThresholdChange?: (value: number) => void;
+}
+
+export interface ModelManagementPanelHandlers {
+  onModelsDirInput?: (value: string) => void;
+  onPersistModelsDir?: () => void;
+  onCheckOnStartupChange?: (checked: boolean) => void;
+  onAutoDownloadMissingChange?: (checked: boolean) => void;
+  onDownloadModel?: (kind: "tts" | "asr") => void;
+}
+
 function renderConfirmationThresholdValueText(value: number): string {
   return `${Math.round(value * 100)} percent confidence`;
 }
@@ -65,7 +88,10 @@ export function renderSettingsProviderFailoverPanelNode(state: ProviderFailoverP
   });
 }
 
-export function renderSettingsConfirmationPanelNode(state: ConfirmationSettingsPanelState): ReactNode {
+export function renderSettingsConfirmationPanelNode(
+  state: ConfirmationSettingsPanelState,
+  handlers?: ConfirmationSettingsPanelHandlers,
+): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-confirmation-title",
     title: "Confirmation",
@@ -95,7 +121,11 @@ export function renderSettingsConfirmationPanelNode(state: ConfirmationSettingsP
           "aria-valuetext": renderConfirmationThresholdValueText(state.confirmationConfidenceThreshold),
           disabled: state.isBusy || undefined,
           "aria-disabled": state.isBusy ? "true" : undefined,
-          readOnly: true,
+          onChange: handlers?.onThresholdChange
+            ? (event: { currentTarget: { value: string } }) => {
+              handlers.onThresholdChange?.(Number.parseFloat(event.currentTarget.value));
+            }
+            : undefined,
         }),
       ),
       renderCheckboxControlCard({
@@ -105,6 +135,7 @@ export function renderSettingsConfirmationPanelNode(state: ConfirmationSettingsP
         checked: state.allowClickWithoutConfirmation,
         disabled: state.isBusy,
         dataAttributes: { "data-click-without-confirmation-toggle": "true" },
+        onChange: handlers?.onClickWithoutConfirmationChange,
       }),
       h(
         "div",
@@ -120,7 +151,10 @@ export function renderSettingsConfirmationPanelNode(state: ConfirmationSettingsP
   });
 }
 
-export function renderSettingsOcrThresholdPanelNode(state: OcrThresholdSettingsPanelState): ReactNode {
+export function renderSettingsOcrThresholdPanelNode(
+  state: OcrThresholdSettingsPanelState,
+  handlers?: OcrThresholdPanelHandlers,
+): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-ocr-thresholds-title",
     title: "OCR fallback",
@@ -144,7 +178,11 @@ export function renderSettingsOcrThresholdPanelNode(state: OcrThresholdSettingsP
           value: `${state.sparseTextCharThreshold}`,
           disabled: state.isBusy || undefined,
           "aria-disabled": state.isBusy ? "true" : undefined,
-          readOnly: true,
+          onChange: handlers?.onCharThresholdChange
+            ? (event: { currentTarget: { value: string } }) => {
+              handlers.onCharThresholdChange?.(Number.parseInt(event.currentTarget.value, 10));
+            }
+            : undefined,
         }),
       ),
       h(
@@ -162,14 +200,21 @@ export function renderSettingsOcrThresholdPanelNode(state: OcrThresholdSettingsP
           value: `${state.sparseTextRegionThreshold}`,
           disabled: state.isBusy || undefined,
           "aria-disabled": state.isBusy ? "true" : undefined,
-          readOnly: true,
+          onChange: handlers?.onRegionThresholdChange
+            ? (event: { currentTarget: { value: string } }) => {
+              handlers.onRegionThresholdChange?.(Number.parseInt(event.currentTarget.value, 10));
+            }
+            : undefined,
         }),
       ),
     ),
   });
 }
 
-export function renderSettingsGuidancePanelNode(state: SettingsGuidancePanelState | null): ReactNode {
+export function renderSettingsGuidancePanelNode(
+  state: SettingsGuidancePanelState | null,
+  handlers?: SettingsGuidancePanelHandlers,
+): ReactNode {
   if (!state) {
     return null;
   }
@@ -177,7 +222,7 @@ export function renderSettingsGuidancePanelNode(state: SettingsGuidancePanelStat
   return renderSettingsPanelSection({
     titleId: "settings-guidance-title",
     title: state.title,
-    description: renderTextWithKnownLinkNodes(state.message),
+    description: renderTextWithKnownLinkNodes(state.message, handlers?.onOpenExternalLink),
     eyebrow: "Guidance",
     children: h(
       "div",
@@ -188,6 +233,11 @@ export function renderSettingsGuidancePanelNode(state: SettingsGuidancePanelStat
           type: "button",
           className: "url-open-button",
           "data-settings-target": action.targetId,
+          onClick: handlers?.onSelectTarget
+            ? () => {
+              handlers.onSelectTarget?.(action.targetId);
+            }
+            : undefined,
           key: action.targetId,
         },
         action.label,
@@ -196,7 +246,10 @@ export function renderSettingsGuidancePanelNode(state: SettingsGuidancePanelStat
   });
 }
 
-export function renderSettingsModelManagementPanelNode(state: ModelManagementPanelState): ReactNode {
+export function renderSettingsModelManagementPanelNode(
+  state: ModelManagementPanelState,
+  handlers?: ModelManagementPanelHandlers,
+): ReactNode {
   const ttsDownloadDisabled = state.isDownloadingTts || !state.localTtsDownloadSupported;
   const asrDownloadDisabled = state.isDownloadingAsr || !state.localAsrDownloadSupported;
 
@@ -224,7 +277,12 @@ export function renderSettingsModelManagementPanelNode(state: ModelManagementPan
           "aria-describedby": "settings-models-dir-description",
           disabled: state.isSaving || undefined,
           "aria-disabled": state.isSaving ? "true" : undefined,
-          readOnly: true,
+          onChange: handlers?.onModelsDirInput
+            ? (event: { currentTarget: { value: string } }) => {
+              handlers.onModelsDirInput?.(event.currentTarget.value);
+            }
+            : undefined,
+          onBlur: handlers?.onPersistModelsDir,
         }),
         h(
           "span",
@@ -239,6 +297,7 @@ export function renderSettingsModelManagementPanelNode(state: ModelManagementPan
         checked: state.checkOnStartup,
         disabled: state.isSaving,
         dataAttributes: { "data-model-management-toggle": "check-on-startup" },
+        onChange: handlers?.onCheckOnStartupChange,
       }),
       renderCheckboxControlCard({
         id: "settings-model-auto-download-toggle",
@@ -247,6 +306,7 @@ export function renderSettingsModelManagementPanelNode(state: ModelManagementPan
         checked: state.autoDownloadMissing,
         disabled: state.isSaving,
         dataAttributes: { "data-model-management-toggle": "auto-download-missing" },
+        onChange: handlers?.onAutoDownloadMissingChange,
       }),
       h(
         "div",
@@ -261,6 +321,11 @@ export function renderSettingsModelManagementPanelNode(state: ModelManagementPan
             "data-model-download": "tts",
             disabled: ttsDownloadDisabled || undefined,
             "aria-disabled": ttsDownloadDisabled ? "true" : undefined,
+            onClick: handlers?.onDownloadModel
+              ? () => {
+                handlers.onDownloadModel?.("tts");
+              }
+              : undefined,
           },
           state.isDownloadingTts ? "Downloading..." : (state.localTtsDownloadLabel ?? "Download unavailable"),
         ),
@@ -278,6 +343,11 @@ export function renderSettingsModelManagementPanelNode(state: ModelManagementPan
             "data-model-download": "asr",
             disabled: asrDownloadDisabled || undefined,
             "aria-disabled": asrDownloadDisabled ? "true" : undefined,
+            onClick: handlers?.onDownloadModel
+              ? () => {
+                handlers.onDownloadModel?.("asr");
+              }
+              : undefined,
           },
           state.isDownloadingAsr ? "Downloading..." : (state.localAsrDownloadLabel ?? "Download unavailable"),
         ),

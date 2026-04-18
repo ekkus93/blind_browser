@@ -1,15 +1,15 @@
 import { configureStore, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-import type { AppView, SettingsView } from "./app-shell";
-import type { PanelStates } from "./panel-state";
-import { createInitialPanelStates } from "./panel-state";
+import type { AppView, SettingsView } from "./app-shell.ts";
+import type { PanelStates } from "./panel-state.ts";
+import { createInitialPanelStates } from "./panel-state.ts";
 import {
   applyExecutionOutcomeToUiState,
   createInitialExecutionUiState,
   type ConfirmationSubmissionFailure,
   type ExecutionUiState,
-} from "./planner-orchestration";
-import type { ExecutionOutcome } from "./tauri-api";
+} from "./planner-orchestration.ts";
+import type { ExecutionOutcome } from "./tauri-api.ts";
 
 interface AppShellViewState {
   appView: AppView;

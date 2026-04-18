@@ -1,3 +1,8 @@
+## 2026-04-18T22:54:51Z - GPT-5.4 - Finished the React-owned frontend cleanup plan end to end
+- `src/main.ts` now passes explicit React-owned handlers into the live shell and panel renderers, so runtime URL actions, settings actions, confirmation actions, and shell navigation no longer depend on broad delegated app-root events.
+- `src/dom-seams.test.mjs` now covers shell navigation, settings subpage navigation, URL controls, masked API-key focus behavior, guidance links, and Redux view or panel updates through React-centric element trees and store actions instead of the retired delegated-event seam.
+- Removed the unused broad `registerAppEventHandlers(...)` path plus the old app-shell compatibility exports that only supported panel-root seam code, updated `README.md` and `docs/SPECS.md` with the current React plus Redux architecture, marked the remaining React TODO phases complete, and revalidated with `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features`.
+
 ## 2026-04-18T21:00:29Z - GPT-5.4 - Removed the frontend bundle-size warning by cutting server-render code from the client graph
 - Removed the unused `renderPanelMarkup(...)` helper from `src/confirmation-panel-helpers.ts`, which also let the shared runtime module drop its `react-dom/server` import entirely.
 - Changed `src/app-shell.ts` so the `renderAppShell()` helper used only by `src/app-shell.test.mjs` loads `react-dom/server` lazily instead of importing it into the live browser bundle.
