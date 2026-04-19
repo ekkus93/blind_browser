@@ -8,6 +8,53 @@ import type {
 
 const h = createElement;
 
+type UrlActionIcon = "open" | "read" | "stop" | "previous" | "next";
+
+function renderIcon(icon: UrlActionIcon) {
+  const pathByIcon = {
+    open: "M14 3h7v7a1 1 0 1 1-2 0V6.41l-8.29 8.3a1 1 0 0 1-1.42-1.42L17.59 5H14a1 1 0 1 1 0-2ZM5 5h6a1 1 0 1 1 0 2H6v11h11v-5a1 1 0 1 1 2 0v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z",
+    read: "M8 5.14v13.72a1 1 0 0 0 1.53.85l10.3-6.86a1 1 0 0 0 0-1.7L9.53 4.29A1 1 0 0 0 8 5.14Z",
+    stop: "M7 7h10v10H7z",
+    previous: "M17.71 6.29a1 1 0 0 1 0 1.42L13.41 12l4.3 4.29a1 1 0 1 1-1.42 1.42l-5-5a1 1 0 0 1 0-1.42l5-5a1 1 0 0 1 1.42 0ZM8 6a1 1 0 0 1 1 1v10a1 1 0 1 1-2 0V7a1 1 0 0 1 1-1Z",
+    next: "M6.29 6.29a1 1 0 0 1 1.42 0l5 5a1 1 0 0 1 0 1.42l-5 5a1 1 0 1 1-1.42-1.42L10.59 12l-4.3-4.29a1 1 0 0 1 0-1.42ZM16 6a1 1 0 0 1 1 1v10a1 1 0 1 1-2 0V7a1 1 0 0 1 1-1Z",
+  } as const;
+
+  return h(
+    "svg",
+    {
+      className: "icon-button-glyph",
+      viewBox: "0 0 24 24",
+      "aria-hidden": true,
+      focusable: "false",
+    },
+    h("path", { d: pathByIcon[icon], fill: "currentColor" }),
+  );
+}
+
+function renderUrlActionButton(
+  className: string,
+  dataAttribute: string,
+  label: string,
+  icon: UrlActionIcon,
+  isBusy: boolean,
+  onClick?: () => void,
+) {
+  return h(
+    "button",
+    {
+      type: "button",
+      className,
+      [dataAttribute]: "true",
+      "aria-label": label,
+      title: label,
+      disabled: isBusy || undefined,
+      "aria-disabled": isBusy ? "true" : undefined,
+      onClick,
+    },
+    renderIcon(icon),
+  );
+}
+
 export interface UrlInputPanelHandlers {
   onDraftInput?: (value: string) => void;
   onOpen?: () => void;
@@ -48,40 +95,18 @@ export function renderUrlInputPanelNode(
 
   return h(
     "section",
-    { className: "url-input-panel", "aria-labelledby": "url-input-title" },
-    h(
-      "div",
-      { className: "url-input-copy" },
-      h("p", { className: "url-input-eyebrow" }, "Navigation"),
-      h("h2", { id: "url-input-title" }, "URL input"),
-      h(
-        "p",
-        { className: "url-input-description" },
-        "Stage the next destination here. This keeps the nearby UI ready for direct navigation controls while voice-first command entry remains the primary path.",
-      ),
-      state.currentUrl
-        ? h("p", { className: "url-input-current" }, h("strong", null, "Current URL:"), ` ${state.currentUrl}`)
-        : h("p", { className: "url-input-current" }, "No page URL is loaded yet."),
-      h(
-        "p",
-        { className: "url-input-status", role: "status", "aria-live": "polite", "aria-atomic": "true" },
-        state.hasUnsubmittedChanges
-          ? "Draft URL updated. Open controls can use this value next."
-          : "The field mirrors the current page URL until you edit it.",
-      ),
-      state.error ? h("p", { className: "url-input-error", role: "alert" }, state.error) : null,
-    ),
+    { className: "url-input-panel", "aria-label": "Page navigation" },
     h(
       "div",
       { className: "url-input-actions" },
       h(
-        "label",
-        { className: "url-input-field", htmlFor: "url-input-control" },
-        h("span", { className: "url-input-label" }, "Page URL"),
+        "div",
+        { className: "url-input-row url-input-row-primary" },
         h("input", {
           id: "url-input-control",
           className: "url-input-control",
           "data-url-input": "true",
+          "aria-label": "Page URL",
           type: "url",
           inputMode: "url",
           autoComplete: "url",
@@ -96,12 +121,52 @@ export function renderUrlInputPanelNode(
             }
             : undefined,
         }),
+        renderUrlActionButton(
+          "url-action-button url-open-button",
+          "data-url-open-button",
+          state.isOpening ? "Opening" : "Open",
+          "open",
+          actionsDisabled,
+          handlers?.onOpen,
+        ),
       ),
-      h("button", { type: "button", className: "url-open-button", "data-url-open-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined, onClick: handlers?.onOpen }, state.isOpening ? "Opening..." : "Open"),
-      h("button", { type: "button", className: "url-open-button url-read-button", "data-url-read-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined, onClick: handlers?.onRead }, state.isReading ? "Reading..." : "Read"),
-      h("button", { type: "button", className: "url-open-button url-stop-button", "data-url-stop-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined, onClick: handlers?.onStop }, state.isStopping ? "Stopping..." : "Stop"),
-      h("button", { type: "button", className: "url-open-button url-previous-button", "data-url-previous-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined, onClick: handlers?.onPrevious }, state.isRewinding ? "Previous..." : "Previous"),
-      h("button", { type: "button", className: "url-open-button url-next-button", "data-url-next-button": "true", disabled: actionsDisabled || undefined, "aria-disabled": actionsDisabled ? "true" : undefined, onClick: handlers?.onNext }, state.isAdvancing ? "Next..." : "Next"),
+      h(
+        "div",
+        { className: "url-input-row url-input-row-secondary", role: "group", "aria-label": "Page reading controls" },
+        renderUrlActionButton(
+          "url-action-button url-read-button",
+          "data-url-read-button",
+          state.isReading ? "Reading" : "Read",
+          "read",
+          actionsDisabled,
+          handlers?.onRead,
+        ),
+        renderUrlActionButton(
+          "url-action-button url-stop-button",
+          "data-url-stop-button",
+          state.isStopping ? "Stopping" : "Stop",
+          "stop",
+          actionsDisabled,
+          handlers?.onStop,
+        ),
+        renderUrlActionButton(
+          "url-action-button url-previous-button",
+          "data-url-previous-button",
+          state.isRewinding ? "Moving to previous region" : "Previous",
+          "previous",
+          actionsDisabled,
+          handlers?.onPrevious,
+        ),
+        renderUrlActionButton(
+          "url-action-button url-next-button",
+          "data-url-next-button",
+          state.isAdvancing ? "Moving to next region" : "Next",
+          "next",
+          actionsDisabled,
+          handlers?.onNext,
+        ),
+      ),
+      state.error ? h("p", { className: "url-input-error", role: "alert" }, state.error) : null,
     ),
   );
 }

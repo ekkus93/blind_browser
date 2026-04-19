@@ -4,6 +4,22 @@ import type { PushToTalkPanelState } from "../panel-types.ts";
 
 const h = createElement;
 
+function renderMicrophoneIcon() {
+  return h(
+    "svg",
+    {
+      className: "icon-button-glyph",
+      viewBox: "0 0 24 24",
+      "aria-hidden": true,
+      focusable: "false",
+    },
+    h("path", {
+      d: "M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.93V21h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-2.07A7 7 0 0 1 5 12a1 1 0 1 1 2 0 5 5 0 0 0 10 0Z",
+      fill: "currentColor",
+    }),
+  );
+}
+
 export interface PushToTalkPanelHandlers {
   onPointerDown?: () => void;
 }
@@ -12,46 +28,28 @@ export function renderPushToTalkPanelNode(
   state: PushToTalkPanelState,
   handlers?: PushToTalkPanelHandlers,
 ): ReactNode {
-  const statusCopy = state.isHolding
-    ? "Listening now. Release to transcribe and run the spoken command."
+  const buttonLabel = state.isHolding
+    ? "Release to transcribe"
     : state.isListening && state.isBusy
-      ? "Hands-free listening is active and processing the next spoken command."
+      ? "Listening busy"
       : state.isListening
-        ? "Hands-free listening is active. Say a command, or say stop listening to leave hands-free mode."
+        ? "Hands-free listening active"
         : state.isBusy
-          ? "Processing the captured speech command."
+          ? "Processing speech"
           : state.enabled
-            ? "Hold Space or press and hold the button to speak a command. Say start listening to keep voice input active."
-            : "Push-to-talk is unavailable in the current runtime state.";
-  const buttonLabel = state.isHolding ? "Release to transcribe" : "Hold to talk";
+            ? "Talk"
+            : "Talk unavailable";
 
   return h(
     "section",
-    { className: "push-to-talk-panel", "aria-labelledby": "push-to-talk-title" },
-    h(
-      "div",
-      { className: "push-to-talk-copy" },
-      h("p", { className: "push-to-talk-eyebrow" }, "Voice input"),
-      h("h2", { id: "push-to-talk-title" }, "Push to talk"),
-      h("p", { className: "push-to-talk-status", role: "status" }, statusCopy),
-      state.lastTranscript
-        ? h(
-          "p",
-          { className: "push-to-talk-transcript" },
-          h("strong", null, "Last transcript:"),
-          ` ${state.lastTranscript}`,
-        )
-        : null,
-      state.lastError
-        ? h("p", { className: "push-to-talk-error", role: "alert" }, state.lastError)
-        : null,
-    ),
+    { className: "push-to-talk-panel", "aria-label": "Talk control" },
     h(
       "button",
       {
         type: "button",
         className: `push-to-talk-button${state.isHolding ? " push-to-talk-button-active" : ""}`,
         "data-push-to-talk-button": "true",
+        "aria-label": buttonLabel,
         "aria-pressed": String(state.isHolding),
         disabled: (!state.enabled || state.isBusy || state.isListening) || undefined,
         "aria-disabled": (!state.enabled || state.isBusy || state.isListening) ? "true" : undefined,
@@ -66,7 +64,10 @@ export function renderPushToTalkPanelNode(
           }
           : undefined,
       },
-      buttonLabel,
+      renderMicrophoneIcon(),
     ),
+    state.lastError
+      ? h("span", { className: "sr-only", role: "alert" }, state.lastError)
+      : null,
   );
 }

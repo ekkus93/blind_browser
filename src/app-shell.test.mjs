@@ -13,6 +13,7 @@ test("workspace shell keeps the main page focused on live panels", async () => {
   assert.ok(!html.includes("Speak commands here, then keep moving through listening, reading, and confirmation."));
   assert.ok(!html.includes("Page actions"));
   assert.ok(!html.includes("See what the browser, narration, and listening state are doing right now."));
+  assert.ok(html.includes('data-workspace-control-bar="true"'));
   assert.ok(html.includes('data-panel-root="push-to-talk"'));
   assert.ok(html.includes('data-panel-root="url-input"'));
   assert.ok(html.includes('data-panel-root="status"'));

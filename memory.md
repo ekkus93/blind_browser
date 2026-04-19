@@ -1,3 +1,13 @@
+## 2026-04-19T00:00:21Z - GPT-5.4 - Workspace controls now use icon-first navigation and a square Talk button
+- Converted the workspace `Open` action in `src/settings-panels/workspace.ts` from a text button to an icon button so the entire URL control strip now uses the same compact icon-button language for navigation actions.
+- Updated `src/styles.css` so the Talk control is square, sized from the workspace control-bar column, and renders its microphone glyph at roughly 75 percent of the button size instead of the shared small icon size.
+- Kept the compact workspace layout validated end to end by updating `src/confirmation-panel.test.mjs` and rerunning `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features`.
+
+## 2026-04-18T23:48:03Z - GPT-5.4 - Workspace controls collapsed into a compact URL-plus-talk bar
+- Reworked the workspace area in `src/app-shell.ts` so the URL controls and push-to-talk control now sit in a single `workspace-control-bar`, with status and confirmation panels kept below.
+- Removed the visible `Voice input`, `Push to talk`, `Navigation`, `URL input`, current-URL helper text, and related filler copy from the live workspace panels in `src/confirmation-panels/push-to-talk.ts` and `src/settings-panels/workspace.ts`.
+- The URL block now renders as two rows with the text URL/Open row above icon-only Read, Stop, Previous, and Next controls, while Talk is a full-height icon button beside it; revalidated with `pnpm lint` and `pnpm test:ui`.
+
 ## 2026-04-18T23:32:49Z - GPT-5.4 - Workspace header reduced to a single settings icon action
 - Removed the remaining workspace hero copy and heading from `src/app-shell.ts`, so the main page now opens directly on the live voice, page, and status controls.
 - Replaced the old `Workspace`/`Settings` text navigation with a single top-right settings gear on the workspace view plus a matching back-to-workspace icon on the settings overview, while keeping the deeper settings-subpage back arrow behavior unchanged.

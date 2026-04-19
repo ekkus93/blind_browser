@@ -293,7 +293,7 @@ test("renders the exact backend metadata block for retryable and non-retryable e
   assert.doesNotMatch(transportHtml, /confirmation-error-meta-block/);
 });
 
-test("renders push-to-talk instructions and button label for the idle state", () => {
+test("renders a compact talk icon button for the idle state", () => {
   const html = renderPushToTalkPanel({
     enabled: true,
     isHolding: false,
@@ -303,15 +303,13 @@ test("renders push-to-talk instructions and button label for the idle state", ()
     lastError: null,
   });
 
-  assert.match(
-    html,
-    /Hold Space or press and hold the button to speak a command\. Say start listening to keep voice input active\./,
-  );
-  assert.match(html, /Hold to talk/);
+  assert.match(html, /aria-label="Talk"/);
   assert.match(html, /data-push-to-talk-button="true"/);
+  assert.doesNotMatch(html, /Voice input/);
+  assert.doesNotMatch(html, /Push to talk/);
 });
 
-test("renders hands-free listening copy when continuous voice input is active", () => {
+test("disables the talk button during hands-free listening", () => {
   const html = renderPushToTalkPanel({
     enabled: true,
     isHolding: false,
@@ -321,12 +319,11 @@ test("renders hands-free listening copy when continuous voice input is active", 
     lastError: null,
   });
 
-  assert.match(html, /Hands-free listening is active\. Say a command, or say stop listening to leave hands-free mode\./);
-  assert.match(html, /Last transcript:<\/strong> start listening/);
+  assert.match(html, /aria-label="Hands-free listening active"/);
   assert.match(html, /disabled aria-disabled="true"/);
 });
 
-test("renders hands-free listening busy copy while processing the next spoken command", () => {
+test("disables the talk button while processing the next spoken command", () => {
   const html = renderPushToTalkPanel({
     enabled: true,
     isHolding: false,
@@ -336,11 +333,11 @@ test("renders hands-free listening busy copy while processing the next spoken co
     lastError: null,
   });
 
-  assert.match(html, /Hands-free listening is active and processing the next spoken command\./);
+  assert.match(html, /aria-label="Listening busy"/);
   assert.match(html, /disabled aria-disabled="true"/);
 });
 
-test("renders push-to-talk transcript and active button state while holding", () => {
+test("renders the talk button active while holding", () => {
   const html = renderPushToTalkPanel({
     enabled: true,
     isHolding: true,
@@ -350,10 +347,8 @@ test("renders push-to-talk transcript and active button state while holding", ()
     lastError: null,
   });
 
-  assert.match(html, /Listening now\. Release to transcribe and run the spoken command\./);
-  assert.match(html, /Release to transcribe/);
+  assert.match(html, /aria-label="Release to transcribe"/);
   assert.match(html, /push-to-talk-button-active/);
-  assert.match(html, /Last transcript:<\/strong> open example dot com/);
 });
 
 test("renders push-to-talk errors when voice input fails", () => {
@@ -457,22 +452,20 @@ test("renders URL input with current URL and staged draft value", () => {
     error: null,
   });
 
-  assert.match(html, /URL input/);
-  assert.match(html, /Current URL:<\/strong> https:\/\/current\.example\.com/);
-  assert.match(html, /Draft URL updated\. Open controls can use this value next\./);
   assert.match(html, /data-url-input="true"/);
   assert.match(html, /data-url-open-button="true"/);
   assert.match(html, /data-url-read-button="true"/);
   assert.match(html, /data-url-stop-button="true"/);
   assert.match(html, /data-url-previous-button="true"/);
   assert.match(html, /data-url-next-button="true"/);
-  assert.match(html, />\s*Open\s*<\/button>/);
-  assert.match(html, />\s*Read\s*<\/button>/);
-  assert.match(html, />\s*Stop\s*<\/button>/);
-  assert.match(html, />\s*Previous\s*<\/button>/);
-  assert.match(html, />\s*Next\s*<\/button>/);
+  assert.match(html, /aria-label="Open"/);
+  assert.match(html, /aria-label="Read"/);
+  assert.match(html, /aria-label="Stop"/);
+  assert.match(html, /aria-label="Previous"/);
+  assert.match(html, /aria-label="Next"/);
   assert.match(html, /value="https:\/\/staged\.example\.com"/);
-  assert.match(html, /role="status" aria-live="polite" aria-atomic="true"/);
+  assert.doesNotMatch(html, /URL input/);
+  assert.doesNotMatch(html, /No page URL is loaded yet\./);
 });
 
 test("renders URL input fallback copy when no page is loaded", () => {
@@ -488,9 +481,8 @@ test("renders URL input fallback copy when no page is loaded", () => {
     error: null,
   });
 
-  assert.match(html, /No page URL is loaded yet\./);
-  assert.match(html, /The field mirrors the current page URL until you edit it\./);
   assert.match(html, /placeholder="https:\/\/example\.com"/);
+  assert.match(html, /aria-label="Page URL"/);
 });
 
 test("renders URL input busy and error states while opening", () => {
@@ -506,7 +498,7 @@ test("renders URL input busy and error states while opening", () => {
     error: "The browser could not open that URL.",
   });
 
-  assert.match(html, /Opening\.\.\./);
+  assert.match(html, /aria-label="Opening"/);
   assert.match(html, /The browser could not open that URL\./);
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /role="alert"/);
@@ -525,7 +517,7 @@ test("renders URL input busy state while starting page reading", () => {
     error: null,
   });
 
-  assert.match(html, /Reading\.\.\./);
+  assert.match(html, /aria-label="Reading"/);
   assert.match(html, /disabled aria-disabled="true"/);
 });
 
@@ -542,7 +534,7 @@ test("renders URL input busy state while stopping page reading", () => {
     error: null,
   });
 
-  assert.match(html, /Stopping\.\.\./);
+  assert.match(html, /aria-label="Stopping"/);
   assert.match(html, /disabled aria-disabled="true"/);
 });
 
@@ -559,7 +551,7 @@ test("renders URL input busy state while moving to the next reading region", () 
     error: null,
   });
 
-  assert.match(html, /Next\.\.\./);
+  assert.match(html, /aria-label="Moving to next region"/);
   assert.match(html, /disabled aria-disabled="true"/);
 });
 
@@ -630,7 +622,7 @@ test("renders URL input busy state while moving to the previous reading region",
     error: null,
   });
 
-  assert.match(html, /Previous\.\.\./);
+  assert.match(html, /aria-label="Moving to previous region"/);
   assert.match(html, /disabled aria-disabled="true"/);
 });
 
