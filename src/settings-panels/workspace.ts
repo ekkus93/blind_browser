@@ -180,6 +180,7 @@ export function renderStatusPanelNode(
   const transcript = state.lastTranscript ?? "No spoken command captured yet";
   const visiblePressed = state.browserVisibility === "Visible";
   const headlessPressed = state.browserVisibility === "Headless";
+  const isFirstLoad = state.pageTitle == null;
 
   return h(
     "section",
@@ -189,34 +190,39 @@ export function renderStatusPanelNode(
       { className: "status-panel-copy" },
       h("p", { className: "status-panel-eyebrow" }, "Runtime status"),
       h("h2", { id: "status-panel-title" }, "Current browser state"),
-      h("p", { className: "status-panel-description" }, "This panel mirrors the live runtime so the nearby UI stays aligned with what the browser, narration, and listening tools are doing right now."),
       state.error ? h("p", { className: "status-panel-error", role: "alert" }, state.error) : null,
     ),
-    h(
-      "dl",
-      { className: "status-panel-grid" },
-      h("div", { className: "status-card status-card-wide" }, h("dt", null, "Page title"), h("dd", null, title)),
-      h("div", { className: "status-card" }, h("dt", null, "Current region"), h("dd", { "aria-live": "polite", "aria-atomic": "true" }, region)),
-      h("div", { className: "status-card status-card-wide status-card-transcript" }, h("dt", null, "Last transcript"), h("dd", { "aria-live": "polite", "aria-atomic": "true" }, transcript)),
-      h("div", { className: "status-card" }, h("dt", null, "Listening"), h("dd", null, h("span", { className: `status-indicator${state.listening ? " status-indicator-active" : ""}`, role: "status", "aria-live": "polite", "aria-atomic": "true" }, state.listening ? "Active" : "Idle"))),
-      h("div", { className: "status-card" }, h("dt", null, "Speaking"), h("dd", null, h("span", { className: `status-indicator${state.speaking ? " status-indicator-active" : ""}`, role: "status", "aria-live": "polite", "aria-atomic": "true" }, state.speaking ? "Active" : "Idle"))),
-      h(
-        "div",
-        { className: "status-card" },
-        h("dt", null, "Browser mode"),
+    isFirstLoad
+      ? h(
+        "p",
+        { className: "status-panel-empty", "aria-live": "polite" },
+        "Hold the Talk button and say a URL or command to get started.",
+      )
+      : h(
+        "dl",
+        { className: "status-panel-grid" },
+        h("div", { className: "status-card status-card-wide" }, h("dt", null, "Page title"), h("dd", null, title)),
+        h("div", { className: "status-card" }, h("dt", null, "Current region"), h("dd", { "aria-live": "polite", "aria-atomic": "true" }, region)),
+        h("div", { className: "status-card status-card-wide status-card-transcript" }, h("dt", null, "Last transcript"), h("dd", { "aria-live": "polite", "aria-atomic": "true" }, transcript)),
+        h("div", { className: "status-card" }, h("dt", null, "Listening"), h("dd", null, h("span", { className: `status-indicator${state.listening ? " status-indicator-active" : ""}`, role: "status", "aria-live": "polite", "aria-atomic": "true" }, state.listening ? "Active" : "Idle"))),
+        h("div", { className: "status-card" }, h("dt", null, "Speaking"), h("dd", null, h("span", { className: `status-indicator${state.speaking ? " status-indicator-active" : ""}`, role: "status", "aria-live": "polite", "aria-atomic": "true" }, state.speaking ? "Active" : "Idle"))),
         h(
-          "dd",
-          null,
-          h("span", { className: "status-mode-label", role: "status", "aria-live": "polite", "aria-atomic": "true" }, state.browserVisibility),
+          "div",
+          { className: "status-card" },
+          h("dt", null, "Browser mode"),
           h(
-            "div",
-            { className: "status-toggle-group", role: "group", "aria-label": "Browser visibility mode" },
-            h("button", { type: "button", className: `status-toggle-button${visiblePressed ? " status-toggle-button-active" : ""}`, "data-browser-visibility-mode": "Visible", "aria-label": "Browser visibility mode: Visible", "aria-pressed": String(visiblePressed), disabled: state.isUpdatingVisibility || undefined, "aria-disabled": state.isUpdatingVisibility ? "true" : undefined, onClick: handlers?.onSetBrowserVisibility ? () => { handlers.onSetBrowserVisibility?.("Visible"); } : undefined }, "Visible"),
-            h("button", { type: "button", className: `status-toggle-button${headlessPressed ? " status-toggle-button-active" : ""}`, "data-browser-visibility-mode": "Headless", "aria-label": "Browser visibility mode: Headless", "aria-pressed": String(headlessPressed), disabled: state.isUpdatingVisibility || undefined, "aria-disabled": state.isUpdatingVisibility ? "true" : undefined, onClick: handlers?.onSetBrowserVisibility ? () => { handlers.onSetBrowserVisibility?.("Headless"); } : undefined }, "Headless"),
+            "dd",
+            null,
+            h("span", { className: "status-mode-label", role: "status", "aria-live": "polite", "aria-atomic": "true" }, state.browserVisibility),
+            h(
+              "div",
+              { className: "status-toggle-group", role: "group", "aria-label": "Browser visibility mode" },
+              h("button", { type: "button", className: `status-toggle-button${visiblePressed ? " status-toggle-button-active" : ""}`, "data-browser-visibility-mode": "Visible", "aria-label": "Browser visibility mode: Visible", "aria-pressed": String(visiblePressed), disabled: state.isUpdatingVisibility || undefined, "aria-disabled": state.isUpdatingVisibility ? "true" : undefined, onClick: handlers?.onSetBrowserVisibility ? () => { handlers.onSetBrowserVisibility?.("Visible"); } : undefined }, "Visible"),
+              h("button", { type: "button", className: `status-toggle-button${headlessPressed ? " status-toggle-button-active" : ""}`, "data-browser-visibility-mode": "Headless", "aria-label": "Browser visibility mode: Headless", "aria-pressed": String(headlessPressed), disabled: state.isUpdatingVisibility || undefined, "aria-disabled": state.isUpdatingVisibility ? "true" : undefined, onClick: handlers?.onSetBrowserVisibility ? () => { handlers.onSetBrowserVisibility?.("Headless"); } : undefined }, "Headless"),
+            ),
           ),
         ),
+        h("div", { className: "status-card" }, h("dt", null, "History"), h("dd", null, `Back: ${state.canGoBack ? "Available" : "Unavailable"}. Forward: ${state.canGoForward ? "Available" : "Unavailable"}.`)),
       ),
-      h("div", { className: "status-card" }, h("dt", null, "History"), h("dd", null, `Back: ${state.canGoBack ? "Available" : "Unavailable"}. Forward: ${state.canGoForward ? "Available" : "Unavailable"}.`)),
-    ),
   );
 }

@@ -66,6 +66,20 @@ export function renderPushToTalkPanelNode(
       },
       renderMicrophoneIcon(),
     ),
+    h(
+      "p",
+      {
+        className: "push-to-talk-hint",
+        "aria-hidden": "true",
+      },
+      state.isHolding
+        ? "Release to transcribe"
+        : state.isListening
+          ? "Listening…"
+          : state.isBusy
+            ? "Processing…"
+            : "Hold to talk",
+    ),
     state.lastError
       ? h("span", { className: "sr-only", role: "alert" }, state.lastError)
       : null,

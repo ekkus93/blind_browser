@@ -1309,9 +1309,8 @@ test("renders status panel fallbacks and errors when runtime sync fails", () => 
     error: "The runtime state could not be loaded.",
   });
 
-  assert.match(html, /No page open yet/);
-  assert.match(html, /No current region/);
-  assert.match(html, /No spoken command captured yet/);
+  assert.match(html, /Hold the Talk button/);
+  assert.ok(!html.includes("No page open yet"), "first-load state hides status grid");
   assert.match(html, /The runtime state could not be loaded\./);
   assert.match(html, /role="alert"/);
 });

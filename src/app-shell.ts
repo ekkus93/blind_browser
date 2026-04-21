@@ -238,8 +238,8 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
       h(
         "div",
         { className: "workspace-control-bar", "data-workspace-control-bar": "true" },
-        renderPanelContent("url-input", panelContent),
         renderPanelContent("push-to-talk", panelContent),
+        renderPanelContent("url-input", panelContent),
       ),
       renderPanelContent("status", panelContent),
       renderPanelContent("confirmation-panel", panelContent),
