@@ -5,6 +5,14 @@
     radial-gradient(circle at top left, rgba(35, 103, 161, 0.18), transparent 32%),
     linear-gradient(180deg, #f7f4ec 0%, #ece4d5 100%);
   color: #1d1a16;
+
+  /* Design tokens */
+  --card-border: 1px solid rgba(123, 98, 70, 0.16);
+  --inner-card-border: 1px solid rgba(123, 98, 70, 0.12);
+  --eyebrow-color: #7b6246;
+  --btn-nav-start: #5a5048;
+  --btn-nav-end: #7a6860;
+  --btn-nav-shadow: rgba(90, 80, 72, 0.18);
 }
 
 * {
@@ -280,7 +288,7 @@ h1 {
   border: none;
   border-radius: 18px;
   background: rgba(255, 252, 247, 0.9);
-  border: 1px solid rgba(32, 88, 56, 0.18);
+  border: var(--card-border);
   box-shadow: 0 18px 36px rgba(49, 63, 74, 0.08);
   background: linear-gradient(135deg, #29583f, #1f7f5c);
   color: #fffdf8;
@@ -312,7 +320,7 @@ h1 {
   padding: 22px 24px;
   border-radius: 22px;
   background: rgba(255, 252, 247, 0.9);
-  border: 1px solid rgba(110, 74, 24, 0.18);
+  border: var(--card-border);
   box-shadow: 0 18px 36px rgba(49, 63, 74, 0.08);
 }
 
@@ -380,13 +388,13 @@ h1 {
 }
 
 .url-open-button {
-  background: linear-gradient(135deg, #7a5727, #9a6c2d);
-  box-shadow: 0 12px 24px rgba(122, 87, 39, 0.2);
+  background: linear-gradient(135deg, #29583f, #1f7f5c);
+  box-shadow: 0 12px 24px rgba(31, 127, 92, 0.18);
 }
 
 .url-open-button:hover:not(:disabled),
 .url-open-button:focus-visible {
-  box-shadow: 0 16px 28px rgba(122, 87, 39, 0.24);
+  box-shadow: 0 16px 28px rgba(31, 127, 92, 0.24);
 }
 
 .url-read-button {
@@ -436,23 +444,23 @@ h1 {
 }
 
 .url-previous-button {
-  background: linear-gradient(135deg, #4e4f88, #6b66b3);
-  box-shadow: 0 12px 24px rgba(107, 102, 179, 0.18);
+  background: linear-gradient(135deg, var(--btn-nav-start), var(--btn-nav-end));
+  box-shadow: 0 12px 24px var(--btn-nav-shadow);
 }
 
 .url-previous-button:hover:not(:disabled),
 .url-previous-button:focus-visible {
-  box-shadow: 0 16px 28px rgba(107, 102, 179, 0.24);
+  box-shadow: 0 16px 28px var(--btn-nav-shadow);
 }
 
 .url-next-button {
-  background: linear-gradient(135deg, #1f5b7a, #28779f);
-  box-shadow: 0 12px 24px rgba(40, 119, 159, 0.18);
+  background: linear-gradient(135deg, var(--btn-nav-start), var(--btn-nav-end));
+  box-shadow: 0 12px 24px var(--btn-nav-shadow);
 }
 
 .url-next-button:hover:not(:disabled),
 .url-next-button:focus-visible {
-  box-shadow: 0 16px 28px rgba(40, 119, 159, 0.24);
+  box-shadow: 0 16px 28px var(--btn-nav-shadow);
 }
 
 .status-panel {
@@ -460,7 +468,7 @@ h1 {
   padding: 22px 24px;
   border-radius: 22px;
   background: rgba(255, 252, 247, 0.9);
-  border: 1px solid rgba(123, 98, 70, 0.18);
+  border: var(--card-border);
   box-shadow: 0 18px 36px rgba(49, 63, 74, 0.08);
 }
 
@@ -604,7 +612,7 @@ h1 {
   padding: 22px 24px;
   border-radius: 22px;
   background: rgba(255, 252, 247, 0.9);
-  border: 1px solid rgba(28, 88, 113, 0.18);
+  border: var(--card-border);
   box-shadow: 0 18px 36px rgba(49, 63, 74, 0.08);
 }
 
@@ -617,7 +625,7 @@ h1 {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   font-size: 0.76rem;
-  color: #1c5871;
+  color: var(--eyebrow-color);
 }
 
 .audio-controls-panel h2 {
@@ -652,7 +660,7 @@ h1 {
   padding: 16px 18px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.68);
-  border: 1px solid rgba(28, 88, 113, 0.12);
+  border: var(--inner-card-border);
 }
 
 .audio-control-label,
@@ -681,7 +689,7 @@ h1 {
   padding: 22px 24px;
   border-radius: 22px;
   background: rgba(255, 252, 247, 0.9);
-  border: 1px solid rgba(41, 88, 63, 0.18);
+  border: var(--card-border);
   box-shadow: 0 18px 36px rgba(49, 63, 74, 0.08);
 }
 
@@ -694,7 +702,7 @@ h1 {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   font-size: 0.76rem;
-  color: #29583f;
+  color: var(--eyebrow-color);
 }
 
 .settings-panel h2 {
@@ -927,9 +935,9 @@ h1 {
   padding: 24px;
   border-radius: 22px;
   background:
-    linear-gradient(135deg, rgba(28, 88, 113, 0.14), rgba(255, 252, 247, 0.92)),
-    rgba(255, 252, 247, 0.92);
-  border: 1px solid rgba(28, 88, 113, 0.22);
+    linear-gradient(135deg, rgba(28, 88, 113, 0.08), rgba(255, 252, 247, 0.96)),
+    rgba(255, 252, 247, 0.96);
+  border: var(--card-border);
   box-shadow: 0 18px 36px rgba(49, 63, 74, 0.12);
 }
 
@@ -942,7 +950,7 @@ h1 {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   font-size: 0.76rem;
-  color: #1c5871;
+  color: var(--eyebrow-color);
 }
 
 .confirmation-panel h2 {
@@ -1090,7 +1098,7 @@ h1 {
   padding: 14px 16px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.68);
-  border: 1px solid rgba(28, 88, 113, 0.14);
+  border: var(--inner-card-border);
 }
 
 .confirmation-meta dt,
@@ -1188,12 +1196,6 @@ h1 {
   padding-left: 18px;
   color: #2c3233;
   line-height: 1.5;
-}
-
-.confirmation-note {
-  margin-top: 18px;
-  color: #4b443b;
-  line-height: 1.6;
 }
 
 @media (max-width: 640px) {

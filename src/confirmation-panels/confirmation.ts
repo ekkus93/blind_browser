@@ -139,10 +139,5 @@ export function renderConfirmationPanelNode(
         "Reject action",
       ),
     ),
-    h(
-      "p",
-      { className: "confirmation-note" },
-      "The frontend can now present approve or reject controls against this state and send the user response back through the Tauri confirmation command.",
-    ),
   );
 }
