@@ -204,8 +204,6 @@ export function renderStatusPanelNode(
         h("div", { className: "status-card status-card-wide" }, h("dt", null, "Page title"), h("dd", null, title)),
         h("div", { className: "status-card" }, h("dt", null, "Current region"), h("dd", { "aria-live": "polite", "aria-atomic": "true" }, region)),
         h("div", { className: "status-card status-card-wide status-card-transcript" }, h("dt", null, "Last transcript"), h("dd", { "aria-live": "polite", "aria-atomic": "true" }, transcript)),
-        h("div", { className: "status-card" }, h("dt", null, "Listening"), h("dd", null, h("span", { className: `status-indicator${state.listening ? " status-indicator-active" : ""}`, role: "status", "aria-live": "polite", "aria-atomic": "true" }, state.listening ? "Active" : "Idle"))),
-        h("div", { className: "status-card" }, h("dt", null, "Speaking"), h("dd", null, h("span", { className: `status-indicator${state.speaking ? " status-indicator-active" : ""}`, role: "status", "aria-live": "polite", "aria-atomic": "true" }, state.speaking ? "Active" : "Idle"))),
         h(
           "div",
           { className: "status-card" },

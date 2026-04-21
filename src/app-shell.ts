@@ -1,6 +1,6 @@
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
-import { Button, CssBaseline, IconButton } from "@mui/material";
+import { CssBaseline, IconButton } from "@mui/material";
 import { StyledEngineProvider, ThemeProvider, createTheme } from "@mui/material/styles";
 import { createElement, type ComponentProps, type ReactNode } from "react";
 
@@ -23,7 +23,8 @@ export type PanelRootKey =
   | "settings-local-tts-model"
   | "settings-remote-tts"
   | "settings-tts-voice"
-  | "confirmation-panel";
+  | "confirmation-panel"
+  | "voice-status";
 
 export type AppView = "workspace" | "settings";
 export type SettingsView = "overview" | "planner" | "tts" | "asr" | "runtime";
@@ -66,7 +67,6 @@ type DataAttributes = {
   [key: `data-${string}`]: string;
 };
 
-type ButtonWithDataProps = ComponentProps<typeof Button> & DataAttributes;
 type IconButtonWithDataProps = ComponentProps<typeof IconButton> & DataAttributes;
 export type AppShellPanelContent = Partial<Record<PanelRootKey, ReactNode>>;
 
@@ -175,33 +175,23 @@ function renderSettingsSubpageLink(
   label: string,
   handlers?: AppShellNavigationHandlers,
 ) {
-  const buttonProps: ButtonWithDataProps = {
-    type: "button",
-    className: "settings-subpage-link",
-    variant: "text",
-    disableRipple: true,
-    "data-settings-view-button": view,
-    sx: {
-      justifyContent: "flex-start",
-      minWidth: 0,
-      p: 0,
-    },
-  };
-
-  if (handlers?.onSettingsViewSelect) {
-    buttonProps.onClick = () => {
+  const handleClick = handlers?.onSettingsViewSelect
+    ? () => {
       handlers.onSettingsViewSelect?.(view);
-    };
-  }
+    }
+    : undefined;
 
   return h(
-    "div",
-    { className: "settings-subpage-card" },
-    h(
-      Button,
-      buttonProps,
-      label,
-    ),
+    "button",
+    {
+      type: "button",
+      className: "settings-subpage-card",
+      "data-settings-view-button": view,
+      onClick: handleClick,
+      "aria-label": label,
+    },
+    h("span", { className: "settings-subpage-card-label" }, label),
+    h("span", { className: "settings-subpage-card-chevron", "aria-hidden": "true" }, "›"),
   );
 }
 
@@ -226,6 +216,7 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
       { className: "shell-toolbar" },
       showAppViewAction ? renderAppViewActionButton(initialAppView, navigationHandlers) : null,
       renderSettingsSubpageBackButton(showBackButton, navigationHandlers),
+      renderPanelContent("voice-status", panelContent),
     ),
     h(
       "section",
@@ -348,7 +339,6 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
         h(
           "section",
           { className: "hero hero-settings hero-settings-subpage" },
-          h("p", { className: "settings-group-eyebrow" }, "Command interpretation"),
           h("h2", null, "Planner setup"),
         ),
         renderPanelContent("settings-remote-planner", panelContent),
@@ -364,7 +354,6 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
         h(
           "section",
           { className: "hero hero-settings hero-settings-subpage" },
-          h("p", { className: "settings-group-eyebrow" }, "Speech output"),
           h("h2", null, "TTS setup"),
         ),
         renderPanelContent("settings-tts-provider", panelContent),
@@ -384,7 +373,6 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
         h(
           "section",
           { className: "hero hero-settings hero-settings-subpage" },
-          h("p", { className: "settings-group-eyebrow" }, "Speech input"),
           h("h2", null, "ASR setup"),
         ),
         renderPanelContent("settings-asr-provider", panelContent),
@@ -402,7 +390,6 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
         h(
           "section",
           { className: "hero hero-settings hero-settings-subpage" },
-          h("p", { className: "settings-group-eyebrow" }, "Runtime behavior"),
           h("h2", null, "Runtime setup"),
         ),
         renderPanelContent("settings-model-management", panelContent),

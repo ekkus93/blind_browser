@@ -39,6 +39,7 @@ import {
   renderAudioControlsPanelNode,
   renderConfirmationPanelNode,
   renderPushToTalkPanelNode,
+  renderVoiceStatusStripNode,
   renderSettingsAsrProviderPanelNode,
   renderSettingsConfirmationPanelNode,
   renderSettingsGuidancePanelNode,
@@ -230,6 +231,11 @@ function BlindBrowserApp() {
       onSettingsViewSelect: setSettingsView,
     },
     panelContent: {
+      "voice-status": renderVoiceStatusStripNode({
+        isListening: panelStates.pushToTalkState.isListening,
+        isSpeaking: panelStates.statusPanelState.speaking,
+        isProcessing: panelStates.pushToTalkState.isBusy,
+      }),
       "push-to-talk": renderPushToTalkPanelNode(panelStates.pushToTalkState, {
         onPointerDown: () => {
           void beginPushToTalk("pointer");

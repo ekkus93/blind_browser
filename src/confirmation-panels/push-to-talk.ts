@@ -20,6 +20,52 @@ function renderMicrophoneIcon() {
   );
 }
 
+export interface VoiceStatusStripState {
+  isListening: boolean;
+  isSpeaking: boolean;
+  isProcessing: boolean;
+}
+
+type VoiceState = "idle" | "listening" | "speaking" | "processing";
+
+function deriveVoiceState(state: VoiceStatusStripState): VoiceState {
+  if (state.isListening) {
+    return "listening";
+  }
+  if (state.isSpeaking) {
+    return "speaking";
+  }
+  if (state.isProcessing) {
+    return "processing";
+  }
+  return "idle";
+}
+
+const VOICE_STATE_LABEL: Record<VoiceState, string> = {
+  idle: "Ready",
+  listening: "Listening",
+  speaking: "Speaking",
+  processing: "Processing",
+};
+
+export function renderVoiceStatusStripNode(state: VoiceStatusStripState): ReactNode {
+  const voiceState = deriveVoiceState(state);
+  const label = VOICE_STATE_LABEL[voiceState];
+  return h(
+    "div",
+    {
+      className: "voice-status-strip",
+      "data-voice-state": voiceState,
+      role: "status",
+      "aria-live": "polite",
+      "aria-atomic": "true",
+      "aria-label": `Voice state: ${label}`,
+    },
+    h("span", { className: "voice-status-dot", "aria-hidden": "true" }),
+    h("span", { className: "voice-status-label" }, label),
+  );
+}
+
 export interface PushToTalkPanelHandlers {
   onPointerDown?: () => void;
 }

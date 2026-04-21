@@ -23,6 +23,7 @@ import {
   renderStatusPanelNode,
   statusPanelStateFromAgentState,
   renderUrlInputPanelNode,
+  renderVoiceStatusStripNode,
 } from "./confirmation-panel.ts";
 
 const VOID_ELEMENTS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
@@ -1256,8 +1257,6 @@ test("renders runtime status details from agent state", () => {
   assert.match(html, /Region 3/);
   assert.match(html, /Last transcript/);
   assert.match(html, /open example dot com/);
-  assert.match(html, /Listening/);
-  assert.match(html, /Active/);
   assert.match(html, /Browser mode/);
   assert.match(html, /Headless/);
   assert.match(html, /data-browser-visibility-mode="Visible"/);
@@ -1332,3 +1331,36 @@ test("disables browser visibility toggle buttons while visibility changes are in
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /status-toggle-button-active/);
 });
+
+test("voice status strip renders idle state by default", () => {
+  const html = renderNodeMarkup(renderVoiceStatusStripNode({ isListening: false, isSpeaking: false, isProcessing: false }));
+  assert.match(html, /voice-status-strip/);
+  assert.match(html, /data-voice-state="idle"/);
+  assert.match(html, /Ready/);
+  assert.match(html, /role="status"/);
+  assert.match(html, /aria-live="polite"/);
+});
+
+test("voice status strip shows Listening state", () => {
+  const html = renderNodeMarkup(renderVoiceStatusStripNode({ isListening: true, isSpeaking: false, isProcessing: false }));
+  assert.match(html, /data-voice-state="listening"/);
+  assert.match(html, /Listening/);
+});
+
+test("voice status strip shows Speaking state", () => {
+  const html = renderNodeMarkup(renderVoiceStatusStripNode({ isListening: false, isSpeaking: true, isProcessing: false }));
+  assert.match(html, /data-voice-state="speaking"/);
+  assert.match(html, /Speaking/);
+});
+
+test("voice status strip shows Processing state", () => {
+  const html = renderNodeMarkup(renderVoiceStatusStripNode({ isListening: false, isSpeaking: false, isProcessing: true }));
+  assert.match(html, /data-voice-state="processing"/);
+  assert.match(html, /Processing/);
+});
+
+test("voice status strip prioritises Listening over Speaking when both active", () => {
+  const html = renderNodeMarkup(renderVoiceStatusStripNode({ isListening: true, isSpeaking: true, isProcessing: false }));
+  assert.match(html, /data-voice-state="listening"/);
+});
+

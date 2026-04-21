@@ -32,8 +32,8 @@ export function renderConfirmationPanelNode(
       "div",
       { className: "confirmation-copy" },
       h("p", { className: "confirmation-eyebrow" }, "Awaiting confirmation"),
-      h("h2", { id: "confirmation-title" }, "User approval is required before the next action runs."),
-      h("p", { className: "confirmation-prompt" }, state.promptText),
+      h("h2", { id: "confirmation-title" }, "Action requires your approval."),
+      h("p", { className: "confirmation-prompt" }, state.promptText || "Please approve or reject the pending action."),
       state.isSubmitting
         ? h("p", { className: "confirmation-status", role: "status" }, "Submitting response...")
         : null,
@@ -65,41 +65,6 @@ export function renderConfirmationPanelNode(
             : null,
         )
         : null,
-    ),
-    h(
-      "dl",
-      { className: "confirmation-meta" },
-      h("div", null, h("dt", null, "Confirmation ID"), h("dd", null, state.confirmationId)),
-      h("div", null, h("dt", null, "Request ID"), h("dd", null, state.requestId)),
-      h("div", null, h("dt", null, "Next step"), h("dd", null, state.nextStepId ?? "No follow-up step queued.")),
-    ),
-    h(
-      "div",
-      { className: "confirmation-columns" },
-      h(
-        "div",
-        { className: "confirmation-card" },
-        h("h3", null, "Selected skills"),
-        h(
-          "ul",
-          null,
-          ...(state.selectedSkills.length
-            ? state.selectedSkills.map((skill) => h("li", { key: skill }, skill))
-            : [h("li", { key: "empty-skills" }, "No planner skills recorded.")]),
-        ),
-      ),
-      h(
-        "div",
-        { className: "confirmation-card" },
-        h("h3", null, "Queued steps"),
-        h(
-          "ul",
-          null,
-          ...(state.queuedStepIds.length
-            ? state.queuedStepIds.map((stepId) => h("li", { key: stepId }, stepId))
-            : [h("li", { key: "empty-steps" }, "No queued follow-up steps.")]),
-        ),
-      ),
     ),
     h(
       "div",

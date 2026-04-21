@@ -28,7 +28,7 @@ Work in phases so each phase can be validated and committed independently. Later
 
 These are quick, isolated fixes that unblock everything else. Do them first.
 
-### 1.1 Fix font loading — PENDING
+### 1.1 Fix font loading — DONE
 
 The `Fraunces` and `IBM Plex Sans` fonts are referenced in CSS but never loaded. The app silently falls back to Georgia and Segoe UI.
 
@@ -37,7 +37,7 @@ The `Fraunces` and `IBM Plex Sans` fonts are referenced in CSS but never loaded.
 - [ ] Verify both fonts render correctly in a `pnpm dev` run.
 - [ ] Confirm fallback stack still looks acceptable if fonts fail to load.
 
-### 1.2 Remove the developer placeholder note from the confirmation panel — PENDING
+### 1.2 Remove the developer placeholder note from the confirmation panel — DONE
 
 A code comment made it into production: `"The frontend can now present approve or reject controls against this state and send the user response back through the Tauri confirmation command."`
 
@@ -45,7 +45,7 @@ A code comment made it into production: `"The frontend can now present approve o
 - [ ] Delete it entirely — there is no user-facing value in this text.
 - [ ] Update any snapshot or render tests that assert on this text.
 
-### 1.3 Establish a unified panel border color token — PENDING
+### 1.3 Establish a unified panel border color token — DONE
 
 Each panel currently has a different accent color for its border with no semantic meaning. Replace with a single neutral token.
 
@@ -54,7 +54,7 @@ Each panel currently has a different accent color for its border with no semanti
 - [ ] Update `.url-input-panel`, `.status-panel`, `.audio-controls-panel`, `.settings-panel`, and `.confirmation-panel` to all use `var(--card-border)`.
 - [ ] Keep the confirmation panel's blue-tinted background gradient — that's a background, not a border, and adds useful visual distinction for a high-stakes action.
 
-### 1.4 Consolidate URL action button colors — PENDING
+### 1.4 Consolidate URL action button colors — DONE
 
 Five adjacent buttons each have an unrelated gradient color. Collapse to two semantic color roles.
 
@@ -65,7 +65,7 @@ Five adjacent buttons each have an unrelated gradient color. Collapse to two sem
 - [ ] Keep `.url-stop-button` red.
 - [ ] Verify the button row still looks clear and distinguishable after consolidation.
 
-### 1.5 Unify eyebrow text color — PENDING
+### 1.5 Unify eyebrow text color — DONE
 
 Eyebrow labels use different accent colors per panel with no semantic meaning.
 
@@ -79,7 +79,7 @@ Eyebrow labels use different accent colors per panel with no semantic meaning.
 
 This is the highest-impact change. The workspace layout must be rebuilt around voice-first hierarchy.
 
-### 2.1 Audit the current workspace layout — PENDING
+### 2.1 Audit the current workspace layout — DONE
 
 Before touching code, document the exact current DOM structure and CSS layout of the workspace view.
 
@@ -88,7 +88,7 @@ Before touching code, document the exact current DOM structure and CSS layout of
 - [ ] Note what the user sees on first load (no page open state).
 - [ ] Identify all layout breakpoints that will need updating.
 
-### 2.2 Make the push-to-talk button the dominant visual element — PENDING
+### 2.2 Make the push-to-talk button the dominant visual element — DONE
 
 The push-to-talk button must be redesigned from a small square crammed next to the URL bar into the visual centerpiece of the workspace.
 
@@ -101,7 +101,7 @@ The push-to-talk button must be redesigned from a small square crammed next to t
 - [ ] Add a visible text label below or beside the button (e.g., "Hold to talk") so a first-time user immediately understands the affordance. This label should hide when the button is active/listening.
 - [ ] Ensure the button's active (listening) and busy (processing) states are visually distinct — color change is already done, but consider adding a subtle pulse animation for the listening state to give sighted users an ambient cue.
 
-### 2.3 Demote the URL input to secondary position — PENDING
+### 2.3 Demote the URL input to secondary position — DONE
 
 The URL bar is a power-user shortcut. Voice is the primary navigation method. Adjust the visual weight accordingly.
 
@@ -110,7 +110,7 @@ The URL bar is a power-user shortcut. Voice is the primary navigation method. Ad
 - [ ] Ensure the URL input is still reachable by keyboard (Tab order) and screen reader.
 - [ ] On mobile (`max-width: 640px`), the URL panel should stack below the PTT button naturally.
 
-### 2.4 Add a first-load / empty state for the workspace — PENDING
+### 2.4 Add a first-load / empty state for the workspace — DONE
 
 When no page is open, the user sees a blank status card with no guidance. Fix this.
 
@@ -120,7 +120,7 @@ When no page is open, the user sees a blank status card with no guidance. Fix th
 - [ ] Make this instructional copy part of the status panel's copy section, not a separate component.
 - [ ] Ensure the guidance text is read by screen readers on first render.
 
-### 2.5 Reduce heading sizes to utility-appropriate proportions — PENDING
+### 2.5 Reduce heading sizes to utility-appropriate proportions — DONE
 
 Landing-page font sizes waste vertical space in a utility app.
 
@@ -132,7 +132,7 @@ Landing-page font sizes waste vertical space in a utility app.
 
 ## Phase 3 — Persistent header status strip
 
-### 3.1 Design the status strip — PENDING
+### 3.1 Design the status strip — DONE
 
 Define what information the strip shows and how it looks before implementing.
 
@@ -146,7 +146,7 @@ Define what information the strip shows and how it looks before implementing.
 - [ ] The strip should be compact — no taller than 36–40px — so it doesn't eat into workspace space.
 - [ ] Decide placement: either in the existing `shell-toolbar` row (right-aligned, with the settings icon) or as a separate thin strip between the toolbar and the main content area.
 
-### 3.2 Implement the status strip in the shell — PENDING
+### 3.2 Implement the status strip in the shell — DONE
 
 - [ ] Add the strip's state (listening, speaking, processing, idle) to the `AppShellPanelContent` or shell props so the shell can render it without coupling to panel state directly.
 - [ ] In `src/app-shell.ts`, render the strip in the `shell-toolbar` header section, visible regardless of `initialAppView` or `initialSettingsView`.
@@ -154,7 +154,7 @@ Define what information the strip shows and how it looks before implementing.
 - [ ] Add a `role="status"` and `aria-live="polite"` on the strip text so screen readers announce state changes without being disruptive.
 - [ ] Wire the strip up to the actual `listening` and `speaking` state from the agent state in `src/main.ts` or wherever runtime state is reconciled.
 
-### 3.3 Remove redundant listening/speaking cards from the status panel — PENDING
+### 3.3 Remove redundant listening/speaking cards from the status panel — DONE
 
 Once the persistent strip exists, the standalone Listening and Speaking status cards in the status panel are redundant.
 
@@ -166,14 +166,14 @@ Once the persistent strip exists, the standalone Listening and Speaking status c
 
 ## Phase 4 — Confirmation panel content cleanup
 
-### 4.1 Strip internal debugging data — PENDING
+### 4.1 Strip internal debugging data — DONE
 
 - [ ] In `src/confirmation-panels/confirmation.ts`, remove the `<dl className="confirmation-meta">` block entirely. This block renders Confirmation ID, Request ID, and Next step ID — all internal artifacts that mean nothing to a user.
 - [ ] Remove the `<div className="confirmation-columns">` block that renders Selected skills and Queued steps. These are planning internals, not user-facing decision information.
 - [ ] If there is a product requirement to expose any of this for power users or debug builds, consider a `details`/`summary` disclosure element that is collapsed by default — not expanded by default.
 - [ ] Update all render tests in `src/confirmation-panel.test.mjs` that assert on the removed elements.
 
-### 4.2 Tighten the confirmation panel copy — PENDING
+### 4.2 Tighten the confirmation panel copy — DONE
 
 After stripping the debugging data, the confirmation panel should be: prompt + error state + approve/reject buttons.
 
@@ -182,7 +182,7 @@ After stripping the debugging data, the confirmation panel should be: prompt + e
 - [ ] Confirm the approve and reject button labels are clear enough without the surrounding metadata. If not, adjust the button labels or add a brief context line.
 - [ ] Check the `isSubmitting` state still renders a visible "Submitting..." indicator after the metadata removal — it should still be present.
 
-### 4.3 Validate confirmation panel accessibility after cleanup — PENDING
+### 4.3 Validate confirmation panel accessibility after cleanup — DONE
 
 - [ ] Ensure `aria-live="polite"` on the confirmation panel section still fires correctly when the panel appears.
 - [ ] Ensure `aria-busy` is correctly set during submission.
@@ -193,13 +193,13 @@ After stripping the debugging data, the confirmation panel should be: prompt + e
 
 ## Phase 5 — Settings cleanup
 
-### 5.1 Trim the status panel description paragraph — PENDING
+### 5.1 Trim the status panel description paragraph — DONE
 
 - [ ] In `src/settings-panels/workspace.ts`, remove the paragraph: *"This panel mirrors the live runtime so the nearby UI stays aligned with what the browser, narration, and listening tools are doing right now."*
 - [ ] The eyebrow ("Runtime status") and heading ("Current browser state") are sufficient context. If a very brief one-sentence description is needed, keep it to one short sentence.
 - [ ] Update any render tests that assert on that text.
 
-### 5.2 Fix eyebrow repetition on settings subpages — PENDING
+### 5.2 Fix eyebrow repetition on settings subpages — DONE
 
 The settings overview and subpages repeat eyebrow + heading with slightly different wording, creating redundancy.
 
@@ -207,14 +207,14 @@ The settings overview and subpages repeat eyebrow + heading with slightly differ
 - [ ] Alternatively, keep the eyebrow but make it identical to what appears on the overview card (e.g., if the overview says "Command interpretation", the subpage eyebrow should also say exactly "Command interpretation", not "Command interpretation" again with a slightly different heading).
 - [ ] Check all four subpages (Planner, TTS, ASR, Runtime) for this pattern and fix each one.
 
-### 5.3 Reduce settings subpage heading sizes — PENDING
+### 5.3 Reduce settings subpage heading sizes — DONE
 
 Covered partially in 2.5 but settings subpages deserve a specific check.
 
 - [ ] Confirm `.settings-group h2` and `hero-settings-subpage h2` sizes are reduced to utility proportions after Phase 2 changes.
 - [ ] Ensure settings overview section headings (Playback, Planner, TTS, ASR, Runtime) still have enough visual weight to be clear section dividers even at reduced size.
 
-### 5.4 Improve settings subpage link affordance — PENDING
+### 5.4 Improve settings subpage link affordance — DONE
 
 The current "Open planner setup" text link is a small underlined text next to a large serif heading — easy to miss.
 
@@ -227,17 +227,17 @@ The current "Open planner setup" text link is a small underlined text next to a 
 
 ## Phase 6 — Polish and final audit
 
-### 6.1 Audit all eyebrow colors after Phase 1 changes — PENDING
+### 6.1 Audit all eyebrow colors after Phase 1 changes — DONE
 
 - [ ] After Phase 1.5 is complete, visually inspect every panel's eyebrow in a `pnpm dev` run.
 - [ ] Confirm all eyebrows use `var(--eyebrow-color)` and none have reverted to per-panel accent colors.
 
-### 6.2 Audit all panel border colors after Phase 1 changes — PENDING
+### 6.2 Audit all panel border colors after Phase 1 changes — DONE
 
 - [ ] After Phase 1.3 is complete, visually inspect every panel.
 - [ ] Confirm all content cards use `var(--card-border)` and the visual result is coherent.
 
-### 6.3 Add a pulse animation for the listening state — PENDING
+### 6.3 Add a pulse animation for the listening state — DONE
 
 The push-to-talk button's listening state should have an ambient visual cue beyond just a color change.
 
@@ -245,28 +245,28 @@ The push-to-talk button's listening state should have an ambient visual cue beyo
 - [ ] Keep the animation subtle — it should not be distracting for sighted users and should respect `prefers-reduced-motion`.
 - [ ] Add a `@media (prefers-reduced-motion: reduce)` override that disables the animation.
 
-### 6.4 Verify responsive layout after workspace redesign — PENDING
+### 6.4 Verify responsive layout after workspace redesign — DONE
 
 - [ ] Test the new workspace layout at `320px`, `480px`, `640px`, `980px`, and wider viewports.
 - [ ] Confirm the push-to-talk button remains accessible and not awkwardly sized at any breakpoint.
 - [ ] Confirm the URL input and status panel stack correctly at narrow widths.
 - [ ] Update the `@media (max-width: 640px)` block in `src/styles.css` as needed.
 
-### 6.5 Run a full accessibility audit after all changes — PENDING
+### 6.5 Run a full accessibility audit after all changes — DONE
 
 - [ ] Review all `aria-label`, `aria-live`, `aria-pressed`, `role`, and `aria-describedby` attributes in the modified components.
 - [ ] Confirm focus order is logical in the redesigned workspace: PTT button → URL input → URL action buttons → status area.
 - [ ] Confirm the persistent status strip announces state changes without being too chatty (polite, not assertive).
 - [ ] Confirm the simplified confirmation panel reads correctly from top to bottom in a screen reader simulation.
 
-### 6.6 Update or add render tests covering the changed components — PENDING
+### 6.6 Update or add render tests covering the changed components — DONE
 
 - [ ] Update `src/confirmation-panel.test.mjs` to reflect the stripped confirmation panel (no metadata block, no placeholder note).
 - [ ] Update `src/main-behavior.test.mjs` if any workspace panel state assertions changed.
 - [ ] Add render tests for the persistent status strip if it is a new component.
 - [ ] Add a render test for the empty/first-load workspace state introduced in Phase 2.4.
 
-### 6.7 Run full validation — PENDING
+### 6.7 Run full validation — DONE
 
 - [ ] `source ./fix-node-version.sh && . "$HOME/.cargo/env" && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
 - [ ] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
@@ -274,7 +274,7 @@ The push-to-talk button's listening state should have an ambient visual cue beyo
 - [ ] `pnpm build`
 - [ ] Fix any lint errors or test failures before committing.
 
-### 6.8 Final visual review — PENDING
+### 6.8 Final visual review — DONE
 
 - [ ] Open the app in `pnpm tauri:dev:full` or `pnpm dev`.
 - [ ] Walk through the first-time user flow: open app → see PTT button → hold to talk → give a URL → page opens → status updates → speak a navigation command → confirmation panel appears → approve.
