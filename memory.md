@@ -1,4 +1,12 @@
-## 2026-04-19T00:00:21Z - GPT-5.4 - Workspace controls now use icon-first navigation and a square Talk button
+## 2026-04-21T19:13:10Z - Claude Sonnet 4.6 - UI/UX phases 3-6 complete, all tasks DONE
+
+- **Phase 3 (voice status strip):** Added `renderVoiceStatusStripNode()` in `push-to-talk.ts` (idle/listening/speaking/processing), rendered in `shell-toolbar` via `"voice-status"` PanelRootKey, wired in `main.ts`. Removed Listening/Speaking status-cards from workspace panel. 5 new tests.
+- **Phase 4 (confirmation cleanup):** Removed `confirmation-meta` dl and `confirmation-columns` div from `confirmation.ts`. Shortened h2 to "Action requires your approval." Added promptText fallback.
+- **Phase 5 (settings polish):** Removed eyebrow `<p>` from all 4 settings subpages. Redesigned settings subpage text links as full-width tappable button cards with chevron. Removed unused MUI Button import.
+- **Phase 6 (polish):** Added `@keyframes pulse-ring` animation for listening state, with `prefers-reduced-motion` override. Added mobile responsive rules for voice strip and subpage cards.
+- Commit `ced9dfa` pushed to master. 84/84 tests pass. All UIUX_REVIEW1_TODO.md tasks marked DONE.
+
+
 - Converted the workspace `Open` action in `src/settings-panels/workspace.ts` from a text button to an icon button so the entire URL control strip now uses the same compact icon-button language for navigation actions.
 - Updated `src/styles.css` so the Talk control is square, sized from the workspace control-bar column, and renders its microphone glyph at roughly 75 percent of the button size instead of the shared small icon size.
 - Kept the compact workspace layout validated end to end by updating `src/confirmation-panel.test.mjs` and rerunning `pnpm lint`, `pnpm test:ui`, `pnpm build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`, and `cargo test --manifest-path src-tauri/Cargo.toml --all-features`.
