@@ -34,7 +34,7 @@ export function renderSettingsAsrProviderPanelNode(
 ): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-asr-provider-title",
-    title: "ASR provider",
+    title: "Voice input provider",
     description: "Choose the local or remote speech-to-text provider. Changes apply to the next listening request.",
     error: state.error,
     children: h(
@@ -61,8 +61,8 @@ export function renderSettingsAsrProviderPanelNode(
 export function renderSettingsLocalAsrModelPanelNode(state: LocalAsrModelPanelState): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-local-asr-model-title",
-    title: "Local ASR profile",
-    description: "Review the speech-to-text profile used when ASR runs in local mode. Edit the app config to change it.",
+    title: "Local voice input profile",
+    description: "Review the speech-to-text profile used when voice input runs in local mode. Edit the app config to change it.",
     children: h(
       "div",
       { className: "settings-grid" },
@@ -71,7 +71,6 @@ export function renderSettingsLocalAsrModelPanelNode(state: LocalAsrModelPanelSt
       renderReadOnlyCard("Model ID", state.modelId),
       renderReadOnlyCard("Model path", state.modelPath),
       renderReadOnlyCard("Language", state.language),
-      renderReadOnlyCard("Threads", state.threads),
     ),
   });
 }
@@ -82,8 +81,8 @@ export function renderSettingsRemoteAsrPanelNode(
 ): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-remote-asr-title",
-    title: "Remote ASR profile",
-    description: "Review the speech-to-text profile used when ASR runs in remote mode. API keys stay masked here, and replacements are stored in the OS keyring instead of the config file.",
+    title: "Remote voice input profile",
+    description: "Review the speech-to-text profile used when voice input runs in remote mode. API keys stay masked here and are stored securely on your device instead of the config file.",
     error: state.error,
     children: h(
       "div",
@@ -96,8 +95,8 @@ export function renderSettingsRemoteAsrPanelNode(
       renderReadOnlyCard("Organization source", state.organizationReference),
       renderReadOnlyCard("Project", state.project),
       renderReadOnlyCard("Language", state.language),
-      renderReadOnlyCard("Temperature (milli)", state.temperatureMilli),
-      renderReadOnlyCard("Timeout (ms)", state.timeoutMs),
+      renderReadOnlyCard("Creativity", state.temperatureMilli != null ? (state.temperatureMilli / 1000).toFixed(2) : null),
+      renderReadOnlyCard("Timeout", state.timeoutMs != null ? `${(state.timeoutMs / 1000).toFixed(0)} seconds` : null),
       renderSecretEntryCard(
         "asr",
         state.profileName,

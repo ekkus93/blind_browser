@@ -305,9 +305,9 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
             "div",
             { className: "settings-group-copy" },
             h("p", { className: "settings-group-eyebrow" }, "Command interpretation"),
-            h("h2", { id: "settings-group-planner-title" }, "Planner"),
+            h("h2", { id: "settings-group-planner-title" }, "AI assistant"),
           ),
-          renderSettingsSubpageLink("planner", "Open planner setup", navigationHandlers, settingsStatuses?.planner),
+          renderSettingsSubpageLink("planner", "Open AI assistant setup", navigationHandlers, settingsStatuses?.planner),
         ),
         h(
           "section",
@@ -319,9 +319,9 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
             "div",
             { className: "settings-group-copy" },
             h("p", { className: "settings-group-eyebrow" }, "Speech output"),
-            h("h2", { id: "settings-group-tts-title" }, "Text to speech"),
+            h("h2", { id: "settings-group-tts-title" }, "Voice output"),
           ),
-          renderSettingsSubpageLink("tts", "Open TTS setup", navigationHandlers, settingsStatuses?.tts),
+          renderSettingsSubpageLink("tts", "Open voice output setup", navigationHandlers, settingsStatuses?.tts),
         ),
         h(
           "section",
@@ -333,9 +333,9 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
             "div",
             { className: "settings-group-copy" },
             h("p", { className: "settings-group-eyebrow" }, "Speech input"),
-            h("h2", { id: "settings-group-asr-title" }, "Automatic speech recognition"),
+            h("h2", { id: "settings-group-asr-title" }, "Voice input"),
           ),
-          renderSettingsSubpageLink("asr", "Open ASR setup", navigationHandlers, settingsStatuses?.asr),
+          renderSettingsSubpageLink("asr", "Open voice input setup", navigationHandlers, settingsStatuses?.asr),
         ),
         h(
           "section",
@@ -346,10 +346,10 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
           h(
             "div",
             { className: "settings-group-copy" },
-            h("p", { className: "settings-group-eyebrow" }, "Runtime behavior"),
-            h("h2", { id: "settings-group-runtime-title" }, "Runtime"),
+            h("p", { className: "settings-group-eyebrow" }, "Advanced"),
+            h("h2", { id: "settings-group-runtime-title" }, "Advanced settings"),
           ),
-          renderSettingsSubpageLink("runtime", "Open Runtime setup", navigationHandlers, settingsStatuses?.runtime),
+          renderSettingsSubpageLink("runtime", "Open advanced settings", navigationHandlers, settingsStatuses?.runtime),
         ),
       ),
       h(
@@ -363,7 +363,7 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
         h(
           "section",
           { className: "hero hero-settings hero-settings-subpage" },
-          h("h2", null, "Planner setup"),
+          h("h2", null, "AI assistant setup"),
         ),
         renderPanelContent("settings-remote-planner", panelContent),
       ),
@@ -378,7 +378,7 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
         h(
           "section",
           { className: "hero hero-settings hero-settings-subpage" },
-          h("h2", null, "TTS setup"),
+          h("h2", null, "Voice output setup"),
         ),
         renderPanelContent("settings-tts-provider", panelContent),
         renderPanelContent("settings-tts-model", panelContent),
@@ -397,7 +397,7 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
         h(
           "section",
           { className: "hero hero-settings hero-settings-subpage" },
-          h("h2", null, "ASR setup"),
+          h("h2", null, "Voice input setup"),
         ),
         renderPanelContent("settings-asr-provider", panelContent),
         renderPanelContent("settings-local-asr-model", panelContent),
@@ -414,7 +414,7 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
         h(
           "section",
           { className: "hero hero-settings hero-settings-subpage" },
-          h("h2", null, "Runtime setup"),
+          h("h2", null, "Advanced settings"),
         ),
         renderPanelContent("settings-model-management", panelContent),
         renderPanelContent("settings-confirmation", panelContent),

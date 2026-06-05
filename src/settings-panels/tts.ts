@@ -43,8 +43,8 @@ export interface RemoteTtsPanelHandlers {
 export function renderSettingsLocalTtsModelPanelNode(state: LocalTtsModelPanelState): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-local-tts-model-title",
-    title: "Local TTS profile",
-    description: "Review the local speech profile used when TTS runs in local mode. Edit the app config to change it.",
+    title: "Local voice output profile",
+    description: "Review the local speech profile used when voice output runs in local mode. Edit the app config to change it.",
     children: h(
       "div",
       { className: "settings-grid" },
@@ -64,8 +64,8 @@ export function renderSettingsRemoteTtsPanelNode(
 ): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-remote-tts-title",
-    title: "Remote TTS profile",
-    description: "Review the speech profile used when TTS runs in remote mode. API keys stay masked here, and replacements are stored in the OS keyring instead of the config file.",
+    title: "Remote voice output profile",
+    description: "Review the speech profile used when voice output runs in remote mode. API keys stay masked here and are stored securely on your device instead of the config file.",
     error: state.error,
     children: h(
       "div",
@@ -79,7 +79,7 @@ export function renderSettingsRemoteTtsPanelNode(
       renderReadOnlyCard("Project", state.project),
       renderReadOnlyCard("Voice", state.voice),
       renderReadOnlyCard("Audio format", state.audioFormat),
-      renderReadOnlyCard("Timeout (ms)", state.timeoutMs),
+      renderReadOnlyCard("Timeout", state.timeoutMs != null ? `${(state.timeoutMs / 1000).toFixed(0)} seconds` : null),
       renderSecretEntryCard(
         "tts",
         state.profileName,
@@ -106,7 +106,7 @@ export function renderSettingsTtsProviderPanelNode(
 ): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-tts-provider-title",
-    title: "TTS provider",
+    title: "Voice output provider",
     description: "Choose the local or remote speech output provider. Changes apply to the next utterance.",
     error: state.error,
     children: h(
@@ -139,8 +139,8 @@ export function renderSettingsTtsModelPanelNode(
 
   return renderSettingsPanelSection({
     titleId: "settings-tts-model-title",
-    title: "TTS model",
-    description: `Choose the ${modeCopy} TTS model for the current mode. Changes apply to the next utterance.`,
+    title: "Voice model",
+    description: `Choose the ${modeCopy} voice model for the current mode. Changes apply to the next utterance.`,
     error: state.error,
     children: h(
       "div",
@@ -174,7 +174,7 @@ export function renderSettingsTtsVoicePanelNode(
   return renderSettingsPanelSection({
     titleId: "settings-tts-voice-title",
     title: "Voice",
-    description: `Choose the ${modeCopy} TTS voice for the current mode. Changes apply to the next utterance.`,
+    description: `Choose the ${modeCopy} voice for the current mode. Changes apply to the next utterance.`,
     error: state.error,
     children: h(
       "div",

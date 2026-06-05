@@ -42,7 +42,7 @@ export function renderConfirmationPanelNode(
           "div",
           { className: renderConfirmationErrorClassName(state), role: "alert" },
           renderConfirmationErrorBadge(state)
-            ? h("p", { className: "confirmation-error-badge" }, "Requires planner change")
+            ? h("p", { className: "confirmation-error-badge" }, "Cannot be retried — open Settings to check your AI assistant configuration.")
             : null,
           h("p", { className: "confirmation-error-title" }, state.submissionError.title),
           h("p", { className: "confirmation-error-message" }, state.submissionError.message),

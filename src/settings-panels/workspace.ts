@@ -74,7 +74,7 @@ export function statusPanelStateFromAgentState(
   return {
     pageTitle: agentState.title ?? agentState.url,
     currentRegionLabel: agentState.narration_cursor
-      ? `Region ${agentState.narration_cursor.node_index + 1}`
+      ? `Section ${agentState.narration_cursor.node_index + 1}`
       : null,
     lastTranscript: agentState.last_transcript,
     listening: agentState.listening_state.is_listening,
@@ -152,7 +152,7 @@ export function renderUrlInputPanelNode(
         renderUrlActionButton(
           "url-action-button url-previous-button",
           "data-url-previous-button",
-          state.isRewinding ? "Moving to previous region" : "Previous",
+          state.isRewinding ? "Moving to previous section" : "Previous",
           "previous",
           actionsDisabled,
           handlers?.onPrevious,
@@ -160,7 +160,7 @@ export function renderUrlInputPanelNode(
         renderUrlActionButton(
           "url-action-button url-next-button",
           "data-url-next-button",
-          state.isAdvancing ? "Moving to next region" : "Next",
+          state.isAdvancing ? "Moving to next section" : "Next",
           "next",
           actionsDisabled,
           handlers?.onNext,
@@ -176,7 +176,7 @@ export function renderStatusPanelNode(
   handlers?: StatusPanelHandlers,
 ): ReactNode {
   const title = state.pageTitle ?? "No page open yet";
-  const region = state.currentRegionLabel ?? "No current region";
+  const region = state.currentRegionLabel ?? "No current section";
   const transcript = state.lastTranscript ?? "No spoken command captured yet";
   const visiblePressed = state.browserVisibility === "Visible";
   const headlessPressed = state.browserVisibility === "Headless";
@@ -202,7 +202,7 @@ export function renderStatusPanelNode(
         "dl",
         { className: "status-panel-grid" },
         h("div", { className: "status-card status-card-wide" }, h("dt", null, "Page title"), h("dd", null, title)),
-        h("div", { className: "status-card" }, h("dt", null, "Current region"), h("dd", { "aria-live": "polite", "aria-atomic": "true" }, region)),
+        h("div", { className: "status-card" }, h("dt", null, "Current section"), h("dd", { "aria-live": "polite", "aria-atomic": "true" }, region)),
         h("div", { className: "status-card status-card-wide status-card-transcript" }, h("dt", null, "Last transcript"), h("dd", { "aria-live": "polite", "aria-atomic": "true" }, transcript)),
         h(
           "div",

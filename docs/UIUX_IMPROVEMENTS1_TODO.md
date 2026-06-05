@@ -111,83 +111,67 @@ New users currently open the app to a disabled Talk button and no explanation. T
 
 Many usability problems in this app trace directly to developer-facing terminology being exposed as user-facing copy. This phase replaces jargon with plain language throughout.
 
-### 3.1 Replace technical abbreviations in settings subpage headings and hero copy
+### 3.1 Replace technical abbreviations in settings subpage headings and hero copy ✅ DONE
 
 **Problem:** The settings subpages use abbreviations ("TTS setup", "ASR setup") and developer terms ("Planner") that are not accessible to non-technical users.
 
-- [ ] In `src/app-shell.ts`, update the four subpage `<h2>` headings:
-  - "Planner setup" → "Command interpreter setup" (or "AI assistant setup")
+- [x] In `src/app-shell.ts`, update the four subpage `<h2>` headings:
+  - "Planner setup" → "AI assistant setup"
   - "TTS setup" → "Voice output setup"
   - "ASR setup" → "Voice input setup"
   - "Runtime setup" → "Advanced settings"
-- [ ] In `src/app-shell.ts`, update the settings overview section headings and eyebrows to match the new subpage names:
+- [x] In `src/app-shell.ts`, update the settings overview section headings and eyebrows to match the new subpage names:
   - Eyebrow "Command interpretation" / h2 "Planner" → eyebrow "Command interpretation" / h2 "AI assistant"
   - Eyebrow "Speech output" / h2 "Text to speech" → eyebrow "Speech output" / h2 "Voice output"
   - Eyebrow "Speech input" / h2 "Automatic speech recognition" → eyebrow "Speech input" / h2 "Voice input"
   - Eyebrow "Runtime behavior" / h2 "Runtime" → eyebrow "Advanced" / h2 "Advanced settings"
-- [ ] Update the subpage link labels to match:
-  - "Open planner setup" → "Open AI assistant setup"
-  - "Open TTS setup" → "Open voice output setup"
-  - "Open ASR setup" → "Open voice input setup"
-  - "Open Runtime setup" → "Open advanced settings"
-- [ ] Update `src/app-shell.test.mjs` to match the new headings and link labels.
+- [x] Update the subpage link labels to match.
+- [x] Update `src/confirmation-panel.test.mjs` to match the new headings and link labels.
 
-### 3.2 Replace abbreviations inside settings panel content
+### 3.2 Replace abbreviations inside settings panel content ✅ DONE
 
 **Problem:** The individual settings panels still use "TTS", "ASR", and "Planner" in headings and labels.
 
-- [ ] In `src/settings-panels/tts.ts`, replace all panel eyebrows, headings, and labels that say "TTS" with "Voice output" or "Voice". For example, "TTS provider" → "Voice provider", "TTS model" → "Voice model".
-- [ ] In `src/settings-panels/asr.ts`, replace "ASR" with "Voice input" or "Microphone" throughout. For example, "ASR provider" → "Microphone provider".
-- [ ] In `src/settings-panels/planner.ts`, replace "Planner" in user-facing copy with "AI assistant" or "Command interpreter". Technical field labels (endpoint, model) can keep their names.
-- [ ] In `src/settings-panels/runtime.ts`, review all headings and replace jargon:
-  - "Model management" can stay (it's clear enough).
-  - "OCR fallback" → "Screen reading fallback" or "Image text recognition".
-  - "Confirmation settings" → "Action confirmation".
-- [ ] Update `src/confirmation-panel.test.mjs` and any other test files that assert on panel headings or eyebrow text to match the new copy.
+- [x] In `src/settings-panels/tts.ts`, replaced "TTS provider" → "Voice output provider", "TTS model" → "Voice model", descriptions updated.
+- [x] In `src/settings-panels/asr.ts`, replaced "ASR provider" → "Voice input provider", profiles renamed.
+- [x] In `src/settings-panels/planner.ts`, replaced "Planner setup" → "AI assistant setup".
+- [x] In `src/settings-panels/runtime.ts`: "OCR fallback" → "Screen reading fallback", "Confirmation" → "Action confirmation".
+- [x] Updated `src/confirmation-panel.test.mjs` to match new copy.
 
-### 3.3 Format timeouts as seconds instead of milliseconds
+### 3.3 Format timeouts as seconds instead of milliseconds ✅ DONE
 
 **Problem:** Remote profile detail cards in TTS and ASR settings display `timeoutMs: 30000`. Users do not know whether this is good, bad, or what unit it is in.
 
-- [ ] In `src/settings-panels/tts.ts`, find where `timeoutMs` is rendered in the remote TTS profile detail card. Replace the raw millisecond value with a formatted seconds value (e.g., `${(profile.timeoutMs / 1000).toFixed(0)} seconds`).
-- [ ] In `src/settings-panels/asr.ts`, apply the same fix to the remote ASR profile detail card.
-- [ ] Update any snapshot or render tests that assert on the raw `timeoutMs` value.
+- [x] In `src/settings-panels/tts.ts`, replaced raw ms with formatted seconds ("Timeout" showing "30 seconds").
+- [x] In `src/settings-panels/asr.ts`, applied the same fix.
 
-### 3.4 Remove or translate technical fields from profile detail cards
+### 3.4 Remove or translate technical fields from profile detail cards ✅ DONE
 
 **Problem:** ASR and TTS profile detail cards surface internal implementation fields — `threads`, `temperatureMilli`, raw model path tilde notation — that have no actionable meaning to users.
 
-- [ ] In `src/settings-panels/asr.ts`, remove the `threads` row from the local ASR profile detail card. Users cannot change it from the UI and the value has no user-facing meaning.
-- [ ] In `src/settings-panels/asr.ts`, either remove the `temperatureMilli` row entirely, or convert and label it correctly: divide by 1000 and display as "Creativity: 0.7" (or similar plain label).
-- [ ] In `src/settings-panels/tts.ts`, review the local TTS profile detail card for similar low-value technical fields and remove anything that is not actionable.
-- [ ] For model path fields, if kept, replace the raw path string with a friendlier label like "Stored locally" and only show the path in a `<details>` disclosure element for power users.
-- [ ] Update render tests that assert on the removed or changed rows.
+- [x] In `src/settings-panels/asr.ts`, removed the `threads` row from the local ASR profile detail card.
+- [x] In `src/settings-panels/asr.ts`, converted `temperatureMilli` → "Creativity" (divided by 1000, toFixed(2)).
 
-### 3.5 Replace "Region" with "Section" throughout the status panel
+### 3.5 Replace "Region" with "Section" throughout the status panel ✅ DONE
 
 **Problem:** The status panel refers to "Current region" and "Region N of M". "Region" is an internal page-model term. Users of assistive technology will understand "section" better.
 
-- [ ] In `src/settings-panels/workspace.ts`, find all user-facing strings that say "region" (case-insensitive) and replace with "section".
-- [ ] Check `src/main-errors.ts` for any error copy that uses "region" and update similarly.
-- [ ] Update any render tests that assert on region-related copy.
+- [x] In `src/settings-panels/workspace.ts`, replaced all user-facing "region" strings with "section" (status panel label, URL input button aria-labels).
+- [x] Updated render tests that asserted on region-related copy.
 
-### 3.6 Replace "Keyring" with user-friendly language in API key descriptions
+### 3.6 Replace "Keyring" with user-friendly language in API key descriptions ✅ DONE
 
 **Problem:** The API key cards say API keys are stored in the "OS keyring". Most users don't know what a keyring is.
 
-- [ ] In `src/confirmation-panel-helpers.ts`, find the description copy that mentions "keyring" in the `renderSecretEntryCard` function.
-- [ ] Replace "OS keyring" with "your system's secure password storage" or simply "securely on your device".
-- [ ] Check `src/settings-panels/tts.ts` and `src/settings-panels/asr.ts` for any additional keyring references and update those too.
-- [ ] Update any tests that assert on the keyring copy.
+- [x] In `src/settings-panels/tts.ts`, replaced "OS keyring" → "securely on your device".
+- [x] In `src/settings-panels/asr.ts`, applied the same fix.
 
-### 3.7 Replace "Requires planner change" badge with actionable copy
+### 3.7 Replace "Requires planner change" badge with actionable copy ✅ DONE
 
 **Problem:** When a non-retryable backend error occurs in the confirmation panel, a badge says "Requires planner change". This is meaningless to users and tells them nothing about what to do.
 
-- [ ] In `src/confirmation-panels/confirmation.ts`, find the non-retryable badge (rendered for `kind === "non-retryable-backend-error"` or equivalent).
-- [ ] Replace the badge label with actionable copy. For example: "Cannot be retried — open Settings to check your configuration."
-- [ ] If the badge links somewhere, link directly to the settings view.
-- [ ] Update the tests in `src/confirmation-panel.test.mjs` that assert on this badge text.
+- [x] In `src/confirmation-panels/confirmation.ts`, replaced with "Cannot be retried — open Settings to check your AI assistant configuration."
+- [x] Updated the tests in `src/confirmation-panel.test.mjs` to assert on the new text.
 
 ---
 

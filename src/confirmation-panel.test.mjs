@@ -263,9 +263,9 @@ test("renders retry copy only for the matching backend retry state", () => {
 test("renders the planner-change badge only for non-retryable backend failures", () => {
   const { nonRetryableHtml, retryableHtml, transportHtml } = renderFixtures();
 
-  assert.match(nonRetryableHtml, /Requires planner change/);
-  assert.doesNotMatch(retryableHtml, /Requires planner change/);
-  assert.doesNotMatch(transportHtml, /Requires planner change/);
+  assert.match(nonRetryableHtml, /Cannot be retried/);
+  assert.doesNotMatch(retryableHtml, /Cannot be retried/);
+  assert.doesNotMatch(transportHtml, /Cannot be retried/);
 });
 
 test("renders the exact backend metadata block for retryable and non-retryable errors", () => {
@@ -579,7 +579,7 @@ test("renders URL input busy state while moving to the next reading region", () 
     error: null,
   });
 
-  assert.match(html, /aria-label="Moving to next region"/);
+  assert.match(html, /aria-label="Moving to next section"/);
   assert.match(html, /disabled aria-disabled="true"/);
 });
 
@@ -650,7 +650,7 @@ test("renders URL input busy state while moving to the previous reading region",
     error: null,
   });
 
-  assert.match(html, /aria-label="Moving to previous region"/);
+  assert.match(html, /aria-label="Moving to previous section"/);
   assert.match(html, /disabled aria-disabled="true"/);
 });
 
@@ -696,7 +696,7 @@ test("renders remote planner API reference details", () => {
     error: null,
   });
 
-  assert.match(html, /Planner setup/);
+  assert.match(html, /AI assistant setup/);
   assert.match(html, /endpoint, model, and API key used to interpret commands/i);
   assert.match(html, /Model/);
   assert.match(html, /Endpoint/);
@@ -748,7 +748,7 @@ test("renders settings confirmation behavior controls", () => {
     error: null,
   });
 
-  assert.match(html, /Confirmation/);
+  assert.match(html, /Action confirmation/);
   assert.match(html, /Form submits\s+still always require confirmation/i);
   assert.match(html, /Click threshold/);
   assert.match(html, /82%/);
@@ -779,8 +779,8 @@ test("renders OCR threshold settings controls", () => {
     error: null,
   });
 
-  assert.match(html, /OCR fallback/);
-  assert.match(html, /fall back to OCR/i);
+  assert.match(html, /Screen reading fallback/);
+  assert.match(html, /fall back to image text recognition/i);
   assert.match(html, /Character threshold/);
   assert.match(html, /Region threshold/);
   assert.match(html, /data-ocr-threshold-control="char"/);
@@ -836,7 +836,7 @@ test("renders settings ASR provider selection for configured modes", () => {
     error: null,
   });
 
-  assert.match(html, /ASR provider/);
+  assert.match(html, /Voice input provider/);
   assert.match(html, /local or remote speech-to-text provider/i);
   assert.match(html, /Local provider/);
   assert.match(html, /Remote provider/);
@@ -866,8 +866,8 @@ test("renders local ASR model reference details", () => {
     threads: 4,
   });
 
-  assert.match(html, /Local ASR profile/);
-  assert.match(html, /speech-to-text profile used when ASR runs in local mode/i);
+  assert.match(html, /Local voice input profile/);
+  assert.match(html, /speech-to-text profile used when voice input runs in local mode/i);
   assert.match(html, /whisper-default/);
   assert.match(html, /\/models\/whisper\/tiny\.bin/);
   assert.match(html, /edit the app config/i);
@@ -893,8 +893,8 @@ test("renders remote ASR API reference details", () => {
     error: null,
   });
 
-  assert.match(html, /Remote ASR profile/);
-  assert.match(html, /speech-to-text profile used when ASR runs in remote mode/i);
+  assert.match(html, /Remote voice input profile/);
+  assert.match(html, /speech-to-text profile used when voice input runs in remote mode/i);
   assert.match(html, /openai-transcribe-default/);
   assert.match(html, /OPENAI_API_KEY/);
   assert.match(html, /gpt-4o-mini-transcribe/);
@@ -936,7 +936,7 @@ test("renders settings TTS provider selection for configured modes", () => {
     error: null,
   });
 
-  assert.match(html, /TTS provider/);
+  assert.match(html, /Voice output provider/);
   assert.match(html, /local or remote speech output provider/i);
   assert.match(html, /Local provider/);
   assert.match(html, /Remote provider/);
@@ -968,8 +968,8 @@ test("renders settings TTS model selection for configured profiles", () => {
     error: null,
   });
 
-  assert.match(html, /TTS model/);
-  assert.match(html, /local TTS model for the current mode/i);
+  assert.match(html, /Voice model/);
+  assert.match(html, /local voice model for the current mode/i);
   assert.match(html, /default \(kitten-default\)/);
   assert.match(html, /large-v1 \(kitten-large\)/);
   assert.match(html, /data-tts-model-select="true"/);
@@ -985,8 +985,8 @@ test("renders local TTS model reference details", () => {
     sampleRate: 24000,
   });
 
-  assert.match(html, /Local TTS profile/);
-  assert.match(html, /local speech profile used when TTS runs in local mode/i);
+  assert.match(html, /Local voice output profile/);
+  assert.match(html, /local speech profile used when voice output runs in local mode/i);
   assert.match(html, /kitten-default/);
   assert.match(html, /\/models\/kitten\/default/);
   assert.match(html, /24000/);
@@ -1012,8 +1012,8 @@ test("renders remote TTS API reference details", () => {
     error: null,
   });
 
-  assert.match(html, /Remote TTS profile/);
-  assert.match(html, /speech profile used when TTS runs in remote mode/i);
+  assert.match(html, /Remote voice output profile/);
+  assert.match(html, /speech profile used when voice output runs in remote mode/i);
   assert.match(html, /openai-tts-default/);
   assert.match(html, /OPENAI_API_KEY/);
   assert.match(html, /alloy/);
@@ -1208,7 +1208,7 @@ test("renders settings TTS model errors and disabled state while saving", () => 
     error: "The TTS model selection could not be saved.",
   });
 
-  assert.match(html, /remote TTS model for the current mode/i);
+  assert.match(html, /remote voice model for the current mode/i);
   assert.match(html, /The TTS model selection could not be saved\./);
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /role="alert"/);
@@ -1227,7 +1227,7 @@ test("renders settings voice selection for configured voices", () => {
   });
 
   assert.match(html, /Voice/);
-  assert.match(html, /local TTS voice for the current mode/i);
+  assert.match(html, /local voice for the current mode/i);
   assert.match(html, /Selected voice/);
   assert.match(html, /Bruno/);
   assert.match(html, /data-tts-voice-select="true"/);
@@ -1244,7 +1244,7 @@ test("renders settings voice errors and disabled state while saving", () => {
   });
 
   assert.match(html, /The runtime could not save that voice\./);
-  assert.match(html, /remote TTS voice for the current mode/i);
+  assert.match(html, /remote voice for the current mode/i);
   assert.match(html, /disabled aria-disabled="true"/);
 });
 
@@ -1315,7 +1315,7 @@ test("maps agent state browser visibility into status panel state", () => {
 
   assert.deepEqual(statusState, {
     pageTitle: "https://example.com/docs",
-    currentRegionLabel: "Region 3",
+    currentRegionLabel: "Section 3",
     lastTranscript: "go headless",
     listening: true,
     speaking: false,

@@ -97,7 +97,7 @@ export function renderSettingsConfirmationPanelNode(
 ): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-confirmation-title",
-    title: "Confirmation",
+    title: "Action confirmation",
     description: "Choose how confident a click must be before the app asks for confirmation. Form submits still always require confirmation.",
     error: state.error,
     children: h(
@@ -160,8 +160,8 @@ export function renderSettingsOcrThresholdPanelNode(
 ): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-ocr-thresholds-title",
-    title: "OCR fallback",
-    description: "Choose when sparse DOM extraction should fall back to OCR.",
+    title: "Screen reading fallback",
+    description: "Choose when sparse DOM extraction should fall back to image text recognition.",
     error: state.error,
     children: h(
       "div",

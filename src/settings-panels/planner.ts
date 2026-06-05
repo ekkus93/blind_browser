@@ -42,7 +42,7 @@ export function renderSettingsRemotePlannerPanelNode(
 
   return renderSettingsPanelSection({
     titleId: "settings-remote-planner-title",
-    title: "Planner setup",
+    title: "AI assistant setup",
     description: "Set the endpoint, model, and API key used to interpret commands.",
     error: state.error,
     children: [
