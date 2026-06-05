@@ -100,17 +100,17 @@ src-tauri/src/
 - [x] Update `mod.rs`.
 - [x] Run `cargo check`.
 
-### 1.5 Extract `api_key_tools.rs` (lines ~4 994–5 170)
+### 1.5 Extract `api_key_tools.rs` (lines ~4 994–5 170) — DONE
 
-- [ ] Move `test_remote_openai_profile_api_key`, `test_openai_api_key_connectivity`,
+- [x] Move `test_remote_openai_profile_api_key`, `test_openai_api_key_connectivity`,
       `OpenAiCompatibleModelsResponse`, `OpenAiCompatibleModelEntry`,
-      `fetch_openai_compatible_models`, `openai_api_key_test_failure_message`
+      `fetch_openai_compatible_models`, `openai_api_key_test_failure_message`,
+      `RemoteApiKeyTarget`, `RemoteOpenAiApiKeyTestProfile`
       into `app_core/api_key_tools.rs`.
-- [ ] The `AppCore` methods `test_remote_planner_api_key`, `list_remote_planner_models`,
-      `test_remote_tts_api_key`, `test_remote_asr_api_key` may remain in `mod.rs` calling
-      into `api_key_tools`.
-- [ ] Update `mod.rs`.
-- [ ] Run `cargo check`.
+- [x] AppCore methods `test_remote_planner_api_key`, `list_remote_planner_models`,
+      `test_remote_tts_api_key`, `test_remote_asr_api_key` remain in `mod.rs`.
+- [x] Update `mod.rs`.
+- [x] Run `cargo check`.
 
 ### 1.6 Extract navigation tool methods into `navigation_tools.rs`
 
