@@ -57,6 +57,7 @@ export interface LocalTtsModelPanelState {
   modelPath: string | null;
   defaultVoice: string | null;
   sampleRate: number | null;
+  modelAvailable: boolean | null;
 }
 
 export interface LocalAsrModelPanelState {
@@ -66,6 +67,7 @@ export interface LocalAsrModelPanelState {
   modelPath: string | null;
   language: string | null;
   threads: number | null;
+  modelAvailable: boolean | null;
 }
 
 export interface ModelManagementPanelState {

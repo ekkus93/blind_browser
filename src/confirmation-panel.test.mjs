@@ -864,6 +864,7 @@ test("renders local ASR model reference details", () => {
     modelPath: "/models/whisper/tiny.bin",
     language: "en",
     threads: 4,
+    modelAvailable: null,
   });
 
   assert.match(html, /Local voice input profile/);
@@ -871,6 +872,38 @@ test("renders local ASR model reference details", () => {
   assert.match(html, /whisper-default/);
   assert.match(html, /\/models\/whisper\/tiny\.bin/);
   assert.match(html, /edit the app config/i);
+});
+
+test("renders local ASR model missing warning when modelAvailable is false", () => {
+  const html = renderSettingsLocalAsrModelPanel({
+    profileName: "whisper-default",
+    backend: "whisper",
+    modelId: "tiny",
+    modelPath: "/models/whisper/tiny.bin",
+    language: "en",
+    threads: 4,
+    modelAvailable: false,
+  });
+
+  assert.match(html, /Model not downloaded yet/i);
+  assert.match(html, /Advanced settings/);
+  assert.match(html, /role="alert"/);
+  assert.match(html, /data-open-runtime-settings="true"/);
+});
+
+test("does not render local ASR model warning when modelAvailable is true", () => {
+  const html = renderSettingsLocalAsrModelPanel({
+    profileName: "whisper-default",
+    backend: "whisper",
+    modelId: "tiny",
+    modelPath: "/models/whisper/tiny.bin",
+    language: "en",
+    threads: 4,
+    modelAvailable: true,
+  });
+
+  assert.doesNotMatch(html, /Model not downloaded yet/i);
+  assert.doesNotMatch(html, /data-open-runtime-settings="true"/);
 });
 
 test("renders remote ASR API reference details", () => {
@@ -983,6 +1016,7 @@ test("renders local TTS model reference details", () => {
     modelPath: "/models/kitten/default",
     defaultVoice: "Bruno",
     sampleRate: 24000,
+    modelAvailable: null,
   });
 
   assert.match(html, /Local voice output profile/);
@@ -990,6 +1024,38 @@ test("renders local TTS model reference details", () => {
   assert.match(html, /kitten-default/);
   assert.match(html, /\/models\/kitten\/default/);
   assert.match(html, /24000/);
+});
+
+test("renders local TTS model missing warning when modelAvailable is false", () => {
+  const html = renderSettingsLocalTtsModelPanel({
+    profileName: "kitten-default",
+    backend: "kitten_tts_rs",
+    modelId: "default",
+    modelPath: "/models/kitten/default",
+    defaultVoice: "Bruno",
+    sampleRate: 24000,
+    modelAvailable: false,
+  });
+
+  assert.match(html, /Model not downloaded yet/i);
+  assert.match(html, /Advanced settings/);
+  assert.match(html, /role="alert"/);
+  assert.match(html, /data-open-runtime-settings="true"/);
+});
+
+test("does not render local TTS model warning when modelAvailable is true", () => {
+  const html = renderSettingsLocalTtsModelPanel({
+    profileName: "kitten-default",
+    backend: "kitten_tts_rs",
+    modelId: "default",
+    modelPath: "/models/kitten/default",
+    defaultVoice: "Bruno",
+    sampleRate: 24000,
+    modelAvailable: true,
+  });
+
+  assert.doesNotMatch(html, /Model not downloaded yet/i);
+  assert.doesNotMatch(html, /data-open-runtime-settings="true"/);
 });
 
 test("renders remote TTS API reference details", () => {

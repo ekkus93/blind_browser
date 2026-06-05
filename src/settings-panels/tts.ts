@@ -40,21 +40,44 @@ export interface RemoteTtsPanelHandlers {
   onOpenExternalLink?: (url: string) => void;
 }
 
-export function renderSettingsLocalTtsModelPanelNode(state: LocalTtsModelPanelState): ReactNode {
+export interface LocalTtsModelPanelHandlers {
+  onOpenRuntimeSettings?: () => void;
+}
+
+export function renderSettingsLocalTtsModelPanelNode(state: LocalTtsModelPanelState, handlers?: LocalTtsModelPanelHandlers): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-local-tts-model-title",
     title: "Local voice output profile",
     description: "Review the local speech profile used when voice output runs in local mode. Edit the app config to change it.",
-    children: h(
-      "div",
-      { className: "settings-grid" },
-      renderReadOnlyCard("Profile", state.profileName),
-      renderReadOnlyCard("Backend", state.backend),
-      renderReadOnlyCard("Model ID", state.modelId),
-      renderReadOnlyCard("Model path", state.modelPath),
-      renderReadOnlyCard("Default voice", state.defaultVoice),
-      renderReadOnlyCard("Sample rate", state.sampleRate),
-    ),
+    children: [
+      h(
+        "div",
+        { className: "settings-grid", key: "tts-local-grid" },
+        renderReadOnlyCard("Profile", state.profileName),
+        renderReadOnlyCard("Backend", state.backend),
+        renderReadOnlyCard("Model ID", state.modelId),
+        renderReadOnlyCard("Model path", state.modelPath),
+        renderReadOnlyCard("Default voice", state.defaultVoice),
+        renderReadOnlyCard("Sample rate", state.sampleRate),
+      ),
+      state.modelAvailable === false
+        ? h(
+          "div",
+          { className: "settings-model-missing-warning", role: "alert", key: "tts-local-warning" },
+          h("p", { className: "settings-model-missing-message" }, "Model not downloaded yet. Go to Advanced settings to download it."),
+          h(
+            "button",
+            {
+              type: "button",
+              className: "settings-model-missing-button",
+              "data-open-runtime-settings": "true",
+              onClick: handlers?.onOpenRuntimeSettings,
+            },
+            "Open Advanced settings",
+          ),
+        )
+        : null,
+    ],
   });
 }
 

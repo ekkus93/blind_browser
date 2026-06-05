@@ -36,9 +36,9 @@ export function renderSettingsRemotePlannerPanelNode(
     || (state.model?.trim().length ?? 0) === 0
     || state.loadedModelsEndpoint !== state.baseUrl;
   const resetSettingsDisabled = isConnectionBusy || !state.profileName;
-  const modelOptions = state.availableModels.length > 0
-    ? state.availableModels
-    : [state.loadedModelsEndpoint === state.baseUrl && state.model ? state.model : "Load models for this endpoint"];
+  const hasLoadedModels = state.availableModels.length > 0;
+  const currentModelForEndpoint = !hasLoadedModels && state.loadedModelsEndpoint === state.baseUrl ? state.model : null;
+  const modelOptions = hasLoadedModels ? state.availableModels : (currentModelForEndpoint ? [currentModelForEndpoint] : []);
 
   return renderSettingsPanelSection({
     titleId: "settings-remote-planner-title",
@@ -135,6 +135,9 @@ export function renderSettingsRemotePlannerPanelNode(
                     }
                     : () => undefined,
                 },
+                modelOptions.length === 0
+                  ? h("option", { value: "", disabled: true }, "Load models for this endpoint")
+                  : null,
                 ...modelOptions.map((model) => h("option", { value: model, key: model }, model)),
               ),
               h(

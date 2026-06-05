@@ -58,20 +58,43 @@ export function renderSettingsAsrProviderPanelNode(
   });
 }
 
-export function renderSettingsLocalAsrModelPanelNode(state: LocalAsrModelPanelState): ReactNode {
+export interface LocalAsrModelPanelHandlers {
+  onOpenRuntimeSettings?: () => void;
+}
+
+export function renderSettingsLocalAsrModelPanelNode(state: LocalAsrModelPanelState, handlers?: LocalAsrModelPanelHandlers): ReactNode {
   return renderSettingsPanelSection({
     titleId: "settings-local-asr-model-title",
     title: "Local voice input profile",
     description: "Review the speech-to-text profile used when voice input runs in local mode. Edit the app config to change it.",
-    children: h(
-      "div",
-      { className: "settings-grid" },
-      renderReadOnlyCard("Profile", state.profileName),
-      renderReadOnlyCard("Backend", state.backend),
-      renderReadOnlyCard("Model ID", state.modelId),
-      renderReadOnlyCard("Model path", state.modelPath),
-      renderReadOnlyCard("Language", state.language),
-    ),
+    children: [
+      h(
+        "div",
+        { className: "settings-grid", key: "asr-local-grid" },
+        renderReadOnlyCard("Profile", state.profileName),
+        renderReadOnlyCard("Backend", state.backend),
+        renderReadOnlyCard("Model ID", state.modelId),
+        renderReadOnlyCard("Model path", state.modelPath),
+        renderReadOnlyCard("Language", state.language),
+      ),
+      state.modelAvailable === false
+        ? h(
+          "div",
+          { className: "settings-model-missing-warning", role: "alert", key: "asr-local-warning" },
+          h("p", { className: "settings-model-missing-message" }, "Model not downloaded yet. Go to Advanced settings to download it."),
+          h(
+            "button",
+            {
+              type: "button",
+              className: "settings-model-missing-button",
+              "data-open-runtime-settings": "true",
+              onClick: handlers?.onOpenRuntimeSettings,
+            },
+            "Open Advanced settings",
+          ),
+        )
+        : null,
+    ],
   });
 }
 

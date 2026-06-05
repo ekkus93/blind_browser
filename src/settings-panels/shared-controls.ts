@@ -44,7 +44,7 @@ export function renderReadOnlySettingText(value: string | number | null): string
 export function renderReadOnlyCard(label: string, value: string | number | null): ReactNode {
   return h(
     "div",
-    { className: "settings-control-card" },
+    { className: "settings-control-card settings-control-card-readonly" },
     h("span", { className: "settings-control-label" }, label),
     h("span", { className: "settings-control-value" }, renderReadOnlySettingText(value)),
   );

@@ -111,6 +111,7 @@ export function createInitialPanelStates(): PanelStates {
       modelPath: null,
       language: null,
       threads: null,
+      modelAvailable: null,
     },
     modelManagementPanelState: {
       modelsDir: "",
@@ -165,6 +166,7 @@ export function createInitialPanelStates(): PanelStates {
       modelPath: null,
       defaultVoice: null,
       sampleRate: null,
+      modelAvailable: null,
     },
     remoteTtsPanelState: {
       profileName: null,

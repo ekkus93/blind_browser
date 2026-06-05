@@ -177,45 +177,45 @@ Many usability problems in this app trace directly to developer-facing terminolo
 
 ## Phase 4 — Settings UX improvements
 
-### 4.1 Style the "Load models for this endpoint" planner option as non-selectable
+### ✅ DONE 4.1 Style the "Load models for this endpoint" planner option as non-selectable
 
 **Problem:** In the planner settings model dropdown, the placeholder text "Load models for this endpoint" appears as a regular `<option>`. Users may try to select it as if it were a real model, and nothing happens.
 
-- [ ] In `src/settings-panels/planner.ts`, find where the placeholder option is rendered in the model selector.
-- [ ] Change the placeholder `<option>` to be `disabled` and have an empty value, so it cannot be selected. Example: `<option value="" disabled>Load models for this endpoint</option>`.
-- [ ] Consider also using a `selected` attribute on the placeholder when no model is loaded, so it shows as the current (non-selectable) state.
-- [ ] Alternatively, if the UX is "no dropdown until models are loaded", hide the dropdown entirely until `availableModels` is non-empty, and replace it with a button row that says "Click 'Load models' to see available options".
-- [ ] Update any render tests that assert on this dropdown state.
+- [x] In `src/settings-panels/planner.ts`, find where the placeholder option is rendered in the model selector.
+- [x] Change the placeholder `<option>` to be `disabled` and have an empty value, so it cannot be selected. Example: `<option value="" disabled>Load models for this endpoint</option>`.
+- [x] Consider also using a `selected` attribute on the placeholder when no model is loaded, so it shows as the current (non-selectable) state.
+- [x] Alternatively, if the UX is "no dropdown until models are loaded", hide the dropdown entirely until `availableModels` is non-empty, and replace it with a button row that says "Click 'Load models' to see available options".
+- [x] Update any render tests that assert on this dropdown state.
 
-### 4.2 Narrow the playback speed slider range
+### ✅ DONE 4.2 Narrow the playback speed slider range
 
 **Problem:** The speed slider goes from 0.5× to 5×. At 5×, speech is incomprehensible for most users. The extreme end compresses the useful range into a small zone of the slider track.
 
-- [ ] In `src/settings-panels/playback.ts`, find the speed slider `<input type="range">`.
-- [ ] Change the `max` attribute from `5` to `2.5` (or `3` at most). The range 0.5×–2.5× covers all realistic use cases for TTS narration.
-- [ ] If the current persisted value for any user is above the new max, clamp it to the new max on load. This should be handled in the render path: `Math.min(value, 2.5)`.
-- [ ] Update `src/styles.css` if any slider track calculations depend on the range.
-- [ ] Update render tests that assert on slider `max` or value display.
+- [x] In `src/settings-panels/playback.ts`, find the speed slider `<input type="range">`.
+- [x] Change the `max` attribute from `5` to `2.5` (or `3` at most). The range 0.5×–2.5× covers all realistic use cases for TTS narration.
+- [x] If the current persisted value for any user is above the new max, clamp it to the new max on load. This should be handled in the render path: `Math.min(value, 2.5)`.
+- [x] Update `src/styles.css` if any slider track calculations depend on the range.
+- [x] Update render tests that assert on slider `max` or value display.
 
-### 4.3 Remove or visually distinguish read-only profile detail cards
+### ✅ DONE 4.3 Remove or visually distinguish read-only profile detail cards
 
 **Problem:** The local/remote profile detail cards in TTS and ASR settings look similar to editable form fields. Users may try to click or edit them, not realizing they are read-only reference information.
 
-- [ ] In `src/styles.css`, add a distinct visual style for `.settings-panel-details` or equivalent read-only data grid elements. Use a muted background, no border focus ring, and a subtly different font weight compared to editable inputs.
-- [ ] In `src/settings-panels/tts.ts` and `src/settings-panels/asr.ts`, ensure the read-only detail cards use a `<dl>` or `<table>` element (not `<form>` or `<input>`) so their semantics are clearly informational rather than interactive.
-- [ ] Add a small "Read-only" or "Your current configuration" label at the top of each detail card to set expectations.
+- [x] In `src/styles.css`, add a distinct visual style for `.settings-panel-details` or equivalent read-only data grid elements. Use a muted background, no border focus ring, and a subtly different font weight compared to editable inputs.
+- [x] In `src/settings-panels/tts.ts` and `src/settings-panels/asr.ts`, ensure the read-only detail cards use a `<dl>` or `<table>` element (not `<form>` or `<input>`) so their semantics are clearly informational rather than interactive.
+- [x] Add a small "Read-only" or "Your current configuration" label at the top of each detail card to set expectations.
 
-### 4.4 ASR settings: add a visual indication when Local model is missing
+### ✅ DONE 4.4 ASR settings: add a visual indication when Local model is missing
 
 **Problem:** The ASR local profile detail card shows model name and path, but gives no clear signal if the model hasn't been downloaded yet. Users may not realize they need to visit the Runtime > Model management section to download it.
 
-- [ ] In `src/settings-panels/asr.ts`, check whether the local ASR model state includes a `downloaded` or `available` flag (it should, from model management state).
-- [ ] If the model is not downloaded, show an inline warning with text like: "Model not downloaded yet. Go to Advanced settings → Model management to download it." Include a button or link that navigates to the runtime settings view.
-- [ ] Update relevant render tests.
+- [x] In `src/settings-panels/asr.ts`, check whether the local ASR model state includes a `downloaded` or `available` flag (it should, from model management state).
+- [x] If the model is not downloaded, show an inline warning with text like: "Model not downloaded yet. Go to Advanced settings → Model management to download it." Include a button or link that navigates to the runtime settings view.
+- [x] Update relevant render tests.
 
-### 4.5 TTS settings: same model-missing warning as 4.4
+### ✅ DONE 4.5 TTS settings: same model-missing warning as 4.4
 
-- [ ] Apply the same pattern as task 4.4 to `src/settings-panels/tts.ts` for the local TTS model detail card.
+- [x] Apply the same pattern as task 4.4 to `src/settings-panels/tts.ts` for the local TTS model detail card.
 
 ---
 

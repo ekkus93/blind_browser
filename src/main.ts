@@ -374,7 +374,10 @@ function BlindBrowserApp() {
           void persistAsrProviderSelection(mode);
         },
       }),
-      "settings-local-asr-model": renderSettingsLocalAsrModelPanelNode(panelStates.localAsrModelPanelState),
+      "settings-local-asr-model": renderSettingsLocalAsrModelPanelNode(
+        { ...panelStates.localAsrModelPanelState, modelAvailable: panelStates.modelManagementPanelState.localAsrAvailable },
+        { onOpenRuntimeSettings: () => { setSettingsView("runtime"); setAppView("settings"); } },
+      ),
       "settings-model-management": renderSettingsModelManagementPanelNode(panelStates.modelManagementPanelState, {
         onModelsDirInput: (value) => {
           setModelManagementPanelState({
@@ -433,7 +436,10 @@ function BlindBrowserApp() {
           void persistTtsModelSelection(profileName);
         },
       }),
-      "settings-local-tts-model": renderSettingsLocalTtsModelPanelNode(panelStates.localTtsModelPanelState),
+      "settings-local-tts-model": renderSettingsLocalTtsModelPanelNode(
+        { ...panelStates.localTtsModelPanelState, modelAvailable: panelStates.modelManagementPanelState.localTtsAvailable },
+        { onOpenRuntimeSettings: () => { setSettingsView("runtime"); setAppView("settings"); } },
+      ),
       "settings-remote-tts": renderSettingsRemoteTtsPanelNode(panelStates.remoteTtsPanelState, {
         onApiKeyInput: (value) => {
           setRemoteTtsPanelState({
