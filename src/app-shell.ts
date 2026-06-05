@@ -27,6 +27,7 @@ export type PanelRootKey =
 
 export type AppView = "workspace" | "settings";
 export type SettingsView = "overview" | "planner" | "tts" | "asr" | "runtime";
+export type SettingsCardStatus = "ok" | "warning" | "error" | "unconfigured";
 
 const h = createElement;
 
@@ -169,16 +170,26 @@ function renderSettingsSubpageBackButton(showBackButton: boolean, handlers?: App
   );
 }
 
+const SETTINGS_STATUS_LABEL: Record<SettingsCardStatus, string> = {
+  ok: "Configured",
+  warning: "Action needed",
+  error: "Error",
+  unconfigured: "Not configured",
+};
+
 function renderSettingsSubpageLink(
   view: Exclude<SettingsView, "overview">,
   label: string,
   handlers?: AppShellNavigationHandlers,
+  status?: SettingsCardStatus,
 ) {
   const handleClick = handlers?.onSettingsViewSelect
     ? () => {
       handlers.onSettingsViewSelect?.(view);
     }
     : undefined;
+
+  const ariaLabel = status ? `${label} — ${SETTINGS_STATUS_LABEL[status]}` : label;
 
   return h(
     "button",
@@ -187,21 +198,35 @@ function renderSettingsSubpageLink(
       className: "settings-subpage-card",
       "data-settings-view-button": view,
       onClick: handleClick,
-      "aria-label": label,
+      "aria-label": ariaLabel,
     },
     h("span", { className: "settings-subpage-card-label" }, label),
+    status
+      ? h(
+        "span",
+        {
+          className: `settings-subpage-card-status settings-subpage-card-status-${status}`,
+          "aria-hidden": "true",
+          "data-settings-card-status": view,
+        },
+        SETTINGS_STATUS_LABEL[status],
+      )
+      : null,
     h("span", { className: "settings-subpage-card-chevron", "aria-hidden": "true" }, "›"),
   );
 }
+
+export type SettingsStatuses = Partial<Record<Exclude<SettingsView, "overview">, SettingsCardStatus>>;
 
 interface AppShellMarkupProps {
   initialAppView: AppView;
   initialSettingsView: SettingsView;
   panelContent?: AppShellPanelContent;
   navigationHandlers?: AppShellNavigationHandlers;
+  settingsStatuses?: SettingsStatuses;
 }
 
-export function AppShellMarkup({ initialAppView, initialSettingsView, panelContent, navigationHandlers }: AppShellMarkupProps) {
+export function AppShellMarkup({ initialAppView, initialSettingsView, panelContent, navigationHandlers, settingsStatuses }: AppShellMarkupProps) {
   const workspaceActive = initialAppView === "workspace";
   const settingsActive = initialAppView === "settings";
   const showBackButton = settingsActive && initialSettingsView !== "overview";
@@ -282,7 +307,7 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
             h("p", { className: "settings-group-eyebrow" }, "Command interpretation"),
             h("h2", { id: "settings-group-planner-title" }, "Planner"),
           ),
-          renderSettingsSubpageLink("planner", "Open planner setup", navigationHandlers),
+          renderSettingsSubpageLink("planner", "Open planner setup", navigationHandlers, settingsStatuses?.planner),
         ),
         h(
           "section",
@@ -296,7 +321,7 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
             h("p", { className: "settings-group-eyebrow" }, "Speech output"),
             h("h2", { id: "settings-group-tts-title" }, "Text to speech"),
           ),
-          renderSettingsSubpageLink("tts", "Open TTS setup", navigationHandlers),
+          renderSettingsSubpageLink("tts", "Open TTS setup", navigationHandlers, settingsStatuses?.tts),
         ),
         h(
           "section",
@@ -310,7 +335,7 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
             h("p", { className: "settings-group-eyebrow" }, "Speech input"),
             h("h2", { id: "settings-group-asr-title" }, "Automatic speech recognition"),
           ),
-          renderSettingsSubpageLink("asr", "Open ASR setup", navigationHandlers),
+          renderSettingsSubpageLink("asr", "Open ASR setup", navigationHandlers, settingsStatuses?.asr),
         ),
         h(
           "section",
@@ -324,7 +349,7 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
             h("p", { className: "settings-group-eyebrow" }, "Runtime behavior"),
             h("h2", { id: "settings-group-runtime-title" }, "Runtime"),
           ),
-          renderSettingsSubpageLink("runtime", "Open Runtime setup", navigationHandlers),
+          renderSettingsSubpageLink("runtime", "Open Runtime setup", navigationHandlers, settingsStatuses?.runtime),
         ),
       ),
       h(
@@ -404,6 +429,7 @@ function renderShellTree(
   initialSettingsView: SettingsView,
   panelContent?: AppShellPanelContent,
   navigationHandlers?: AppShellNavigationHandlers,
+  settingsStatuses?: SettingsStatuses,
 ) {
   return h(
     StyledEngineProvider,
@@ -417,6 +443,7 @@ function renderShellTree(
         initialSettingsView,
         panelContent,
         navigationHandlers,
+        settingsStatuses,
       }),
     ),
   );
@@ -427,8 +454,9 @@ export function AppShellRuntime(props: {
   settingsView: SettingsView;
   panelContent: AppShellPanelContent;
   navigationHandlers?: AppShellNavigationHandlers;
+  settingsStatuses?: SettingsStatuses;
 }) {
-  return renderShellTree(props.appView, props.settingsView, props.panelContent, props.navigationHandlers);
+  return renderShellTree(props.appView, props.settingsView, props.panelContent, props.navigationHandlers, props.settingsStatuses);
 }
 
 export async function renderAppShell(): Promise<string> {

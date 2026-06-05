@@ -368,6 +368,30 @@ test("renders push-to-talk errors when voice input fails", () => {
   assert.doesNotMatch(html, /push-to-talk-error[^>]*sr-only/);
 });
 
+test("renders setup banner when push-to-talk is disabled, hides it when enabled", () => {
+  const disabledHtml = renderPushToTalkPanel({
+    enabled: false,
+    isHolding: false,
+    isListening: false,
+    isBusy: false,
+    lastTranscript: null,
+    lastError: null,
+  });
+  const enabledHtml = renderPushToTalkPanel({
+    enabled: true,
+    isHolding: false,
+    isListening: false,
+    isBusy: false,
+    lastTranscript: null,
+    lastError: null,
+  });
+
+  assert.match(disabledHtml, /ptt-setup-banner/);
+  assert.match(disabledHtml, /Voice input isn&#39;t set up yet/);
+  assert.match(disabledHtml, /data-ptt-open-settings="true"/);
+  assert.doesNotMatch(enabledHtml, /ptt-setup-banner/);
+});
+
 test("renders slider controls with screen-reader value text", () => {
   const audioHtml = renderAudioControlsPanel({
     playbackVolume: 0.67,

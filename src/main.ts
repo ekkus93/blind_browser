@@ -3,6 +3,8 @@ import "./styles.css";
 import {
   AppShellRuntime,
   type AppView,
+  type SettingsCardStatus,
+  type SettingsStatuses,
   type SettingsView,
 } from "./app-shell";
 import { createElement } from "react";
@@ -229,6 +231,7 @@ function BlindBrowserApp() {
       onAppViewSelect: setAppView,
       onSettingsViewSelect: setSettingsView,
     },
+    settingsStatuses: deriveSettingsStatuses(panelStates),
     panelContent: {
       "voice-status": renderVoiceStatusStripNode({
         isListening: panelStates.pushToTalkState.isListening,
@@ -238,6 +241,9 @@ function BlindBrowserApp() {
       "push-to-talk": renderPushToTalkPanelNode(panelStates.pushToTalkState, {
         onPointerDown: () => {
           void beginPushToTalk("pointer");
+        },
+        onOpenSettings: () => {
+          setAppView("settings");
         },
       }),
       "url-input": renderUrlInputPanelNode(panelStates.urlInputPanelState, {
@@ -482,6 +488,30 @@ const uiStore: ExecutionUiStore = {
     listener(appShellStore.getState().executionUi);
   }),
 };
+
+function deriveSettingsStatuses(panelStates: ReturnType<typeof appShellStore.getState>["panelStates"]): SettingsStatuses {
+  const plannerStatus: SettingsCardStatus =
+    panelStates.remotePlannerPanelState.model && panelStates.remotePlannerPanelState.baseUrl
+      ? panelStates.remotePlannerPanelState.apiKeyReference
+        ? "ok"
+        : "warning"
+      : "unconfigured";
+
+  const ttsStatus: SettingsCardStatus = panelStates.ttsProviderPanelState.activeMode === "Local"
+    ? panelStates.modelManagementPanelState.localTtsAvailable ? "ok" : "warning"
+    : panelStates.remoteTtsPanelState.apiKeyReference ? "ok" : "unconfigured";
+
+  const asrStatus: SettingsCardStatus = panelStates.asrProviderPanelState.activeMode === "Local"
+    ? panelStates.modelManagementPanelState.localAsrAvailable ? "ok" : "warning"
+    : panelStates.remoteAsrPanelState.apiKeyReference ? "ok" : "unconfigured";
+
+  const runtimeStatus: SettingsCardStatus =
+    panelStates.modelManagementPanelState.localTtsAvailable && panelStates.modelManagementPanelState.localAsrAvailable
+      ? "ok"
+      : "warning";
+
+  return { planner: plannerStatus, tts: ttsStatus, asr: asrStatus, runtime: runtimeStatus };
+}
 
 function setAppView(nextView: AppView) {
   appShellStore.dispatch(setAppShellView(nextView));

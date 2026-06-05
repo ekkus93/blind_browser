@@ -68,6 +68,7 @@ export function renderVoiceStatusStripNode(state: VoiceStatusStripState): ReactN
 
 export interface PushToTalkPanelHandlers {
   onPointerDown?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export function renderPushToTalkPanelNode(
@@ -131,6 +132,23 @@ export function renderPushToTalkPanelNode(
       : null,
     state.lastError
       ? h("p", { className: "push-to-talk-error", "aria-hidden": "true" }, state.lastError)
+      : null,
+    !state.enabled
+      ? h(
+        "div",
+        { className: "ptt-setup-banner", role: "status", "aria-live": "polite" },
+        h("p", { className: "ptt-setup-banner-message" }, "Voice input isn't set up yet. Open settings to configure your microphone and speech providers."),
+        h(
+          "button",
+          {
+            type: "button",
+            className: "ptt-setup-banner-button",
+            "data-ptt-open-settings": "true",
+            onClick: handlers?.onOpenSettings,
+          },
+          "Open settings",
+        ),
+      )
       : null,
   );
 }

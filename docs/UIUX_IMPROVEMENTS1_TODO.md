@@ -78,32 +78,32 @@ These are bugs or gaps that actively break or mislead users. Fix these first.
 
 New users currently open the app to a disabled Talk button and no explanation. This phase adds orientation for users who haven't configured TTS, ASR, or the planner yet.
 
-### 2.1 Add a setup-required banner on the workspace
+### 2.1 Add a setup-required banner on the workspace ✅ DONE
 
 **Problem:** When ASR or TTS is not configured, the Talk button is disabled. There is no visible guidance pointing the user toward settings.
 
-- [ ] In `src/settings-panels/workspace.ts` (or wherever the push-to-talk area is assembled), detect when `state.pushToTalkError` indicates a setup-related failure (model unavailable, API key missing, provider disabled).
-- [ ] When that condition is true, render a visible banner or inline card above or below the push-to-talk button with short copy such as: **"Voice input isn't set up yet. Open settings to configure your microphone and speech providers."**
-- [ ] Include a button in that banner that triggers navigation to the settings view (use the same `onAppViewSelect("settings")` handler already available).
-- [ ] The banner should disappear as soon as the error condition clears (i.e., ASR becomes available).
-- [ ] Ensure the banner text is announced by screen readers (`role="status"` or `aria-live="polite"`).
-- [ ] Add a render test that asserts the banner appears when push-to-talk is in a setup-error state and disappears when it is not.
+- [x] In `src/settings-panels/workspace.ts` (or wherever the push-to-talk area is assembled), detect when `state.pushToTalkError` indicates a setup-related failure (model unavailable, API key missing, provider disabled).
+- [x] When that condition is true, render a visible banner or inline card above or below the push-to-talk button with short copy such as: **"Voice input isn't set up yet. Open settings to configure your microphone and speech providers."**
+- [x] Include a button in that banner that triggers navigation to the settings view (use the same `onAppViewSelect("settings")` handler already available).
+- [x] The banner should disappear as soon as the error condition clears (i.e., ASR becomes available).
+- [x] Ensure the banner text is announced by screen readers (`role="status"` or `aria-live="polite"`).
+- [x] Add a render test that asserts the banner appears when push-to-talk is in a setup-error state and disappears when it is not.
 
-### 2.2 Add status indicators to the settings overview cards
+### 2.2 Add status indicators to the settings overview cards ✅ DONE
 
 **Problem:** The four settings cards ("Open planner setup", "Open TTS setup", etc.) look identical regardless of whether the section is configured and working or broken and unconfigured. A user cannot tell which area needs attention without entering each one.
 
-- [ ] Define a status indicator type: `"ok" | "warning" | "error" | "unconfigured"`.
-- [ ] In `src/main.ts` or `src/runtime-refresh.ts`, derive a per-section status from the live runtime state:
+- [x] Define a status indicator type: `"ok" | "warning" | "error" | "unconfigured"`.
+- [x] In `src/main.ts` or `src/runtime-refresh.ts`, derive a per-section status from the live runtime state:
   - **Planner**: `"ok"` if endpoint + model are set and API key is present; `"warning"` if key is missing; `"error"` on connectivity failure.
   - **TTS**: `"ok"` if local model is downloaded or remote key is present; `"warning"` if model missing; `"error"` on failure.
   - **ASR**: same pattern as TTS.
   - **Runtime**: `"ok"` if model management reports no missing downloads; `"warning"` if any model is missing.
-- [ ] Pass these statuses as part of the app shell panel content or navigation handler props so the overview can render them without coupling to runtime state directly.
-- [ ] In `src/app-shell.ts`, update `renderSettingsSubpageLink` to accept an optional status and render a small indicator beside the chevron (e.g., a colored dot or a short text label like "Action needed").
-- [ ] In `src/styles.css`, add status dot styles for the overview cards.
-- [ ] Ensure the status indicators have text alternatives (not color only) — e.g., `aria-label="TTS setup — Action needed"`.
-- [ ] Add render tests covering each status variant for at least one overview card.
+- [x] Pass these statuses as part of the app shell panel content or navigation handler props so the overview can render them without coupling to runtime state directly.
+- [x] In `src/app-shell.ts`, update `renderSettingsSubpageLink` to accept an optional status and render a small indicator beside the chevron (e.g., a colored dot or a short text label like "Action needed").
+- [x] In `src/styles.css`, add status dot styles for the overview cards.
+- [x] Ensure the status indicators have text alternatives (not color only) — e.g., `aria-label="TTS setup — Action needed"`.
+- [x] Add render tests covering each status variant for at least one overview card.
 
 ---
 

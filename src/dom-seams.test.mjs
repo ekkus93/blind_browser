@@ -392,3 +392,62 @@ test("settings subpage resets to overview only via explicit setSettingsView acti
   const state = store.getState();
   assert.equal(state.shellView.settingsView, "overview");
 });
+
+test("settings overview cards render status badges when settingsStatuses are provided", () => {
+  const tree = AppShellMarkup({
+    initialAppView: "settings",
+    initialSettingsView: "overview",
+    panelContent: {},
+    settingsStatuses: {
+      planner: "ok",
+      tts: "warning",
+      asr: "unconfigured",
+      runtime: "error",
+    },
+  });
+
+  const statusElements = findElements(
+    tree,
+    (element) => typeof element.props?.["data-settings-card-status"] === "string",
+  );
+
+  const statuses = Object.fromEntries(
+    statusElements.map((el) => [el.props["data-settings-card-status"], el.props.className]),
+  );
+
+  assert.match(statuses.planner, /settings-subpage-card-status-ok/);
+  assert.match(statuses.tts, /settings-subpage-card-status-warning/);
+  assert.match(statuses.asr, /settings-subpage-card-status-unconfigured/);
+  assert.match(statuses.runtime, /settings-subpage-card-status-error/);
+});
+
+test("settings overview cards have accessible aria-labels when status is provided", () => {
+  const tree = AppShellMarkup({
+    initialAppView: "settings",
+    initialSettingsView: "overview",
+    panelContent: {},
+    settingsStatuses: { tts: "warning" },
+  });
+
+  const ttsButton = findElement(
+    tree,
+    (element) => element.props?.["data-settings-view-button"] === "tts",
+  );
+
+  assert.match(ttsButton.props["aria-label"], /Action needed/);
+});
+
+test("settings overview cards omit status badges when no status provided", () => {
+  const tree = AppShellMarkup({
+    initialAppView: "settings",
+    initialSettingsView: "overview",
+    panelContent: {},
+  });
+
+  const statusElements = findElements(
+    tree,
+    (element) => typeof element.props?.["data-settings-card-status"] === "string",
+  );
+
+  assert.equal(statusElements.length, 0);
+});
