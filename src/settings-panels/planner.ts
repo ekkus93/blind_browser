@@ -109,13 +109,17 @@ export function renderSettingsRemotePlannerPanelNode(
               "span",
               { className: "settings-control-label settings-inline-label-row" },
               h("span", null, "Model"),
-              h("span", {
-                className: `settings-status-light ${modelsAreFresh ? "settings-status-light-fresh" : "settings-status-light-stale"}`,
-                role: "img",
-                "aria-label": modelsAreFresh
-                  ? "Models are loaded for the current endpoint"
-                  : "Models need to be reloaded for the current endpoint",
-              }),
+              h(
+                "span",
+                { className: "settings-model-freshness-indicator", "aria-hidden": "true" },
+                h("span", {
+                  className: `settings-status-light ${modelsAreFresh ? "settings-status-light-fresh" : "settings-status-light-stale"}`,
+                }),
+                h("span", { className: "settings-model-freshness-label" }, modelsAreFresh ? "Up to date" : "Reload needed"),
+              ),
+              h("span", { className: "sr-only" }, modelsAreFresh
+                ? "Models are loaded for the current endpoint"
+                : "Models need to be reloaded for the current endpoint"),
             ),
             h(
               "div",

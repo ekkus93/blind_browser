@@ -262,55 +262,55 @@ Users currently have no feedback during downloads, model loading, or API testing
 
 ## Phase 6 — Accessibility polish
 
-### 6.1 Add a text label beside the model freshness dot in planner settings
+### ✅ DONE 6.1 Add a text label beside the model freshness dot in planner settings
 
 **Problem:** The model freshness indicator in planner settings is a colored dot (green = fresh, red = stale). Colorblind users cannot distinguish the states. The dot has an `aria-label` but sighted users who don't check ARIA labels get color only.
 
-- [ ] In `src/settings-panels/planner.ts`, find the model status indicator (the dot element with `aria-label`).
-- [ ] Add a short visible text label next to the dot. For example: a green dot + "Up to date" or a red dot + "Reload needed".
-- [ ] Move the state information into the visible text; the color can remain as a secondary reinforcement.
-- [ ] In `src/styles.css`, style the text label to appear beside the dot inline.
-- [ ] Update any render tests that assert on the model status indicator.
+- [x] In `src/settings-panels/planner.ts`, find the model status indicator (the dot element with `aria-label`).
+- [x] Add a short visible text label next to the dot. For example: a green dot + "Up to date" or a red dot + "Reload needed".
+- [x] Move the state information into the visible text; the color can remain as a secondary reinforcement.
+- [x] In `src/styles.css`, style the text label to appear beside the dot inline.
+- [x] Update any render tests that assert on the model status indicator.
 
-### 6.2 Deduplicate PTT hint text and aria-label
+### ✅ DONE 6.2 Deduplicate PTT hint text and aria-label
 
 **Problem:** In all four push-to-talk states, the visible hint text below the button and the button's `aria-label` contain essentially the same message. Screen reader users hear the message twice.
 
-- [ ] In `src/confirmation-panels/push-to-talk.ts`, review each of the four states (idle, holding, listening-busy, hands-free):
+- [x] In `src/confirmation-panels/push-to-talk.ts`, review each of the four states (idle, holding, listening-busy, hands-free):
   - Keep the `aria-label` on the button to describe the button's current action.
   - Update the hint text below the button to provide **complementary** information, not a restatement. For example:
     - Idle state: `aria-label` = "Hold to talk"; hint = "Say a URL or command"
     - Holding state: `aria-label` = "Release to send"; hint = "Listening..."
     - Processing state: `aria-label` = "Processing"; hint = "Working on your command"
     - Hands-free active: `aria-label` = "Voice input active"; hint = "Say 'stop listening' to end"
-- [ ] Update render tests that assert on the hint text or aria-label for each state.
+- [x] Update render tests that assert on the hint text or aria-label for each state.
 
-### 6.3 Add aria-live to confirmation panel error display
+### ✅ DONE 6.3 Add aria-live to confirmation panel error display
 
 **Problem:** When a confirmation submission fails, an error appears in the confirmation panel but there is no `aria-live` region to announce it. Screen reader users may miss the error entirely.
 
-- [ ] In `src/confirmation-panels/confirmation.ts`, find the error display element (the block that shows transport errors and backend tool errors).
-- [ ] Add `aria-live="assertive"` to the error container, since confirmation submission errors are high-priority information the user must act on.
-- [ ] Ensure the error container is always present in the DOM (even when empty) so that the `aria-live` region is registered before errors appear. Use an empty element that becomes populated rather than a conditionally rendered element.
-- [ ] Update tests to verify the error container has the correct `aria-live` attribute.
+- [x] In `src/confirmation-panels/confirmation.ts`, find the error display element (the block that shows transport errors and backend tool errors).
+- [x] Add `aria-live="assertive"` to the error container, since confirmation submission errors are high-priority information the user must act on.
+- [x] Ensure the error container is always present in the DOM (even when empty) so that the `aria-live` region is registered before errors appear. Use an empty element that becomes populated rather than a conditionally rendered element.
+- [x] Update tests to verify the error container has the correct `aria-live` attribute.
 
-### 6.4 Improve disabled state contrast on the push-to-talk button
+### ✅ DONE 6.4 Improve disabled state contrast on the push-to-talk button
 
 **Problem:** When the push-to-talk button is disabled, it uses `opacity: 0.56`. The visual difference between disabled and active states is too subtle, especially for low-vision users.
 
-- [ ] In `src/styles.css`, find `.push-to-talk-button:disabled` (or the equivalent disabled styling).
-- [ ] Instead of only reducing opacity, also change the background color to a clearly distinct muted state (e.g., a gray or the warm neutral `#c0b49a`), so the disabled state is distinguishable by shape and hue, not only opacity.
-- [ ] Ensure the disabled cursor (`cursor: not-allowed`) is present.
-- [ ] Verify the change does not interfere with the active/listening state styles.
+- [x] In `src/styles.css`, find `.push-to-talk-button:disabled` (or the equivalent disabled styling).
+- [x] Instead of only reducing opacity, also change the background color to a clearly distinct muted state (e.g., a gray or the warm neutral `#c0b49a`), so the disabled state is distinguishable by shape and hue, not only opacity.
+- [x] Ensure the disabled cursor (`cursor: not-allowed`) is present.
+- [x] Verify the change does not interfere with the active/listening state styles.
 
-### 6.5 Add visible focus indicators on custom button elements
+### ✅ DONE 6.5 Add visible focus indicators on custom button elements
 
 **Problem:** The shell uses MUI `IconButton` for the settings gear and back arrow. These have MUI's default focus ring, which may be overridden by the custom `CssBaseline`. Confirm visible focus rings are present for keyboard users.
 
-- [ ] In `src/styles.css`, confirm that `.shell-toolbar-action:focus-visible` and `.settings-subpage-back:focus-visible` have a clearly visible outline.
-- [ ] If the MUI `CssBaseline` removes the default browser focus ring, add an explicit `:focus-visible` outline rule for all interactive toolbar elements.
-- [ ] Also check `.settings-subpage-card:focus-visible` (the overview navigation cards) for a visible focus ring.
-- [ ] Visually verify focus rings appear when tabbing through the app's toolbar and settings overview.
+- [x] In `src/styles.css`, confirm that `.shell-toolbar-action:focus-visible` and `.settings-subpage-back:focus-visible` have a clearly visible outline.
+- [x] If the MUI `CssBaseline` removes the default browser focus ring, add an explicit `:focus-visible` outline rule for all interactive toolbar elements.
+- [x] Also check `.settings-subpage-card:focus-visible` (the overview navigation cards) for a visible focus ring.
+- [x] Visually verify focus rings appear when tabbing through the app's toolbar and settings overview.
 
 ---
 

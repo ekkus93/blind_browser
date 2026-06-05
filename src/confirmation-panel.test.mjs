@@ -294,6 +294,13 @@ test("renders the exact backend metadata block for retryable and non-retryable e
   assert.doesNotMatch(transportHtml, /confirmation-error-meta-block/);
 });
 
+test("confirmation error container always present in DOM with aria-live assertive", () => {
+  const { nonRetryableHtml } = renderFixtures();
+
+  assert.match(nonRetryableHtml, /aria-live="assertive"/);
+  assert.match(nonRetryableHtml, /aria-atomic="true"/);
+});
+
 test("renders a compact talk icon button for the idle state", () => {
   const html = renderPushToTalkPanel({
     enabled: true,
@@ -304,9 +311,9 @@ test("renders a compact talk icon button for the idle state", () => {
     lastError: null,
   });
 
-  assert.match(html, /aria-label="Talk"/);
+  assert.match(html, /aria-label="Hold to talk"/);
   assert.match(html, /data-push-to-talk-button="true"/);
-  assert.doesNotMatch(html, /Voice input/);
+  assert.match(html, /Say a URL or command/);
   assert.doesNotMatch(html, /Push to talk/);
 });
 
@@ -320,8 +327,9 @@ test("disables the talk button during hands-free listening", () => {
     lastError: null,
   });
 
-  assert.match(html, /aria-label="Hands-free listening active"/);
+  assert.match(html, /aria-label="Voice input active"/);
   assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /stop listening.*to end/);
 });
 
 test("disables the talk button while processing the next spoken command", () => {
@@ -334,8 +342,9 @@ test("disables the talk button while processing the next spoken command", () => 
     lastError: null,
   });
 
-  assert.match(html, /aria-label="Listening busy"/);
+  assert.match(html, /aria-label="Voice input active"/);
   assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /stop listening.*to end/);
 });
 
 test("renders the talk button active while holding", () => {
@@ -348,8 +357,9 @@ test("renders the talk button active while holding", () => {
     lastError: null,
   });
 
-  assert.match(html, /aria-label="Release to transcribe"/);
+  assert.match(html, /aria-label="Release to send"/);
   assert.match(html, /push-to-talk-button-active/);
+  assert.match(html, /Listening…/);
 });
 
 test("renders push-to-talk errors when voice input fails", () => {
@@ -708,7 +718,8 @@ test("renders remote planner API reference details", () => {
   assert.match(html, /data-remote-planner-settings-reset="true"/);
   assert.match(html, /Load models/);
   assert.match(html, /Reset to defaults/);
-  assert.match(html, /aria-label="Models are loaded for the current endpoint"/);
+  assert.match(html, /Models are loaded for the current endpoint/);
+  assert.match(html, /Up to date/);
   assert.doesNotMatch(html, /Planner remote profile/);
   assert.doesNotMatch(html, /Service/);
   assert.doesNotMatch(html, /Temperature \(milli\)/);
@@ -1175,7 +1186,7 @@ test("renders remote planner API key test status while testing", () => {
   assert.match(html, /OpenAI accepted the configured API key\./);
   assert.match(html, /settings-api-key-test-status/);
   assert.match(html, /role="status"/);
-  assert.match(html, /aria-label="Models are loaded for the current endpoint"/);
+  assert.match(html, /Models are loaded for the current endpoint/);
 });
 
 test("renders a masked planner API key value when a key is already configured", () => {
@@ -1264,7 +1275,8 @@ test("renders stale planner model indicator when endpoint models need reload", (
     error: null,
   });
 
-  assert.match(html, /aria-label="Models need to be reloaded for the current endpoint"/);
+  assert.match(html, /Models need to be reloaded for the current endpoint/);
+  assert.match(html, /Reload needed/);
 });
 
 test("renders spinner on the Load models button while models are loading", () => {

@@ -76,15 +76,15 @@ export function renderPushToTalkPanelNode(
   handlers?: PushToTalkPanelHandlers,
 ): ReactNode {
   const buttonLabel = state.isHolding
-    ? "Release to transcribe"
+    ? "Release to send"
     : state.isListening && state.isBusy
-      ? "Listening busy"
+      ? "Voice input active"
       : state.isListening
-        ? "Hands-free listening active"
+        ? "Voice input active"
         : state.isBusy
-          ? "Processing speech"
+          ? "Processing"
           : state.enabled
-            ? "Talk"
+            ? "Hold to talk"
             : "Talk unavailable";
 
   return h(
@@ -120,12 +120,12 @@ export function renderPushToTalkPanelNode(
         "aria-hidden": "true",
       },
       state.isHolding
-        ? "Release to transcribe"
+        ? "Listening…"
         : state.isListening
-          ? "Listening…"
+          ? "Say 'stop listening' to end"
           : state.isBusy
-            ? "Processing…"
-            : "Hold to talk",
+            ? "Working on your command"
+            : "Say a URL or command",
     ),
     state.lastError
       ? h("span", { className: "sr-only", role: "alert" }, state.lastError)

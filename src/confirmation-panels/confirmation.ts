@@ -37,34 +37,40 @@ export function renderConfirmationPanelNode(
       state.isSubmitting
         ? h("p", { className: "confirmation-status", role: "status" }, "Submitting response...")
         : null,
-      state.submissionError
-        ? h(
-          "div",
-          { className: renderConfirmationErrorClassName(state), role: "alert" },
-          renderConfirmationErrorBadge(state)
-            ? h("p", { className: "confirmation-error-badge" }, "Cannot be retried — open Settings to check your AI assistant configuration.")
-            : null,
-          h("p", { className: "confirmation-error-title" }, state.submissionError.title),
-          h("p", { className: "confirmation-error-message" }, state.submissionError.message),
-          h("p", { className: "confirmation-error-guidance" }, state.submissionError.guidance),
-          state.submissionError.kind === "tool-error"
-            ? h(
-              "div",
-              { className: "confirmation-error-meta-block" },
-              h(
-                "p",
-                { className: "confirmation-error-meta" },
-                `Error code: ${state.submissionError.code}. ${state.submissionError.retryable ? "Retryable" : "Non-retryable"} backend failure.`,
-              ),
-              h(
-                "p",
-                { className: "confirmation-error-retry-status" },
-                state.submissionError.retryable ? "Can retry." : "Cannot retry.",
-              ),
-            )
-            : null,
-        )
-        : null,
+      h(
+        "div",
+        {
+          className: renderConfirmationErrorClassName(state),
+          "aria-live": "assertive",
+          "aria-atomic": "true",
+        },
+        state.submissionError
+          ? [
+            renderConfirmationErrorBadge(state)
+              ? h("p", { className: "confirmation-error-badge", key: "badge" }, "Cannot be retried — open Settings to check your AI assistant configuration.")
+              : null,
+            h("p", { className: "confirmation-error-title", key: "title" }, state.submissionError.title),
+            h("p", { className: "confirmation-error-message", key: "message" }, state.submissionError.message),
+            h("p", { className: "confirmation-error-guidance", key: "guidance" }, state.submissionError.guidance),
+            state.submissionError.kind === "tool-error"
+              ? h(
+                "div",
+                { className: "confirmation-error-meta-block", key: "meta" },
+                h(
+                  "p",
+                  { className: "confirmation-error-meta" },
+                  `Error code: ${state.submissionError.code}. ${state.submissionError.retryable ? "Retryable" : "Non-retryable"} backend failure.`,
+                ),
+                h(
+                  "p",
+                  { className: "confirmation-error-retry-status" },
+                  state.submissionError.retryable ? "Can retry." : "Cannot retry.",
+                ),
+              )
+              : null,
+          ]
+          : null,
+      ),
     ),
     h(
       "div",
