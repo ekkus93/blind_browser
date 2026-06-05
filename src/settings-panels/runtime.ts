@@ -48,6 +48,9 @@ function renderConfirmationThresholdValueText(value: number): string {
   return `${Math.round(value * 100)} percent confidence`;
 }
 
+// Not wired into the app shell until the backend failover feature ships.
+// Re-add "settings-provider-failover" to PanelRootKey in app-shell.ts and wire
+// the panel in main.ts once automatic failover is implemented in the Rust runtime.
 export function renderSettingsProviderFailoverPanelNode(state: ProviderFailoverPanelState): ReactNode {
   const renderFailoverCard = (
     providerKey: "planner" | "tts" | "asr",

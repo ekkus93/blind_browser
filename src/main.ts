@@ -47,7 +47,6 @@ import {
   renderSettingsLocalTtsModelPanelNode,
   renderSettingsModelManagementPanelNode,
   renderSettingsOcrThresholdPanelNode,
-  renderSettingsProviderFailoverPanelNode,
   renderSettingsRemoteAsrPanelNode,
   renderSettingsRemotePlannerPanelNode,
   renderSettingsRemoteTtsPanelNode,
@@ -325,11 +324,17 @@ function BlindBrowserApp() {
         onSaveSettings: () => {
           void persistRemotePlannerConnection();
         },
-        onResetSettings: () => {
+        onBeginReset: () => {
+          setRemotePlannerPanelState({ isConfirmingReset: true });
+        },
+        onConfirmReset: () => {
+          setRemotePlannerPanelState({ isConfirmingReset: false });
           void resetRemotePlannerConnectionToDefaults();
         },
+        onCancelReset: () => {
+          setRemotePlannerPanelState({ isConfirmingReset: false });
+        },
       }),
-      "settings-provider-failover": renderSettingsProviderFailoverPanelNode(panelStates.providerFailoverPanelState),
       "settings-confirmation": renderSettingsConfirmationPanelNode(panelStates.confirmationSettingsPanelState, {
         onThresholdChange: (value) => {
           setConfirmationSettingsPanelState({

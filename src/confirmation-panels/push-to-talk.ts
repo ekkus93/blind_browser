@@ -129,5 +129,8 @@ export function renderPushToTalkPanelNode(
     state.lastError
       ? h("span", { className: "sr-only", role: "alert" }, state.lastError)
       : null,
+    state.lastError
+      ? h("p", { className: "push-to-talk-error", "aria-hidden": "true" }, state.lastError)
+      : null,
   );
 }

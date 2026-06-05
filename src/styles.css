@@ -325,6 +325,14 @@ h1 {
   letter-spacing: 0.04em;
 }
 
+.push-to-talk-error {
+  margin: 8px 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #8b342a;
+  text-align: center;
+}
+
 .icon-button-glyph {
   width: 24px;
   height: 24px;
@@ -899,6 +907,38 @@ h1 {
   background: linear-gradient(135deg, #d9e5dd, #eef5ef);
   color: #1f2527;
   border: 1px solid rgba(41, 88, 63, 0.16);
+}
+
+.settings-control-button-danger {
+  background: linear-gradient(135deg, #8b342a, #b84436);
+  color: #fffdf8;
+  border: 1px solid rgba(139, 52, 42, 0.3);
+}
+
+.settings-control-button-danger:hover:not(:disabled),
+.settings-control-button-danger:focus-visible {
+  background: linear-gradient(135deg, #a03d32, #c94e40);
+}
+
+.settings-reset-confirm-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(139, 52, 42, 0.06);
+  border: 1px solid rgba(139, 52, 42, 0.18);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.settings-reset-confirm-message {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6b2820;
+}
+
+.settings-reset-confirm-row .settings-button-row {
+  flex-wrap: wrap;
 }
 
 .settings-secret-entry-card {

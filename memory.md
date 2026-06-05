@@ -1,3 +1,11 @@
+## 2026-06-05T17:30:06Z - Claude Sonnet 4.6 - Full UI/UX review performed; improvements TODO created
+
+- Performed a full UI/UX review of the frontend (all settings panels, confirmation panels, push-to-talk, workspace, styles, error handling, accessibility, user workflow).
+- Created `docs/UIUX_IMPROVEMENTS1_TODO.md` with 7 phases covering: critical functional fixes, first-run state, plain-language copy pass, settings UX, progress indicators, accessibility polish, and final validation.
+- Key findings: PTT errors are screen-reader only (sighted users see nothing), settings navigation loses context on workspace roundtrip, Provider Failover section is dead UI, developer jargon throughout ("TTS", "ASR", "Planner", "Region", "Keyring", `timeoutMs`), no progress indicators on long operations, Reset to Defaults has no confirmation.
+- All 84 frontend tests and 309 Rust tests passing at time of review (commit `ced9dfa`).
+- CLAUDE.md created at repo root for Claude Code session continuity.
+
 ## 2026-04-21T19:13:10Z - Claude Sonnet 4.6 - UI/UX phases 3-6 complete, all tasks DONE
 
 - **Phase 3 (voice status strip):** Added `renderVoiceStatusStripNode()` in `push-to-talk.ts` (idle/listening/speaking/processing), rendered in `shell-toolbar` via `"voice-status"` PanelRootKey, wired in `main.ts`. Removed Listening/Speaking status-cards from workspace panel. 5 new tests.

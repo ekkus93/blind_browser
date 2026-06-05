@@ -64,6 +64,7 @@ export function createInitialPanelStates(): PanelStates {
       isLoadingModels: false,
       isSavingConnection: false,
       isResettingConnection: false,
+      isConfirmingReset: false,
       apiKeyReference: null,
       apiKeyMaskedValue: null,
       organizationReference: null,

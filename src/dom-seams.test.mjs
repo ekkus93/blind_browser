@@ -368,3 +368,27 @@ test("Redux view and panel state updates stay explicit through store actions", (
   assert.equal(state.panelStates.urlInputPanelState.draftValue, "https://example.com/runtime");
   assert.equal(state.panelStates.urlInputPanelState.hasUnsubmittedChanges, true);
 });
+
+test("settings subpage state is preserved when switching workspace and back to settings", () => {
+  const store = createAppShellStore();
+
+  store.dispatch(setAppView("settings"));
+  store.dispatch(setSettingsView("asr"));
+  store.dispatch(setAppView("workspace"));
+  store.dispatch(setAppView("settings"));
+
+  const state = store.getState();
+  assert.equal(state.shellView.appView, "settings");
+  assert.equal(state.shellView.settingsView, "asr");
+});
+
+test("settings subpage resets to overview only via explicit setSettingsView action", () => {
+  const store = createAppShellStore();
+
+  store.dispatch(setAppView("settings"));
+  store.dispatch(setSettingsView("tts"));
+  store.dispatch(setSettingsView("overview"));
+
+  const state = store.getState();
+  assert.equal(state.shellView.settingsView, "overview");
+});

@@ -36,9 +36,6 @@ const appShellViewSlice = createSlice({
   reducers: {
     setAppView(state, action: PayloadAction<AppView>) {
       state.appView = action.payload;
-      if (action.payload === "settings") {
-        state.settingsView = "overview";
-      }
     },
     setSettingsView(state, action: PayloadAction<SettingsView>) {
       state.settingsView = action.payload;

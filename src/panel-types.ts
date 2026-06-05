@@ -94,6 +94,7 @@ export interface RemotePlannerPanelState {
   isLoadingModels: boolean;
   isSavingConnection: boolean;
   isResettingConnection: boolean;
+  isConfirmingReset: boolean;
   apiKeyReference: string | null;
   apiKeyMaskedValue: string | null;
   organizationReference: string | null;

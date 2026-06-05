@@ -15,7 +15,9 @@ export interface RemotePlannerPanelHandlers {
   onModelSelect?: (value: string) => void;
   onLoadModels?: () => void;
   onSaveSettings?: () => void;
-  onResetSettings?: () => void;
+  onBeginReset?: () => void;
+  onConfirmReset?: () => void;
+  onCancelReset?: () => void;
 }
 
 export function renderSettingsRemotePlannerPanelNode(
@@ -149,34 +151,64 @@ export function renderSettingsRemotePlannerPanelNode(
               ),
             ),
           ),
-          h(
-            "div",
-            { className: "settings-button-row settings-button-row-wrap" },
-            h(
-              "button",
-              {
-                type: "button",
-                className: "settings-control-button",
-                "data-remote-planner-settings-save": "true",
-                disabled: saveSettingsDisabled || undefined,
-                "aria-disabled": saveSettingsDisabled ? "true" : undefined,
-                onClick: handlers?.onSaveSettings,
-              },
-              state.isSavingConnection ? "Saving..." : "Save settings",
+          state.isConfirmingReset
+            ? h(
+              "div",
+              { className: "settings-button-row settings-reset-confirm-row" },
+              h("p", { className: "settings-reset-confirm-message" }, "Reset all settings to defaults? This cannot be undone."),
+              h(
+                "button",
+                {
+                  type: "button",
+                  className: "settings-control-button settings-control-button-danger",
+                  "data-remote-planner-settings-confirm-reset": "true",
+                  disabled: resetSettingsDisabled || undefined,
+                  "aria-disabled": resetSettingsDisabled ? "true" : undefined,
+                  onClick: handlers?.onConfirmReset,
+                },
+                state.isResettingConnection ? "Resetting..." : "Yes, reset",
+              ),
+              h(
+                "button",
+                {
+                  type: "button",
+                  className: "settings-control-button settings-control-button-secondary",
+                  "data-remote-planner-settings-cancel-reset": "true",
+                  disabled: resetSettingsDisabled || undefined,
+                  "aria-disabled": resetSettingsDisabled ? "true" : undefined,
+                  onClick: handlers?.onCancelReset,
+                },
+                "Cancel",
+              ),
+            )
+            : h(
+              "div",
+              { className: "settings-button-row settings-button-row-wrap" },
+              h(
+                "button",
+                {
+                  type: "button",
+                  className: "settings-control-button",
+                  "data-remote-planner-settings-save": "true",
+                  disabled: saveSettingsDisabled || undefined,
+                  "aria-disabled": saveSettingsDisabled ? "true" : undefined,
+                  onClick: handlers?.onSaveSettings,
+                },
+                state.isSavingConnection ? "Saving..." : "Save settings",
+              ),
+              h(
+                "button",
+                {
+                  type: "button",
+                  className: "settings-control-button settings-control-button-secondary",
+                  "data-remote-planner-settings-reset": "true",
+                  disabled: resetSettingsDisabled || undefined,
+                  "aria-disabled": resetSettingsDisabled ? "true" : undefined,
+                  onClick: handlers?.onBeginReset,
+                },
+                "Reset to defaults",
+              ),
             ),
-            h(
-              "button",
-              {
-                type: "button",
-                className: "settings-control-button settings-control-button-secondary",
-                "data-remote-planner-settings-reset": "true",
-                disabled: resetSettingsDisabled || undefined,
-                "aria-disabled": resetSettingsDisabled ? "true" : undefined,
-                onClick: handlers?.onResetSettings,
-              },
-              state.isResettingConnection ? "Resetting..." : "Reset to defaults",
-            ),
-          ),
         ),
       ),
     ],

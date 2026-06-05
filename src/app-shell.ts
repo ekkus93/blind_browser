@@ -11,7 +11,6 @@ export type PanelRootKey =
   | "audio-controls"
   | "settings-guidance"
   | "settings-remote-planner"
-  | "settings-provider-failover"
   | "settings-confirmation"
   | "settings-ocr-threshold"
   | "settings-asr-provider"
@@ -393,7 +392,6 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
           h("h2", null, "Runtime setup"),
         ),
         renderPanelContent("settings-model-management", panelContent),
-        renderPanelContent("settings-provider-failover", panelContent),
         renderPanelContent("settings-confirmation", panelContent),
         renderPanelContent("settings-ocr-threshold", panelContent),
       ),

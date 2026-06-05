@@ -364,6 +364,8 @@ test("renders push-to-talk errors when voice input fails", () => {
 
   assert.match(html, /The microphone is unavailable\./);
   assert.match(html, /role="alert"/);
+  assert.match(html, /push-to-talk-error/);
+  assert.doesNotMatch(html, /push-to-talk-error[^>]*sr-only/);
 });
 
 test("renders slider controls with screen-reader value text", () => {
@@ -397,6 +399,7 @@ test("renders described settings inputs and grouped confirmation actions", () =>
     isLoadingModels: false,
     isSavingConnection: false,
     isResettingConnection: false,
+    isConfirmingReset: false,
     apiKeyReference: "keyring:planner",
     organizationReference: null,
     project: null,
@@ -655,6 +658,7 @@ test("renders remote planner API reference details", () => {
     isLoadingModels: false,
     isSavingConnection: false,
     isResettingConnection: false,
+    isConfirmingReset: false,
     apiKeyReference: "Environment variable: OPENAI_API_KEY",
     organizationReference: null,
     project: null,
@@ -1029,6 +1033,7 @@ test("renders remote planner API key save errors and disabled state while saving
     isLoadingModels: false,
     isSavingConnection: false,
     isResettingConnection: false,
+    isConfirmingReset: false,
     apiKeyReference: "OS keyring entry: blind_browser / remote_planner:openai-default:api_key",
     organizationReference: null,
     project: null,
@@ -1058,6 +1063,7 @@ test("renders remote planner API key test status while testing", () => {
     isLoadingModels: false,
     isSavingConnection: false,
     isResettingConnection: false,
+    isConfirmingReset: false,
     apiKeyReference: "Environment variable: OPENAI_API_KEY",
     apiKeyMaskedValue: null,
     organizationReference: null,
@@ -1091,6 +1097,7 @@ test("renders a masked planner API key value when a key is already configured", 
     isLoadingModels: false,
     isSavingConnection: false,
     isResettingConnection: false,
+    isConfirmingReset: false,
     apiKeyReference: "OS keyring entry: blind_browser / remote_planner:openai-default:api_key",
     apiKeyMaskedValue: "***7890",
     organizationReference: null,
@@ -1121,6 +1128,7 @@ test("renders remote planner API key test failures with a clickable OpenAI API k
     isLoadingModels: false,
     isSavingConnection: false,
     isResettingConnection: false,
+    isConfirmingReset: false,
     apiKeyReference: "Environment variable: OPENAI_API_KEY",
     organizationReference: null,
     project: null,
@@ -1150,6 +1158,7 @@ test("renders stale planner model indicator when endpoint models need reload", (
     isLoadingModels: false,
     isSavingConnection: false,
     isResettingConnection: false,
+    isConfirmingReset: false,
     apiKeyReference: "Environment variable: OPENAI_API_KEY",
     organizationReference: null,
     project: null,
