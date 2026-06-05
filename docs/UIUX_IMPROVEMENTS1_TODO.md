@@ -316,15 +316,15 @@ Users currently have no feedback during downloads, model loading, or API testing
 
 ## Phase 7 — Final validation
 
-### 7.1 Run the full validation suite
+### ✅ DONE 7.1 Run the full validation suite
 
-- [ ] `source ./fix-node-version.sh`
-- [ ] `pnpm lint`
-- [ ] `pnpm test:ui`
-- [ ] `pnpm build`
-- [ ] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
-- [ ] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
-- [ ] Fix any lint errors or test failures before committing.
+- [x] `source ./fix-node-version.sh`
+- [x] `pnpm lint`
+- [x] `pnpm test:ui` — 97 tests, 0 failures
+- [x] `pnpm build` — clean
+- [x] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` — clean
+- [x] `cargo test --manifest-path src-tauri/Cargo.toml --all-features` — clean
+- [x] Fix any lint errors or test failures before committing.
 
 ### 7.2 Walk the first-time user flow
 
@@ -355,10 +355,10 @@ Users currently have no feedback during downloads, model loading, or API testing
 - [ ] Open the planner settings. Confirm the model dropdown placeholder is non-selectable.
 - [ ] Check the playback settings. Confirm the speed slider max is 2.5× (or 3× at most).
 
-### 7.6 Update memory.md
+### ✅ DONE 7.6 Update memory.md
 
-- [ ] After completing all phases, run `date -u +"%Y-%m-%dT%H:%M:%SZ"` to get the current timestamp.
-- [ ] Add an entry to `memory.md` summarizing which phases were completed, the final commit hash, and validation status.
+- [x] After completing all phases, run `date -u +"%Y-%m-%dT%H:%M:%SZ"` to get the current timestamp.
+- [x] Add an entry to `memory.md` summarizing which phases were completed, the final commit hash, and validation status.
 
 ---
 

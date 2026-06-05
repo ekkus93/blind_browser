@@ -1,3 +1,11 @@
+## 2026-06-05T21:15:15Z - Claude Sonnet 4.6 - UIUX_IMPROVEMENTS1_TODO.md Phases 4–7 complete
+
+- **Phase 4 (settings UX):** Planner model placeholder disabled/non-selectable; speed slider max clamped to 2.5; read-only profile cards get `.settings-control-card-readonly` muted style; `modelAvailable: boolean | null` added to `LocalAsrModelPanelState` / `LocalTtsModelPanelState` with inline warning + "Open Advanced settings" button when `false`; wired in `main.ts` to pass `modelManagementPanelState.localAsrAvailable` / `.localTtsAvailable`; `onOpenRuntimeSettings` handler navigates to `runtime` settings view.
+- **Phase 5 (spinners):** Added `@keyframes spin` and `.btn-spinner` CSS class with `prefers-reduced-motion` override; spinner span injected into "Testing...", "Loading models...", "Saving...", "Downloading..." button labels in `confirmation-panel-helpers.ts`, `planner.ts`, and `runtime.ts`.
+- **Phase 6 (accessibility):** Model freshness dot replaced with visible "Up to date"/"Reload needed" text label + sr-only accessible name; PTT aria-labels and hint text decoupled (complementary, not repeated); confirmation error container always present in DOM with `aria-live="assertive"` `aria-atomic="true"`; disabled PTT button gets muted warm-gray background instead of opacity-only; `:focus-visible` outline rules added for PTT button, toolbar actions, settings cards, and back button.
+- **Phase 7 (validation):** All 97 JS tests pass; lint, tsc, vite build, cargo clippy, cargo test all clean. Final commit `b165c0e` on master.
+- All 7 phases of `docs/UIUX_IMPROVEMENTS1_TODO.md` now have implementation complete; phases 7.2–7.5 (live app walkthrough) remain for manual verification.
+
 ## 2026-06-05T17:30:06Z - Claude Sonnet 4.6 - Full UI/UX review performed; improvements TODO created
 
 - Performed a full UI/UX review of the frontend (all settings panels, confirmation panels, push-to-talk, workspace, styles, error handling, accessibility, user workflow).
