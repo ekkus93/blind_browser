@@ -121,29 +121,29 @@ src-tauri/src/
 - [x] Add `mod navigation_tools;` to `mod.rs`.
 - [x] Run `cargo check`.
 
-### 1.7 Extract content tool methods into `content_tools.rs`
+### 1.7 Extract content tool methods into `content_tools.rs` — DONE
 
-- [ ] Create `app_core/content_tools.rs`.
-- [ ] Move `execute_get_html`, `execute_eval_js`, `execute_scroll_page`,
+- [x] Create `app_core/content_tools.rs`.
+- [x] Move `execute_get_html`, `execute_eval_js`, `execute_scroll_page`,
       `execute_capture_screenshot` into a second `impl AppCore` block here.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
-### 1.8 Extract OCR/extraction tools into `extraction_tools.rs`
+### 1.8 Extract OCR/extraction tools into `extraction_tools.rs` — DONE
 
-- [ ] Create `app_core/extraction_tools.rs`.
-- [ ] Move `execute_run_ocr`, `execute_merge_ocr_into_page_model`, `execute_get_page_snapshot`,
+- [x] Create `app_core/extraction_tools.rs`.
+- [x] Move `execute_run_ocr`, `execute_merge_ocr_into_page_model`, `execute_get_page_snapshot`,
       `execute_extract_page_model`, `merge_ocr_text_into_page_model`, `extracted_text_metrics`,
       `has_positive_bbox`, `region_first_ocr_target_ids`,
       `should_trigger_extract_page_model_ocr_fallback`, `merged_region_text`,
       `ocr_runtime_error_to_tool_error`, `extract_page_model_internal_failure`,
       `nested_tool_failure_as_extract_page_model`, `build_extracted_page_model`,
       `build_visible_text_excerpt`, `infer_extraction_source` here.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
-### 1.9 Extract element interaction tools into `interaction_tools.rs`
+### 1.9 Extract element interaction tools into `interaction_tools.rs` — DONE
 
-- [ ] Create `app_core/interaction_tools.rs`.
-- [ ] Move `execute_list_interactive_elements`, `execute_find_element`,
+- [x] Create `app_core/interaction_tools.rs`.
+- [x] Move `execute_list_interactive_elements`, `execute_find_element`,
       `execute_click_element`, `execute_focus_element`, `execute_type_into_element`,
       `execute_submit_active_form`, all `resolve_clickable_element`,
       `resolve_typeable_element`, `resolve_form_element` helpers, and the full element
@@ -155,7 +155,7 @@ src-tauri/src/
       `summarize_form_candidate_names`, `describe_field_element`, `describe_form_element`,
       `region_bbox_by_id`, `normalize_optional_text`, `normalize_search_text`,
       `tokenize_search_text`) here.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
 ### 1.10 Extract form-fill resolution into `form_fill.rs`
 
