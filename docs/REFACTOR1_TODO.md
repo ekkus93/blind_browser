@@ -83,30 +83,22 @@ src-tauri/src/
 - [x] In `mod.rs`, add `mod replanning; use replanning::execute_bounded_replanning_loop;` and remove extracted items.
 - [x] Run `cargo check`.
 
-### 1.3 Extract `settings_adapters.rs` (lines ~4 798–5 233)
+### 1.3 Extract `settings_adapters.rs` (lines ~4 798–5 233) — DONE
 
-- [ ] Move all `build_*` free functions that convert `&AppConfig` into settings structs
-      (`build_tts_model_settings`, `build_local_tts_model_settings`, `build_tts_provider_settings`,
-      `build_remote_planner_settings`, `build_remote_tts_settings`, `build_remote_asr_settings`,
-      `build_confirmation_settings`, `build_ocr_threshold_settings`, `build_asr_provider_settings`,
-      `build_local_asr_model_settings`, `build_model_management_settings`,
-      `build_tts_voice_settings`, `active_local_tts_profile`, `active_local_asr_profile`,
-      `resolved_models_dir_for_app`, `remote_provider_label`, `masked_secret_value`) into
-      `app_core/settings_adapters.rs`.
-- [ ] Update `mod.rs` to `mod settings_adapters; use settings_adapters::*;`.
-- [ ] Run `cargo check`.
+- [x] Move all `build_*` free functions that convert `&AppConfig` into settings structs
+      into `app_core/settings_adapters.rs`.
+- [x] Update `mod.rs` to `mod settings_adapters; use settings_adapters::...;`.
+- [x] Run `cargo check`.
 
-### 1.4 Extract `model_management.rs` (lines ~5 285–5 513)
+### 1.4 Extract `model_management.rs` (lines ~5 285–5 513) — DONE
 
-- [ ] Move `local_tts_model_is_available`, `local_asr_model_is_available`,
+- [x] Move `local_tts_model_is_available`, `local_asr_model_is_available`,
       `KittenDownloadPlan`, `kitten_download_plan_for_model_id`, `WhisperDownloadPlan`,
       `whisper_download_plan_for_model_id`, `download_hugging_face_directory`,
-      `download_hugging_face_file` into `app_core/model_management.rs`.
-- [ ] Move the `AppCore` methods `download_active_local_tts_model` and
-      `download_active_local_asr_model` into an `impl AppCore` block in this file,
-      or keep them in `mod.rs` with the helpers in scope via `use`.
-- [ ] Update `mod.rs`.
-- [ ] Run `cargo check`.
+      `download_hugging_face_file`, `resolved_models_dir_for_app` into `app_core/model_management.rs`.
+- [x] AppCore download methods kept in `mod.rs` with helpers in scope via `use`.
+- [x] Update `mod.rs`.
+- [x] Run `cargo check`.
 
 ### 1.5 Extract `api_key_tools.rs` (lines ~4 994–5 170)
 

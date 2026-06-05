@@ -1,13 +1,13 @@
 #[cfg(feature = "remote-openai")]
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::asr::{
     AsrController, AsrRuntimeError, DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS,
 };
-use crate::audio_io::{AudioPlaybackController, AudioPlaybackError, RuntimeAudioState};
+use crate::audio_io::{AudioPlaybackController, AudioPlaybackError};
 use crate::browser::{
     BrowserController, BrowserError, BrowserPageMetrics, BrowserSessionConfig,
     BrowserVisibilityMode, LoadState,
@@ -35,15 +35,15 @@ use crate::commands::{
     PlannerStatus, PlannerToolHistoryEntry, ProviderFailoverSettings,
     ProviderSelectionStatus, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
     ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
-    RemoteAsrSettings, RemotePlannerSettings, RemoteProviderLabel, RemoteTtsSettings,
+    RemoteAsrSettings, RemotePlannerSettings, RemoteTtsSettings,
     ReportResultData, ReportResultInput, ReportStatus, RunOcrData, RunOcrInput, ScrollPageData,
     ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
     SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
     SetTtsVoiceInput, StartListeningData, StartListeningInput, StepTransition, StopListeningData,
     StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
     SubmitActiveFormInput, ToolError, ToolName, ToolResult, TranscribeAndExecuteCommandData,
-    TranscribeCommandData, TranscribeCommandInput, TtsModelOption, TtsModelSettings,
-    TtsProviderSettings, TtsVoiceOption, TtsVoiceSettings, TypeIntoElementData,
+    TranscribeCommandData, TranscribeCommandInput, TtsModelSettings,
+    TtsProviderSettings, TtsVoiceSettings, TypeIntoElementData,
     TypeIntoElementInput,
 };
 #[cfg(feature = "remote-openai")]
@@ -53,8 +53,8 @@ use crate::commands::{
 #[cfg(feature = "remote-openai")]
 use crate::config::resolve_secret_ref;
 use crate::config::{
-    secret_ref_reference, AppConfig, AudioSettings, ConfigError, LocalAsrProfile, LocalTtsProfile,
-    ModelManagementSettings, RemotePlannerProfile, RemoteProviderKind,
+    AppConfig, AudioSettings, ConfigError, ModelManagementSettings, RemotePlannerProfile,
+    RemoteProviderKind,
 };
 use crate::extractor::extract_structured_article_from_html;
 use crate::narration::{
@@ -65,7 +65,7 @@ use crate::ocr::{OcrController, OcrRuntimeError, OcrSettings};
 use crate::page_model::PageRegion;
 use crate::page_model::{ElementRole, ExtractionSource, PageModel, Rect, RegionRole, RegionSource};
 use crate::state::AppState;
-use crate::tts::{TtsController, TtsRuntimeError, KITTEN_TTS_VOICES, OPENAI_TTS_VOICES};
+use crate::tts::{TtsController, TtsRuntimeError};
 use reqwest::blocking::Client;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
@@ -194,8 +194,23 @@ pub struct AppCore {
     asr: AsrController,
 }
 
+mod model_management;
+use model_management::{
+    download_hugging_face_directory, download_hugging_face_file, kitten_download_plan_for_model_id,
+    resolved_models_dir_for_app, whisper_download_plan_for_model_id,
+};
+
 mod replanning;
 use replanning::execute_bounded_replanning_loop;
+
+mod settings_adapters;
+use settings_adapters::{
+    active_local_asr_profile, active_local_tts_profile, build_asr_provider_settings,
+    build_confirmation_settings, build_local_asr_model_settings, build_local_tts_model_settings,
+    build_model_management_settings, build_ocr_threshold_settings, build_provider_failover_settings,
+    build_remote_asr_settings, build_remote_planner_settings, build_remote_tts_settings,
+    build_tts_model_settings, build_tts_provider_settings, build_tts_voice_settings,
+};
 
 impl AppCore {
     pub fn new(app_handle: AppHandle) -> Result<Self, ConfigError> {
@@ -4628,201 +4643,6 @@ impl AppCore {
     }
 }
 
-fn build_tts_model_settings(config: &AppConfig) -> TtsModelSettings {
-    let mode = config.providers.tts.mode.clone();
-    let (active_profile, available_profiles) = match mode {
-        crate::config::ProviderMode::Local => (
-            config.providers.tts.local_profile.clone(),
-            config
-                .local_tts_profiles
-                .iter()
-                .map(|(profile_name, profile)| TtsModelOption {
-                    profile_name: profile_name.clone(),
-                    model_label: profile.model_id.clone(),
-                })
-                .collect(),
-        ),
-        crate::config::ProviderMode::Remote => (
-            config.providers.tts.remote_profile.clone(),
-            config
-                .remote_tts_profiles
-                .iter()
-                .map(|(profile_name, profile)| TtsModelOption {
-                    profile_name: profile_name.clone(),
-                    model_label: profile.model.clone(),
-                })
-                .collect(),
-        ),
-    };
-
-    TtsModelSettings {
-        mode,
-        active_profile,
-        available_profiles,
-    }
-}
-
-fn build_local_tts_model_settings(config: &AppConfig) -> LocalTtsModelSettings {
-    let profile_name = config.providers.tts.local_profile.clone();
-    let profile = profile_name
-        .as_ref()
-        .and_then(|configured_profile| config.local_tts_profiles.get(configured_profile));
-
-    LocalTtsModelSettings {
-        profile_name,
-        backend: profile.map(|configured_profile| configured_profile.backend.clone()),
-        model_id: profile.map(|configured_profile| configured_profile.model_id.clone()),
-        model_path: profile.map(|configured_profile| configured_profile.model_path.clone()),
-        default_voice: profile.map(|configured_profile| configured_profile.default_voice.clone()),
-        sample_rate: profile.map(|configured_profile| configured_profile.sample_rate),
-    }
-}
-
-fn build_tts_provider_settings(config: &AppConfig) -> TtsProviderSettings {
-    let mut available_modes = Vec::new();
-    if config
-        .providers
-        .tts
-        .local_profile
-        .as_ref()
-        .and_then(|profile_name| config.local_tts_profiles.get(profile_name))
-        .is_some()
-    {
-        available_modes.push(crate::config::ProviderMode::Local);
-    }
-    if config
-        .providers
-        .tts
-        .remote_profile
-        .as_ref()
-        .and_then(|profile_name| config.remote_tts_profiles.get(profile_name))
-        .is_some()
-    {
-        available_modes.push(crate::config::ProviderMode::Remote);
-    }
-    if available_modes.is_empty() {
-        available_modes.push(config.providers.tts.mode.clone());
-    }
-
-    TtsProviderSettings {
-        active_mode: config.providers.tts.mode.clone(),
-        available_modes,
-    }
-}
-
-fn remote_provider_label(provider: &RemoteProviderKind) -> RemoteProviderLabel {
-    match provider {
-        RemoteProviderKind::OpenAi => RemoteProviderLabel::OpenAi,
-        RemoteProviderKind::Ollama => RemoteProviderLabel::Ollama,
-    }
-}
-
-fn masked_secret_value(secret_ref: &crate::config::SecretRef) -> Option<String> {
-    let secret = crate::config::resolve_secret_ref(secret_ref).ok()?;
-    let trimmed_secret = secret.trim();
-    if trimmed_secret.is_empty() {
-        return None;
-    }
-
-    let suffix = trimmed_secret
-        .chars()
-        .rev()
-        .take(4)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<String>();
-    Some(format!("***{suffix}"))
-}
-
-fn build_remote_planner_settings(config: &AppConfig) -> RemotePlannerSettings {
-    let profile_name = config.providers.planner.remote_profile.clone();
-    let profile = profile_name
-        .as_ref()
-        .and_then(|configured_profile| config.remote_planner_profiles.get(configured_profile));
-
-    RemotePlannerSettings {
-        profile_name,
-        provider: profile
-            .map(|configured_profile| remote_provider_label(&configured_profile.provider)),
-        base_url: profile.map(|configured_profile| configured_profile.base_url.clone()),
-        model: profile.map(|configured_profile| configured_profile.model.clone()),
-        api_key_reference: profile
-            .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
-        api_key_masked_value: profile
-            .and_then(|configured_profile| masked_secret_value(&configured_profile.api_key)),
-        organization_reference: profile
-            .and_then(|configured_profile| configured_profile.organization.as_ref())
-            .map(secret_ref_reference),
-        project: profile.and_then(|configured_profile| configured_profile.project.clone()),
-        temperature_milli: profile.map(|configured_profile| configured_profile.temperature_milli),
-        max_output_tokens: profile.map(|configured_profile| configured_profile.max_output_tokens),
-        timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
-    }
-}
-
-fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings {
-    let profile_name = config.providers.tts.remote_profile.clone();
-    let profile = profile_name
-        .as_ref()
-        .and_then(|configured_profile| config.remote_tts_profiles.get(configured_profile));
-
-    RemoteTtsSettings {
-        profile_name,
-        provider: profile
-            .map(|configured_profile| remote_provider_label(&configured_profile.provider)),
-        base_url: profile.map(|configured_profile| configured_profile.base_url.clone()),
-        model: profile.map(|configured_profile| configured_profile.model.clone()),
-        api_key_reference: profile
-            .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
-        api_key_masked_value: profile
-            .and_then(|configured_profile| masked_secret_value(&configured_profile.api_key)),
-        organization_reference: profile
-            .and_then(|configured_profile| configured_profile.organization.as_ref())
-            .map(secret_ref_reference),
-        project: profile.and_then(|configured_profile| configured_profile.project.clone()),
-        voice: profile.map(|configured_profile| configured_profile.voice.clone()),
-        audio_format: profile.map(|configured_profile| configured_profile.audio_format.clone()),
-        timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
-    }
-}
-
-fn build_remote_asr_settings(config: &AppConfig) -> RemoteAsrSettings {
-    let profile_name = config.providers.asr.remote_profile.clone();
-    let profile = profile_name
-        .as_ref()
-        .and_then(|configured_profile| config.remote_asr_profiles.get(configured_profile));
-
-    RemoteAsrSettings {
-        profile_name,
-        provider: profile
-            .map(|configured_profile| remote_provider_label(&configured_profile.provider)),
-        base_url: profile.map(|configured_profile| configured_profile.base_url.clone()),
-        model: profile.map(|configured_profile| configured_profile.model.clone()),
-        api_key_reference: profile
-            .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
-        api_key_masked_value: profile
-            .and_then(|configured_profile| masked_secret_value(&configured_profile.api_key)),
-        organization_reference: profile
-            .and_then(|configured_profile| configured_profile.organization.as_ref())
-            .map(secret_ref_reference),
-        project: profile.and_then(|configured_profile| configured_profile.project.clone()),
-        language: profile.and_then(|configured_profile| configured_profile.language.clone()),
-        temperature_milli: profile.map(|configured_profile| configured_profile.temperature_milli),
-        timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
-    }
-}
-
-fn build_provider_failover_settings(_config: &AppConfig) -> ProviderFailoverSettings {
-    ProviderFailoverSettings {
-        planner_available: false,
-        tts_available: false,
-        asr_available: false,
-        summary: String::from(
-            "Provider failover settings are defined in config, but automatic failover is still disabled in the live runtime.",
-        ),
-    }
-}
 
 fn test_remote_openai_profile_api_key(
     target: RemoteApiKeyTarget,
@@ -5001,419 +4821,7 @@ fn openai_api_key_test_failure_message(status: reqwest::StatusCode) -> String {
     }
 }
 
-fn build_confirmation_settings(config: &AppConfig) -> ConfirmationSettings {
-    ConfirmationSettings {
-        confirmation_confidence_threshold: config.safety.confirmation_confidence_threshold,
-        allow_click_without_confirmation: config.safety.allow_click_without_confirmation,
-        always_confirm_submit: config.safety.always_confirm_submit,
-    }
-}
 
-fn build_ocr_threshold_settings(config: &AppConfig) -> OcrThresholdSettings {
-    OcrThresholdSettings {
-        sparse_text_char_threshold: config.ocr.sparse_text_char_threshold,
-        sparse_text_region_threshold: config.ocr.sparse_text_region_threshold,
-    }
-}
-
-fn build_asr_provider_settings(config: &AppConfig) -> AsrProviderSettings {
-    let mut available_modes = Vec::new();
-    if config
-        .providers
-        .asr
-        .local_profile
-        .as_ref()
-        .and_then(|profile_name| config.local_asr_profiles.get(profile_name))
-        .is_some()
-    {
-        available_modes.push(crate::config::ProviderMode::Local);
-    }
-    if config
-        .providers
-        .asr
-        .remote_profile
-        .as_ref()
-        .and_then(|profile_name| config.remote_asr_profiles.get(profile_name))
-        .is_some()
-    {
-        available_modes.push(crate::config::ProviderMode::Remote);
-    }
-    if available_modes.is_empty() {
-        available_modes.push(config.providers.asr.mode.clone());
-    }
-
-    AsrProviderSettings {
-        active_mode: config.providers.asr.mode.clone(),
-        available_modes,
-    }
-}
-
-fn build_local_asr_model_settings(config: &AppConfig) -> LocalAsrModelSettings {
-    let profile_name = config.providers.asr.local_profile.clone();
-    let profile = profile_name
-        .as_ref()
-        .and_then(|configured_profile| config.local_asr_profiles.get(configured_profile));
-
-    LocalAsrModelSettings {
-        profile_name,
-        backend: profile.map(|configured_profile| configured_profile.backend.clone()),
-        model_id: profile.map(|configured_profile| configured_profile.model_id.clone()),
-        model_path: profile.map(|configured_profile| configured_profile.model_path.clone()),
-        language: profile.and_then(|configured_profile| configured_profile.language.clone()),
-        threads: profile.map(|configured_profile| configured_profile.threads),
-    }
-}
-
-fn build_model_management_settings(config: &AppConfig) -> ModelManagementSettingsData {
-    let (local_tts_profile_name, local_tts_profile) =
-        match config.providers.tts.local_profile.as_ref() {
-            Some(profile_name) => (
-                Some(profile_name.clone()),
-                config.local_tts_profiles.get(profile_name),
-            ),
-            None => (None, None),
-        };
-    let (local_asr_profile_name, local_asr_profile) =
-        match config.providers.asr.local_profile.as_ref() {
-            Some(profile_name) => (
-                Some(profile_name.clone()),
-                config.local_asr_profiles.get(profile_name),
-            ),
-            None => (None, None),
-        };
-
-    ModelManagementSettingsData {
-        models_dir: config.models.models_dir.clone(),
-        check_on_startup: config.models.check_on_startup,
-        auto_download_missing: config.models.auto_download_missing,
-        local_tts: ManagedLocalModelStatusData {
-            profile_name: local_tts_profile_name,
-            backend: local_tts_profile.map(|profile| profile.backend.to_string()),
-            model_id: local_tts_profile.map(|profile| profile.model_id.clone()),
-            model_path: local_tts_profile.map(|profile| profile.model_path.clone()),
-            available: local_tts_profile.is_some_and(local_tts_model_is_available),
-            download_supported: local_tts_profile.is_some_and(|profile| {
-                kitten_download_plan_for_model_id(&profile.model_id).is_ok()
-            }),
-            download_label: local_tts_profile
-                .and_then(|profile| kitten_download_plan_for_model_id(&profile.model_id).ok())
-                .map(|plan| format!("Download {}", plan.display_name)),
-        },
-        local_asr: ManagedLocalModelStatusData {
-            profile_name: local_asr_profile_name,
-            backend: local_asr_profile.map(|profile| profile.backend.to_string()),
-            model_id: local_asr_profile.map(|profile| profile.model_id.clone()),
-            model_path: local_asr_profile.map(|profile| profile.model_path.clone()),
-            available: local_asr_profile.is_some_and(local_asr_model_is_available),
-            download_supported: local_asr_profile.is_some_and(|profile| {
-                whisper_download_plan_for_model_id(&profile.model_id).is_ok()
-            }),
-            download_label: local_asr_profile
-                .and_then(|profile| whisper_download_plan_for_model_id(&profile.model_id).ok())
-                .map(|plan| format!("Download Whisper {}", plan.display_name)),
-        },
-    }
-}
-
-fn local_tts_model_is_available(profile: &LocalTtsProfile) -> bool {
-    let model_path = Path::new(profile.model_path.trim());
-    if !model_path.is_dir() {
-        return false;
-    }
-
-    let has_config = model_path.join("config.json").is_file();
-    let has_voices = model_path.join("voices.npz").is_file();
-    let has_onnx = fs::read_dir(model_path)
-        .ok()
-        .into_iter()
-        .flatten()
-        .flatten()
-        .any(|entry| {
-            entry
-                .path()
-                .extension()
-                .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("onnx"))
-        });
-
-    has_config && has_voices && has_onnx
-}
-
-fn local_asr_model_is_available(profile: &LocalAsrProfile) -> bool {
-    Path::new(profile.model_path.trim()).is_file()
-}
-
-struct KittenDownloadPlan {
-    repository: &'static str,
-    directory_name: &'static str,
-    display_name: &'static str,
-    files: &'static [&'static str],
-}
-
-fn kitten_download_plan_for_model_id(model_id: &str) -> Result<KittenDownloadPlan, String> {
-    let normalized = model_id.trim().to_ascii_lowercase();
-    match normalized.as_str() {
-        "default" | "mini" | "kitten-tts-mini" => Ok(KittenDownloadPlan {
-            repository: "KittenML/kitten-tts-mini-0.8",
-            directory_name: "kitten-tts-mini",
-            display_name: "KittenTTS mini model",
-            files: &["config.json", "kitten_tts_mini_v0_8.onnx", "voices.npz"],
-        }),
-        "micro" | "kitten-tts-micro" => Ok(KittenDownloadPlan {
-            repository: "KittenML/kitten-tts-micro-0.8",
-            directory_name: "kitten-tts-micro",
-            display_name: "KittenTTS micro model",
-            files: &["config.json", "kitten_tts_micro_v0_8.onnx", "voices.npz"],
-        }),
-        "nano" | "kitten-tts-nano" => Ok(KittenDownloadPlan {
-            repository: "KittenML/kitten-tts-nano-0.8-fp32",
-            directory_name: "kitten-tts-nano",
-            display_name: "KittenTTS nano model",
-            files: &["config.json", "kitten_tts_nano_v0_8.onnx", "voices.npz"],
-        }),
-        "nano-int8" | "kitten-tts-nano-int8" => Ok(KittenDownloadPlan {
-            repository: "KittenML/kitten-tts-nano-0.8-int8",
-            directory_name: "kitten-tts-nano-int8",
-            display_name: "KittenTTS nano int8 model",
-            files: &[
-                "config.json",
-                "kitten_tts_nano_v0_8_int8.onnx",
-                "voices.npz",
-            ],
-        }),
-        _ => Err(format!(
-            "local TTS model_id '{}' does not have a known Hugging Face download mapping",
-            model_id.trim()
-        )),
-    }
-}
-
-struct WhisperDownloadPlan {
-    repository: &'static str,
-    display_name: &'static str,
-    file_name: &'static str,
-}
-
-fn whisper_download_plan_for_model_id(model_id: &str) -> Result<WhisperDownloadPlan, String> {
-    let normalized = model_id.trim().to_ascii_lowercase();
-    let file_name = match normalized.as_str() {
-        "tiny" => "ggml-tiny.bin",
-        "base" => "ggml-base.bin",
-        "small" => "ggml-small.bin",
-        "medium" => "ggml-medium.bin",
-        "large-v3" => "ggml-large-v3.bin",
-        "large-v3-turbo" => "ggml-large-v3-turbo.bin",
-        _ => {
-            return Err(format!(
-                "local ASR model_id '{}' does not have a known Hugging Face download mapping",
-                model_id.trim()
-            ))
-        }
-    };
-
-    Ok(WhisperDownloadPlan {
-        repository: "ggerganov/whisper.cpp",
-        display_name: match normalized.as_str() {
-            "tiny" => "tiny model",
-            "base" => "base model",
-            "small" => "small model",
-            "medium" => "medium model",
-            "large-v3" => "large-v3 model",
-            "large-v3-turbo" => "large-v3-turbo model",
-            _ => unreachable!(),
-        },
-        file_name,
-    })
-}
-
-fn active_local_tts_profile(config: &AppConfig) -> Result<(String, &LocalTtsProfile), String> {
-    let profile_name = config
-        .providers
-        .tts
-        .local_profile
-        .clone()
-        .ok_or_else(|| String::from("No local TTS profile is configured."))?;
-    let profile = config
-        .local_tts_profiles
-        .get(&profile_name)
-        .ok_or_else(|| format!("Configured local TTS profile '{profile_name}' was not found."))?;
-    Ok((profile_name, profile))
-}
-
-fn active_local_asr_profile(config: &AppConfig) -> Result<(String, &LocalAsrProfile), String> {
-    let profile_name = config
-        .providers
-        .asr
-        .local_profile
-        .clone()
-        .ok_or_else(|| String::from("No local ASR profile is configured."))?;
-    let profile = config
-        .local_asr_profiles
-        .get(&profile_name)
-        .ok_or_else(|| format!("Configured local ASR profile '{profile_name}' was not found."))?;
-    Ok((profile_name, profile))
-}
-
-fn resolved_models_dir_for_app(
-    app_handle: &AppHandle,
-    configured_models_dir: &str,
-) -> Result<PathBuf, String> {
-    let trimmed = configured_models_dir.trim();
-    if trimmed.is_empty() {
-        return Err(String::from("Configured models_dir must not be empty."));
-    }
-
-    if let Some(relative_to_home) = trimmed.strip_prefix("~/") {
-        let Some(home_dir) = app_handle.path().home_dir().ok() else {
-            return Err(String::from(
-                "Failed to resolve the current user's home directory.",
-            ));
-        };
-        return Ok(home_dir.join(relative_to_home));
-    }
-
-    let candidate = PathBuf::from(trimmed);
-    if candidate.is_absolute() {
-        return Ok(candidate);
-    }
-
-    let config_path =
-        AppConfig::config_path_for_app(app_handle).map_err(|error| error.to_string())?;
-    let config_dir = config_path.parent().ok_or_else(|| {
-        format!(
-            "Failed to resolve the parent config directory for {}",
-            config_path.display()
-        )
-    })?;
-    Ok(config_dir.join(candidate))
-}
-
-fn download_hugging_face_directory(
-    target_dir: &Path,
-    repository: &str,
-    files: &[&str],
-) -> Result<(), String> {
-    fs::create_dir_all(target_dir).map_err(|error| {
-        format!(
-            "Failed to create model directory {}: {error}",
-            target_dir.display()
-        )
-    })?;
-    for file_name in files {
-        let target_path = target_dir.join(file_name);
-        download_hugging_face_file(&target_path, repository, file_name)?;
-    }
-    Ok(())
-}
-
-fn download_hugging_face_file(
-    target_path: &Path,
-    repository: &str,
-    file_name: &str,
-) -> Result<(), String> {
-    let parent = target_path.parent().ok_or_else(|| {
-        format!(
-            "Failed to resolve the parent directory for download target {}",
-            target_path.display()
-        )
-    })?;
-    fs::create_dir_all(parent)
-        .map_err(|error| format!("Failed to create directory {}: {error}", parent.display()))?;
-
-    let url = format!("https://huggingface.co/{repository}/resolve/main/{file_name}");
-    let client = Client::builder()
-        .build()
-        .map_err(|error| format!("Failed to create the download client: {error}"))?;
-    let mut response = client
-        .get(&url)
-        .send()
-        .map_err(|error| format!("Failed to download {url}: {error}"))?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "Hugging Face returned {} while downloading {}",
-            response.status(),
-            url
-        ));
-    }
-
-    let mut output = fs::File::create(target_path)
-        .map_err(|error| format!("Failed to create {}: {error}", target_path.display()))?;
-    response
-        .copy_to(&mut output)
-        .map_err(|error| format!("Failed to write {}: {error}", target_path.display()))?;
-    Ok(())
-}
-
-fn build_tts_voice_settings(
-    config: &AppConfig,
-    runtime_audio: &RuntimeAudioState,
-) -> TtsVoiceSettings {
-    let mode = config.providers.tts.mode.clone();
-    let mut available_voices = match mode {
-        crate::config::ProviderMode::Local => KITTEN_TTS_VOICES
-            .iter()
-            .map(|voice| TtsVoiceOption {
-                voice_name: (*voice).to_string(),
-                display_label: (*voice).to_string(),
-            })
-            .collect(),
-        crate::config::ProviderMode::Remote => {
-            let active_remote_profile = config
-                .providers
-                .tts
-                .remote_profile
-                .as_ref()
-                .and_then(|profile_name| config.remote_tts_profiles.get(profile_name));
-            match active_remote_profile.map(|profile| &profile.provider) {
-                Some(RemoteProviderKind::OpenAi) => OPENAI_TTS_VOICES
-                    .iter()
-                    .map(|voice| TtsVoiceOption {
-                        voice_name: (*voice).to_string(),
-                        display_label: (*voice).to_string(),
-                    })
-                    .collect(),
-                Some(_) => active_remote_profile
-                    .map(|profile| {
-                        vec![TtsVoiceOption {
-                            voice_name: profile.voice.clone(),
-                            display_label: profile.voice.clone(),
-                        }]
-                    })
-                    .unwrap_or_default(),
-                None => Vec::new(),
-            }
-        }
-    };
-    let mut active_voice = runtime_audio
-        .tts_voice
-        .as_deref()
-        .map(str::trim)
-        .filter(|voice| !voice.is_empty())
-        .map(ToOwned::to_owned);
-
-    if let Some(current_voice) = active_voice.clone() {
-        if let Some(option) = available_voices
-            .iter()
-            .find(|option| option.voice_name.eq_ignore_ascii_case(&current_voice))
-        {
-            active_voice = Some(option.voice_name.clone());
-        } else {
-            available_voices.insert(
-                0,
-                TtsVoiceOption {
-                    voice_name: current_voice.clone(),
-                    display_label: current_voice,
-                },
-            );
-        }
-    }
-
-    TtsVoiceSettings {
-        mode,
-        active_voice,
-        available_voices,
-    }
-}
 
 impl DeterministicToolExecutor for AppCore {
     fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData> {
