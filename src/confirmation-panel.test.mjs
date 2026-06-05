@@ -633,6 +633,7 @@ test("renders model management busy and error states", () => {
 
   assert.match(html, /Download failed\./);
   assert.match(html, /Downloading\.\.\./);
+  assert.match(html, /btn-spinner/);
   assert.match(html, /disabled aria-disabled="true"/);
   assert.match(html, /Download Whisper tiny model/);
 });
@@ -1169,6 +1170,7 @@ test("renders remote planner API key test status while testing", () => {
   });
 
   assert.match(html, /Testing\.\.\./);
+  assert.match(html, /btn-spinner/);
   assert.match(html, /Latest test result/);
   assert.match(html, /OpenAI accepted the configured API key\./);
   assert.match(html, /settings-api-key-test-status/);
@@ -1263,6 +1265,64 @@ test("renders stale planner model indicator when endpoint models need reload", (
   });
 
   assert.match(html, /aria-label="Models need to be reloaded for the current endpoint"/);
+});
+
+test("renders spinner on the Load models button while models are loading", () => {
+  const html = renderSettingsRemotePlannerPanel({
+    profileName: "openai-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-5.4-mini",
+    availableModels: [],
+    loadedModelsEndpoint: null,
+    isLoadingModels: true,
+    isSavingConnection: false,
+    isResettingConnection: false,
+    isConfirmingReset: false,
+    apiKeyReference: "Environment variable: OPENAI_API_KEY",
+    organizationReference: null,
+    project: null,
+    temperatureMilli: 200,
+    maxOutputTokens: 1024,
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  assert.match(html, /Loading models\.\.\./);
+  assert.match(html, /btn-spinner/);
+});
+
+test("renders spinner on the Save settings button while saving", () => {
+  const html = renderSettingsRemotePlannerPanel({
+    profileName: "openai-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-5.4-mini",
+    availableModels: ["gpt-5.4-mini"],
+    loadedModelsEndpoint: "https://api.openai.com/v1",
+    isLoadingModels: false,
+    isSavingConnection: true,
+    isResettingConnection: false,
+    isConfirmingReset: false,
+    apiKeyReference: "Environment variable: OPENAI_API_KEY",
+    organizationReference: null,
+    project: null,
+    temperatureMilli: 200,
+    maxOutputTokens: 1024,
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  assert.match(html, /Saving\.\.\./);
+  assert.match(html, /btn-spinner/);
 });
 
 test("renders settings TTS model errors and disabled state while saving", () => {

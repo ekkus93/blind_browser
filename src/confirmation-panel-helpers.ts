@@ -151,7 +151,9 @@ export function renderSecretEntryCard(
             "aria-disabled": testDisabled ? "true" : undefined,
             onClick: handlers.onTest,
           },
-          isTestingApiKey ? "Testing..." : "Test API key",
+          ...(isTestingApiKey
+            ? [h("span", { className: "btn-spinner", "aria-hidden": "true" }), "Testing..."]
+            : ["Test API key"]),
         ),
       ),
     ),

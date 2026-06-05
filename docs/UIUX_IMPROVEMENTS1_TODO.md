@@ -223,40 +223,40 @@ Many usability problems in this app trace directly to developer-facing terminolo
 
 Users currently have no feedback during downloads, model loading, or API testing. This phase adds visual progress signals.
 
-### 5.1 Add a spinner to the API key "Test" button
+### ✅ DONE 5.1 Add a spinner to the API key "Test" button
 
 **Problem:** When a user clicks "Test API key", the button changes its label to "Testing..." but there is no spinner or progress indicator. Users don't know if the test is running or frozen, especially since it involves a network call.
 
-- [ ] In `src/confirmation-panel-helpers.ts`, find `renderSecretEntryCard` and the test button rendering logic.
-- [ ] When `isTesting` is true, add a CSS spinner inside or alongside the "Testing..." button label. A simple CSS `@keyframes` spin on a small `<span>` element is sufficient — no new dependencies needed.
-- [ ] In `src/styles.css`, add the spinner animation and the `.testing-spinner` (or equivalent) class.
-- [ ] Ensure the spinner respects `prefers-reduced-motion` — when reduced motion is preferred, show only the text state change without animation.
-- [ ] Update render tests that assert on the test button state.
+- [x] In `src/confirmation-panel-helpers.ts`, find `renderSecretEntryCard` and the test button rendering logic.
+- [x] When `isTesting` is true, add a CSS spinner inside or alongside the "Testing..." button label. A simple CSS `@keyframes` spin on a small `<span>` element is sufficient — no new dependencies needed.
+- [x] In `src/styles.css`, add the spinner animation and the `.btn-spinner` class.
+- [x] Ensure the spinner respects `prefers-reduced-motion` — when reduced motion is preferred, show only the text state change without animation.
+- [x] Update render tests that assert on the test button state.
 
-### 5.2 Add a spinner to the planner "Load models" button
+### ✅ DONE 5.2 Add a spinner to the planner "Load models" button
 
 **Problem:** When loading models from an endpoint, the button changes to "Loading models..." but no visual progress signal is shown.
 
-- [ ] In `src/settings-panels/planner.ts`, find the load-models button and its `isLoadingModels` state.
-- [ ] Apply the same spinner pattern as task 5.1 to the "Loading models..." state.
-- [ ] Ensure the spinner uses the same CSS animation class introduced in 5.1 for consistency.
+- [x] In `src/settings-panels/planner.ts`, find the load-models button and its `isLoadingModels` state.
+- [x] Apply the same spinner pattern as task 5.1 to the "Loading models..." state.
+- [x] Ensure the spinner uses the same CSS animation class introduced in 5.1 for consistency.
 
-### 5.3 Add a progress or status indicator to model downloads in Runtime settings
+### ✅ DONE 5.3 Add a progress or status indicator to model downloads in Runtime settings
 
 **Problem:** Model download buttons show "Downloading..." but provide no estimate, progress bar, or confirmation that the download is happening. Large Whisper or TTS models can take several minutes.
 
-- [ ] In `src/settings-panels/runtime.ts`, find the model download button rendering for TTS and ASR models.
-- [ ] When `isDownloading` is true for a model, show a spinner (same CSS as 5.1) alongside the "Downloading..." label.
-- [ ] If the backend provides download progress as a percentage, expose that value through the runtime panel state and display a simple text progress indicator (e.g., "Downloading... 42%"). If the backend does not provide progress, a spinner alone is sufficient.
-- [ ] When download completes, update the button area to show a success state ("Downloaded ✓") briefly before reverting to the normal idle state.
-- [ ] Update render tests for the download button states.
+- [x] In `src/settings-panels/runtime.ts`, find the model download button rendering for TTS and ASR models.
+- [x] When `isDownloading` is true for a model, show a spinner (same CSS as 5.1) alongside the "Downloading..." label.
+- [x] If the backend provides download progress as a percentage, expose that value through the runtime panel state and display a simple text progress indicator (e.g., "Downloading... 42%"). If the backend does not provide progress, a spinner alone is sufficient.
+- [x] When download completes, update the button area to show a success state ("Downloaded ✓") briefly before reverting to the normal idle state.
+- [x] Update render tests for the download button states.
 
-### 5.4 Add an indeterminate progress indicator to the planner settings "Save settings" button
+### ✅ DONE 5.4 Add an indeterminate progress indicator to the planner settings "Save settings" button
 
 **Problem:** Saving planner endpoint/model settings is asynchronous but the button only changes its label. No spinner is shown.
 
-- [ ] In `src/settings-panels/planner.ts`, find the save-settings button.
-- [ ] Apply the spinner pattern from 5.1 when `isSaving` is true.
+- [x] In `src/settings-panels/planner.ts`, find the save-settings button.
+- [x] Apply the spinner pattern from 5.1 when `isSaving` is true.
 
 ---
 

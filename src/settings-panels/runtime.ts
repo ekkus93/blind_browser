@@ -330,7 +330,9 @@ export function renderSettingsModelManagementPanelNode(
               }
               : undefined,
           },
-          state.isDownloadingTts ? "Downloading..." : (state.localTtsDownloadLabel ?? "Download unavailable"),
+          ...(state.isDownloadingTts
+            ? [h("span", { className: "btn-spinner", "aria-hidden": "true" }), "Downloading..."]
+            : [state.localTtsDownloadLabel ?? "Download unavailable"]),
         ),
       ),
       h(
@@ -352,7 +354,9 @@ export function renderSettingsModelManagementPanelNode(
               }
               : undefined,
           },
-          state.isDownloadingAsr ? "Downloading..." : (state.localAsrDownloadLabel ?? "Download unavailable"),
+          ...(state.isDownloadingAsr
+            ? [h("span", { className: "btn-spinner", "aria-hidden": "true" }), "Downloading..."]
+            : [state.localAsrDownloadLabel ?? "Download unavailable"]),
         ),
       ),
     ),

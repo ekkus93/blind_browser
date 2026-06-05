@@ -150,7 +150,9 @@ export function renderSettingsRemotePlannerPanelNode(
                   "aria-disabled": loadModelsDisabled ? "true" : undefined,
                   onClick: handlers?.onLoadModels,
                 },
-                state.isLoadingModels ? "Loading models..." : "Load models",
+                ...(state.isLoadingModels
+                  ? [h("span", { className: "btn-spinner", "aria-hidden": "true" }), "Loading models..."]
+                  : ["Load models"]),
               ),
             ),
           ),
@@ -197,7 +199,9 @@ export function renderSettingsRemotePlannerPanelNode(
                   "aria-disabled": saveSettingsDisabled ? "true" : undefined,
                   onClick: handlers?.onSaveSettings,
                 },
-                state.isSavingConnection ? "Saving..." : "Save settings",
+                ...(state.isSavingConnection
+                  ? [h("span", { className: "btn-spinner", "aria-hidden": "true" }), "Saving..."]
+                  : ["Save settings"]),
               ),
               h(
                 "button",
