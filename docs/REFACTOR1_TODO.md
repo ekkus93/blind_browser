@@ -112,14 +112,14 @@ src-tauri/src/
 - [x] Update `mod.rs`.
 - [x] Run `cargo check`.
 
-### 1.6 Extract navigation tool methods into `navigation_tools.rs`
+### 1.6 Extract navigation tool methods into `navigation_tools.rs` — DONE
 
-- [ ] Create `app_core/navigation_tools.rs` with a second `impl AppCore` block.
-- [ ] Move `execute_open_url`, `execute_go_back`, `execute_go_forward`, `execute_reload_page`,
+- [x] Create `app_core/navigation_tools.rs` with a second `impl AppCore` block.
+- [x] Move `execute_open_url`, `execute_go_back`, `execute_go_forward`, `execute_reload_page`,
       `refresh_current_page_after_navigation`, `clear_navigation_follow_up_state`,
       `normalize_absolute_url`, `browser_error_to_tool_error` into this file.
-- [ ] Add `mod navigation_tools;` to `mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod navigation_tools;` to `mod.rs`.
+- [x] Run `cargo check`.
 
 ### 1.7 Extract content tool methods into `content_tools.rs`
 
