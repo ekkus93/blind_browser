@@ -75,13 +75,13 @@ src-tauri/src/
       `app_core/mod.rs` automatically — no change needed, but verify it compiles).
 - [x] Run `cargo check` to confirm nothing broke before splitting.
 
-### 1.2 Extract `replanning.rs` (lines ~212–343)
+### 1.2 Extract `replanning.rs` (lines ~212–343) — DONE
 
-- [ ] Move `execute_bounded_replanning_loop`, `execution_trace_to_tool_history_entries`,
+- [x] Move `execute_bounded_replanning_loop`, `execution_trace_to_tool_history_entries`,
       `append_execution_trace`, `merge_execution_outcome_trace`, `replanning_request_id`,
       and the `ReplanningRuntime` trait + its impl block into `app_core/replanning.rs`.
-- [ ] In `mod.rs`, add `mod replanning; use replanning::*;` and remove extracted items.
-- [ ] Run `cargo check`.
+- [x] In `mod.rs`, add `mod replanning; use replanning::execute_bounded_replanning_loop;` and remove extracted items.
+- [x] Run `cargo check`.
 
 ### 1.3 Extract `settings_adapters.rs` (lines ~4 798–5 233)
 
