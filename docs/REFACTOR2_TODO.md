@@ -563,43 +563,43 @@ src-tauri/src/commands/validators/
 
 ### 7.1 Create `validators/` directory and `mod.rs`
 
-- [ ] Create `src-tauri/src/commands/validators/` directory.
-- [ ] Move `commands/validators.rs` → `commands/validators/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Create `src-tauri/src/commands/validators/` directory.
+- [x] Move `commands/validators.rs` → `commands/validators/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 7.2 Extract `navigation.rs`
 
-- [ ] Move URL, scroll, reload, eval_js, and history-navigation argument validators into
+- [x] Move URL, scroll, reload, eval_js, and history-navigation argument validators into
       `validators/navigation.rs`.
-- [ ] Add `mod navigation;` in `validators/mod.rs` and call through from the dispatch function.
-- [ ] Run `cargo check`.
+- [x] Add `mod navigation;` in `validators/mod.rs` and call through from the dispatch function.
+- [x] Run `cargo check`.
 
 ### 7.3 Extract `element.rs`
 
-- [ ] Move element interaction validators (find, click, focus, type, submit) into
+- [x] Move element interaction validators (find, click, focus, type, submit) into
       `validators/element.rs`.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
 ### 7.4 Extract `extraction.rs`
 
-- [ ] Move OCR, screenshot, and page-model validators into `validators/extraction.rs`.
-- [ ] Run `cargo check`.
+- [x] Move OCR, screenshot, and page-model validators into `validators/extraction.rs`.
+- [x] Run `cargo check`.
 
 ### 7.5 Extract `audio.rs`
 
-- [ ] Move playback and browser-visibility validators into `validators/audio.rs`.
-- [ ] Run `cargo check`.
+- [x] Move playback and browser-visibility validators into `validators/audio.rs`.
+- [x] Run `cargo check`.
 
 ### 7.6 Extract `voice.rs`
 
-- [ ] Move listening and transcription validators into `validators/voice.rs`.
-- [ ] Run `cargo check`.
+- [x] Move listening and transcription validators into `validators/voice.rs`.
+- [x] Run `cargo check`.
 
 ### 7.7 Extract `planner.rs`
 
-- [ ] Move confirmation-action, report-result, and step-transition validators into
+- [x] Move confirmation-action, report-result, and step-transition validators into
       `validators/planner.rs`.
-- [ ] Run full validation gate.
+- [x] Run full validation gate.
 
 ---
 
