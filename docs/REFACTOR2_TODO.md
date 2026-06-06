@@ -624,25 +624,25 @@ src-tauri/src/commands/
 
 ### 8.1 Extract `schemas.rs`
 
-- [ ] Move `planner_output_schema()`, `canonical_planner_output_examples()`,
+- [x] Move `planner_output_schema()`, `canonical_planner_output_examples()`,
       `tool_input_schema()`, `tool_output_schema()` into `commands/schemas.rs`.
-- [ ] Import in `registry.rs` where needed.
-- [ ] Run `cargo check`.
+- [x] Import in `registry.rs` where needed.
+- [x] Run `cargo check`.
 
 ### 8.2 Extract `skill_parser.rs`
 
-- [ ] Move `parse_skill_document()`, `parse_skill_frontmatter()`, `parse_bundled_skills()`,
+- [x] Move `parse_skill_document()`, `parse_skill_frontmatter()`, `parse_bundled_skills()`,
       `skill_summary_from_frontmatter()`, `score_skill()`, and all their helper functions
       into `commands/skill_parser.rs`.
-- [ ] Update `registry.rs` to import from `skill_parser`.
-- [ ] Run `cargo check`.
+- [x] Update `registry.rs` to import from `skill_parser`.
+- [x] Run `cargo check`.
 
 ### 8.3 Extract `skill_loader.rs`
 
-- [ ] Move `discover_skills()`, `load_skills_from_directory()`, and filesystem/path helpers
+- [x] Move `discover_skills()`, `load_skills_from_directory()`, and filesystem/path helpers
       into `commands/skill_loader.rs`.
-- [ ] Update `registry.rs` to import from `skill_loader`.
-- [ ] Run full validation gate.
+- [x] Update `registry.rs` to import from `skill_loader`.
+- [x] Run full validation gate.
 
 ---
 
