@@ -183,31 +183,31 @@ src-tauri/src/commands/planner_executor/
 
 ### 4.1 Create `planner_executor/` directory and `mod.rs`
 
-- [ ] Create `src-tauri/src/commands/planner_executor/` directory.
-- [ ] Move `commands/planner_executor.rs` → `commands/planner_executor/mod.rs`.
-- [ ] Run `cargo check` — Rust resolves `planner_executor/mod.rs` automatically.
+- [x] Create `src-tauri/src/commands/planner_executor/` directory.
+- [x] Move `commands/planner_executor.rs` → `commands/planner_executor/mod.rs`.
+- [x] Run `cargo check` — Rust resolves `planner_executor/mod.rs` automatically.
 
 ### 4.2 Extract `tool_dispatch.rs`
 
-- [ ] Move `execute_planned_step`, `execute_serialized_tool`, `is_side_effecting_tool`
+- [x] Move `execute_planned_step`, `execute_serialized_tool`, `is_side_effecting_tool`
       into `planner_executor/tool_dispatch.rs`.
-- [ ] Add `mod tool_dispatch;` in `planner_executor/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod tool_dispatch;` in `planner_executor/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 4.3 Extract `execution.rs`
 
-- [ ] Move `execute_planner_output_with_runner`, `resume_after_confirmation_with_runner`,
+- [x] Move `execute_planner_output_with_runner`, `resume_after_confirmation_with_runner`,
       `execute_steps_with_runner` into `planner_executor/execution.rs`.
-- [ ] Add `mod execution;` in `planner_executor/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod execution;` in `planner_executor/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 4.4 Extract `step_helpers.rs`
 
-- [ ] Move `build_step_positions`, `queued_step_ids_after`, `queued_steps_after`,
+- [x] Move `build_step_positions`, `queued_step_ids_after`, `queued_steps_after`,
       `extract_confirmation_id`, `extract_confirmation_prompt_text`,
       `serialize_tool_result`, `inferred_request_id` into `planner_executor/step_helpers.rs`.
-- [ ] Add `mod step_helpers;` in `planner_executor/mod.rs`.
-- [ ] Run full validation gate.
+- [x] Add `mod step_helpers;` in `planner_executor/mod.rs`.
+- [x] Run full validation gate.
 
 ---
 

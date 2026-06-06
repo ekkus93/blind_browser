@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -54,15 +54,6 @@ const LARGE_VOLUME_STEP: f32 = 0.20;
 const DEFAULT_SPEED_STEP: f32 = 0.25;
 const SMALL_SPEED_STEP: f32 = 0.10;
 const LARGE_SPEED_STEP: f32 = 0.50;
-
-struct StepExecutionContext<'a> {
-    request_id: String,
-    intent_name: IntentName,
-    selected_skills: Vec<String>,
-    steps: &'a [PlannedStep],
-    initial_step_id: String,
-    block_side_effects_until_confirmation: bool,
-}
 
 fn current_timestamp_ms() -> u64 {
     match SystemTime::now().duration_since(UNIX_EPOCH) {
