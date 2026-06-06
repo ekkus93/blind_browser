@@ -13,28 +13,28 @@ use super::interaction_tools::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct PendingRecentFieldContext {
-    pub(super) target_description: Option<String>,
-    pub(super) active_element_id: Option<String>,
-    pub(super) candidate_element_ids: Vec<String>,
-    pub(super) pending_text: Option<String>,
-    pub(super) submit_after: bool,
+pub(crate) struct PendingRecentFieldContext {
+    pub(crate) target_description: Option<String>,
+    pub(crate) active_element_id: Option<String>,
+    pub(crate) candidate_element_ids: Vec<String>,
+    pub(crate) pending_text: Option<String>,
+    pub(crate) submit_after: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct RecentFieldContext {
-    pub(super) page_id: String,
-    pub(super) target_description: Option<String>,
-    pub(super) active_element_id: Option<String>,
-    pub(super) candidate_element_ids: Vec<String>,
-    pub(super) pending_text: Option<String>,
-    pub(super) submit_after: bool,
+pub(crate) struct RecentFieldContext {
+    pub(crate) page_id: String,
+    pub(crate) target_description: Option<String>,
+    pub(crate) active_element_id: Option<String>,
+    pub(crate) candidate_element_ids: Vec<String>,
+    pub(crate) pending_text: Option<String>,
+    pub(crate) submit_after: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub(super) struct ResolvedDirectFieldCommand {
-    pub(super) planner_output: PlannerOutput,
-    pub(super) recent_field_context: Option<PendingRecentFieldContext>,
+pub(crate) struct ResolvedDirectFieldCommand {
+    pub(crate) planner_output: PlannerOutput,
+    pub(crate) recent_field_context: Option<PendingRecentFieldContext>,
 }
 
 struct DirectFollowUpSpec {
@@ -48,7 +48,7 @@ struct DirectFollowUpSpec {
     purpose: String,
 }
 
-pub(super) fn resolve_direct_focus_field_command(
+pub(crate) fn resolve_direct_focus_field_command(
     transcript: &str,
     request_id: &str,
     current_page: Option<&PageModel>,
@@ -386,7 +386,7 @@ fn build_direct_fill_and_submit_ready_output(
     }
 }
 
-pub(super) fn resolve_recent_fill_correction_command(
+pub(crate) fn resolve_recent_fill_correction_command(
     transcript: &str,
     request_id: &str,
     current_page_id: Option<&str>,
@@ -601,7 +601,7 @@ pub(super) fn resolve_recent_fill_correction_command(
     }
 }
 
-pub(super) fn resolve_direct_fill_command_internal(
+pub(crate) fn resolve_direct_fill_command_internal(
     transcript: &str,
     request_id: &str,
     current_page_id: Option<&str>,
@@ -907,7 +907,7 @@ pub(super) fn resolve_direct_fill_command_internal(
 }
 
 #[cfg(test)]
-pub(super) fn resolve_direct_fill_field_command(
+pub(crate) fn resolve_direct_fill_field_command(
     transcript: &str,
     request_id: &str,
     current_page: Option<&PageModel>,
@@ -927,7 +927,7 @@ pub(super) fn resolve_direct_fill_field_command(
 }
 
 #[cfg(test)]
-pub(super) fn resolve_direct_fill_and_submit_command(
+pub(crate) fn resolve_direct_fill_and_submit_command(
     transcript: &str,
     request_id: &str,
     current_page: Option<&PageModel>,
@@ -946,7 +946,7 @@ pub(super) fn resolve_direct_fill_and_submit_command(
     .map(|resolved| resolved.planner_output)
 }
 
-pub(super) fn resolve_direct_submit_form_command(
+pub(crate) fn resolve_direct_submit_form_command(
     transcript: &str,
     request_id: &str,
     current_page: Option<&PageModel>,

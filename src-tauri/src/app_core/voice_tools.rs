@@ -637,7 +637,7 @@ impl super::AppCore {
 
 }
 
-pub(super) fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolError {
+pub(crate) fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolError {
     match error {
         TtsRuntimeError::EmptyNarrationText => ToolError {
             code: String::from("empty_narration_text"),
@@ -726,7 +726,7 @@ pub(super) fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolErr
     }
 }
 
-pub(super) fn audio_playback_error_to_tool_error(error: AudioPlaybackError) -> ToolError {
+pub(crate) fn audio_playback_error_to_tool_error(error: AudioPlaybackError) -> ToolError {
     match error {
         AudioPlaybackError::AudioFeatureUnavailable => ToolError {
             code: String::from("audio_backend_unavailable"),

@@ -827,7 +827,7 @@ impl super::AppCore {
     }
 }
 
-pub(super) fn merge_ocr_text_into_page_model(
+pub(crate) fn merge_ocr_text_into_page_model(
     page: &mut PageModel,
     region_id: Option<&str>,
     ocr_text: &str,
@@ -884,7 +884,7 @@ pub(super) fn merge_ocr_text_into_page_model(
     }
 }
 
-pub(super) fn extracted_text_metrics(page: &PageModel) -> (usize, usize) {
+pub(crate) fn extracted_text_metrics(page: &PageModel) -> (usize, usize) {
     page.regions
         .iter()
         .fold((0usize, 0usize), |(chars, regions), region| {
@@ -908,7 +908,7 @@ fn has_positive_bbox(region: &PageRegion) -> bool {
     )
 }
 
-pub(super) fn region_first_ocr_target_ids(
+pub(crate) fn region_first_ocr_target_ids(
     page: &PageModel,
     ocr_settings: &OcrSettings,
 ) -> Vec<String> {
@@ -923,7 +923,7 @@ pub(super) fn region_first_ocr_target_ids(
         .collect()
 }
 
-pub(super) fn should_trigger_extract_page_model_ocr_fallback(
+pub(crate) fn should_trigger_extract_page_model_ocr_fallback(
     use_dom_extraction: bool,
     page: &PageModel,
     ocr_settings: &OcrSettings,
@@ -939,7 +939,7 @@ pub(super) fn should_trigger_extract_page_model_ocr_fallback(
         || readable_region_count < ocr_settings.sparse_text_region_threshold as usize
 }
 
-pub(super) fn merged_region_text(existing_text: &str, ocr_text: &str) -> String {
+pub(crate) fn merged_region_text(existing_text: &str, ocr_text: &str) -> String {
     let existing_text = existing_text.trim();
     let ocr_text = ocr_text.trim();
 
@@ -1019,7 +1019,7 @@ fn nested_tool_failure_as_extract_page_model<T>(
     ToolResult::failure(ToolName::ExtractPageModel, request_id, error, observations)
 }
 
-pub(super) fn build_visible_text_excerpt(
+pub(crate) fn build_visible_text_excerpt(
     page: &PageModel,
     max_chars: Option<usize>,
 ) -> String {
@@ -1037,7 +1037,7 @@ pub(super) fn build_visible_text_excerpt(
     }
 }
 
-pub(super) fn build_extracted_page_model(
+pub(crate) fn build_extracted_page_model(
     page: &PageModel,
     input: &ExtractPageModelInput,
 ) -> PageModel {
@@ -1061,7 +1061,7 @@ pub(super) fn build_extracted_page_model(
     }
 }
 
-pub(super) fn infer_extraction_source(
+pub(crate) fn infer_extraction_source(
     page: &PageModel,
     use_dom_extraction: bool,
     used_dom_smoothie: bool,

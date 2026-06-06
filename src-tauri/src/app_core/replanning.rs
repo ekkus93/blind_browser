@@ -2,7 +2,7 @@ use crate::commands::{
     ExecutionOutcome, ExecutionTrace, PlannerOutput, PlannerToolHistoryEntry, ToolError,
 };
 
-pub(super) trait ReplanningRuntime {
+pub(crate) trait ReplanningRuntime {
     fn resolve_plan(
         &mut self,
         request_id: String,
@@ -77,7 +77,7 @@ fn replanning_request_id(base_request_id: &str, phase: &str, replan_cycle: usize
     }
 }
 
-pub(super) fn execute_bounded_replanning_loop<R: ReplanningRuntime>(
+pub(crate) fn execute_bounded_replanning_loop<R: ReplanningRuntime>(
     runtime: &mut R,
     request_id: &str,
     transcript: &str,

@@ -667,7 +667,7 @@ impl super::AppCore {
     }
 }
 
-pub(super) fn normalize_optional_text(value: Option<String>) -> Option<String> {
+pub(crate) fn normalize_optional_text(value: Option<String>) -> Option<String> {
     value.and_then(|value| {
         let trimmed = value.trim();
         if trimmed.is_empty() {
@@ -678,7 +678,7 @@ pub(super) fn normalize_optional_text(value: Option<String>) -> Option<String> {
     })
 }
 
-pub(super) fn region_bbox_by_id(
+pub(crate) fn region_bbox_by_id(
     regions: &[PageRegion],
     region_id: &str,
 ) -> Result<Rect, crate::commands::ToolError> {
@@ -725,7 +725,7 @@ pub(super) fn region_bbox_by_id(
     Ok(bbox)
 }
 
-pub(super) fn focusable_field_elements(
+pub(crate) fn focusable_field_elements(
     page: &PageModel,
 ) -> Vec<crate::page_model::InteractiveElement> {
     filter_interactive_elements(
@@ -749,7 +749,7 @@ pub(super) fn focusable_field_elements(
     .collect()
 }
 
-pub(super) fn submittable_form_elements(
+pub(crate) fn submittable_form_elements(
     page: &PageModel,
 ) -> Vec<crate::page_model::InteractiveElement> {
     filter_interactive_elements(&page.interactive_elements, true, Some(&[ElementRole::Form]))
@@ -764,7 +764,7 @@ pub(super) fn submittable_form_elements(
         .collect()
 }
 
-pub(super) fn summarize_candidate_names(
+pub(crate) fn summarize_candidate_names(
     page: &PageModel,
     candidates: &[ElementCandidate],
 ) -> Vec<String> {
@@ -780,7 +780,7 @@ pub(super) fn summarize_candidate_names(
         .collect()
 }
 
-pub(super) fn summarize_form_candidate_names(
+pub(crate) fn summarize_form_candidate_names(
     forms: &[crate::page_model::InteractiveElement],
 ) -> Vec<String> {
     forms
@@ -814,7 +814,7 @@ fn describe_field_element(element: &crate::page_model::InteractiveElement) -> St
         .unwrap_or_else(|| element.element_id.clone())
 }
 
-pub(super) fn describe_form_element(
+pub(crate) fn describe_form_element(
     element: &crate::page_model::InteractiveElement,
 ) -> String {
     element
@@ -841,7 +841,7 @@ pub(super) fn describe_form_element(
         .unwrap_or_else(|| String::from("the current form"))
 }
 
-pub(super) fn filter_interactive_elements(
+pub(crate) fn filter_interactive_elements(
     interactive_elements: &[crate::page_model::InteractiveElement],
     visible_only: bool,
     roles: Option<&[ElementRole]>,
@@ -855,17 +855,17 @@ pub(super) fn filter_interactive_elements(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct FindElementQuery {
-    pub(super) summary: String,
-    pub(super) description: Option<String>,
-    pub(super) text: Option<String>,
-    pub(super) role: Option<ElementRole>,
-    pub(super) color_hint: Option<String>,
-    pub(super) nearby_text: Option<String>,
-    pub(super) selector_hint: Option<String>,
+pub(crate) struct FindElementQuery {
+    pub(crate) summary: String,
+    pub(crate) description: Option<String>,
+    pub(crate) text: Option<String>,
+    pub(crate) role: Option<ElementRole>,
+    pub(crate) color_hint: Option<String>,
+    pub(crate) nearby_text: Option<String>,
+    pub(crate) selector_hint: Option<String>,
 }
 
-pub(super) fn build_find_element_query(
+pub(crate) fn build_find_element_query(
     input: &FindElementInput,
 ) -> Result<FindElementQuery, crate::commands::ToolError> {
     let description = normalize_optional_text(Some(input.description.clone()));
@@ -920,7 +920,7 @@ pub(super) fn build_find_element_query(
     })
 }
 
-pub(super) fn rank_find_element_candidates(
+pub(crate) fn rank_find_element_candidates(
     elements: &[crate::page_model::InteractiveElement],
     query: &FindElementQuery,
     candidate_limit: usize,
@@ -940,7 +940,7 @@ pub(super) fn rank_find_element_candidates(
     candidates
 }
 
-pub(super) fn determine_find_element_resolution(
+pub(crate) fn determine_find_element_resolution(
     candidates: &[ElementCandidate],
     confirmation_confidence_threshold: f32,
 ) -> (Option<String>, Option<f32>, bool) {
@@ -970,7 +970,7 @@ pub(super) fn determine_find_element_resolution(
     }
 }
 
-pub(super) fn resolve_clickable_element<'a>(
+pub(crate) fn resolve_clickable_element<'a>(
     page: &'a PageModel,
     element_id: &str,
 ) -> Result<&'a crate::page_model::InteractiveElement, ToolError> {
@@ -1036,7 +1036,7 @@ pub(super) fn resolve_clickable_element<'a>(
     Ok(element)
 }
 
-pub(super) fn resolve_typeable_element<'a>(
+pub(crate) fn resolve_typeable_element<'a>(
     page: &'a PageModel,
     element_id: &str,
 ) -> Result<&'a crate::page_model::InteractiveElement, ToolError> {
@@ -1058,7 +1058,7 @@ pub(super) fn resolve_typeable_element<'a>(
     Ok(element)
 }
 
-pub(super) fn resolve_form_element<'a>(
+pub(crate) fn resolve_form_element<'a>(
     page: &'a PageModel,
     element_id: &str,
 ) -> Result<&'a crate::page_model::InteractiveElement, ToolError> {

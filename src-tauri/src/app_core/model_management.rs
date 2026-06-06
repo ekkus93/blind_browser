@@ -4,20 +4,20 @@ use std::path::{Path, PathBuf};
 use crate::config::{LocalAsrProfile, LocalTtsProfile};
 use reqwest::blocking::Client;
 
-pub(super) struct KittenDownloadPlan {
-    pub(super) repository: &'static str,
-    pub(super) directory_name: &'static str,
-    pub(super) display_name: &'static str,
-    pub(super) files: &'static [&'static str],
+pub(crate) struct KittenDownloadPlan {
+    pub(crate) repository: &'static str,
+    pub(crate) directory_name: &'static str,
+    pub(crate) display_name: &'static str,
+    pub(crate) files: &'static [&'static str],
 }
 
-pub(super) struct WhisperDownloadPlan {
-    pub(super) repository: &'static str,
-    pub(super) display_name: &'static str,
-    pub(super) file_name: &'static str,
+pub(crate) struct WhisperDownloadPlan {
+    pub(crate) repository: &'static str,
+    pub(crate) display_name: &'static str,
+    pub(crate) file_name: &'static str,
 }
 
-pub(super) fn local_tts_model_is_available(profile: &LocalTtsProfile) -> bool {
+pub(crate) fn local_tts_model_is_available(profile: &LocalTtsProfile) -> bool {
     let model_path = Path::new(profile.model_path.trim());
     if !model_path.is_dir() {
         return false;
@@ -41,11 +41,11 @@ pub(super) fn local_tts_model_is_available(profile: &LocalTtsProfile) -> bool {
     has_config && has_voices && has_onnx
 }
 
-pub(super) fn local_asr_model_is_available(profile: &LocalAsrProfile) -> bool {
+pub(crate) fn local_asr_model_is_available(profile: &LocalAsrProfile) -> bool {
     Path::new(profile.model_path.trim()).is_file()
 }
 
-pub(super) fn kitten_download_plan_for_model_id(
+pub(crate) fn kitten_download_plan_for_model_id(
     model_id: &str,
 ) -> Result<KittenDownloadPlan, String> {
     let normalized = model_id.trim().to_ascii_lowercase();
@@ -85,7 +85,7 @@ pub(super) fn kitten_download_plan_for_model_id(
     }
 }
 
-pub(super) fn whisper_download_plan_for_model_id(
+pub(crate) fn whisper_download_plan_for_model_id(
     model_id: &str,
 ) -> Result<WhisperDownloadPlan, String> {
     let normalized = model_id.trim().to_ascii_lowercase();
@@ -119,7 +119,7 @@ pub(super) fn whisper_download_plan_for_model_id(
     })
 }
 
-pub(super) fn download_hugging_face_directory(
+pub(crate) fn download_hugging_face_directory(
     target_dir: &Path,
     repository: &str,
     files: &[&str],
@@ -137,7 +137,7 @@ pub(super) fn download_hugging_face_directory(
     Ok(())
 }
 
-pub(super) fn download_hugging_face_file(
+pub(crate) fn download_hugging_face_file(
     target_path: &Path,
     repository: &str,
     file_name: &str,
@@ -175,7 +175,7 @@ pub(super) fn download_hugging_face_file(
     Ok(())
 }
 
-pub(super) fn resolved_models_dir_for_app(
+pub(crate) fn resolved_models_dir_for_app(
     app_handle: &tauri::AppHandle,
     configured_models_dir: &str,
 ) -> Result<PathBuf, String> {

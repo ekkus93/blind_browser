@@ -6,14 +6,14 @@ use crate::config::resolve_secret_ref;
 use reqwest::blocking::Client;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum RemoteApiKeyTarget {
+pub(crate) enum RemoteApiKeyTarget {
     Planner,
     Tts,
     Asr,
 }
 
 impl RemoteApiKeyTarget {
-    pub(super) fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             Self::Planner => "planner",
             Self::Tts => "TTS",
@@ -22,17 +22,17 @@ impl RemoteApiKeyTarget {
     }
 }
 
-pub(super) struct RemoteOpenAiApiKeyTestProfile<'a> {
-    pub(super) profile_name: &'a str,
-    pub(super) provider: &'a RemoteProviderKind,
-    pub(super) base_url: &'a str,
-    pub(super) configured_api_key: &'a crate::config::SecretRef,
-    pub(super) organization: Option<&'a crate::config::SecretRef>,
-    pub(super) project: Option<&'a str>,
-    pub(super) timeout_ms: u64,
+pub(crate) struct RemoteOpenAiApiKeyTestProfile<'a> {
+    pub(crate) profile_name: &'a str,
+    pub(crate) provider: &'a RemoteProviderKind,
+    pub(crate) base_url: &'a str,
+    pub(crate) configured_api_key: &'a crate::config::SecretRef,
+    pub(crate) organization: Option<&'a crate::config::SecretRef>,
+    pub(crate) project: Option<&'a str>,
+    pub(crate) timeout_ms: u64,
 }
 
-pub(super) fn test_remote_openai_profile_api_key(
+pub(crate) fn test_remote_openai_profile_api_key(
     target: RemoteApiKeyTarget,
     profile: RemoteOpenAiApiKeyTestProfile<'_>,
     api_key_override: Option<&str>,
@@ -81,7 +81,7 @@ pub(super) fn test_remote_openai_profile_api_key(
     })
 }
 
-pub(super) fn test_openai_api_key_connectivity(
+pub(crate) fn test_openai_api_key_connectivity(
     base_url: &str,
     api_key: &str,
     organization: Option<&str>,
@@ -124,7 +124,7 @@ struct OpenAiCompatibleModelEntry {
     id: String,
 }
 
-pub(super) fn fetch_openai_compatible_models(
+pub(crate) fn fetch_openai_compatible_models(
     base_url: &str,
     api_key: Option<&str>,
     organization: Option<&str>,

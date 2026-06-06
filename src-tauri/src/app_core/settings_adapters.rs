@@ -38,7 +38,7 @@ fn masked_secret_value(secret_ref: &crate::config::SecretRef) -> Option<String> 
     Some(format!("***{suffix}"))
 }
 
-pub(super) fn build_tts_model_settings(config: &AppConfig) -> TtsModelSettings {
+pub(crate) fn build_tts_model_settings(config: &AppConfig) -> TtsModelSettings {
     let mode = config.providers.tts.mode.clone();
     let (active_profile, available_profiles) = match mode {
         crate::config::ProviderMode::Local => (
@@ -72,7 +72,7 @@ pub(super) fn build_tts_model_settings(config: &AppConfig) -> TtsModelSettings {
     }
 }
 
-pub(super) fn build_local_tts_model_settings(config: &AppConfig) -> LocalTtsModelSettings {
+pub(crate) fn build_local_tts_model_settings(config: &AppConfig) -> LocalTtsModelSettings {
     let profile_name = config.providers.tts.local_profile.clone();
     let profile = profile_name
         .as_ref()
@@ -88,7 +88,7 @@ pub(super) fn build_local_tts_model_settings(config: &AppConfig) -> LocalTtsMode
     }
 }
 
-pub(super) fn build_tts_provider_settings(config: &AppConfig) -> TtsProviderSettings {
+pub(crate) fn build_tts_provider_settings(config: &AppConfig) -> TtsProviderSettings {
     let mut available_modes = Vec::new();
     if config
         .providers
@@ -120,7 +120,7 @@ pub(super) fn build_tts_provider_settings(config: &AppConfig) -> TtsProviderSett
     }
 }
 
-pub(super) fn build_remote_planner_settings(config: &AppConfig) -> RemotePlannerSettings {
+pub(crate) fn build_remote_planner_settings(config: &AppConfig) -> RemotePlannerSettings {
     let profile_name = config.providers.planner.remote_profile.clone();
     let profile = profile_name
         .as_ref()
@@ -146,7 +146,7 @@ pub(super) fn build_remote_planner_settings(config: &AppConfig) -> RemotePlanner
     }
 }
 
-pub(super) fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings {
+pub(crate) fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings {
     let profile_name = config.providers.tts.remote_profile.clone();
     let profile = profile_name
         .as_ref()
@@ -172,7 +172,7 @@ pub(super) fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings
     }
 }
 
-pub(super) fn build_remote_asr_settings(config: &AppConfig) -> RemoteAsrSettings {
+pub(crate) fn build_remote_asr_settings(config: &AppConfig) -> RemoteAsrSettings {
     let profile_name = config.providers.asr.remote_profile.clone();
     let profile = profile_name
         .as_ref()
@@ -198,7 +198,7 @@ pub(super) fn build_remote_asr_settings(config: &AppConfig) -> RemoteAsrSettings
     }
 }
 
-pub(super) fn build_provider_failover_settings(_config: &AppConfig) -> ProviderFailoverSettings {
+pub(crate) fn build_provider_failover_settings(_config: &AppConfig) -> ProviderFailoverSettings {
     ProviderFailoverSettings {
         planner_available: false,
         tts_available: false,
@@ -209,7 +209,7 @@ pub(super) fn build_provider_failover_settings(_config: &AppConfig) -> ProviderF
     }
 }
 
-pub(super) fn build_confirmation_settings(config: &AppConfig) -> ConfirmationSettings {
+pub(crate) fn build_confirmation_settings(config: &AppConfig) -> ConfirmationSettings {
     ConfirmationSettings {
         confirmation_confidence_threshold: config.safety.confirmation_confidence_threshold,
         allow_click_without_confirmation: config.safety.allow_click_without_confirmation,
@@ -217,14 +217,14 @@ pub(super) fn build_confirmation_settings(config: &AppConfig) -> ConfirmationSet
     }
 }
 
-pub(super) fn build_ocr_threshold_settings(config: &AppConfig) -> OcrThresholdSettings {
+pub(crate) fn build_ocr_threshold_settings(config: &AppConfig) -> OcrThresholdSettings {
     OcrThresholdSettings {
         sparse_text_char_threshold: config.ocr.sparse_text_char_threshold,
         sparse_text_region_threshold: config.ocr.sparse_text_region_threshold,
     }
 }
 
-pub(super) fn build_asr_provider_settings(config: &AppConfig) -> AsrProviderSettings {
+pub(crate) fn build_asr_provider_settings(config: &AppConfig) -> AsrProviderSettings {
     let mut available_modes = Vec::new();
     if config
         .providers
@@ -256,7 +256,7 @@ pub(super) fn build_asr_provider_settings(config: &AppConfig) -> AsrProviderSett
     }
 }
 
-pub(super) fn build_local_asr_model_settings(config: &AppConfig) -> LocalAsrModelSettings {
+pub(crate) fn build_local_asr_model_settings(config: &AppConfig) -> LocalAsrModelSettings {
     let profile_name = config.providers.asr.local_profile.clone();
     let profile = profile_name
         .as_ref()
@@ -272,7 +272,7 @@ pub(super) fn build_local_asr_model_settings(config: &AppConfig) -> LocalAsrMode
     }
 }
 
-pub(super) fn build_model_management_settings(config: &AppConfig) -> ModelManagementSettingsData {
+pub(crate) fn build_model_management_settings(config: &AppConfig) -> ModelManagementSettingsData {
     let (local_tts_profile_name, local_tts_profile) =
         match config.providers.tts.local_profile.as_ref() {
             Some(profile_name) => (
@@ -323,7 +323,7 @@ pub(super) fn build_model_management_settings(config: &AppConfig) -> ModelManage
     }
 }
 
-pub(super) fn build_tts_voice_settings(
+pub(crate) fn build_tts_voice_settings(
     config: &AppConfig,
     runtime_audio: &RuntimeAudioState,
 ) -> TtsVoiceSettings {
@@ -394,7 +394,7 @@ pub(super) fn build_tts_voice_settings(
     }
 }
 
-pub(super) fn active_local_tts_profile(
+pub(crate) fn active_local_tts_profile(
     config: &AppConfig,
 ) -> Result<(String, &LocalTtsProfile), String> {
     let profile_name = config
@@ -410,7 +410,7 @@ pub(super) fn active_local_tts_profile(
     Ok((profile_name, profile))
 }
 
-pub(super) fn active_local_asr_profile(
+pub(crate) fn active_local_asr_profile(
     config: &AppConfig,
 ) -> Result<(String, &LocalAsrProfile), String> {
     let profile_name = config

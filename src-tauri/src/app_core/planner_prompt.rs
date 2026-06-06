@@ -9,15 +9,15 @@ use serde::Serialize;
 
 #[cfg(feature = "remote-openai")]
 #[derive(Serialize)]
-pub(super) struct PlannerPromptPayload<'a> {
-    pub(super) planner_input: &'a PlannerInput,
-    pub(super) planner_output_schema: serde_json::Value,
-    pub(super) tool_input_schemas: BTreeMap<String, serde_json::Value>,
-    pub(super) canonical_planner_output_examples: BTreeMap<String, PlannerOutput>,
+pub(crate) struct PlannerPromptPayload<'a> {
+    pub(crate) planner_input: &'a PlannerInput,
+    pub(crate) planner_output_schema: serde_json::Value,
+    pub(crate) tool_input_schemas: BTreeMap<String, serde_json::Value>,
+    pub(crate) canonical_planner_output_examples: BTreeMap<String, PlannerOutput>,
 }
 
 #[cfg(any(feature = "remote-openai", test))]
-pub(super) fn planner_system_prompt() -> &'static str {
+pub(crate) fn planner_system_prompt() -> &'static str {
     "You are the bounded planner for blind_browser, a voice-first desktop browser for vision-impaired users.
 Return only JSON that matches the provided planner_output_schema.
 Use only tool names that appear in planner_input.available_tools and only selected_skills that appear in planner_input.active_skill_names.
@@ -31,7 +31,7 @@ Use Blocked only when the request cannot be grounded safely or is outside the su
 Do not invent tools, skills, statuses, transition kinds, or argument fields."
 }
 
-pub(super) fn planner_interpretation_unavailable_error(
+pub(crate) fn planner_interpretation_unavailable_error(
     code: &str,
     reason: impl Into<String>,
     retryable: bool,

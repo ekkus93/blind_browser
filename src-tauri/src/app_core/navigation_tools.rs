@@ -7,7 +7,7 @@ use crate::page_model::PageModel;
 use crate::state::AppState;
 use super::RecentFieldContext;
 
-pub(super) fn normalize_absolute_url(url: &str) -> Result<String, ToolError> {
+pub(crate) fn normalize_absolute_url(url: &str) -> Result<String, ToolError> {
     let trimmed = url.trim();
     if trimmed.is_empty() {
         return Err(ToolError {
@@ -46,7 +46,7 @@ pub(super) fn normalize_absolute_url(url: &str) -> Result<String, ToolError> {
     Ok(trimmed.to_string())
 }
 
-pub(super) fn refresh_current_page_after_navigation(
+pub(crate) fn refresh_current_page_after_navigation(
     current_page: &mut Option<PageModel>,
     url: Option<String>,
     title: Option<String>,
@@ -59,7 +59,7 @@ pub(super) fn refresh_current_page_after_navigation(
     }
 }
 
-pub(super) fn clear_navigation_follow_up_state(
+pub(crate) fn clear_navigation_follow_up_state(
     state: &mut AppState,
     recent_field_context: &mut Option<RecentFieldContext>,
 ) {
@@ -67,7 +67,7 @@ pub(super) fn clear_navigation_follow_up_state(
     *recent_field_context = None;
 }
 
-pub(super) fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolError {
+pub(crate) fn browser_error_to_tool_error(message: String, error: BrowserError) -> ToolError {
     let code = match &error {
         BrowserError::FeatureDisabled => "browser_feature_disabled",
         BrowserError::Launch(_) => "browser_launch_failed",
