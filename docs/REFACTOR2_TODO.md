@@ -308,7 +308,7 @@ src-tauri/src/asr/
 
 ---
 
-## Phase 5 — Split `commands/contracts.rs` (~1308 lines)
+## Phase 5 — Split `commands/contracts.rs` (~1308 lines) — DONE
 
 `contracts.rs` defines all data types for tool contracts, provider settings, planner I/O,
 interaction primitives, and 34 tool input/output pairs. These fall into four distinct groups.
@@ -342,45 +342,45 @@ src-tauri/src/commands/contracts/
 
 ### 5.1 Create `contracts/` directory and `mod.rs`
 
-- [ ] Create `src-tauri/src/commands/contracts/` directory.
-- [ ] Move `commands/contracts.rs` → `commands/contracts/mod.rs`.
-- [ ] Run `cargo check` — verify all existing callers still compile.
+- [x] Create `src-tauri/src/commands/contracts/` directory.
+- [x] Move `commands/contracts.rs` → `commands/contracts/mod.rs`.
+- [x] Run `cargo check` — verify all existing callers still compile.
 
 ### 5.2 Extract `providers.rs`
 
-- [ ] Move provider settings types (`ProviderSelectionStatus`, `TtsModelSettings`,
+- [x] Move provider settings types (`ProviderSelectionStatus`, `TtsModelSettings`,
       `LocalTtsModelSettings`, `TtsVoiceSettings`, `TtsProviderSettings`,
       `AsrProviderSettings`, `LocalAsrModelSettings`, `RemotePlannerSettings`,
       `RemoteTtsSettings`, `RemoteAsrSettings`, `ProviderFailoverSettings`,
       `ConfirmationSettings`, `OcrThresholdSettings`, `AgentStateData`, `PageSnapshotData`)
       into `contracts/providers.rs`.
-- [ ] Add `mod providers; pub use providers::*;` in `contracts/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod providers; pub use providers::*;` in `contracts/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 5.3 Extract `planner.rs`
 
-- [ ] Move `PlannerSafetySettings`, `PlannerInput`, `PlannerStatus`, `BlockedReason`,
+- [x] Move `PlannerSafetySettings`, `PlannerInput`, `PlannerStatus`, `BlockedReason`,
       `IntentName`, `IntentSummary`, `StepTransition`, `PlannedStep`, `PlannerOutput`,
       `PendingPlanExecutionState` into `contracts/planner.rs`.
-- [ ] Add `mod planner; pub use planner::*;` in `contracts/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod planner; pub use planner::*;` in `contracts/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 5.4 Extract `interaction.rs`
 
-- [ ] Move all interaction primitive enums and confirmation types into
+- [x] Move all interaction primitive enums and confirmation types into
       `contracts/interaction.rs`: `NarrationInterruptionMode`, `NarrationBoundary`,
       `ElementVisibilityFilter`, `ReloadMode`, `ClickMode`, `TextEntryMode`,
       `TextEntrySubmitMode`, `TranscriptionStopMode`, `ScreenshotScope`, `ReportStatus`,
       `ConfirmActionData`, `ConfirmActionInput`, `ConfirmActionResolution`,
       `ReportResultData`, `ReportResultInput`.
-- [ ] Add `mod interaction; pub use interaction::*;` in `contracts/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod interaction; pub use interaction::*;` in `contracts/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 5.5 Extract `tools.rs`
 
-- [ ] Move all 34 tool input/output struct pairs into `contracts/tools.rs`.
-- [ ] Add `mod tools; pub use tools::*;` in `contracts/mod.rs`.
-- [ ] Run full validation gate.
+- [x] Move all 34 tool input/output struct pairs into `contracts/tools.rs`.
+- [x] Add `mod tools; pub use tools::*;` in `contracts/mod.rs`.
+- [x] Run full validation gate.
 
 ---
 
