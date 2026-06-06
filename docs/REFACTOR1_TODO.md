@@ -333,16 +333,16 @@ src-tauri/src/config/
     keyring_tests.rs
 ```
 
-### 3.1 Create `config/` directory and `mod.rs`
+### 3.1 Create `config/` directory and `mod.rs` — DONE
 
-- [ ] Create `src-tauri/src/config/` directory.
-- [ ] Move `config.rs` → `config/mod.rs`.
-- [ ] Update `lib.rs` if needed (Rust resolves `config/mod.rs` automatically).
-- [ ] Run `cargo check`.
+- [x] Create `src-tauri/src/config/` directory.
+- [x] Move `config.rs` → `config/mod.rs`.
+- [x] Update `lib.rs` if needed (Rust resolves `config/mod.rs` automatically).
+- [x] Run `cargo check`.
 
-### 3.2 Extract `types.rs`
+### 3.2 Extract `types.rs` — DONE
 
-- [ ] Move all `pub struct`, `pub enum`, and their simple `impl` blocks that contain only
+- [x] Move all `pub struct`, `pub enum`, and their simple `impl` blocks that contain only
       `Display`, `Default`, or derivable impls (no I/O, no parsing) into `config/types.rs`.
       This includes: `ConfigError`, `ProviderMode`, `KeyringRef`, `SecretRef`,
       `ProviderSelection`, `ProviderSelections`, `AudioSettings`, `SafetySettings`,
@@ -350,41 +350,40 @@ src-tauri/src/config/
       `RemoteProviderKind`, `RemoteTtsAudioFormat`, `LocalTtsBackend`, `LocalAsrBackend`,
       `RemotePlannerProfile`, `RemoteTtsProfile`, `RemoteAsrProfile`, `LocalTtsProfile`,
       `LocalAsrProfile`, `AppConfig`, `RawAppConfig`.
-- [ ] Add `mod types; pub use types::*;` in `config/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod types; pub use types::*;` in `config/mod.rs`.
+- [x] Run `cargo check`.
 
-### 3.3 Extract `loading.rs`
+### 3.3 Extract `loading.rs` — DONE
 
-- [ ] Move `AppConfig::from_path`, `AppConfig::from_str` (or whichever methods drive TOML
+- [x] Move `AppConfig::from_path`, `AppConfig::from_str` (or whichever methods drive TOML
       loading), `load_document_table_from_path`, `load_document_table_from_str`,
       `load_planner_profiles`, `load_provider_profiles`, `resolve_profile`
       into `config/loading.rs`.
-- [ ] Add `mod loading;` in `config/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod loading;` in `config/mod.rs`.
+- [x] Run `cargo check`.
 
-### 3.4 Extract `validation.rs`
+### 3.4 Extract `validation.rs` — DONE
 
-- [ ] Move `validate_audio_settings`, `validate_safety_settings`, `validate_ocr_settings`,
+- [x] Move `validate_audio_settings`, `validate_safety_settings`, `validate_ocr_settings`,
       `validate_model_settings`, `normalize_remote_endpoint` into `config/validation.rs`.
-- [ ] Add `mod validation;` in `config/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod validation;` in `config/mod.rs`.
+- [x] Run `cargo check`.
 
-### 3.5 Extract `keyring.rs`
+### 3.5 Extract `keyring.rs` — DONE
 
-- [ ] Move `keyring_ref_for_remote_api_key`, `secret_ref_reference`, `resolve_secret_ref`,
+- [x] Move `keyring_ref_for_remote_api_key`, `secret_ref_reference`, `resolve_secret_ref`,
       `cache_keyring_secret`, `cached_keyring_secret`, `session_keyring_store`,
       `set_keyring_secret`, `get_keyring_secret` (both cfg-gated variants) into
-      `config/keyring.rs`.
-- [ ] Add `mod keyring; pub use keyring::*;` in `config/mod.rs`.
-- [ ] Run `cargo check`.
+      `config/keyring_store.rs` (renamed from keyring.rs to avoid shadowing the keyring crate).
+- [x] Add `mod keyring_store; pub use keyring_store::{...}` in `config/mod.rs`.
+- [x] Run `cargo check`.
 
-### 3.6 Split inline config tests
+### 3.6 Split inline config tests — DONE
 
-- [ ] Move the `mod tests` block (line ~1 372) out of `config/mod.rs` into
-      `config/tests/mod.rs`, `config/tests/load_tests.rs`, etc., if the test bodies
-      are large enough to warrant it. (The fixture TOML strings alone are ~800 lines.)
-- [ ] Separate load tests, validation tests, and keyring tests into distinct files.
-- [ ] Run `cargo test`.
+- [x] Move the `mod tests` block (line ~1 372) out of `config/mod.rs` into
+      `config/tests/mod.rs`, `config/tests/load_tests.rs`, etc.
+- [x] Separate load tests, validation tests, and keyring tests into distinct files.
+- [x] Run `cargo test`.
 
 ### 3.7 Final validation
 
