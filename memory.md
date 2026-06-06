@@ -1,3 +1,21 @@
+## 2026-06-06T15:18:57Z - Claude Sonnet 4.6 - Split app_core/tests.rs (3594 lines, 85 tests) into directory with 11 subfiles
+
+- Promoted `src-tauri/src/app_core/tests.rs` to `tests/mod.rs`, then split into:
+  - `helpers.rs` (410 lines): `spawn_openai_models_test_server`, `fixture_page*`, `fixture_field`, `fixture_form`, `fixture_problematic_*`, `planner_tool_sequence`, `AppCorePlannerFixtureKind`, `AppCorePlannerFixture`, `resolve_app_core_planner_fixture`, `assert_app_core_planner_fixture` — all `pub(super)`
+  - `settings_tests.rs` (415 lines, 15 tests): `build_remote_planner_settings*`, `build_remote_tts/asr_settings`, `build_remote_settings_expose_*`, `build_provider_failover*`, `build_confirmation*`, `build_local_tts/asr_model_settings*`, `build_tts_model_settings*`, `build_ocr_threshold*`, `build_asr/tts_provider*`, `build_tts_voice*`
+  - `browser_tests.rs` (123 lines, 5 tests): `normalize_optional_text`, `normalize_absolute_url*`, `browser_error_to_tool_error*`, `refresh_current_page*`, `clear_navigation_follow_up_state*`
+  - `extraction_tests.rs` (371 lines, 8 tests): `build_visible_text_excerpt*`, `region_bbox_by_id*`, `build_extracted_page_model*` (×4), `infer_extraction_source*` (×3)
+  - `ocr_threshold_tests.rs` (264 lines, 9 tests): `should_trigger_*_ocr_fallback` (×6 including disabled/non-dom), `extracted_text_metrics*`, `should_not_trigger*` (×2)
+  - `ocr_merge_tests.rs` (309 lines, 8 tests): `region_first_ocr_target_ids*` (×2), `merged_region_text*`, `merge_ocr_text_into_page_model*` (×5)
+  - `focus_fill_tests.rs` (356 lines, 8 tests): `filter_interactive_elements*`, `resolve_direct_focus_field*` (×3), `resolve_direct_fill_field*` (×2), `resolve_direct_fill_and_submit*` (×2)
+  - `fill_correction_tests.rs` (283 lines, 6 tests): `resolve_recent_fill_correction*` (×3), `resolve_typeable_element*`, `resolve_direct_submit_form*` (×2)
+  - `regression_tests.rs` (383 lines, 3 tests): `app_core_form_regression*`, `ambiguous_click_regression*`, `problematic_page_regression*`
+  - `element_scoring_tests.rs` (244 lines, 6 tests): `resolve_form_element_rejects*`, `rank_find_element_candidates*` (×2), `build_find_element_query*`, `determine_find_element_resolution*` (×2)
+  - `planner_tests.rs` (400 lines, 11 tests): `planner_interpretation_unavailable*`, `planner_system_prompt*`, `bounded_replanning_loop*` (×3), `resolve_clickable_element*` (×3), `test_openai_api_key*` (×2), `fetch_openai_compatible_models*` (×2) — includes `MockReplanningRuntime`, `mock_planner_output`, `mock_trace`
+- `mod.rs` reduced to 63 lines: all imports + `mod helpers; use helpers::*;` + 10 `mod` declarations.
+- All subfiles start with `use super::*;`; helper items are `pub(super)`.
+- 309 Rust tests pass; clippy -D warnings + lint + build all clean.
+
 ## 2026-06-06T15:07:06Z - Claude Sonnet 4.6 - Split planner_flow.rs (1470 lines, 35 tests) into directory with 3 subfiles
 
 - Promoted `src-tauri/src/commands/tests/planner_flow.rs` to `planner_flow/mod.rs`, then split into:

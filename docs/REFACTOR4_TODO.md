@@ -279,33 +279,33 @@ app_core/tests/
 
 ### 5.1 Create directory and move file
 
-- [ ] Create `app_core/tests/` directory.
-- [ ] Move `app_core/tests.rs` → `app_core/tests/mod.rs`.
-- [ ] Run `cargo test --all-features`.
+- [x] Create `app_core/tests/` directory.
+- [x] Move `app_core/tests.rs` → `app_core/tests/mod.rs`.
+- [x] Run `cargo test --all-features`.
 
 ### 5.2 Extract `helpers.rs`
 
-- [ ] Create `app_core/tests/helpers.rs`.
-- [ ] Move lines 1–457 (all shared infrastructure) into `helpers.rs`.
-- [ ] Add `mod helpers; use helpers::*;` in `tests/mod.rs`.
-- [ ] Run `cargo test --all-features`.
+- [x] Create `app_core/tests/helpers.rs`.
+- [x] Move lines 1–457 (all shared infrastructure) into `helpers.rs`.
+- [x] Add `mod helpers; use helpers::*;` in `tests/mod.rs`.
+- [x] Run `cargo test --all-features`.
 
 ### 5.3 Extract thematic test files (all 10)
 
 Work through these in order; run `cargo test --all-features` after each:
 
-- [ ] `settings_tests.rs` — 12 tests (lines ~458–889 in original).
-- [ ] `browser_tests.rs` — 5 tests (lines ~890–1043).
-- [ ] `extraction_tests.rs` — 8 tests (lines ~1044–1381).
-- [ ] `ocr_threshold_tests.rs` — 7 tests (lines ~1382–1644).
-- [ ] `ocr_merge_tests.rs` — 8 tests (lines ~1645–1952).
-- [ ] `focus_fill_tests.rs` — 8 tests (lines ~1953–2306).
-- [ ] `fill_correction_tests.rs` — 6 tests (lines ~2308–2589).
-- [ ] `regression_tests.rs` — 3 tests (lines ~2590–2971).
-- [ ] `element_scoring_tests.rs` — 6 tests (lines ~2972–3214).
-- [ ] `planner_tests.rs` — 11 tests (lines ~3215–3594).
-- [ ] Trim `tests/mod.rs` to module declarations + re-exports only.
-- [ ] Run full validation gate.
+- [x] `settings_tests.rs` — 15 tests.
+- [x] `browser_tests.rs` — 5 tests.
+- [x] `extraction_tests.rs` — 8 tests.
+- [x] `ocr_threshold_tests.rs` — 9 tests.
+- [x] `ocr_merge_tests.rs` — 8 tests.
+- [x] `focus_fill_tests.rs` — 8 tests.
+- [x] `fill_correction_tests.rs` — 6 tests.
+- [x] `regression_tests.rs` — 3 tests.
+- [x] `element_scoring_tests.rs` — 6 tests.
+- [x] `planner_tests.rs` — 11 tests.
+- [x] Trim `tests/mod.rs` to module declarations + re-exports only.
+- [x] Run full validation gate.
 
 ---
 
