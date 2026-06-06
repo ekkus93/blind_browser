@@ -1,3 +1,13 @@
+## 2026-06-06T15:07:06Z - Claude Sonnet 4.6 - Split planner_flow.rs (1470 lines, 35 tests) into directory with 3 subfiles
+
+- Promoted `src-tauri/src/commands/tests/planner_flow.rs` to `planner_flow/mod.rs`, then split into:
+  - `execution.rs` (7 tests, 363 lines): `executes_next_step_chain_*`, `executes_load_page_extract_and_read_*`, `executes_resolved_spoken_command_*`, `follows_failure_transition_*`, `returns_awaiting_confirmation_*`, `aborts_when_next_step_*`, `aborts_needs_confirmation_*`
+  - `output_validation.rs` (15 tests, 593 lines): `planner_available_tools_include_all_wave_two_tools` + all `validate_planner_output_rejects_*` / `validate_planner_output_accepts_*` tests
+  - `input_validation.rs` (13 tests, 515 lines): `set_tts_voice_input_*`, `validate_eval_js_input_*`, `validate_confirm_action_input_*`, remaining `validate_planner_output_rejects_*` for open_url/go_back/go_forward/scroll_page/find_element/playback bounds
+- mod.rs reduced to 5 lines: `use super::*;` + 3 `mod` declarations.
+- All subfiles start with `use super::*;` — no unused import warnings.
+- 309 Rust tests pass; clippy -D warnings clean.
+
 ## 2026-06-06T15:02:30Z - Claude Sonnet 4.6 - Split direct_commands.rs (1865 lines) into directory with 5 subfiles
 
 - Promoted `src-tauri/src/commands/tests/direct_commands.rs` to `direct_commands/mod.rs`, then split into:

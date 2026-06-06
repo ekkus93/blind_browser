@@ -215,17 +215,17 @@ commands/tests/planner_flow/
 
 ### 4.1 Create directory and move file
 
-- [ ] Create `commands/tests/planner_flow/` directory.
-- [ ] Move `commands/tests/planner_flow.rs` → `commands/tests/planner_flow/mod.rs`.
-- [ ] Run `cargo test --all-features`.
+- [x] Create `commands/tests/planner_flow/` directory.
+- [x] Move `commands/tests/planner_flow.rs` → `commands/tests/planner_flow/mod.rs`.
+- [x] Run `cargo test --all-features`.
 
 ### 4.2 Extract subfiles
 
-- [ ] Extract `execution.rs` — 7 step-execution tests.
-- [ ] Extract `output_validation.rs` — validate_planner_output tests.
-- [ ] Extract `input_validation.rs` — remaining input/argument validation tests.
-- [ ] Trim `planner_flow/mod.rs` to module declarations only.
-- [ ] Run full validation gate.
+- [x] Extract `execution.rs` — 7 step-execution tests.
+- [x] Extract `output_validation.rs` — validate_planner_output tests.
+- [x] Extract `input_validation.rs` — remaining input/argument validation tests.
+- [x] Trim `planner_flow/mod.rs` to module declarations only.
+- [x] Run full validation gate.
 
 ---
 
