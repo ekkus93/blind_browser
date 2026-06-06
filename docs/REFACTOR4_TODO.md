@@ -177,19 +177,19 @@ commands/tests/direct_commands/
 
 ### 3.1 Create directory and move file
 
-- [ ] Create `commands/tests/direct_commands/` directory.
-- [ ] Move `commands/tests/direct_commands.rs` → `commands/tests/direct_commands/mod.rs`.
-- [ ] Run `cargo test --all-features`.
+- [x] Create `commands/tests/direct_commands/` directory.
+- [x] Move `commands/tests/direct_commands.rs` → `commands/tests/direct_commands/mod.rs`.
+- [x] Run `cargo test --all-features`.
 
 ### 3.2 Extract subfiles
 
-- [ ] Extract `audio_commands.rs` — 5 tests (~161 lines).
-- [ ] Extract `navigation_commands.rs` — 5 tests (~194 lines).
-- [ ] Extract `reading_commands.rs` — 3 tests (~456 lines).
-- [ ] Extract `status_commands.rs` — 3 tests (~480 lines).
-- [ ] Extract `playback_commands.rs` — 4 tests (~572 lines).
-- [ ] Trim `direct_commands/mod.rs` to module declarations only.
-- [ ] Run full validation gate.
+- [x] Extract `audio_commands.rs` — 5 tests (~161 lines).
+- [x] Extract `navigation_commands.rs` — 5 tests (~194 lines).
+- [x] Extract `reading_commands.rs` — 3 tests (~456 lines).
+- [x] Extract `status_commands.rs` — 3 tests (~480 lines).
+- [x] Extract `playback_commands.rs` — 4 tests (~572 lines).
+- [x] Trim `direct_commands/mod.rs` to module declarations only.
+- [x] Run full validation gate.
 
 ---
 

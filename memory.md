@@ -1,3 +1,15 @@
+## 2026-06-06T15:02:30Z - Claude Sonnet 4.6 - Split direct_commands.rs (1865 lines) into directory with 5 subfiles
+
+- Promoted `src-tauri/src/commands/tests/direct_commands.rs` to `direct_commands/mod.rs`, then split into:
+  - `audio_commands.rs` (5 tests: resolve_direct_audio_command_* ×3, resolve_direct_browser_visibility_command_* ×2)
+  - `navigation_commands.rs` (5 tests: resolve_direct_navigation_readback_command_* ×2, resolve_direct_voice_input_command_* ×2, resolve_direct_open_url_command ×1)
+  - `reading_commands.rs` (3 tests: resolve_direct_read_page_command_* ×3)
+  - `status_commands.rs` (3 tests: resolve_direct_status_query_command_* ×3)
+  - `playback_commands.rs` (4 tests: resolve_direct_repeat_command_* ×2, resolve_direct_read_title_command_* ×2)
+- mod.rs reduced to 7 lines: `use super::*;` + 5 `mod` declarations.
+- All subfiles start with `use super::*;` — no unused import warnings.
+- 309 Rust tests pass; clippy -D warnings clean.
+
 ## 2026-06-06T14:47:25Z - Claude Sonnet 4.6 - Split fixtures/mod.rs (2023 lines) into 7 subfiles
 
 - Split `src-tauri/src/commands/tests/fixtures/mod.rs` into:
