@@ -385,9 +385,9 @@ src-tauri/src/config/
 - [x] Separate load tests, validation tests, and keyring tests into distinct files.
 - [x] Run `cargo test`.
 
-### 3.7 Final validation
+### 3.7 Final validation — DONE
 
-- [ ] Run full validation gate.
+- [x] Run full validation gate.
 
 ---
 
@@ -410,56 +410,53 @@ src-tauri/src/commands/
     planner_outputs.rs # build_single_step_planner_output, build_audio_*, build_browser_*
 ```
 
-### 4.1 Create `routing/` directory and `mod.rs`
+### 4.1 Create `routing/` directory and `mod.rs` — DONE
 
-- [ ] Create `src-tauri/src/commands/routing/`.
-- [ ] Move `routing.rs` → `commands/routing/mod.rs`.
-- [ ] Verify `commands/mod.rs` continues to expose the right surface.
-- [ ] Run `cargo check`.
+- [x] Create `src-tauri/src/commands/routing/`.
+- [x] Move `routing.rs` → `commands/routing/mod.rs`.
+- [x] Verify `commands/mod.rs` continues to expose the right surface.
+- [x] Run `cargo check`.
 
-### 4.2 Extract `intent.rs`
+### 4.2 Extract `intent.rs` — DONE
 
-- [ ] Move `infer_intent_hint` and all `is_*_phrase`, `normalize_*`, `collapse_transcript_whitespace`,
+- [x] Move `infer_intent_hint` and all `is_*_phrase`, `normalize_*`, `collapse_transcript_whitespace`,
       `merge_compound_command_tokens`, `canonicalize_command_token`,
       `is_unambiguous_fuzzy_keyword_match`, `is_single_edit_or_transposition`,
       `is_single_insertion_or_deletion`, `selected_skill`, `selected_audio_skill`,
       `selected_stop_skill` into `routing/intent.rs`.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
-### 4.3 Extract `audio_commands.rs`
+### 4.3 Extract `audio_commands.rs` — DONE
 
-- [ ] Move `NormalizedAudioSetting`, `parse_volume_command`, `parse_speed_command`,
+- [x] Move `NormalizedAudioSetting`, `parse_volume_command`, `parse_speed_command`,
       `parse_absolute_volume_value`, `parse_absolute_speed_value`, `parse_multiplier_token`,
       `volume_relative_step`, `speed_relative_step`, `volume_step_size`, `speed_step_size`,
-      `is_volume_query_phrase`, `is_speed_query_phrase`, `format_playback_volume`,
-      `format_playback_speed` into `routing/audio_commands.rs`.
-- [ ] Run `cargo check`.
+      `format_playback_volume`, `format_playback_speed` into `routing/audio_commands.rs`.
+- [x] Run `cargo check`.
 
-### 4.4 Extract `url_commands.rs`
+### 4.4 Extract `url_commands.rs` — DONE
 
-- [ ] Move `parse_direct_open_url_target`, `normalize_spoken_url_target`,
+- [x] Move `parse_direct_open_url_target`, `normalize_spoken_url_target`,
       `looks_like_host_without_scheme`, `prepend_default_scheme`,
-      `is_current_url_query_phrase`, `first_readable_region_id`,
-      `format_current_url_summary` into `routing/url_commands.rs`.
-- [ ] Run `cargo check`.
+      `first_readable_region_id`, `format_current_url_summary` into `routing/url_commands.rs`.
+- [x] Run `cargo check`.
 
-### 4.5 Extract `planner_outputs.rs`
+### 4.5 Extract `planner_outputs.rs` — DONE
 
-- [ ] Move `build_single_step_planner_output`, `build_audio_set_planner_output`,
+- [x] Move `build_single_step_planner_output`, `build_audio_set_planner_output`,
       `build_audio_report_planner_output`, `build_browser_visibility_planner_output`,
       `build_status_query_planner_output`, `build_report_result_step`,
-      `build_browser_visibility_planner_output`, `AudioSetPlanSpec`, `StatusQueryPlanSpec`
+      `AudioSetPlanSpec`, `StatusQueryPlanSpec`
       into `routing/planner_outputs.rs`.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
-### 4.6 Extract `status_commands.rs`
+### 4.6 Extract `status_commands.rs` — DONE
 
-- [ ] Move `format_runtime_status_summary`, `current_page_label*`, `format_back_history_summary`,
+- [x] Move `format_runtime_status_summary`, `current_page_label*`, `format_back_history_summary`,
       `format_forward_history_summary`, `format_listening_summary`, `format_speaking_summary`,
       `format_browser_mode_summary`, `format_browser_visibility_mode`,
-      `is_status_query_phrase`, `is_history_query_phrase`, `is_back_history_query_phrase`,
-      `is_forward_history_query_phrase` into `routing/status_commands.rs`.
-- [ ] Run full validation gate.
+      `is_status/history/back/forward_history query phrases` into `routing/status_commands.rs`.
+- [x] Run full validation gate.
 
 ---
 
