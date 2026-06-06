@@ -271,31 +271,31 @@ src-tauri/src/app_core/interaction_tools/
 
 ### 6.1 Create `interaction_tools/` directory and `mod.rs`
 
-- [ ] Create `src-tauri/src/app_core/interaction_tools/` directory.
-- [ ] Move `app_core/interaction_tools.rs` → `app_core/interaction_tools/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Create `src-tauri/src/app_core/interaction_tools/` directory.
+- [x] Move `app_core/interaction_tools.rs` → `app_core/interaction_tools/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 6.2 Extract `element_queries.rs`
 
-- [ ] Move `execute_list_interactive_elements` and `execute_find_element` into
+- [x] Move `execute_list_interactive_elements` and `execute_find_element` into
       `interaction_tools/element_queries.rs`.
-- [ ] Add `mod element_queries;` in `interaction_tools/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod element_queries;` in `interaction_tools/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 6.3 Extract `click_focus.rs`
 
-- [ ] Move `execute_click_element`, `execute_focus_element`, and the free function
+- [x] Move `execute_click_element`, `execute_focus_element`, and the free function
       `resolve_clickable_element` into `interaction_tools/click_focus.rs`.
-- [ ] Add `mod click_focus;` in `interaction_tools/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod click_focus;` in `interaction_tools/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 6.4 Extract `text_entry.rs`
 
-- [ ] Move `execute_type_into_element`, `execute_submit_active_form`,
+- [x] Move `execute_type_into_element`, `execute_submit_active_form`,
       `resolve_typeable_element`, and `resolve_form_element` into
       `interaction_tools/text_entry.rs`.
-- [ ] Add `mod text_entry;` in `interaction_tools/mod.rs`.
-- [ ] Run full validation gate. `mod.rs` should be under 20 lines.
+- [x] Add `mod text_entry;` in `interaction_tools/mod.rs`.
+- [x] Run full validation gate. `mod.rs` should be under 20 lines.
 
 ---
 
