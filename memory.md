@@ -1,3 +1,10 @@
+## 2026-06-06T15:59:35Z - Claude Sonnet 4.6 - Split contracts.rs (707 lines, 16 tests) into directory with 3 subfiles
+
+- Promoted `commands/tests/contracts.rs` → `commands/tests/contracts/mod.rs` (directory).
+- Created `tool_schemas.rs` (4 tests: input/output schema coverage), `tool_result_envelope.rs` (5 tests: success/failure envelope, round-trips, enum serialization), `planner_contracts.rs` (7 tests: planner output/input round-trips, schema validation, safety settings).
+- `mod.rs` rewritten to 5 lines: `use super::*;` + 3 `mod` declarations.
+- Clippy clean, 309 Rust tests pass (no change in count).
+
 ## 2026-06-06T15:20:58Z - Claude Sonnet 4.6 - REFACTOR4_TODO.md all 6 phases complete
 
 - All 5 large test files split into themed directories. 309 Rust tests, lint/tsc/build/clippy all clean.

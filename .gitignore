@@ -24,3 +24,5 @@ src-tauri/gen
 #.idea/
 
 config.toml
+
+run_claude.sh
