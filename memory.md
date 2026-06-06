@@ -1,3 +1,11 @@
+## 2026-06-06T15:20:58Z - Claude Sonnet 4.6 - REFACTOR4_TODO.md all 6 phases complete
+
+- All 5 large test files split into themed directories. 309 Rust tests, lint/tsc/build/clippy all clean.
+- Splits: `fixtures/` (7 subfiles), `tool_dispatch/` (6 subfiles), `direct_commands/` (5 subfiles), `planner_flow/` (3 subfiles), `app_core/tests/` (11 subfiles).
+- `mock_executor_impl.rs` (853 lines) remains as documented exception: single `impl DeterministicToolExecutor for MockExecutor` block cannot be split per Rust rules.
+- REFACTOR5 candidates: `confirmation-panel.test.mjs` (1537 JS lines), `contracts.rs` (707), `config/tests/load_tests.rs` (704).
+- Final commits: phases 2–5 on master (0467943 → 9a669d7), phase 6 doc/memory update pending.
+
 ## 2026-06-06T15:18:57Z - Claude Sonnet 4.6 - Split app_core/tests.rs (3594 lines, 85 tests) into directory with 11 subfiles
 
 - Promoted `src-tauri/src/app_core/tests.rs` to `tests/mod.rs`, then split into:

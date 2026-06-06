@@ -313,21 +313,24 @@ Work through these in order; run `cargo test --all-features` after each:
 
 ### 6.1 Run the full validation suite
 
-- [ ] `source ./fix-node-version.sh`
-- [ ] `pnpm lint`
-- [ ] `pnpm test:ui`
-- [ ] `pnpm build`
-- [ ] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
-- [ ] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
+- [x] `source ./fix-node-version.sh`
+- [x] `pnpm lint`
+- [x] `pnpm test:ui`
+- [x] `pnpm build`
+- [x] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
+- [x] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
 
 ### 6.2 Verify file sizes
 
-- [ ] Run `find . -type f \( -name "*.rs" -o -name "*.ts" -o -name "*.mjs" \) -not -path "*/node_modules/*" -not -path "*/dist/*" -not -path "*/target/*" | xargs wc -l | sort -rn | head -30`.
-- [ ] Target: no source file over 600 lines.
+- [x] Run `find . -type f \( -name "*.rs" -o -name "*.ts" -o -name "*.mjs" \) -not -path "*/node_modules/*" -not -path "*/dist/*" -not -path "*/target/*" | xargs wc -l | sort -rn | head -30`.
+- [x] Target: no source file over 600 lines.
+  - `mock_executor_impl.rs` (853): documented exception — full `impl DeterministicToolExecutor for MockExecutor` block; Rust forbids splitting a single trait impl.
+  - `confirmation-panel.test.mjs` (1537): JS test file, outside REFACTOR4 scope — REFACTOR5 candidate.
+  - `contracts.rs` (707), `config/tests/load_tests.rs` (704): outside REFACTOR4 scope — REFACTOR5 candidates.
 
 ### 6.3 Update `memory.md`
 
-- [ ] Run `date -u +"%Y-%m-%dT%H:%M:%SZ"` and add an entry to `memory.md`.
+- [x] Run `date -u +"%Y-%m-%dT%H:%M:%SZ"` and add an entry to `memory.md`.
 
 ---
 
