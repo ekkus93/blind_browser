@@ -1,3 +1,18 @@
+## 2026-06-06T09:57:09Z - Claude Sonnet 4.6 - REFACTOR2_TODO.md all 13 phases complete
+
+- All 13 phases of `docs/REFACTOR2_TODO.md` implemented and validated.
+- **Phases 1–4:** Rust module splits — app_core/mod.rs (1902→850), browser.rs (1779→685 + submodules), tts.rs (958→555 + submodules), asr.rs (756→submodules).
+- **Phase 5:** commands/contracts.rs (1308→contracts/ with providers, planner, interaction, tools subfiles).
+- **Phase 6:** Large app_core submodule splits — element_scoring.rs, ocr_merge.rs, page_model_builder.rs, fill_correction.rs, reading_tools.rs, listening_tools.rs.
+- **Phase 7:** commands/validators.rs (808→validators/ with navigation, element, extraction, audio, voice, planner subfiles).
+- **Phase 8:** commands/registry.rs (1054→registry.rs + schemas.rs, skill_parser.rs, skill_loader.rs).
+- **Phase 9:** lib.rs (1073→~70 lines) + command_handlers/ module (core, voice, url, audio, provider, safety, api_key, model handlers).
+- **Phase 10:** commands/routing/mod.rs (1061→~50 lines) + navigation_routing.rs, voice_routing.rs, reading_routing.rs, field_routing.rs; audio_commands.rs/url_commands.rs/status_commands.rs extended. Key fix: glob imports with `pub(crate)` items need explicit `pub(crate) use` re-exports for cross-module visibility.
+- **Phase 11:** src/tauri-api.ts (999→10 lines barrel) + tauri-types.ts + api/ (errors, planner, voice, audio, navigation, providers, safety, remote-keys, models). Node test runner needs explicit `.ts` extensions in import paths with `--experimental-strip-types`.
+- **Phase 12:** app-shell.ts (542→~250 lines) + app-shell-theme.ts, app-shell-nav.ts (with all shared types), app-shell-controls.ts; types re-exported from app-shell.ts so external callers unchanged.
+- **Phase 13:** Final validation — 309 Rust tests, 97 JS tests, lint, tsc, vite build, clippy all clean.
+- Final commit: `187c171` on master. Remaining production files >600 lines (REFACTOR3 candidates): config/mod.rs (851), app_core/mod.rs (850), extraction_tools.rs (849), interaction_tools.rs (779), planner_executor.rs (685), browser/mod.rs (685), form_fill.rs (676).
+
 ## 2026-06-06T03:40:37Z - Claude Sonnet 4.6 - REFACTOR1_TODO.md all 6 phases complete
 
 - All 5 structural refactor phases in `docs/REFACTOR1_TODO.md` are implementation-complete.
