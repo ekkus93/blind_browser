@@ -743,7 +743,7 @@ src-tauri/src/
 
 ---
 
-## Phase 10 — Split `commands/routing/mod.rs` (~1061 lines)
+## Phase 10 — Split `commands/routing/mod.rs` (~1061 lines) — DONE
 
 `routing/mod.rs` contains all `resolve_direct_*` dispatcher functions inline. Each function
 handles a distinct command category and should move to a dedicated file, parallel to the
@@ -774,49 +774,49 @@ src-tauri/src/commands/routing/
 
 ### 10.1 Move audio/visibility routing into `audio_commands.rs`
 
-- [ ] Move `resolve_direct_audio_command()` and
+- [x] Move `resolve_direct_audio_command()` and
       `resolve_direct_browser_visibility_command()` into the existing
       `routing/audio_commands.rs`.
-- [ ] Update `mod.rs` to call through.
-- [ ] Run `cargo check`.
+- [x] Update `mod.rs` to call through.
+- [x] Run `cargo check`.
 
 ### 10.2 Move URL routing into `url_commands.rs`
 
-- [ ] Move `resolve_direct_open_url_command()` into the existing `routing/url_commands.rs`.
-- [ ] Run `cargo check`.
+- [x] Move `resolve_direct_open_url_command()` into the existing `routing/url_commands.rs`.
+- [x] Run `cargo check`.
 
 ### 10.3 Move status/query routing into `status_commands.rs`
 
-- [ ] Move `resolve_direct_status_query_command()`, `resolve_direct_read_title_command()`,
+- [x] Move `resolve_direct_status_query_command()`, `resolve_direct_read_title_command()`,
       `resolve_direct_repeat_command()` into the existing `routing/status_commands.rs`.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
 ### 10.4 Extract `navigation_routing.rs`
 
-- [ ] Move `resolve_direct_navigation_readback_command()` into
+- [x] Move `resolve_direct_navigation_readback_command()` into
       `routing/navigation_routing.rs`.
-- [ ] Add `mod navigation_routing;` in `routing/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod navigation_routing;` in `routing/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 10.5 Extract `voice_routing.rs`
 
-- [ ] Move `resolve_direct_voice_input_command()` into `routing/voice_routing.rs`.
-- [ ] Add `mod voice_routing;` in `routing/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Move `resolve_direct_voice_input_command()` into `routing/voice_routing.rs`.
+- [x] Add `mod voice_routing;` in `routing/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 10.6 Extract `reading_routing.rs`
 
-- [ ] Move `resolve_direct_read_page_command()` into `routing/reading_routing.rs`.
-- [ ] Add `mod reading_routing;` in `routing/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Move `resolve_direct_read_page_command()` into `routing/reading_routing.rs`.
+- [x] Add `mod reading_routing;` in `routing/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 10.7 Extract `field_routing.rs`
 
-- [ ] Move `parse_direct_focus_field_command()`, `parse_direct_fill_field_command()`,
+- [x] Move `parse_direct_focus_field_command()`, `parse_direct_fill_field_command()`,
       `parse_direct_fill_and_submit_command()`, `is_direct_submit_form_command()` into
       `routing/field_routing.rs`.
-- [ ] Add `mod field_routing;` in `routing/mod.rs`.
-- [ ] Run full validation gate.
+- [x] Add `mod field_routing;` in `routing/mod.rs`.
+- [x] Run full validation gate.
 
 ---
 

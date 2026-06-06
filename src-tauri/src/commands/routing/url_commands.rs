@@ -97,3 +97,33 @@ pub(super) fn format_current_url_summary(agent_state: &AgentStateData) -> String
         (None, None) => String::from("No page is open yet."),
     }
 }
+
+pub(crate) fn resolve_direct_open_url_command(
+    transcript: &str,
+    request_id: &str,
+    active_skill_names: &[String],
+) -> Option<PlannerOutput> {
+    let url = parse_direct_open_url_target(transcript)?;
+
+    Some(build_single_step_planner_output(
+        IntentSummary {
+            name: IntentName::OpenUrl,
+            goal: String::from("Open the requested URL."),
+            target_description: Some(url.clone()),
+        },
+        selected_skill(active_skill_names, "open_url"),
+        PlannedStep {
+            step_id: String::from("open-url"),
+            tool_name: ToolName::OpenUrl,
+            arguments: serde_json::json!({
+                "request_id": request_id,
+                "timeout_ms": serde_json::Value::Null,
+                "url": url,
+                "wait_for_load_state": LoadState::Load
+            }),
+            purpose: String::from("Open the requested URL and wait for the page to load."),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        },
+    ))
+}
