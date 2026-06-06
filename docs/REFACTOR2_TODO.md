@@ -519,17 +519,17 @@ src-tauri/src/app_core/
 
 #### 6.D.1 Extract `reading_tools.rs`
 
-- [ ] Move `execute_read_region`, `execute_read_next_region`, `execute_read_previous_region`,
+- [x] Move `execute_read_region`, `execute_read_next_region`, `execute_read_previous_region`,
       `execute_stop_speaking` into `app_core/reading_tools.rs`.
-- [ ] Add `mod reading_tools;` in `app_core/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod reading_tools;` in `app_core/mod.rs`.
+- [x] Run `cargo check`.
 
 #### 6.D.2 Extract `listening_tools.rs`
 
-- [ ] Move `execute_start_listening`, `execute_stop_listening`, `execute_transcribe_command`,
+- [x] Move `execute_start_listening`, `execute_stop_listening`, `execute_transcribe_command`,
       `transcribe_and_execute_command` into `app_core/listening_tools.rs`.
-- [ ] Add `mod listening_tools;` in `app_core/mod.rs`.
-- [ ] Run full validation gate.
+- [x] Add `mod listening_tools;` in `app_core/mod.rs`.
+- [x] Run full validation gate.
 
 ---
 

@@ -111,6 +111,8 @@ use element_scoring::{normalize_optional_text, region_bbox_by_id};
 mod interaction_tools;
 
 mod voice_tools;
+mod reading_tools;
+mod listening_tools;
 
 mod planner_prompt;
 
