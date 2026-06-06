@@ -230,24 +230,24 @@ src-tauri/src/app_core/extraction_tools/
 
 ### 5.1 Create `extraction_tools/` directory and `mod.rs`
 
-- [ ] Create `src-tauri/src/app_core/extraction_tools/` directory.
-- [ ] Move `app_core/extraction_tools.rs` → `app_core/extraction_tools/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Create `src-tauri/src/app_core/extraction_tools/` directory.
+- [x] Move `app_core/extraction_tools.rs` → `app_core/extraction_tools/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 5.2 Extract `ocr_tools.rs`
 
-- [ ] Move `execute_run_ocr`, `execute_merge_ocr_into_page_model`, and
+- [x] Move `execute_run_ocr`, `execute_merge_ocr_into_page_model`, and
       `should_trigger_extract_page_model_ocr_fallback` into
       `extraction_tools/ocr_tools.rs`.
-- [ ] Add `mod ocr_tools;` in `extraction_tools/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod ocr_tools;` in `extraction_tools/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 5.3 Extract `page_extraction.rs`
 
-- [ ] Move `execute_get_page_snapshot` and `execute_extract_page_model` into
+- [x] Move `execute_get_page_snapshot` and `execute_extract_page_model` into
       `extraction_tools/page_extraction.rs`.
-- [ ] Add `mod page_extraction;` in `extraction_tools/mod.rs`.
-- [ ] Run full validation gate. `mod.rs` should be under 20 lines.
+- [x] Add `mod page_extraction;` in `extraction_tools/mod.rs`.
+- [x] Run full validation gate. `mod.rs` should be under 20 lines.
 
 ---
 
