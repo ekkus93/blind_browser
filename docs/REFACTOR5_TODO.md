@@ -170,21 +170,23 @@ Each test file imports all helpers: `import { ... } from './confirmation-panel-t
 
 ### 4.1 Run the full validation suite
 
-- [ ] `source ./fix-node-version.sh`
-- [ ] `pnpm lint`
-- [ ] `pnpm test:ui`
-- [ ] `pnpm build`
-- [ ] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
-- [ ] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
+- [x] `source ./fix-node-version.sh`
+- [x] `pnpm lint`
+- [x] `pnpm test:ui`
+- [x] `pnpm build`
+- [x] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
+- [x] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
 
 ### 4.2 Verify file sizes
 
-- [ ] Run `find . -type f \( -name "*.rs" -o -name "*.ts" -o -name "*.mjs" \) -not -path "*/node_modules/*" -not -path "*/dist/*" -not -path "*/target/*" | xargs wc -l | sort -rn | head -30`.
-- [ ] Target: no source file over 600 lines (except `mock_executor_impl.rs` — documented exception).
+- [x] Run `find . -type f \( -name "*.rs" -o -name "*.ts" -o -name "*.mjs" \) -not -path "*/node_modules/*" -not -path "*/dist/*" -not -path "*/target/*" | xargs wc -l | sort -rn | head -30`.
+- [x] Target: no source file over 600 lines (except `mock_executor_impl.rs` — documented exception).
+  - `confirmation-panel-settings.test.mjs` (834) required a second split into `...-planner.test.mjs` (493) and `...-voice.test.mjs` (346).
+  - All remaining files ≤599 lines.
 
 ### 4.3 Update `memory.md`
 
-- [ ] Run `date -u +"%Y-%m-%dT%H:%M:%SZ"` and add an entry to `memory.md`.
+- [x] Run `date -u +"%Y-%m-%dT%H:%M:%SZ"` and add an entry to `memory.md`.
 
 ---
 

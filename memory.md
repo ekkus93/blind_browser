@@ -1,3 +1,11 @@
+## 2026-06-06T16:14:22Z - Claude Sonnet 4.6 - REFACTOR5_TODO.md all 4 phases complete
+
+- Splits: `commands/tests/contracts/` (3 subfiles), `config/tests/load_tests/` (3 subfiles), `src/confirmation-panel.test.mjs` → 5 themed files (needed second pass: settings file was still 834 lines → split into planner 493 + voice 346).
+- JS split pattern: shared helper `confirmation-panel-test-helpers.mjs` (no `.test.` so not picked up by glob); test files import only what they need.
+- `mock_executor_impl.rs` (853 lines) remains the only file over 600 — single trait impl block, confirmed cannot be split.
+- All other files now ≤599 lines. 309 Rust + 97 JS tests clean. clippy/lint/build all clean.
+- `*.sh~` added to `.gitignore`.
+
 ## 2026-06-06T16:09:40Z - Claude Sonnet 4.6 - Split confirmation-panel.test.mjs (1537 lines, 52 tests) into helpers + 4 themed test files
 
 - Created `src/confirmation-panel-test-helpers.mjs` (249 lines): all imports, `VOID_ELEMENTS`, `escapeHtml`, `mapAttributeName`, `renderNodeMarkup`, 19 render wrappers, `renderFixtures`, and re-exports of `statusPanelStateFromAgentState` + `renderVoiceStatusStripNode`.
