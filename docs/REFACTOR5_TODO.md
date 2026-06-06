@@ -101,17 +101,17 @@ from `config/tests/mod.rs`).
 
 ### 2.1 Create directory and move file
 
-- [ ] Create `config/tests/load_tests/` directory.
-- [ ] Move `config/tests/load_tests.rs` → `config/tests/load_tests/mod.rs`.
-- [ ] Run `cargo test --all-features`.
+- [x] Create `config/tests/load_tests/` directory.
+- [x] Move `config/tests/load_tests.rs` → `config/tests/load_tests/mod.rs`.
+- [x] Run `cargo test --all-features`.
 
 ### 2.2 Extract subfiles
 
-- [ ] Extract `enum_serialization.rs` — 2 tests (lines ~3–174).
-- [ ] Extract `valid_configs.rs` — 2 tests (lines ~177–280).
-- [ ] Extract `invalid_configs.rs` — 6 tests (lines ~282–703).
-- [ ] Trim `load_tests/mod.rs` to module declarations only.
-- [ ] Run full validation gate.
+- [x] Extract `enum_serialization.rs` — 2 tests (lines ~3–174).
+- [x] Extract `valid_configs.rs` — 2 tests (lines ~177–280).
+- [x] Extract `invalid_configs.rs` — 6 tests (lines ~282–703).
+- [x] Trim `load_tests/mod.rs` to module declarations only.
+- [x] Run full validation gate.
 
 ---
 

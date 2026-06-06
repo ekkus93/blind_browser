@@ -1,3 +1,12 @@
+## 2026-06-06T16:02:54Z - Claude Sonnet 4.6 - Split config/tests/load_tests.rs (704 lines, 10 tests) into directory with 3 subfiles
+
+- Promoted `config/tests/load_tests.rs` → `config/tests/load_tests/mod.rs` (directory).
+- Created `enum_serialization.rs` (2 tests: `config_enums_round_trip_and_reject_invalid_variants`, `provider_configs_round_trip_through_json`).
+- Created `valid_configs.rs` (2 tests: `parses_default_template`, `parses_ollama_planner_profile_when_selected`).
+- Created `invalid_configs.rs` (6 tests: `rejects_missing_selected_remote_planner_profile_reference`, `rejects_inline_secret_refs`, `rejects_local_planner_configuration`, `rejects_missing_remote_profile_for_remote_mode`, `rejects_missing_selected_profiles_for_tts_and_asr_modes`, `rejects_missing_selected_local_profile_references_for_tts_and_asr`).
+- `mod.rs` rewritten to 5 lines: `use super::*;` + 3 `mod` declarations.
+- Clippy clean, 309 Rust tests pass (no change in count).
+
 ## 2026-06-06T15:59:35Z - Claude Sonnet 4.6 - Split contracts.rs (707 lines, 16 tests) into directory with 3 subfiles
 
 - Promoted `commands/tests/contracts.rs` → `commands/tests/contracts/mod.rs` (directory).
