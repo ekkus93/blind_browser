@@ -101,8 +101,10 @@ use form_fill::{
     resolve_direct_submit_form_command, resolve_recent_fill_correction_command,
 };
 
+mod element_scoring;
+use element_scoring::{normalize_optional_text, region_bbox_by_id};
+
 mod interaction_tools;
-use interaction_tools::{normalize_optional_text, region_bbox_by_id};
 
 mod voice_tools;
 

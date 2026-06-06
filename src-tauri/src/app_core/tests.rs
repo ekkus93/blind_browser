@@ -11,9 +11,11 @@ use super::form_fill::{
     resolve_direct_focus_field_command, resolve_direct_submit_form_command,
     resolve_recent_fill_correction_command, RecentFieldContext,
 };
-use super::interaction_tools::{
+use super::element_scoring::{
     build_find_element_query, determine_find_element_resolution, filter_interactive_elements,
     normalize_optional_text, rank_find_element_candidates, region_bbox_by_id,
+};
+use super::interaction_tools::{
     resolve_clickable_element, resolve_form_element, resolve_typeable_element,
 };
 use super::api_key_tools::{fetch_openai_compatible_models, test_openai_api_key_connectivity};

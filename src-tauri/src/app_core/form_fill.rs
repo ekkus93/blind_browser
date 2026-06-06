@@ -6,11 +6,12 @@ use crate::commands::{
     parse_fill_field_correction_command, DEFAULT_FIND_ELEMENT_MAX_CANDIDATES,
 };
 use crate::page_model::PageModel;
-use super::interaction_tools::{
+use super::element_scoring::{
     build_find_element_query, describe_form_element, determine_find_element_resolution,
-    focusable_field_elements, rank_find_element_candidates, resolve_typeable_element,
-    submittable_form_elements, summarize_candidate_names, summarize_form_candidate_names,
+    focusable_field_elements, rank_find_element_candidates, submittable_form_elements,
+    summarize_candidate_names, summarize_form_candidate_names,
 };
+use super::interaction_tools::resolve_typeable_element;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PendingRecentFieldContext {

@@ -388,7 +388,7 @@ src-tauri/src/commands/contracts/
 
 Four submodules extracted in REFACTOR1 are still over 800 lines and contain natural seams.
 
-### 6A — Split `interaction_tools.rs` (~1311 lines)
+### 6A — Split `interaction_tools.rs` (~1311 lines) — DONE
 
 `interaction_tools.rs` contains `impl AppCore` element-interaction methods plus a large,
 self-contained element-scoring subsystem that has no dependency on `AppCore`.
@@ -417,16 +417,16 @@ src-tauri/src/app_core/
 
 #### 6.A.1 Extract `element_scoring.rs`
 
-- [ ] Find the boundary in `interaction_tools.rs` where the scoring subsystem begins
+- [x] Find the boundary in `interaction_tools.rs` where the scoring subsystem begins
       (the block of free functions around `FindElementScore` and `score_interactive_element`).
-- [ ] Move all scoring-subsystem free functions and types into `app_core/element_scoring.rs`.
-- [ ] Import from `interaction_tools.rs` via `use super::element_scoring::*;` or
+- [x] Move all scoring-subsystem free functions and types into `app_core/element_scoring.rs`.
+- [x] Import from `interaction_tools.rs` via `use super::element_scoring::*;` or
       declare `pub(super) mod element_scoring;` in `app_core/mod.rs` and use from there.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
 #### 6.A.2 Final validation for 6A
 
-- [ ] Run full validation gate.
+- [x] Run full validation gate.
 
 ---
 
