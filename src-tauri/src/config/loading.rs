@@ -5,7 +5,7 @@ use serde::de::DeserializeOwned;
 
 use super::*;
 
-pub(super) fn load_document_table_from_path(path: &Path) -> Result<toml::Table, ConfigError> {
+pub(in crate::config) fn load_document_table_from_path(path: &Path) -> Result<toml::Table, ConfigError> {
     let contents = fs::read_to_string(path).map_err(|source| ConfigError::Read {
         path: path.to_path_buf(),
         source,
@@ -14,11 +14,11 @@ pub(super) fn load_document_table_from_path(path: &Path) -> Result<toml::Table, 
     load_document_table_from_str(&contents)
 }
 
-pub(super) fn load_document_table_from_str(contents: &str) -> Result<toml::Table, ConfigError> {
+pub(in crate::config) fn load_document_table_from_str(contents: &str) -> Result<toml::Table, ConfigError> {
     toml::from_str(contents).map_err(ConfigError::Parse)
 }
 
-pub(super) fn load_planner_profiles(
+pub(in crate::config) fn load_planner_profiles(
     selection: &ProviderSelection,
     remote_profiles: &BTreeMap<String, toml::Table>,
     resolved_remote_profiles: &mut BTreeMap<String, RemotePlannerProfile>,
@@ -59,7 +59,7 @@ pub(super) fn load_planner_profiles(
     }
 }
 
-pub(super) fn load_provider_profiles<RemoteProfile, LocalProfile>(
+pub(in crate::config) fn load_provider_profiles<RemoteProfile, LocalProfile>(
     category: &str,
     selection: &ProviderSelection,
     remote_profiles: &BTreeMap<String, toml::Table>,
@@ -104,7 +104,7 @@ pub(super) fn load_provider_profiles<RemoteProfile, LocalProfile>(
     }
 }
 
-pub(super) fn resolve_profile<T>(
+pub(in crate::config) fn resolve_profile<T>(
     profile_group: &str,
     category: &str,
     profile_name: &str,

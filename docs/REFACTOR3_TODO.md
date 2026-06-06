@@ -149,11 +149,11 @@ src-tauri/src/config/
 
 ### 3.1 Extract `persistence.rs`
 
-- [ ] Move all `persist_*` and `reset_*` methods (both `_for_app` and `_at_path` variants)
+- [x] Move all `persist_*` and `reset_*` methods (both `_for_app` and `_at_path` variants)
       out of `impl AppConfig` in `config/mod.rs` into a second `impl AppConfig` block in
       `config/persistence.rs`.
-- [ ] Add `mod persistence;` in `config/mod.rs`.
-- [ ] Run full validation gate. `mod.rs` should be under 350 lines.
+- [x] Add `mod persistence;` in `config/mod.rs`.
+- [x] Run full validation gate. `mod.rs` should be under 350 lines.
 
 ---
 

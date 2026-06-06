@@ -72,7 +72,7 @@ fn session_keyring_store() -> &'static Mutex<BTreeMap<(String, String), String>>
 }
 
 #[cfg(not(test))]
-pub(super) fn set_keyring_secret(service: &str, account: &str, secret: &str) -> Result<(), String> {
+pub(in crate::config) fn set_keyring_secret(service: &str, account: &str, secret: &str) -> Result<(), String> {
     let entry = keyring::Entry::new(service, account)
         .map_err(|error| format!("failed to open keyring entry '{service}/{account}': {error}"))?;
     entry
@@ -83,7 +83,7 @@ pub(super) fn set_keyring_secret(service: &str, account: &str, secret: &str) -> 
 }
 
 #[cfg(not(test))]
-pub(super) fn get_keyring_secret(service: &str, account: &str) -> Result<String, String> {
+pub(in crate::config) fn get_keyring_secret(service: &str, account: &str) -> Result<String, String> {
     if let Some(cached_secret) = cached_keyring_secret(service, account)? {
         return Ok(cached_secret);
     }
@@ -99,12 +99,12 @@ pub(super) fn get_keyring_secret(service: &str, account: &str) -> Result<String,
 }
 
 #[cfg(test)]
-pub(super) fn set_keyring_secret(service: &str, account: &str, secret: &str) -> Result<(), String> {
+pub(in crate::config) fn set_keyring_secret(service: &str, account: &str, secret: &str) -> Result<(), String> {
     cache_keyring_secret(service, account, secret)
 }
 
 #[cfg(test)]
-pub(super) fn get_keyring_secret(service: &str, account: &str) -> Result<String, String> {
+pub(in crate::config) fn get_keyring_secret(service: &str, account: &str) -> Result<String, String> {
     cached_keyring_secret(service, account)?
         .ok_or_else(|| format!("failed to read keyring secret '{service}/{account}': no entry"))
 }
