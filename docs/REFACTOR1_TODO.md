@@ -227,83 +227,88 @@ src-tauri/src/commands/tests/
   confirmation.rs     # dispatches_confirm_action*, resumes_*_confirmation*, rejects_resume_*
 ```
 
-### 2.1 Create `tests/` directory and extract shared infrastructure
+### 2.1 Create `tests/` directory and extract shared infrastructure — DONE
 
-- [ ] Create `src-tauri/src/commands/tests/`.
-- [ ] Move `tests.rs` → `commands/tests/mod.rs` as a starting point.
-- [ ] Change `mod tests;` in `commands/mod.rs` (or wherever it's declared) to resolve the
+- [x] Create `src-tauri/src/commands/tests/`.
+- [x] Move `tests.rs` → `commands/tests/mod.rs` as a starting point.
+- [x] Change `mod tests;` in `commands/mod.rs` (or wherever it's declared) to resolve the
       new path. Rust auto-resolves `tests/mod.rs`.
-- [ ] Run `cargo test` to confirm green.
+- [x] Run `cargo test` to confirm green.
 
-### 2.2 Extract `fixtures.rs`
+### 2.2 Extract `fixtures.rs` — DONE
 
-- [ ] Move `fixture_agent_state`, `fixture_runtime_status`, `fixture_page_model_without_regions`,
+- [x] Move `fixture_agent_state`, `fixture_runtime_status`, `fixture_page_model_without_regions`,
       `fixture_agent_state_for_page`, `fixture_problematic_article_page_without_regions`,
       `fixture_problematic_docs_agent_state`, `sample_planned_step`,
       `sample_planned_steps_for_registered_tools`, `MockExecutor` and its `impl` blocks,
       `PlannerSkillFixtureResolver`, `PlannerSkillFixture`, `resolve_planner_skill_fixture`,
       `assert_planner_skill_fixture`, and `unique_temp_path`, `write_skill_document`
-      into `tests/fixtures.rs`.
-- [ ] Add `mod fixtures; use fixtures::*;` in `tests/mod.rs`.
-- [ ] Run `cargo test`.
+      into `tests/fixtures.rs`. Also moved `assert_json_matches_schema*`,
+      `resolve_schema_reference`, `json_matches_type*` helpers here.
+- [x] Add `mod fixtures; use fixtures::*;` in `tests/mod.rs`.
+- [x] Run `cargo test`.
 
-### 2.3 Extract `tool_dispatch.rs`
+### 2.3 Extract `tool_dispatch.rs` — DONE
 
-- [ ] Move all `dispatches_*_from_planned_step` tests and `rejects_invalid_tool_arguments*`,
+- [x] Move all `dispatches_*_from_planned_step` tests and `rejects_invalid_tool_arguments*`,
       `validate_planned_step_arguments*` into `tests/tool_dispatch.rs`.
-- [ ] Add `mod tool_dispatch;` in `tests/mod.rs`.
-- [ ] Run `cargo test`.
+- [x] Add `mod tool_dispatch;` in `tests/mod.rs`.
+- [x] Run `cargo test`.
 
-### 2.4 Extract `playback_controls.rs`
+### 2.4 Extract `playback_controls.rs` — DONE
 
-- [ ] Move `set_playback_volume_clamps_*`, `set_playback_speed_clamps_*` into
+- [x] Move `set_playback_volume_clamps_*`, `set_playback_speed_clamps_*` into
       `tests/playback_controls.rs`.
-- [ ] Run `cargo test`.
+- [x] Run `cargo test`.
 
-### 2.5 Extract `browser_state.rs`
+### 2.5 Extract `browser_state.rs` — DONE
 
-- [ ] Move `set_browser_visibility_reports_*`, `browser_visibility_changes_*`,
+- [x] Move `set_browser_visibility_reports_*`, `browser_visibility_changes_*`,
       `browser_history_navigation_*` into `tests/browser_state.rs`.
-- [ ] Run `cargo test`.
+- [x] Run `cargo test`.
 
-### 2.6 Extract `runtime_status.rs`
+### 2.6 Extract `runtime_status.rs` — DONE
 
-- [ ] Move `get_runtime_status_*`, `provider_selection_status_*`, `shared_command_enums_*`
+- [x] Move `get_runtime_status_*`, `provider_selection_status_*`, `shared_command_enums_*`
       into `tests/runtime_status.rs`.
-- [ ] Run `cargo test`.
+- [x] Run `cargo test`.
 
-### 2.7 Extract `listening.rs`
+### 2.7 Extract `listening.rs` — DONE
 
-- [ ] Move `listening_tools_*`, `transcribe_command_*` into `tests/listening.rs`.
-- [ ] Run `cargo test`.
+- [x] Move `listening_tools_*`, `transcribe_command_*` into `tests/listening.rs`.
+- [x] Run `cargo test`.
 
-### 2.8 Extract `planner_flow.rs`
+### 2.8 Extract `planner_flow.rs` — DONE
 
-- [ ] Move `executes_next_step_chain_*`, `executes_load_page_extract_*`,
+- [x] Move `executes_next_step_chain_*`, `executes_load_page_extract_*`,
       `executes_resolved_spoken_*`, `follows_failure_transition_*`,
       `aborts_when_*`, `aborts_needs_confirmation_*`,
       `planner_available_tools_*` into `tests/planner_flow.rs`.
-- [ ] Run `cargo test`.
+      Also added `validate_planner_output_*` and input validation tests.
+- [x] Run `cargo test`.
 
-### 2.9 Extract `skill_selection.rs`
+### 2.9 Extract `skill_selection.rs` — DONE
 
-- [ ] Move `build_planner_skill_selection_*`, `discover_skills_*`, `parse_skill_document_*`
+- [x] Move `build_planner_skill_selection_*`, `discover_skills_*`, `parse_skill_document_*`
       into `tests/skill_selection.rs`.
-- [ ] Run `cargo test`.
+      Also added `bundled_skills_cover_*`, `canonical_planner_output_examples_validate*`,
+      `planner_skill_regression_*` tests.
+- [x] Run `cargo test`.
 
-### 2.10 Extract `confirmation.rs`
+### 2.10 Extract `confirmation.rs` — DONE
 
-- [ ] Move `returns_awaiting_confirmation_*`, `resumes_confirmed_*`,
+- [x] Move `returns_awaiting_confirmation_*`, `resumes_confirmed_*`,
       `resumes_rejected_*`, `rejects_resume_*`, `dispatches_confirm_action_*`,
       `dispatches_report_result_*`, `dispatches_get_agent_state_*`
       into `tests/confirmation.rs`.
-- [ ] Run `cargo test`.
+- [x] Run `cargo test`.
 
-### 2.11 Final: confirm `tests/mod.rs` contains only `mod` declarations and shared infra
+### 2.11 Final: confirm `tests/mod.rs` contains only `mod` declarations and shared infra — DONE
 
-- [ ] `tests/mod.rs` should contain no `#[test]` functions — only `mod` declarations,
-      shared imports, and infra that every sub-module needs.
-- [ ] Run full validation gate.
+- [x] `tests/mod.rs` should contain no `#[test]` functions — only `mod` declarations,
+      shared imports, and infra that every sub-module needs. (18 lines total)
+      Additional sub-modules created: `contracts.rs`, `routing.rs`, `direct_commands.rs`.
+- [x] Run full validation gate.
 
 ---
 
