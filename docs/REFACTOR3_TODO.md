@@ -319,29 +319,29 @@ src-tauri/src/app_core/form_fill/
 
 ### 7.1 Create `form_fill/` directory and `mod.rs`
 
-- [ ] Create `src-tauri/src/app_core/form_fill/` directory.
-- [ ] Move `app_core/form_fill.rs` → `app_core/form_fill/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Create `src-tauri/src/app_core/form_fill/` directory.
+- [x] Move `app_core/form_fill.rs` → `app_core/form_fill/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 7.2 Extract `field_focus.rs`
 
-- [ ] Move `resolve_direct_focus_field_command` into `form_fill/field_focus.rs`.
-- [ ] Add `mod field_focus;` in `form_fill/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Move `resolve_direct_focus_field_command` into `form_fill/field_focus.rs`.
+- [x] Add `mod field_focus;` in `form_fill/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 7.3 Extract `form_submit.rs`
 
-- [ ] Move `resolve_direct_submit_form_command` into `form_fill/form_submit.rs`.
-- [ ] Add `mod form_submit;` in `form_fill/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Move `resolve_direct_submit_form_command` into `form_fill/form_submit.rs`.
+- [x] Add `mod form_submit;` in `form_fill/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 7.4 Extract `field_fill.rs`
 
-- [ ] Move `resolve_direct_fill_command_internal` and the `#[cfg(test)]` wrappers
+- [x] Move `resolve_direct_fill_command_internal` and the `#[cfg(test)]` wrappers
       (`resolve_direct_fill_field_command`, `resolve_direct_fill_and_submit_command`)
       into `form_fill/field_fill.rs`.
-- [ ] Add `mod field_fill;` in `form_fill/mod.rs`.
-- [ ] Run full validation gate. `mod.rs` should be under 20 lines.
+- [x] Add `mod field_fill;` in `form_fill/mod.rs`.
+- [x] Run full validation gate. `mod.rs` should be under 20 lines.
 
 ---
 
@@ -349,23 +349,23 @@ src-tauri/src/app_core/form_fill/
 
 ### 8.1 Run the full validation suite
 
-- [ ] `source ./fix-node-version.sh`
-- [ ] `pnpm lint`
-- [ ] `pnpm test:ui`
-- [ ] `pnpm build`
-- [ ] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
-- [ ] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
-- [ ] Fix any lint errors or test failures before committing.
+- [x] `source ./fix-node-version.sh`
+- [x] `pnpm lint`
+- [x] `pnpm test:ui`
+- [x] `pnpm build`
+- [x] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
+- [x] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
+- [x] Fix any lint errors or test failures before committing.
 
 ### 8.2 Verify file sizes
 
-- [ ] Run `find . -type f \( -name "*.rs" -o -name "*.ts" -o -name "*.mjs" \) -not -path "*/node_modules/*" -not -path "*/dist/*" -not -path "*/target/*" | xargs wc -l | sort -rn | head -30`.
-- [ ] Target: no production source file over 600 lines. Fixture-heavy test files are exempt
+- [x] Run `find . -type f \( -name "*.rs" -o -name "*.ts" -o -name "*.mjs" \) -not -path "*/node_modules/*" -not -path "*/dist/*" -not -path "*/target/*" | xargs wc -l | sort -rn | head -30`.
+- [x] Target: no production source file over 600 lines. Fixture-heavy test files are exempt
       if content is genuinely cohesive.
 
 ### 8.3 Update `memory.md`
 
-- [ ] Run `date -u +"%Y-%m-%dT%H:%M:%SZ"` and add an entry to `memory.md` summarizing
+- [x] Run `date -u +"%Y-%m-%dT%H:%M:%SZ"` and add an entry to `memory.md` summarizing
       completed phases, final commit hash, and validation status.
 
 ---
