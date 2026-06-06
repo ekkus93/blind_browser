@@ -646,7 +646,7 @@ src-tauri/src/commands/
 
 ---
 
-## Phase 9 — Split `lib.rs` (~1073 lines)
+## Phase 9 — Split `lib.rs` (~1073 lines) — DONE
 
 `lib.rs` is the Tauri entry point (`run()` + `invoke_handler!()`) and a collection of ~40
 `#[tauri::command]` handler functions. The handlers can move to a `command_handlers/`
@@ -685,61 +685,61 @@ src-tauri/src/
 
 ### 9.1 Create `command_handlers/` directory and `mod.rs`
 
-- [ ] Create `src-tauri/src/command_handlers/` directory.
-- [ ] Create `command_handlers/mod.rs` with `pub(crate) mod` declarations for each submodule.
-- [ ] Add `mod command_handlers;` and `use command_handlers::*::*;` imports in `lib.rs`.
-- [ ] Run `cargo check`.
+- [x] Create `src-tauri/src/command_handlers/` directory.
+- [x] Create `command_handlers/mod.rs` with `pub(crate) mod` declarations for each submodule.
+- [x] Add `mod command_handlers;` and `use command_handlers::*::*;` imports in `lib.rs`.
+- [x] Run `cargo check`.
 
 ### 9.2 Extract `core_handlers.rs`
 
-- [ ] Move `execute_planner_output`, `resolve_command`, `submit_confirmation_response`,
+- [x] Move `execute_planner_output`, `resolve_command`, `submit_confirmation_response`,
       `get_agent_state` (and the shared `lock_app_core` helper if not used elsewhere)
       into `command_handlers/core_handlers.rs`, keeping `#[tauri::command]` on each.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
 ### 9.3 Extract `voice_handlers.rs`
 
-- [ ] Move `start_listening`, `stop_listening`, `transcribe_command`,
+- [x] Move `start_listening`, `stop_listening`, `transcribe_command`,
       `transcribe_and_execute_command` into `command_handlers/voice_handlers.rs`.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
 ### 9.4 Extract `url_handlers.rs`
 
-- [ ] Move `open_url`, `validate_external_url`, `launch_external_url`, `open_external_url`
+- [x] Move `open_url`, `validate_external_url`, `launch_external_url`, `open_external_url`
       into `command_handlers/url_handlers.rs`.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
 ### 9.5 Extract `audio_handlers.rs`
 
-- [ ] Move `set_playback_volume`, `set_playback_speed`, `set_browser_visibility`,
+- [x] Move `set_playback_volume`, `set_playback_speed`, `set_browser_visibility`,
       `set_tts_voice` into `command_handlers/audio_handlers.rs`.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
 ### 9.6 Extract `provider_handlers.rs`
 
-- [ ] Move `set_asr_provider_selection`, `set_tts_provider_selection`,
+- [x] Move `set_asr_provider_selection`, `set_tts_provider_selection`,
       `set_tts_model_selection`, `set_remote_planner_connection`,
       `reset_remote_planner_connection_to_defaults` into `command_handlers/provider_handlers.rs`.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
 ### 9.7 Extract `safety_handlers.rs`
 
-- [ ] Move `set_confirmation_threshold`, `set_allow_click_without_confirmation`,
+- [x] Move `set_confirmation_threshold`, `set_allow_click_without_confirmation`,
       `set_ocr_thresholds` into `command_handlers/safety_handlers.rs`.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
 ### 9.8 Extract `api_key_handlers.rs`
 
-- [ ] Move all remote API key set/test handlers and `list_remote_planner_models` into
+- [x] Move all remote API key set/test handlers and `list_remote_planner_models` into
       `command_handlers/api_key_handlers.rs`.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
 ### 9.9 Extract `model_handlers.rs`
 
-- [ ] Move `get_model_management_settings`, `set_model_management_settings`,
+- [x] Move `get_model_management_settings`, `set_model_management_settings`,
       `download_active_local_tts_model`, `download_active_local_asr_model` into
       `command_handlers/model_handlers.rs`.
-- [ ] Run full validation gate.
+- [x] Run full validation gate.
 
 ---
 
