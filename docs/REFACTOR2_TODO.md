@@ -242,7 +242,7 @@ src-tauri/src/tts/
 
 ---
 
-## Phase 4 — Split `asr.rs` (~756 lines) into `asr/` module
+## Phase 4 — Split `asr.rs` (~756 lines) into `asr/` module — DONE
 
 `asr.rs` combines audio capture hardware management, audio signal processing, local Whisper
 transcription, remote OpenAI ASR, and WAV encoding.
@@ -266,45 +266,45 @@ src-tauri/src/asr/
 
 ### 4.1 Create `asr/` directory and `mod.rs`
 
-- [ ] Create `src-tauri/src/asr/` directory.
-- [ ] Move `src-tauri/src/asr.rs` → `src-tauri/src/asr/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Create `src-tauri/src/asr/` directory.
+- [x] Move `src-tauri/src/asr.rs` → `src-tauri/src/asr/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 4.2 Extract `capture.rs`
 
-- [ ] Move `CaptureSession` struct and all capture helper functions
+- [x] Move `CaptureSession` struct and all capture helper functions
       (`build_input_stream`, `build_typed_input_stream`, `capture_input_data`)
       into `asr/capture.rs`.
-- [ ] Add `mod capture;` in `asr/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod capture;` in `asr/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 4.3 Extract `processing.rs`
 
-- [ ] Move `CapturedAudio`, `interleaved_to_mono()`, `resample_linear()` into
+- [x] Move `CapturedAudio`, `interleaved_to_mono()`, `resample_linear()` into
       `asr/processing.rs`.
-- [ ] Add `mod processing;` in `asr/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod processing;` in `asr/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 4.4 Extract `remote.rs`
 
-- [ ] Move `transcribe_remote()`, `transcribe_with_openai_remote()`,
+- [x] Move `transcribe_remote()`, `transcribe_with_openai_remote()`,
       `build_openai_transcription_request()` into `asr/remote.rs` as a second
       `impl AsrController` block.
-- [ ] Add `mod remote;` in `asr/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod remote;` in `asr/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 4.5 Extract `local.rs`
 
-- [ ] Move `transcribe_local()`, `transcribe_with_whisper()`, `normalized_model_path()`
+- [x] Move `transcribe_local()`, `transcribe_with_whisper()`, `normalized_model_path()`
       into `asr/local.rs` as a second `impl AsrController` block.
-- [ ] Add `mod local;` in `asr/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod local;` in `asr/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 4.6 Extract `wav.rs`
 
-- [ ] Move `encode_wav_pcm16()` into `asr/wav.rs`.
-- [ ] Add `mod wav;` in `asr/mod.rs`.
-- [ ] Run full validation gate.
+- [x] Move `encode_wav_pcm16()` into `asr/wav.rs`.
+- [x] Add `mod wav;` in `asr/mod.rs`.
+- [x] Run full validation gate.
 
 ---
 
