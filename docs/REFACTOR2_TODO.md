@@ -452,15 +452,15 @@ src-tauri/src/app_core/
 
 #### 6.B.1 Extract `ocr_merge.rs`
 
-- [ ] Move OCR merge and region-text helper functions into `app_core/ocr_merge.rs`.
-- [ ] Add `mod ocr_merge;` in `app_core/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Move OCR merge and region-text helper functions into `app_core/ocr_merge.rs`.
+- [x] Add `mod ocr_merge;` in `app_core/mod.rs`.
+- [x] Run `cargo check`.
 
 #### 6.B.2 Extract `page_model_builder.rs`
 
-- [ ] Move page model construction helpers into `app_core/page_model_builder.rs`.
-- [ ] Add `mod page_model_builder;` in `app_core/mod.rs`.
-- [ ] Run full validation gate.
+- [x] Move page model construction helpers into `app_core/page_model_builder.rs`.
+- [x] Add `mod page_model_builder;` in `app_core/mod.rs`.
+- [x] Run full validation gate.
 
 ---
 

@@ -1,4 +1,4 @@
-use super::extraction_tools::build_visible_text_excerpt;
+use super::page_model_builder::build_visible_text_excerpt;
 use super::settings_adapters::{
     build_asr_provider_settings, build_confirmation_settings, build_local_asr_model_settings,
     build_local_tts_model_settings, build_ocr_threshold_settings, build_provider_failover_settings,

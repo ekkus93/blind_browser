@@ -19,10 +19,13 @@ use super::interaction_tools::{
     resolve_clickable_element, resolve_form_element, resolve_typeable_element,
 };
 use super::api_key_tools::{fetch_openai_compatible_models, test_openai_api_key_connectivity};
-use super::extraction_tools::{
-    build_extracted_page_model, build_visible_text_excerpt, extracted_text_metrics,
-    infer_extraction_source, merge_ocr_text_into_page_model, merged_region_text,
-    region_first_ocr_target_ids, should_trigger_extract_page_model_ocr_fallback,
+use super::extraction_tools::should_trigger_extract_page_model_ocr_fallback;
+use super::ocr_merge::{
+    extracted_text_metrics, merge_ocr_text_into_page_model, merged_region_text,
+    region_first_ocr_target_ids,
+};
+use super::page_model_builder::{
+    build_extracted_page_model, build_visible_text_excerpt, infer_extraction_source,
 };
 use super::navigation_tools::{
     browser_error_to_tool_error, clear_navigation_follow_up_state, normalize_absolute_url,

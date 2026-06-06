@@ -93,6 +93,8 @@ mod api_key_tools;
 mod content_tools;
 
 mod extraction_tools;
+mod ocr_merge;
+mod page_model_builder;
 
 mod form_fill;
 use form_fill::{
