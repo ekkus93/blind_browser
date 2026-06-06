@@ -820,7 +820,7 @@ src-tauri/src/commands/routing/
 
 ---
 
-## Phase 11 — Split `src/tauri-api.ts` (~999 lines)
+## Phase 11 — Split `src/tauri-api.ts` (~999 lines) — DONE
 
 `tauri-api.ts` mixes ~512 lines of type definitions with ~487 lines of API function
 implementations. Separating types lets callers import interfaces without pulling the full
@@ -856,70 +856,70 @@ src/
 
 ### 11.1 Extract `tauri-types.ts`
 
-- [ ] Move all `type`, `interface`, and `enum` declarations (no function bodies) from
+- [x] Move all `type`, `interface`, and `enum` declarations (no function bodies) from
       `tauri-api.ts` into `src/tauri-types.ts`.
-- [ ] Add `export * from "./tauri-types";` in `tauri-api.ts`.
-- [ ] Run `pnpm lint && pnpm test:ui && pnpm build`.
+- [x] Add `export * from "./tauri-types";` in `tauri-api.ts`.
+- [x] Run `pnpm lint && pnpm test:ui && pnpm build`.
 
 ### 11.2 Create `src/api/` and extract `errors.ts`
 
-- [ ] Create `src/api/` directory.
-- [ ] Move `classifyInvokeFailure`, `parseToolError`, `unwrapToolResult`, `isRecord`,
+- [x] Create `src/api/` directory.
+- [x] Move `classifyInvokeFailure`, `parseToolError`, `unwrapToolResult`, `isRecord`,
       `InvokeFailure`, and the `invokeCommand` helper into `src/api/errors.ts`.
-- [ ] Re-export from `tauri-api.ts`.
-- [ ] Run validation.
+- [x] Re-export from `tauri-api.ts`.
+- [x] Run validation.
 
 ### 11.3 Extract `api/planner.ts`
 
-- [ ] Move `executePlannerOutput`, `resolveCommand`, `submitConfirmationResponse` into
+- [x] Move `executePlannerOutput`, `resolveCommand`, `submitConfirmationResponse` into
       `src/api/planner.ts`.
-- [ ] Re-export from `tauri-api.ts`.
-- [ ] Run validation.
+- [x] Re-export from `tauri-api.ts`.
+- [x] Run validation.
 
 ### 11.4 Extract `api/voice.ts`
 
-- [ ] Move `startListening`, `stopListening`, `transcribeCommand`,
+- [x] Move `startListening`, `stopListening`, `transcribeCommand`,
       `transcribeAndExecuteCommand` into `src/api/voice.ts`.
-- [ ] Re-export from `tauri-api.ts`.
-- [ ] Run validation.
+- [x] Re-export from `tauri-api.ts`.
+- [x] Run validation.
 
 ### 11.5 Extract `api/audio.ts`
 
-- [ ] Move `setPlaybackVolume`, `setPlaybackSpeed`, `setBrowserVisibility`, `setTtsVoice`
+- [x] Move `setPlaybackVolume`, `setPlaybackSpeed`, `setBrowserVisibility`, `setTtsVoice`
       into `src/api/audio.ts`.
-- [ ] Re-export from `tauri-api.ts`.
-- [ ] Run validation.
+- [x] Re-export from `tauri-api.ts`.
+- [x] Run validation.
 
 ### 11.6 Extract `api/navigation.ts`
 
-- [ ] Move `openUrl`, `openExternalUrl` into `src/api/navigation.ts`.
-- [ ] Re-export from `tauri-api.ts`.
-- [ ] Run validation.
+- [x] Move `openUrl`, `openExternalUrl` into `src/api/navigation.ts`.
+- [x] Re-export from `tauri-api.ts`.
+- [x] Run validation.
 
 ### 11.7 Extract `api/providers.ts`
 
-- [ ] Move all provider selection functions into `src/api/providers.ts`.
-- [ ] Re-export from `tauri-api.ts`.
-- [ ] Run validation.
+- [x] Move all provider selection functions into `src/api/providers.ts`.
+- [x] Re-export from `tauri-api.ts`.
+- [x] Run validation.
 
 ### 11.8 Extract `api/safety.ts`
 
-- [ ] Move `setConfirmationThreshold`, `setAllowClickWithoutConfirmation`, `setOcrThresholds`
+- [x] Move `setConfirmationThreshold`, `setAllowClickWithoutConfirmation`, `setOcrThresholds`
       into `src/api/safety.ts`.
-- [ ] Re-export from `tauri-api.ts`.
-- [ ] Run validation.
+- [x] Re-export from `tauri-api.ts`.
+- [x] Run validation.
 
 ### 11.9 Extract `api/remote-keys.ts`
 
-- [ ] Move all remote API key set/test functions into `src/api/remote-keys.ts`.
-- [ ] Re-export from `tauri-api.ts`.
-- [ ] Run validation.
+- [x] Move all remote API key set/test functions into `src/api/remote-keys.ts`.
+- [x] Re-export from `tauri-api.ts`.
+- [x] Run validation.
 
 ### 11.10 Extract `api/models.ts`
 
-- [ ] Move model management functions into `src/api/models.ts`.
-- [ ] Re-export from `tauri-api.ts`.
-- [ ] Run full validation gate.
+- [x] Move model management functions into `src/api/models.ts`.
+- [x] Re-export from `tauri-api.ts`.
+- [x] Run full validation gate.
 
 ---
 
