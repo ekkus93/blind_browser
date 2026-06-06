@@ -96,11 +96,13 @@ mod extraction_tools;
 mod ocr_merge;
 mod page_model_builder;
 
+mod fill_correction;
+use fill_correction::{PendingRecentFieldContext, RecentFieldContext, resolve_recent_fill_correction_command};
+
 mod form_fill;
 use form_fill::{
-    PendingRecentFieldContext, RecentFieldContext,
     resolve_direct_fill_command_internal, resolve_direct_focus_field_command,
-    resolve_direct_submit_form_command, resolve_recent_fill_correction_command,
+    resolve_direct_submit_form_command,
 };
 
 mod element_scoring;

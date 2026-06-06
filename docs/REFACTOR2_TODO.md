@@ -488,13 +488,13 @@ src-tauri/src/app_core/
 
 #### 6.C.1 Extract `fill_correction.rs`
 
-- [ ] Move `resolve_recent_fill_correction_command` and all its associated types and helpers
+- [x] Move `resolve_recent_fill_correction_command` and all its associated types and helpers
       (`PendingRecentFieldContext`, `RecentFieldContext`, `ResolvedDirectFieldCommand`,
       `DirectFollowUpSpec`, `selected_skills_for_fill_command`, `build_direct_fill_ready_output`,
       `build_direct_fill_and_submit_ready_output`, `build_direct_follow_up_output`)
       into `app_core/fill_correction.rs`.
-- [ ] Add `mod fill_correction;` in `app_core/mod.rs`.
-- [ ] Run full validation gate.
+- [x] Add `mod fill_correction;` in `app_core/mod.rs`.
+- [x] Run full validation gate.
 
 ---
 
