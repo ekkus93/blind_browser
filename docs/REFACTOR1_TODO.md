@@ -507,81 +507,82 @@ src/
 - [ ] Import in `main.ts`.
 - [ ] Run validation.
 
-### 5.3 Extract `settings-actions.ts`
+### 5.3 Extract `settings-actions.ts` — DONE
 
-- [ ] Move the persist/save functions for audio, provider, confirmation, and OCR settings
+- [x] Move the persist/save functions for audio, provider, confirmation, and OCR settings
       (`persistPlaybackVolume`, `persistPlaybackSpeed`, `persistBrowserVisibility`,
       `persistAsrProviderSelection`, `persistTtsProviderSelection`, `persistTtsModelSelection`,
       `persistTtsVoiceSelection`, `persistConfirmationThreshold`,
       `persistAllowClickWithoutConfirmation`, `persistOcrThresholds`,
       `persistModelManagementSettings`) into `src/settings-actions.ts`.
-- [ ] Run validation.
+- [x] Run validation.
 
-### 5.4 Extract `planner-actions.ts`
+### 5.4 Extract `planner-actions.ts` — DONE
 
-- [ ] Move `persistRemotePlannerApiKey`, `loadRemotePlannerModels`,
+- [x] Move `persistRemotePlannerApiKey`, `loadRemotePlannerModels`,
       `persistRemotePlannerConnection`, `resetRemotePlannerConnectionToDefaults`,
       `persistRemoteTtsApiKey`, `persistRemoteAsrApiKey`,
       `testConfiguredRemotePlannerApiKey`, `testConfiguredRemoteTtsApiKey`,
       `testConfiguredRemoteAsrApiKey`, `downloadManagedLocalTtsModel`,
       `downloadManagedLocalAsrModel` into `src/planner-actions.ts`.
-- [ ] Run validation.
+- [x] Run validation.
 
-### 5.5 Extract `browser-actions.ts`
+### 5.5 Extract `browser-actions.ts` — DONE
 
-- [ ] Move `openDraftUrl`, `readCurrentPage`, `stopCurrentReading`, `readNextRegion`,
+- [x] Move `openDraftUrl`, `readCurrentPage`, `stopCurrentReading`, `readNextRegion`,
       `readPreviousRegion` into `src/browser-actions.ts`.
-- [ ] Run validation.
+- [x] Run validation.
 
-### 5.6 Extract `voice-loop.ts`
+### 5.6 Extract `voice-loop.ts` — DONE
 
-- [ ] Move `beginPushToTalk`, `cancelPushToTalk`, `releasePushToTalk`,
+- [x] Move `beginPushToTalk`, `cancelPushToTalk`, `releasePushToTalk`,
       `ensureContinuousListeningLoop`, `stopContinuousListeningAfterFailure`,
       `executeUrlPanelPlannerCommand`, `submitConfirmationAction`
       into `src/voice-loop.ts`.
-- [ ] Run validation.
+- [x] Run validation.
 
-### 5.7 Extract `shell-event-handlers.ts`
+### 5.7 Extract `shell-event-handlers.ts` — DONE
 
-- [ ] Move `isPushToTalkKeyEvent`, `isEditableTarget`, `isSettingsActionBusy`,
+- [x] Move `isPushToTalkKeyEvent`, `isEditableTarget`, `isSettingsActionBusy`,
       `isUrlInputActionBusy` and the event-handler registrations (keyboard/pointer
       listeners) into `src/shell-event-handlers.ts`.
-- [ ] Run validation.
+- [x] Run validation.
 
-### 5.8 Slim down `BlindBrowserApp` component
+### 5.8 Slim down `BlindBrowserApp` component — DONE
 
-- [ ] After extracting all action functions, the `BlindBrowserApp` React component
+- [x] After extracting all action functions, the `BlindBrowserApp` React component
       (line ~222) should contain only: panel content wiring (the `panelContent` record
       passed to AppShellRuntime), navigation handler wiring, and the render call.
-- [ ] Split it into a separate `src/app.ts` (or `app.tsx` if JSX is introduced) and
-      import it in the new thin `main.ts`.
-- [ ] Run full validation gate.
+- [x] Split it into `src/app.ts` and import it in the new thin `main.ts`.
+      Also eliminated local cached state vars and `syncLocalStateFromStore` by reading
+      directly from `appShellStore.getState().panelStates` in `getPanelStates` and
+      using `panelStates` from `useSelector` inside the component.
+- [x] Run full validation gate.
 
 ---
 
 ## Phase 6 — Final validation and documentation
 
-### 6.1 Run the full validation suite
+### 6.1 Run the full validation suite — DONE
 
-- [ ] `source ./fix-node-version.sh`
-- [ ] `pnpm lint`
-- [ ] `pnpm test:ui`
-- [ ] `pnpm build`
-- [ ] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
-- [ ] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
-- [ ] Fix any lint errors or test failures before committing.
+- [x] `source ./fix-node-version.sh`
+- [x] `pnpm lint`
+- [x] `pnpm test:ui`
+- [x] `pnpm build`
+- [x] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
+- [x] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
+- [x] All checks pass — no lint errors or test failures.
 
-### 6.2 Verify no file exceeds 600 lines (target)
+### 6.2 Verify no file exceeds 600 lines (target) — DONE
 
-- [ ] Run `find . -type f \( -name "*.rs" -o -name "*.ts" -o -name "*.mjs" \) -not -path "*/node_modules/*" -not -path "*/dist/*" -not -path "*/target/*" | xargs wc -l | sort -rn | head -20`.
-- [ ] Any file still over 600 lines should be reviewed and split further if the split is
-      clean and natural. Files like `styles.css` and fixture-heavy test files are exempt
-      if the content is genuinely cohesive.
+- [x] Run `find . -type f \( -name "*.rs" -o -name "*.ts" -o -name "*.mjs" \) -not -path "*/node_modules/*" -not -path "*/dist/*" -not -path "*/target/*" | xargs wc -l | sort -rn | head -20`.
+- [x] Files over 600 lines are test files (fixture-heavy, exempt), browser.rs (cohesive browser
+      orchestration), app_core/mod.rs (core struct), and other genuinely cohesive modules.
+      `src/main.ts` reduced from ~1970 lines to 112 lines. `src/app.ts` is 326 lines.
 
-### 6.3 Update memory.md
+### 6.3 Update memory.md — DONE
 
-- [ ] Run `date -u +"%Y-%m-%dT%H:%M:%SZ"` and add an entry to `memory.md` summarizing
-      the refactor phases completed, the final commit hash, and validation status.
+- [x] Updated memory.md at 2026-06-06T03:40:37Z with REFACTOR1_TODO.md completion summary.
 
 ---
 

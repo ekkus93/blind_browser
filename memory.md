@@ -1,3 +1,14 @@
+## 2026-06-06T03:40:37Z - Claude Sonnet 4.6 - REFACTOR1_TODO.md all 6 phases complete
+
+- All 5 structural refactor phases in `docs/REFACTOR1_TODO.md` are implementation-complete.
+- **Phase 1:** `app_core.rs` (~11 600 lines) → `app_core/` module: replanning, settings_adapters, model_management, api_key_tools, navigation_tools, content_tools, extraction_tools, interaction_tools, form_fill, voice_tools, planner_prompt, tool_executor, tests.
+- **Phase 2:** `commands/tests.rs` (~8 800 lines) → `commands/tests/` module: fixtures, tool_dispatch, playback_controls, browser_state, runtime_status, listening, planner_flow, skill_selection, confirmation, contracts, routing, direct_commands.
+- **Phase 3:** `config.rs` (~2 500 lines) → `config/` module: types, loading, validation, keyring_store, tests/.
+- **Phase 4:** `commands/routing.rs` (~2 200 lines) → `commands/routing/` module: intent, audio_commands, url_commands, planner_outputs, status_commands.
+- **Phase 5:** `src/main.ts` (~1 970 lines) split into focused modules: `panel-state-setters.ts`, `settings-statuses.ts`, `settings-actions.ts`, `planner-actions.ts`, `browser-actions.ts`, `voice-loop.ts`, `shell-event-handlers.ts`, `ui-store.ts`, `refresh-handle.ts`, `app.ts` (BlindBrowserApp component); `main.ts` reduced to 112 lines. Eliminated local cached state vars by reading from store directly.
+- **Phase 6:** Full validation gate passed — all Rust tests (309), JS tests (97), lint, tsc, vite build, clippy clean.
+- Final commit pending push; all REFACTOR1_TODO.md tasks marked DONE.
+
 ## 2026-06-05T21:15:15Z - Claude Sonnet 4.6 - UIUX_IMPROVEMENTS1_TODO.md Phases 4–7 complete
 
 - **Phase 4 (settings UX):** Planner model placeholder disabled/non-selectable; speed slider max clamped to 2.5; read-only profile cards get `.settings-control-card-readonly` muted style; `modelAvailable: boolean | null` added to `LocalAsrModelPanelState` / `LocalTtsModelPanelState` with inline warning + "Open Advanced settings" button when `false`; wired in `main.ts` to pass `modelManagementPanelState.localAsrAvailable` / `.localTtsAvailable`; `onOpenRuntimeSettings` handler navigates to `runtime` settings view.
