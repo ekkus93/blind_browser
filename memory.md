@@ -1,3 +1,17 @@
+## 2026-06-06T11:00:50Z - Claude Sonnet 4.6 - REFACTOR3_TODO.md all 8 phases complete
+
+- All 8 phases of `docs/REFACTOR3_TODO.md` are implementation-complete.
+- Final commit: `2d9b9de` on master. 309 Rust tests, 97 JS tests, lint/tsc/build/clippy all clean.
+- **Phase 1:** Split app_core/mod.rs (850→command_dispatch.rs, confirmation_workflow.rs, result_reporting.rs).
+- **Phase 2:** Split browser/mod.rs (685→element_interaction.rs, page_inspection.rs).
+- **Phase 3:** Split config/mod.rs (851→275 + persistence.rs with 23 persist_*/reset_* methods). Key: `pub(in crate::config)` for cross-sibling access; test submodule uses `super::keyring_store::set_keyring_secret` (not re-exported from root).
+- **Phase 4:** Promote commands/planner_executor.rs (685→planner_executor/ with tool_dispatch.rs, execution.rs, step_helpers.rs). `StepExecutionContext` moved into mod.rs; `#[cfg(test)]` on `execute_planner_output_with_runner` re-export.
+- **Phase 5:** Promote app_core/extraction_tools.rs (849→extraction_tools/ with ocr_tools.rs, page_extraction.rs). `#[cfg(test)]` on `should_trigger_extract_page_model_ocr_fallback` re-export.
+- **Phase 6:** Promote app_core/interaction_tools.rs (779→interaction_tools/ with element_queries.rs, click_focus.rs, text_entry.rs). `resolve_typeable_element` is production re-export; `resolve_clickable_element`/`resolve_form_element` are test-only.
+- **Phase 7:** Promote app_core/form_fill.rs (676→form_fill/ with field_focus.rs, field_fill.rs, form_submit.rs). `PlannerOutput` import split to `#[cfg(test)]` since only used in test wrappers.
+- All production Rust files now under 600 lines (largest: config/persistence.rs at 593, commands/routing/intent.rs at 599).
+- Key pattern: private (`mod`) items in parent are accessible to descendants via `crate::module::submodule` path; test-only re-exports need `#[cfg(test)]` guard to avoid `-D warnings` failures.
+
 ## 2026-06-06T09:57:09Z - Claude Sonnet 4.6 - REFACTOR2_TODO.md all 13 phases complete
 
 - All 13 phases of `docs/REFACTOR2_TODO.md` implemented and validated.
