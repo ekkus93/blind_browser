@@ -137,20 +137,20 @@ commands/tests/tool_dispatch/
 
 ### 2.1 Create directory and move file
 
-- [ ] Create `commands/tests/tool_dispatch/` directory.
-- [ ] Move `commands/tests/tool_dispatch.rs` → `commands/tests/tool_dispatch/mod.rs`.
-- [ ] Run `cargo test --all-features`.
+- [x] Create `commands/tests/tool_dispatch/` directory.
+- [x] Move `commands/tests/tool_dispatch.rs` → `commands/tests/tool_dispatch/mod.rs`.
+- [x] Run `cargo test --all-features`.
 
 ### 2.2 Extract subfiles
 
-- [ ] Extract `nav_tools.rs` — 5 tests.
-- [ ] Extract `content_tools.rs` — 7 tests.
-- [ ] Extract `voice_tools.rs` — 3 tests.
-- [ ] Extract `ocr_tools.rs` — 4 tests.
-- [ ] Extract `element_tools.rs` — 7 tests.
-- [ ] Extract `validation_tests.rs` — 4 tests.
-- [ ] Trim `tool_dispatch/mod.rs` to module declarations only.
-- [ ] Run full validation gate.
+- [x] Extract `nav_tools.rs` — 5 tests.
+- [x] Extract `content_tools.rs` — 7 tests.
+- [x] Extract `voice_tools.rs` — 3 tests.
+- [x] Extract `ocr_tools.rs` — 4 tests.
+- [x] Extract `element_tools.rs` — 7 tests.
+- [x] Extract `validation_tests.rs` — 4 tests.
+- [x] Trim `tool_dispatch/mod.rs` to module declarations only.
+- [x] Run full validation gate.
 
 ---
 

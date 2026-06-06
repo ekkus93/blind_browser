@@ -1,3 +1,16 @@
+## 2026-06-06T14:47:25Z - Claude Sonnet 4.6 - Split fixtures/mod.rs (2023 lines) into 7 subfiles
+
+- Split `src-tauri/src/commands/tests/fixtures/mod.rs` into:
+  - `path_helpers.rs` (unique_temp_path, write_skill_document)
+  - `mock_executor.rs` (MockExecutor struct, Default impl, utility methods)
+  - `mock_executor_impl.rs` (impl DeterministicToolExecutor for MockExecutor — not pub-re-exported, internal only)
+  - `page_fixtures.rs` (PlannerSkillFixtureResolver, PlannerSkillFixture, fixture_* functions)
+  - `skill_fixtures.rs` (resolve_planner_skill_fixture, assert_planner_skill_fixture)
+  - `step_fixtures.rs` (sample_planned_step, sample_planned_steps_for_registered_tools)
+  - `schema_helpers.rs` (assert_json_matches_schema, assert_json_matches_schema_at, resolve_schema_reference, json_matches_type, json_matches_single_type)
+- All subfiles use `use super::*;` as first line; mod.rs uses `pub use super::*;` and re-exports all submodules.
+- 309 Rust tests pass with zero errors after the split.
+
 ## 2026-06-06T11:00:50Z - Claude Sonnet 4.6 - REFACTOR3_TODO.md all 8 phases complete
 
 - All 8 phases of `docs/REFACTOR3_TODO.md` are implementation-complete.
