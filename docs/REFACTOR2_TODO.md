@@ -117,7 +117,7 @@ src-tauri/src/app_core/
 
 ---
 
-## Phase 2 — Split `browser.rs` (~1779 lines) into `browser/` module
+## Phase 2 — Split `browser.rs` (~1779 lines) into `browser/` module — DONE
 
 `browser.rs` contains `BrowserController`, `LiveBrowserSession`, six groups of helper
 functions, and ~356 lines of embedded JavaScript for DOM extraction. The JS blob alone is
@@ -146,49 +146,49 @@ src-tauri/src/browser/
 
 ### 2.1 Create `browser/` directory and `mod.rs`
 
-- [ ] Create `src-tauri/src/browser/` directory.
-- [ ] Move `src-tauri/src/browser.rs` → `src-tauri/src/browser/mod.rs` as starting point.
-- [ ] Run `cargo check` — Rust resolves `browser/mod.rs` automatically.
+- [x] Create `src-tauri/src/browser/` directory.
+- [x] Move `src-tauri/src/browser.rs` → `src-tauri/src/browser/mod.rs` as starting point.
+- [x] Run `cargo check` — Rust resolves `browser/mod.rs` automatically.
 
 ### 2.2 Extract `config.rs`
 
-- [ ] Move `LoadState`, `BrowserVisibilityMode`, `ScrollDirection`, `ScrollTarget`,
+- [x] Move `LoadState`, `BrowserVisibilityMode`, `ScrollDirection`, `ScrollTarget`,
       `BrowserSessionConfig`, `BrowserError`, and any other top-level enums/structs
       (not impl blocks) into `browser/config.rs`.
-- [ ] Add `mod config; pub use config::*;` in `browser/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod config; pub use config::*;` in `browser/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 2.3 Extract `session.rs`
 
-- [ ] Move `LiveBrowserSession` struct and its `impl`, `build_browser_config()`,
+- [x] Move `LiveBrowserSession` struct and its `impl`, `build_browser_config()`,
       `ensure_live_element()`, `stable_dom_selector()`, `snapshot_page_state()`
       into `browser/session.rs`.
-- [ ] Add `mod session;` in `browser/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod session;` in `browser/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 2.4 Extract `navigation.rs`
 
-- [ ] Move `go_back()`, `go_forward()`, `reload_page()`, `navigate_history()`, and
+- [x] Move `go_back()`, `go_forward()`, `reload_page()`, `navigate_history()`, and
       navigation-history helper functions into a second `impl BrowserController` block
       in `browser/navigation.rs`.
-- [ ] Add `mod navigation;` in `browser/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod navigation;` in `browser/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 2.5 Extract `page_metrics.rs`
 
-- [ ] Move `get_page_metrics()`, `scroll_page()`, and all scroll/metrics helper functions
+- [x] Move `get_page_metrics()`, `scroll_page()`, and all scroll/metrics helper functions
       into `browser/page_metrics.rs`.
-- [ ] Add `mod page_metrics;` in `browser/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod page_metrics;` in `browser/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 2.6 Extract `dom_extraction.rs`
 
-- [ ] Move `extract_page_model()` and the large embedded JavaScript string into
+- [x] Move `extract_page_model()` and the large embedded JavaScript string into
       `browser/dom_extraction.rs`. If the JS constant is over 200 lines, move the raw
       JavaScript to `src-tauri/assets/extract_page_model.js` and load it via
       `include_str!("../assets/extract_page_model.js")`.
-- [ ] Add `mod dom_extraction;` in `browser/mod.rs`.
-- [ ] Run full validation gate.
+- [x] Add `mod dom_extraction;` in `browser/mod.rs`.
+- [x] Run full validation gate.
 
 ---
 
