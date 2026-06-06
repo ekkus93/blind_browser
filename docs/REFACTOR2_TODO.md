@@ -192,7 +192,7 @@ src-tauri/src/browser/
 
 ---
 
-## Phase 3 — Split `tts.rs` (~958 lines) into `tts/` module
+## Phase 3 — Split `tts.rs` (~958 lines) into `tts/` module — DONE
 
 `tts.rs` mixes local KittenTTS logic, remote OpenAI TTS, voice resolution helpers, WAV
 decoding, and speech caching into one file.
@@ -215,30 +215,30 @@ src-tauri/src/tts/
 
 ### 3.1 Create `tts/` directory and `mod.rs`
 
-- [ ] Create `src-tauri/src/tts/` directory.
-- [ ] Move `src-tauri/src/tts.rs` → `src-tauri/src/tts/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Create `src-tauri/src/tts/` directory.
+- [x] Move `src-tauri/src/tts.rs` → `src-tauri/src/tts/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 3.2 Extract `wav.rs`
 
-- [ ] Move `DecodedWav` and `decode_wav_samples()` into `tts/wav.rs`.
-- [ ] Add `mod wav; use wav::DecodedWav;` in `tts/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Move `DecodedWav` and `decode_wav_samples()` into `tts/wav.rs`.
+- [x] Add `mod wav; use wav::DecodedWav;` in `tts/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 3.3 Extract `local.rs`
 
-- [ ] Move `synthesize_local()`, `local_model()`, `generate_local_samples()`,
+- [x] Move `synthesize_local()`, `local_model()`, `generate_local_samples()`,
       `normalized_model_path()` into `tts/local.rs` as a second `impl TtsController` block.
-- [ ] Add `mod local;` in `tts/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod local;` in `tts/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 3.4 Extract `remote.rs`
 
-- [ ] Move `synthesize_remote()`, `synthesize_with_openai_remote()`, `resolved_voice()`,
+- [x] Move `synthesize_remote()`, `synthesize_with_openai_remote()`, `resolved_voice()`,
       `resolved_remote_voice()`, `is_openai_builtin_voice()`,
       `openai_speech_response_format_value()` into `tts/remote.rs`.
-- [ ] Add `mod remote;` in `tts/mod.rs`.
-- [ ] Run full validation gate.
+- [x] Add `mod remote;` in `tts/mod.rs`.
+- [x] Run full validation gate.
 
 ---
 
