@@ -923,7 +923,7 @@ src/
 
 ---
 
-## Phase 12 — Split `src/app-shell.ts` (~542 lines)
+## Phase 12 — Split `src/app-shell.ts` (~542 lines) — DONE
 
 `app-shell.ts` mixes Material-UI theme definition, navigation component rendering, full shell
 markup, SSR rendering, and panel control state management.
@@ -944,26 +944,26 @@ src/
 
 ### 12.1 Extract `app-shell-theme.ts`
 
-- [ ] Move `appShellTheme` (Material-UI `createTheme(...)` call) and any supporting color
+- [x] Move `appShellTheme` (Material-UI `createTheme(...)` call) and any supporting color
       or font constants into `src/app-shell-theme.ts`.
-- [ ] Import in `app-shell.ts`.
-- [ ] Run `pnpm lint && pnpm test:ui && pnpm build`.
+- [x] Import in `app-shell.ts`.
+- [x] Run `pnpm lint && pnpm test:ui && pnpm build`.
 
 ### 12.2 Extract `app-shell-nav.ts`
 
-- [ ] Move `renderAppViewActionButton`, `renderSettingsSubpageBackButton`,
+- [x] Move `renderAppViewActionButton`, `renderSettingsSubpageBackButton`,
       `renderSettingsSubpageLink`, `renderPanelRootPlaceholderElement`,
       `renderPanelContent`, and any supporting prop types into `src/app-shell-nav.ts`.
-- [ ] Import in `app-shell.ts`.
-- [ ] Run validation.
+- [x] Import in `app-shell.ts`.
+- [x] Run validation.
 
 ### 12.3 Extract `app-shell-controls.ts`
 
-- [ ] Move `captureActivePanelControl`, `restoreActivePanelControl`,
+- [x] Move `captureActivePanelControl`, `restoreActivePanelControl`,
       `preserveActivePanelControl`, and the `ActivePanelControl` type into
       `src/app-shell-controls.ts`.
-- [ ] Import in `app-shell.ts`.
-- [ ] Run full validation gate.
+- [x] Import in `app-shell.ts`.
+- [x] Run full validation gate.
 
 ---
 

@@ -1,222 +1,33 @@
-import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
-import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
-import { CssBaseline, IconButton } from "@mui/material";
-import { StyledEngineProvider, ThemeProvider, createTheme } from "@mui/material/styles";
-import { createElement, type ComponentProps, type ReactNode } from "react";
+import { CssBaseline } from "@mui/material";
+import { StyledEngineProvider, ThemeProvider } from "@mui/material/styles";
+import { createElement } from "react";
 
-export type PanelRootKey =
-  | "push-to-talk"
-  | "url-input"
-  | "status"
-  | "audio-controls"
-  | "settings-guidance"
-  | "settings-remote-planner"
-  | "settings-confirmation"
-  | "settings-ocr-threshold"
-  | "settings-asr-provider"
-  | "settings-local-asr-model"
-  | "settings-model-management"
-  | "settings-remote-asr"
-  | "settings-tts-provider"
-  | "settings-tts-model"
-  | "settings-local-tts-model"
-  | "settings-remote-tts"
-  | "settings-tts-voice"
-  | "confirmation-panel"
-  | "voice-status";
+import { appShellTheme } from "./app-shell-theme.ts";
+import {
+  type AppShellNavigationHandlers,
+  type AppShellPanelContent,
+  type AppView,
+  type SettingsStatuses,
+  type SettingsView,
+  renderAppViewActionButton,
+  renderPanelContent,
+  renderSettingsSubpageBackButton,
+  renderSettingsSubpageLink,
+} from "./app-shell-nav.ts";
 
-export type AppView = "workspace" | "settings";
-export type SettingsView = "overview" | "planner" | "tts" | "asr" | "runtime";
-export type SettingsCardStatus = "ok" | "warning" | "error" | "unconfigured";
+export type {
+  AppShellNavigationHandlers,
+  AppShellPanelContent,
+  AppView,
+  PanelRootKey,
+  SettingsCardStatus,
+  SettingsStatuses,
+  SettingsView,
+} from "./app-shell-nav.ts";
+
+export { preserveActivePanelControl } from "./app-shell-controls.ts";
 
 const h = createElement;
-
-const appShellTheme = createTheme({
-  palette: {
-    mode: "light",
-    primary: {
-      main: "#29583f",
-      dark: "#1f7f5c",
-      contrastText: "#fffdf8",
-    },
-    secondary: {
-      main: "#7a5727",
-    },
-    background: {
-      default: "#f7f4ec",
-      paper: "rgba(255, 252, 247, 0.9)",
-    },
-    text: {
-      primary: "#1d1a16",
-      secondary: "#433d37",
-    },
-  },
-  shape: {
-    borderRadius: 18,
-  },
-  typography: {
-    fontFamily: '"IBM Plex Sans", "Segoe UI", sans-serif',
-    button: {
-      textTransform: "none",
-      fontWeight: 700,
-    },
-  },
-});
-
-type DataAttributes = {
-  [key: `data-${string}`]: string;
-};
-
-type IconButtonWithDataProps = ComponentProps<typeof IconButton> & DataAttributes;
-export type AppShellPanelContent = Partial<Record<PanelRootKey, ReactNode>>;
-
-export interface AppShellNavigationHandlers {
-  onAppViewSelect?: (view: AppView) => void;
-  onSettingsViewSelect?: (view: SettingsView) => void;
-}
-
-function renderPanelRootPlaceholderElement(rootKey: PanelRootKey) {
-  return h("div", {
-    "data-panel-root": rootKey,
-  });
-}
-
-function renderPanelContent(rootKey: PanelRootKey, panelContent?: AppShellPanelContent) {
-  const content = panelContent?.[rootKey];
-  return content !== undefined ? content : renderPanelRootPlaceholderElement(rootKey);
-}
-
-function renderAppViewActionButton(initialAppView: AppView, handlers?: AppShellNavigationHandlers) {
-  if (initialAppView === "workspace") {
-    const buttonProps: IconButtonWithDataProps = {
-      type: "button",
-      className: "shell-toolbar-action shell-toolbar-action-settings",
-      "data-app-view-button": "settings",
-      "aria-label": "Open settings",
-      title: "Open settings",
-      size: "large",
-    };
-
-    if (handlers?.onAppViewSelect) {
-      buttonProps.onClick = () => {
-        handlers.onAppViewSelect?.("settings");
-      };
-    }
-
-    return h(
-      IconButton,
-      buttonProps,
-      h(SettingsRoundedIcon, {
-        className: "shell-toolbar-action-icon",
-        fontSize: "small",
-        "aria-hidden": true,
-      }),
-    );
-  }
-
-  const buttonProps: IconButtonWithDataProps = {
-    type: "button",
-    className: "shell-toolbar-action settings-subpage-back",
-    "data-app-view-button": "workspace",
-    "aria-label": "Back to workspace",
-    title: "Back to workspace",
-    size: "large",
-  };
-
-  if (handlers?.onAppViewSelect) {
-    buttonProps.onClick = () => {
-      handlers.onAppViewSelect?.("workspace");
-    };
-  }
-
-  return h(
-    IconButton,
-    buttonProps,
-    h(ArrowBackRoundedIcon, {
-      className: "shell-toolbar-action-icon",
-      fontSize: "small",
-      "aria-hidden": true,
-    }),
-  );
-}
-
-function renderSettingsSubpageBackButton(showBackButton: boolean, handlers?: AppShellNavigationHandlers) {
-  const buttonProps: IconButtonWithDataProps = {
-    type: "button",
-    className: "settings-subpage-back",
-    "data-settings-subpage-back": "true",
-    "data-settings-view-button": "overview",
-    "aria-label": "Back to settings",
-    title: "Back to settings",
-    hidden: !showBackButton,
-    "aria-hidden": !showBackButton,
-    size: "large",
-  };
-
-  if (handlers?.onSettingsViewSelect) {
-    buttonProps.onClick = () => {
-      handlers.onSettingsViewSelect?.("overview");
-    };
-  }
-
-  return h(
-    IconButton,
-    buttonProps,
-    h(ArrowBackRoundedIcon, {
-      className: "settings-subpage-back-icon",
-      fontSize: "small",
-      "aria-hidden": true,
-    }),
-  );
-}
-
-const SETTINGS_STATUS_LABEL: Record<SettingsCardStatus, string> = {
-  ok: "Configured",
-  warning: "Action needed",
-  error: "Error",
-  unconfigured: "Not configured",
-};
-
-function renderSettingsSubpageLink(
-  view: Exclude<SettingsView, "overview">,
-  label: string,
-  handlers?: AppShellNavigationHandlers,
-  status?: SettingsCardStatus,
-) {
-  const handleClick = handlers?.onSettingsViewSelect
-    ? () => {
-      handlers.onSettingsViewSelect?.(view);
-    }
-    : undefined;
-
-  const ariaLabel = status ? `${label} — ${SETTINGS_STATUS_LABEL[status]}` : label;
-
-  return h(
-    "button",
-    {
-      type: "button",
-      className: "settings-subpage-card",
-      "data-settings-view-button": view,
-      onClick: handleClick,
-      "aria-label": ariaLabel,
-    },
-    h("span", { className: "settings-subpage-card-label" }, label),
-    status
-      ? h(
-        "span",
-        {
-          className: `settings-subpage-card-status settings-subpage-card-status-${status}`,
-          "aria-hidden": "true",
-          "data-settings-card-status": view,
-        },
-        SETTINGS_STATUS_LABEL[status],
-      )
-      : null,
-    h("span", { className: "settings-subpage-card-chevron", "aria-hidden": "true" }, "›"),
-  );
-}
-
-export type SettingsStatuses = Partial<Record<Exclude<SettingsView, "overview">, SettingsCardStatus>>;
 
 interface AppShellMarkupProps {
   initialAppView: AppView;
@@ -226,7 +37,13 @@ interface AppShellMarkupProps {
   settingsStatuses?: SettingsStatuses;
 }
 
-export function AppShellMarkup({ initialAppView, initialSettingsView, panelContent, navigationHandlers, settingsStatuses }: AppShellMarkupProps) {
+export function AppShellMarkup({
+  initialAppView,
+  initialSettingsView,
+  panelContent,
+  navigationHandlers,
+  settingsStatuses,
+}: AppShellMarkupProps) {
   const workspaceActive = initialAppView === "workspace";
   const settingsActive = initialAppView === "settings";
   const showBackButton = settingsActive && initialSettingsView !== "overview";
@@ -307,7 +124,12 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
             h("p", { className: "settings-group-eyebrow" }, "Command interpretation"),
             h("h2", { id: "settings-group-planner-title" }, "AI assistant"),
           ),
-          renderSettingsSubpageLink("planner", "Open AI assistant setup", navigationHandlers, settingsStatuses?.planner),
+          renderSettingsSubpageLink(
+            "planner",
+            "Open AI assistant setup",
+            navigationHandlers,
+            settingsStatuses?.planner,
+          ),
         ),
         h(
           "section",
@@ -321,7 +143,12 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
             h("p", { className: "settings-group-eyebrow" }, "Speech output"),
             h("h2", { id: "settings-group-tts-title" }, "Voice output"),
           ),
-          renderSettingsSubpageLink("tts", "Open voice output setup", navigationHandlers, settingsStatuses?.tts),
+          renderSettingsSubpageLink(
+            "tts",
+            "Open voice output setup",
+            navigationHandlers,
+            settingsStatuses?.tts,
+          ),
         ),
         h(
           "section",
@@ -335,7 +162,12 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
             h("p", { className: "settings-group-eyebrow" }, "Speech input"),
             h("h2", { id: "settings-group-asr-title" }, "Voice input"),
           ),
-          renderSettingsSubpageLink("asr", "Open voice input setup", navigationHandlers, settingsStatuses?.asr),
+          renderSettingsSubpageLink(
+            "asr",
+            "Open voice input setup",
+            navigationHandlers,
+            settingsStatuses?.asr,
+          ),
         ),
         h(
           "section",
@@ -349,7 +181,12 @@ export function AppShellMarkup({ initialAppView, initialSettingsView, panelConte
             h("p", { className: "settings-group-eyebrow" }, "Advanced"),
             h("h2", { id: "settings-group-runtime-title" }, "Advanced settings"),
           ),
-          renderSettingsSubpageLink("runtime", "Open advanced settings", navigationHandlers, settingsStatuses?.runtime),
+          renderSettingsSubpageLink(
+            "runtime",
+            "Open advanced settings",
+            navigationHandlers,
+            settingsStatuses?.runtime,
+          ),
         ),
       ),
       h(
@@ -456,87 +293,16 @@ export function AppShellRuntime(props: {
   navigationHandlers?: AppShellNavigationHandlers;
   settingsStatuses?: SettingsStatuses;
 }) {
-  return renderShellTree(props.appView, props.settingsView, props.panelContent, props.navigationHandlers, props.settingsStatuses);
+  return renderShellTree(
+    props.appView,
+    props.settingsView,
+    props.panelContent,
+    props.navigationHandlers,
+    props.settingsStatuses,
+  );
 }
 
 export async function renderAppShell(): Promise<string> {
   const { renderToStaticMarkup } = await import("react-dom/server");
   return renderToStaticMarkup(renderShellTree("workspace", "overview"));
-}
-
-interface PreservedPanelControlState {
-  elementId: string;
-  value: string;
-  selectionStart: number | null;
-  selectionEnd: number | null;
-  selectionDirection: "forward" | "backward" | "none" | null;
-}
-
-function captureActivePanelControl(root: HTMLDivElement): PreservedPanelControlState | null {
-  const activeElement = document.activeElement;
-  if (
-    !activeElement
-    || !root.contains(activeElement)
-    || (
-      !(activeElement instanceof HTMLInputElement)
-      && !(activeElement instanceof HTMLTextAreaElement)
-      && !(activeElement instanceof HTMLSelectElement)
-    )
-    || !activeElement.id
-  ) {
-    return null;
-  }
-
-  return {
-    elementId: activeElement.id,
-    value: activeElement.value,
-    selectionStart:
-      activeElement instanceof HTMLSelectElement ? null : activeElement.selectionStart,
-    selectionEnd:
-      activeElement instanceof HTMLSelectElement ? null : activeElement.selectionEnd,
-    selectionDirection:
-      activeElement instanceof HTMLSelectElement ? null : activeElement.selectionDirection,
-  };
-}
-
-function restoreActivePanelControl(
-  root: HTMLDivElement,
-  controlState: PreservedPanelControlState | null,
-) {
-  if (!controlState) {
-    return;
-  }
-
-  const nextElement = document.getElementById(controlState.elementId);
-  if (
-    !nextElement
-    || !root.contains(nextElement)
-    || (
-      !(nextElement instanceof HTMLInputElement)
-      && !(nextElement instanceof HTMLTextAreaElement)
-      && !(nextElement instanceof HTMLSelectElement)
-    )
-  ) {
-    return;
-  }
-
-  nextElement.focus({ preventScroll: true });
-  if (
-    nextElement instanceof HTMLInputElement
-    || nextElement instanceof HTMLTextAreaElement
-  ) {
-    if (nextElement.value === controlState.value) {
-      nextElement.setSelectionRange(
-        controlState.selectionStart,
-        controlState.selectionEnd,
-        controlState.selectionDirection ?? undefined,
-      );
-    }
-  }
-}
-
-export function preserveActivePanelControl(root: HTMLDivElement, renderPanel: () => void) {
-  const controlState = captureActivePanelControl(root);
-  renderPanel();
-  restoreActivePanelControl(root, controlState);
 }
