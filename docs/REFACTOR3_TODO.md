@@ -115,17 +115,17 @@ src-tauri/src/browser/
 
 ### 2.1 Extract `element_interaction.rs`
 
-- [ ] Move `click_element`, `focus_element`, `type_into_element`, `submit_active_form`
+- [x] Move `click_element`, `focus_element`, `type_into_element`, `submit_active_form`
       into `browser/element_interaction.rs` as a second `impl BrowserController` block.
-- [ ] Add `mod element_interaction;` in `browser/mod.rs`.
-- [ ] Run `cargo check`.
+- [x] Add `mod element_interaction;` in `browser/mod.rs`.
+- [x] Run `cargo check`.
 
 ### 2.2 Extract `page_inspection.rs`
 
-- [ ] Move `capture_screenshot`, `get_html`, `eval_js`, and the free function
+- [x] Move `capture_screenshot`, `get_html`, `eval_js`, and the free function
       `png_dimensions` into `browser/page_inspection.rs`.
-- [ ] Add `mod page_inspection;` in `browser/mod.rs`.
-- [ ] Run full validation gate. `mod.rs` should be under 200 lines.
+- [x] Add `mod page_inspection;` in `browser/mod.rs`.
+- [x] Run full validation gate. `mod.rs` should be under 200 lines.
 
 ---
 
