@@ -1,3 +1,13 @@
+## 2026-06-06T16:09:40Z - Claude Sonnet 4.6 - Split confirmation-panel.test.mjs (1537 lines, 52 tests) into helpers + 4 themed test files
+
+- Created `src/confirmation-panel-test-helpers.mjs` (249 lines): all imports, `VOID_ELEMENTS`, `escapeHtml`, `mapAttributeName`, `renderNodeMarkup`, 19 render wrappers, `renderFixtures`, and re-exports of `statusPanelStateFromAgentState` + `renderVoiceStatusStripNode`.
+- Created `src/confirmation-panel-core.test.mjs` (161 lines, 9 tests): 4 confirmation panel error/aria tests + 5 push-to-talk tests.
+- Created `src/confirmation-panel-url-audio.test.mjs` (201 lines, 11 tests): slider value text, 7 URL input busy/error states, 3 audio controls tests.
+- Created `src/confirmation-panel-settings.test.mjs` (834 lines, 36 tests): all settings panel tests (model management, remote planner, provider failover, confirmation, OCR, guidance, ASR, TTS provider/model/voice/local/remote).
+- Created `src/confirmation-panel-status.test.mjs` (135 lines, 9 tests): 4 status panel tests + 5 voice status strip tests.
+- Deleted original `src/confirmation-panel.test.mjs`.
+- All 97 JS tests pass, lint clean. Test count unchanged (52 confirmation-panel tests + 45 other tests = 97 total).
+
 ## 2026-06-06T16:02:54Z - Claude Sonnet 4.6 - Split config/tests/load_tests.rs (704 lines, 10 tests) into directory with 3 subfiles
 
 - Promoted `config/tests/load_tests.rs` → `config/tests/load_tests/mod.rs` (directory).

@@ -143,26 +143,26 @@ Each test file imports all helpers: `import { ... } from './confirmation-panel-t
 
 ### 3.1 Extract shared helpers
 
-- [ ] Create `src/confirmation-panel-test-helpers.mjs`.
-- [ ] Move VOID_ELEMENTS, escapeHtml, mapAttributeName, renderNodeMarkup, all 18 render
+- [x] Create `src/confirmation-panel-test-helpers.mjs`.
+- [x] Move VOID_ELEMENTS, escapeHtml, mapAttributeName, renderNodeMarkup, all 19 render
       wrapper functions, and renderFixtures() into the helpers file.
-- [ ] Export everything from the helpers file.
-- [ ] Run `pnpm test:ui`.
+- [x] Export everything from the helpers file.
+- [x] Run `pnpm test:ui`.
 
 ### 3.2 Extract themed test files
 
-- [ ] Create `confirmation-panel-core.test.mjs` — confirmation panel + push-to-talk tests.
-- [ ] Create `confirmation-panel-url-audio.test.mjs` — URL input + audio controls tests.
-- [ ] Create `confirmation-panel-settings.test.mjs` — all settings panel tests.
-- [ ] Create `confirmation-panel-status.test.mjs` — status + voice strip tests.
-- [ ] Delete original `confirmation-panel.test.mjs`.
-- [ ] Run `pnpm test:ui`.
+- [x] Create `confirmation-panel-core.test.mjs` — confirmation panel + push-to-talk tests (9 tests).
+- [x] Create `confirmation-panel-url-audio.test.mjs` — URL input + audio controls tests (11 tests).
+- [x] Create `confirmation-panel-settings.test.mjs` — all settings panel tests (36 tests).
+- [x] Create `confirmation-panel-status.test.mjs` — status + voice strip tests (9 tests).
+- [x] Delete original `confirmation-panel.test.mjs`.
+- [x] Run `pnpm test:ui`.
 
 ### 3.3 Run full validation gate
 
-- [ ] `pnpm lint`
-- [ ] `pnpm test:ui`
-- [ ] `pnpm build`
+- [x] `pnpm lint`
+- [x] `pnpm test:ui`
+- [x] `pnpm build`
 
 ---
 
