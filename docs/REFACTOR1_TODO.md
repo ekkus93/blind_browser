@@ -157,59 +157,51 @@ src-tauri/src/
       `tokenize_search_text`) here.
 - [x] Run `cargo check`.
 
-### 1.10 Extract form-fill resolution into `form_fill.rs`
+### 1.10 Extract form-fill resolution into `form_fill.rs` — DONE
 
-- [ ] Create `app_core/form_fill.rs`.
-- [ ] Move `resolve_direct_focus_field_command`, `resolve_direct_fill_command_internal`,
+- [x] Create `app_core/form_fill.rs`.
+- [x] Move `resolve_direct_focus_field_command`, `resolve_direct_fill_command_internal`,
       `resolve_direct_fill_field_command`, `resolve_direct_fill_and_submit_command`,
       `resolve_direct_submit_form_command`, `resolve_recent_fill_correction_command`,
       `selected_skills_for_fill_command`, `build_direct_fill_ready_output`,
       `build_direct_fill_and_submit_ready_output`, `build_direct_follow_up_output`,
       `DirectFollowUpSpec`, `PendingRecentFieldContext`, `RecentFieldContext`,
-      `ResolvedDirectFieldCommand`, `normalize_fill_value`, `normalize_field_target`,
-      `strip_fill_and_submit_suffix`, `parse_fill_with_pattern`, `parse_into_field_pattern`,
-      `parse_fill_field_description_only`, `split_case_insensitive_once`,
-      `collapse_transcript_whitespace` here.
-- [ ] Run `cargo check`.
+      `ResolvedDirectFieldCommand` here. (normalize_fill_value etc. were already in routing.rs.)
+- [x] Run `cargo check`.
 
-### 1.11 Extract voice tools into `voice_tools.rs`
+### 1.11 Extract voice tools into `voice_tools.rs` — DONE
 
-- [ ] Create `app_core/voice_tools.rs`.
-- [ ] Move `execute_read_region`, `execute_read_next_region`, `execute_read_previous_region`,
+- [x] Create `app_core/voice_tools.rs`.
+- [x] Move `execute_read_region`, `execute_read_next_region`, `execute_read_previous_region`,
       `execute_stop_speaking`, `execute_start_listening`, `execute_stop_listening`,
       `execute_transcribe_command`, `transcribe_and_execute_command`,
       `execute_set_tts_voice`, `execute_set_playback_volume`, `execute_set_playback_speed`,
       `execute_set_browser_visibility`,
       `tts_runtime_error_to_tool_error`, `audio_playback_error_to_tool_error`,
-      `asr_runtime_error_to_tool_error`, `first_readable_region_id`,
-      `format_playback_volume`, `format_playback_speed` here.
-- [ ] Run `cargo check`.
+      `asr_runtime_error_to_tool_error` here. (first_readable_region_id/format_* already in routing.rs.)
+- [x] Run `cargo check`.
 
-### 1.12 Extract planner prompt into `planner_prompt.rs`
+### 1.12 Extract planner prompt into `planner_prompt.rs` — DONE
 
-- [ ] Create `app_core/planner_prompt.rs`.
-- [ ] Move `planner_system_prompt`, `PlannerPromptPayload`, `planner_interpretation_unavailable_error`,
-      `planner_available_tools_include_all_wave_two_tools` (if not in tests),
-      `build_single_step_planner_output`, `build_audio_set_planner_output`,
-      `build_audio_report_planner_output`, `build_browser_visibility_planner_output`,
-      `build_status_query_planner_output`, `build_report_result_step`,
-      `format_*` summary helpers, `current_page_label*` helpers here.
-- [ ] Run `cargo check`.
+- [x] Create `app_core/planner_prompt.rs`.
+- [x] Move `planner_system_prompt`, `PlannerPromptPayload`, `planner_interpretation_unavailable_error`
+      here. (Other build_*/format_* helpers were already in commands/routing.rs.)
+- [x] Run `cargo check`.
 
-### 1.13 Extract `impl DeterministicToolExecutor` into `tool_executor.rs`
+### 1.13 Extract `impl DeterministicToolExecutor` into `tool_executor.rs` — DONE
 
-- [ ] Create `app_core/tool_executor.rs`.
-- [ ] Move the `impl DeterministicToolExecutor for AppCore` block (lines ~5 585–5 769)
+- [x] Create `app_core/tool_executor.rs`.
+- [x] Move the `impl DeterministicToolExecutor for AppCore` block (lines ~5 585–5 769)
       into this file.
-- [ ] Run `cargo check`.
+- [x] Run `cargo check`.
 
-### 1.14 Move inline tests out of `mod.rs`
+### 1.14 Move inline tests out of `mod.rs` — DONE
 
-- [ ] The inline `mod tests` block at the bottom of `app_core.rs` (line ~8 025) should
+- [x] The inline `mod tests` block at the bottom of `app_core.rs` (line ~8 025) should
       move to `app_core/tests.rs` (or be deleted in favour of the unified test file in
       Phase 2).
-- [ ] Add `#[cfg(test)] mod tests;` in `mod.rs` pointing to the new file.
-- [ ] Run full validation gate.
+- [x] Add `#[cfg(test)] mod tests;` in `mod.rs` pointing to the new file.
+- [x] Run full validation gate.
 
 ---
 
