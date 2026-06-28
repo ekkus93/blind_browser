@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { renderAppShell } from "./app-shell.ts";
+import { renderAppShell } from "./app-shell.tsx";
 
 test("workspace shell keeps the main page focused on live panels", async () => {
   const html = await renderAppShell();

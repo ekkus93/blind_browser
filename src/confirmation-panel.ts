@@ -20,14 +20,14 @@ export type {
   TtsVoicePanelState,
   UrlInputPanelState,
 } from "./panel-types.ts";
-export type { VoiceStatusStripState } from "./confirmation-panels/push-to-talk.ts";
+export type { VoiceStatusStripState } from "./confirmation-panels/push-to-talk.tsx";
 export {
   renderConfirmationPanelNode,
-} from "./confirmation-panels/confirmation.ts";
+} from "./confirmation-panels/confirmation.tsx";
 export {
   renderPushToTalkPanelNode,
   renderVoiceStatusStripNode,
-} from "./confirmation-panels/push-to-talk.ts";
+} from "./confirmation-panels/push-to-talk.tsx";
 export {
   renderAudioControlsPanelNode,
   renderSettingsAsrProviderPanelNode,

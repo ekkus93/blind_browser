@@ -32,7 +32,7 @@ import { registerShellEventHandlers } from "./shell-event-handlers";
 import { createRuntimeRefreshHandlers } from "./runtime-refresh";
 import { setRuntimeRefreshHandle } from "./refresh-handle";
 import { ensureContinuousListeningLoop } from "./voice-loop";
-import { BlindBrowserApp } from "./app";
+import { BlindBrowserApp } from "./app.tsx";
 
 export {
   applyExecutionOutcomeToUiState,

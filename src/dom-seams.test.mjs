@@ -94,7 +94,7 @@ globalThis.HTMLSelectElement = FakeSelectElement;
 globalThis.HTMLButtonElement = FakeButtonElement;
 globalThis.HTMLDivElement = FakeDivElement;
 
-const { AppShellMarkup, preserveActivePanelControl } = await import("./app-shell.ts");
+const { AppShellMarkup, preserveActivePanelControl } = await import("./app-shell.tsx");
 const {
   renderSecretEntryCard,
   OPENAI_API_KEYS_URL,
