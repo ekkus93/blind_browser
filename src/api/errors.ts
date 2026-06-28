@@ -1,6 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ToolError, ToolResult } from "../tauri-types.ts";
 
+export class FrontendToolError extends Error {
+  constructor(public readonly toolError: ToolError) {
+    super(toolError.message);
+    this.name = "FrontendToolError";
+  }
+}
+
 const tauriInvoker = {
   invoke,
 };
@@ -59,6 +66,10 @@ export function classifyInvokeFailure(error: unknown): InvokeFailure {
 }
 
 export function parseToolError(error: unknown): ToolError | null {
+  if (error instanceof FrontendToolError) {
+    return error.toolError;
+  }
+
   if (!isRecord(error)) {
     return null;
   }
@@ -82,7 +93,7 @@ export function unwrapToolResult<T>(result: ToolResult<T>): T {
   }
 
   if (result.error) {
-    throw new Error(result.error.message);
+    throw new FrontendToolError(result.error);
   }
 
   throw new Error("The runtime returned an invalid tool result.");

@@ -390,3 +390,41 @@ test("classifyInvokeFailure prefers structured tool errors and falls back to tra
     message: "transport down",
   });
 });
+
+test("unwrapToolResult preserves structured backend tool errors", () => {
+  const result = {
+    ok: false,
+    tool_name: "GetAgentState",
+    request_id: "req-test",
+    timestamp_ms: 0,
+    data: null,
+    error: {
+      code: "runtime_busy",
+      message: "Runtime is busy.",
+      retryable: true,
+      details: { phase: "planner" },
+    },
+    warnings: [],
+    observations: [],
+  };
+
+  assert.throws(
+    () => tauriApi.unwrapToolResult(result),
+    tauriApi.FrontendToolError,
+  );
+
+  try {
+    tauriApi.unwrapToolResult(result);
+    assert.fail("expected unwrapToolResult to throw");
+  } catch (error) {
+    assert.deepEqual(tauriApi.classifyInvokeFailure(error), {
+      kind: "tool-error",
+      toolError: {
+        code: "runtime_busy",
+        message: "Runtime is busy.",
+        retryable: true,
+        details: { phase: "planner" },
+      },
+    });
+  }
+});
