@@ -18,6 +18,7 @@
   /* Brand ambers */
   --color-amber-primary: #7a5727;
   --color-amber-active:  #5a3e10;
+  --color-amber-light:   rgba(122, 87, 39, 0.08);
 
   /* Error reds */
   --color-error-primary: #8b342a;
@@ -25,9 +26,10 @@
   --color-error-dark:    #6c1010;
 
   /* Surfaces */
-  --color-surface-base: #f7f4ec;
-  --color-surface-mid:  #ece4d5;
-  --color-surface-card: rgba(255, 252, 247, 0.9);
+  --color-surface-base:  #f7f4ec;
+  --color-surface-mid:   #ece4d5;
+  --color-surface-card:  rgba(255, 252, 247, 0.9);
+  --color-surface-inner: var(--color-surface-inner);
 
   /* Text */
   --color-text-primary:   #1d1a16;
@@ -51,9 +53,7 @@
 :root {
   color-scheme: light;
   font-family: var(--font-sans);
-  background:
-    radial-gradient(circle at top left, rgba(35, 103, 161, 0.18), transparent 32%),
-    linear-gradient(180deg, var(--color-surface-base) 0%, var(--color-surface-mid) 100%);
+  background: linear-gradient(180deg, var(--color-surface-base) 0%, var(--color-surface-mid) 100%);
   color: var(--color-text-primary);
 
   /* Legacy design tokens — kept for backward compat during migration */
@@ -120,7 +120,7 @@ body {
 }
 
 .voice-status-strip[data-voice-state="processing"] .voice-status-dot {
-  background: #1c5871;
+  background: var(--color-amber-primary);
 }
 
 .voice-status-label {
@@ -792,7 +792,7 @@ h1 {
   margin: 0;
   padding: 16px 18px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.68);
+  background: var(--color-surface-inner);
   border: 1px solid rgba(123, 98, 70, 0.12);
 }
 
@@ -859,9 +859,9 @@ h1 {
 }
 
 .status-toggle-button-active {
-  background: rgba(31, 107, 87, 0.14);
-  border-color: rgba(31, 107, 87, 0.28);
-  color: #1f6b57;
+  background: rgba(41, 88, 63, 0.14);
+  border-color: rgba(41, 88, 63, 0.28);
+  color: var(--color-green-active);
 }
 
 .status-toggle-button:disabled {
@@ -882,8 +882,8 @@ h1 {
 }
 
 .status-indicator-active {
-  background: rgba(31, 107, 87, 0.14);
-  color: #1f6b57;
+  background: rgba(41, 88, 63, 0.14);
+  color: var(--color-green-active);
 }
 
 .audio-controls-panel {
@@ -938,14 +938,14 @@ h1 {
   gap: 8px 12px;
   padding: 16px 18px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.68);
+  background: var(--color-surface-inner);
   border: var(--inner-card-border);
 }
 
 .audio-control-label,
 .audio-control-value {
   font-weight: 700;
-  color: #24404f;
+  color: var(--color-text-primary);
 }
 
 .audio-control-value {
@@ -955,7 +955,7 @@ h1 {
 .audio-control-input {
   grid-column: 1 / -1;
   width: 100%;
-  accent-color: #1c5871;
+  accent-color: var(--color-green-primary);
 }
 
 .audio-control-input:disabled {
@@ -1375,9 +1375,9 @@ h1 {
 }
 
 .confirmation-error-transport {
-  background: rgba(28, 88, 113, 0.08);
-  border-color: rgba(28, 88, 113, 0.18);
-  color: #15485d;
+  background: var(--color-amber-light);
+  border-color: rgba(122, 87, 39, 0.22);
+  color: var(--color-amber-active);
 }
 
 .confirmation-error-tool {
@@ -1464,7 +1464,7 @@ h1 {
 }
 
 .confirmation-error-transport .confirmation-error-meta {
-  color: #1c5871;
+  color: var(--color-amber-active);
 }
 
 .confirmation-error-tool-hard-stop .confirmation-error-meta {
@@ -1490,7 +1490,7 @@ h1 {
 .confirmation-card {
   padding: 14px 16px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.68);
+  background: var(--color-surface-inner);
   border: var(--inner-card-border);
 }
 
@@ -1556,17 +1556,17 @@ h1 {
 }
 
 .confirmation-button-approve {
-  background: #1f6b57;
+  background: var(--color-green-primary);
   color: #f6fbf8;
 }
 
 .confirmation-button-approve:hover,
 .confirmation-button-approve:focus-visible {
-  background: #185745;
+  background: var(--color-green-dark);
 }
 
 .confirmation-button-approve:disabled {
-  background: #4d8578;
+  background: color-mix(in srgb, var(--color-green-primary) 62%, var(--color-surface-card));
 }
 
 .confirmation-button-reject {
