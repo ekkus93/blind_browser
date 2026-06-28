@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>blind_browser</title>
+    <!--
+      Network font dependency: Fraunces (display) + IBM Plex Sans (UI body) via Google Fonts.
+      Requires network access on first load; subsequent loads are served from the browser cache.
+      Offline users get the CSS fallback stack (Georgia / Segoe UI / sans-serif).
+      Local font bundling is deferred — tracked as P2.1 in docs/BLIND_BROWSER_UIUX_FIX3_TODO.md.
+    -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
     <link
