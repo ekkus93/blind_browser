@@ -17,6 +17,7 @@ import {
 
 export interface AsrProviderPanelHandlers {
   onProviderSelect?: (mode: "Local" | "Remote") => void;
+  onDismissError?: () => void;
 }
 
 export interface RemoteAsrPanelHandlers {
@@ -24,6 +25,8 @@ export interface RemoteAsrPanelHandlers {
   onSaveApiKey?: () => void;
   onTestApiKey?: () => void;
   onOpenExternalLink?: (url: string) => void;
+  onDismissError?: () => void;
+  onRetry?: () => void;
 }
 
 export function renderSettingsAsrProviderPanelNode(
@@ -35,6 +38,7 @@ export function renderSettingsAsrProviderPanelNode(
     title: "Voice input provider",
     description: "Choose the local or remote speech-to-text provider. Changes apply to the next listening request.",
     error: state.error,
+    onDismissError: handlers?.onDismissError,
     children: (
       <div className="settings-grid">
         {renderSelectControlCard({
@@ -99,6 +103,8 @@ export function renderSettingsRemoteAsrPanelNode(
     title: "Remote voice input profile",
     description: "Review the speech-to-text profile used when voice input runs in remote mode. API keys stay masked here and are stored securely on your device instead of the config file.",
     error: state.error,
+    onDismissError: handlers?.onDismissError,
+    onRetry: handlers?.onRetry,
     children: (
       <div className="settings-grid">
         {renderReadOnlyCard("Profile", state.profileName)}

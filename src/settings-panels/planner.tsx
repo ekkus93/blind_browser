@@ -18,6 +18,8 @@ export interface RemotePlannerPanelHandlers {
   onBeginReset?: () => void;
   onConfirmReset?: () => void;
   onCancelReset?: () => void;
+  onDismissError?: () => void;
+  onRetry?: () => void;
 }
 
 export function renderSettingsRemotePlannerPanelNode(
@@ -46,6 +48,8 @@ export function renderSettingsRemotePlannerPanelNode(
     title: "AI assistant setup",
     description: "Set the endpoint, model, and API key used to interpret commands.",
     error: state.error,
+    onDismissError: handlers?.onDismissError,
+    onRetry: handlers?.onRetry,
     children: [
       <div className="settings-grid settings-grid-single" key="planner-api">
         {renderSecretEntryCard(

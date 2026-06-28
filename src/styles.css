@@ -752,6 +752,23 @@ h1 {
   line-height: 1.55;
 }
 
+.status-panel-busy {
+  margin-left: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  animation: status-panel-busy-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes status-panel-busy-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-panel-busy { animation: none; opacity: 0.75; }
+}
+
 .status-panel-empty {
   margin-top: 18px;
   color: var(--color-text-muted);
@@ -990,6 +1007,21 @@ h1 {
   color: var(--color-amber-primary);
   font-size: 0.84rem;
 }
+
+.panel-error-dismiss {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0 0 0 8px;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+  text-decoration: underline;
+}
+.panel-error-dismiss:hover { opacity: 1; }
 
 .settings-grid {
   display: grid;

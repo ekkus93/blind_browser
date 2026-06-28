@@ -5,6 +5,7 @@ import type { AudioControlsPanelState } from "../panel-types.ts";
 export interface AudioControlsPanelHandlers {
   onVolumeChange?: (value: number) => void;
   onSpeedChange?: (value: number) => void;
+  onDismissError?: () => void;
 }
 
 function renderPlaybackVolumeValueText(value: number): string {
@@ -24,7 +25,14 @@ export function renderAudioControlsPanelNode(
       <div className="audio-controls-copy">
         <p className="audio-controls-eyebrow">Speech output</p>
         <h2 id="audio-controls-title">Playback volume and speed</h2>
-        {state.error ? <p className="audio-controls-error" role="alert">{state.error}</p> : null}
+        {state.error ? (
+          <p className="audio-controls-error" role="alert">
+            {state.error}
+            {handlers?.onDismissError ? (
+              <button type="button" className="panel-error-dismiss" onClick={handlers.onDismissError} aria-label="Dismiss error">Dismiss</button>
+            ) : null}
+          </p>
+        ) : null}
       </div>
       <div className="audio-controls-grid">
         <label className="audio-control" htmlFor="playback-volume-control">

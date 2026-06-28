@@ -204,6 +204,8 @@ export interface StatusPanelState {
   canGoBack: boolean;
   canGoForward: boolean;
   isUpdatingVisibility: boolean;
+  isPageLoading?: boolean;
+  plannerBusy?: boolean;
   error: string | null;
 }
 

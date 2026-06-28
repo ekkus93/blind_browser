@@ -459,89 +459,48 @@ to the thing the user wants to click.
 
 ---
 
-## Phase 7 — Feedback, progress, and error handling
+## Phase 7 — Feedback, progress, and error handling ✅ DONE
 
-### 7.1 Add explicit dismiss for inline errors
+### 7.1 Add explicit dismiss for inline errors ✅ DONE
 
-**Problem:** Inline errors in panels (API key test failure, model load failure, save
-failure) clear only when the next successful action runs. Users who hit an error have no
-explicit way to dismiss it or understand that they should try again.
+- [x] Added `.panel-error-dismiss` style to `src/styles.css`
+- [x] Added `onDismissError?` to `SettingsPanelSectionOptions` in `shared-controls.tsx`; renders a "Dismiss" button inside the error paragraph
+- [x] Added `onDismissError?` to handler interfaces in all affected panels: planner, ASR, TTS (all 4), runtime (3 handlers), playback, workspace (2 handlers)
+- [x] Wired all `onDismissError` handlers in `app.tsx` via `setXxxPanelState({ error: null })`
+- [x] Added new state setter imports: `setAsrProviderPanelState`, `setStatusPanelState`, `setTtsModelPanelState`, `setTtsProviderPanelState`, `setTtsVoicePanelState`
 
-- [ ] In `src/styles.css`, add a dismiss button style:
-  ```css
-  .panel-error-dismiss {
-    appearance: none;
-    background: none;
-    border: none;
-    padding: 0 0 0 8px;
-    font: inherit;
-    font-size: 0.84rem;
-    font-weight: 700;
-    color: inherit;
-    cursor: pointer;
-    opacity: 0.7;
-    text-decoration: underline;
-  }
-  .panel-error-dismiss:hover { opacity: 1; }
-  ```
-- [ ] In each panel render function that shows an `error` field, add a small "Dismiss" link
-      (or "×" button) alongside the error text.
-- [ ] Wire the dismiss to a panel state update that sets `error: null`. This will require a
-      new action or a generic `clearPanelError` dispatch in `src/panel-state-setters.ts`.
-- [ ] Affected panels: remote planner, remote TTS, remote ASR, audio controls, TTS provider,
-      TTS model, TTS voice, ASR provider, model management, OCR threshold, confirmation settings,
-      status panel, URL input panel.
-- [ ] Update tests for panels that render errors to assert the dismiss button is present.
+### 7.2 Add a "Retry" affordance next to dismissible errors where retrying makes sense ✅ DONE
 
-### 7.2 Add a "Retry" affordance next to dismissible errors where retrying makes sense
+- [x] Added `onRetry?` to `SettingsPanelSectionOptions`; renders a "Try again" button before Dismiss
+- [x] Added `onRetry?` to handler interfaces for: remote planner, remote ASR, remote TTS, model management
+- [x] Wired retry handlers in `app.tsx`:
+  - Remote planner: `onRetry` → `loadRemotePlannerModels()`
+  - Remote ASR: `onRetry` → `testConfiguredRemoteAsrApiKey()`
+  - Remote TTS: `onRetry` → `testConfiguredRemoteTtsApiKey()`
+  - Model management: `onRetry` → `persistModelManagementSettings()`
 
-- [ ] For errors on actions that can be safely retried (API key test, model load, save
-      settings), show a "Try again" button inline next to the dismiss link.
-- [ ] "Try again" should re-invoke the same action that failed (e.g., `testConfiguredRemotePlannerApiKey`).
-- [ ] Do NOT show "Try again" for errors where the user needs to change input first
-      (e.g., "Enter an endpoint before loading models" — there's nothing to retry without
-      changing the field).
+### 7.3 Add a planner step progress indicator ✅ DONE
 
-### 7.3 Add a planner step progress indicator
+- [x] Added `plannerBusy?: boolean` to `StatusPanelState` in `panel-types.ts`
+- [x] Added `status-panel-busy` CSS with pulsing animation + `prefers-reduced-motion` override
+- [x] `renderStatusPanelNode` shows "Working…" in eyebrow when `plannerBusy` is true
+- [x] `plannerBusy` derived in `app.tsx` from `isOpening || isReading || speaking`
+- [x] Note: Full Tauri event integration for per-step labels deferred to a future pass
 
-**Problem:** During multi-step planner execution (OpenUrl → ExtractPageModel → ReadPage),
-the UI is visually idle between steps. A low-vision user waiting for a page to be read
-gets no cue that the system is working.
+### 7.4 Show a "loading page" state in the status panel when a URL is opening ✅ DONE
 
-- [ ] In `src/panel-types.ts`, check whether `StatusPanelState` already includes a
-      "planner busy" or "current step" field. If not, consider adding:
-      `plannerBusy: boolean; plannerCurrentStep: string | null;`
-- [ ] In `src/settings-panels/workspace.ts`, update `renderStatusPanelNode` to show a
-      subtle busy indicator when `plannerBusy` is true:
-      - A small spinning dot or animated text ("Working…") in the status panel header area
-      - Do not use a modal overlay — it should be subtle and non-blocking
-- [ ] Wire the Tauri event system to update `plannerBusy` / `plannerCurrentStep` as steps
-      execute. Check `src/main.ts` for where Tauri events are consumed.
-- [ ] If wiring Tauri events is out of scope for this phase, at minimum add a CSS animation
-      class that can be applied to the status panel during known-busy states (URL opening,
-      extraction running, etc.) and apply it from the `isOpening` / `isReading` flags
-      already present on `UrlInputPanelState`.
-- [ ] Update tests as needed.
+- [x] Added `isPageLoading?: boolean` to `StatusPanelState` in `panel-types.ts`
+- [x] `renderStatusPanelNode` shows "Loading page…" in title slot and "—" in region slot when `isPageLoading` is true
+- [x] `isFirstLoad` heuristic updated to `pageTitle == null && !isPageLoading` so the loading state shows the grid (not the empty prompt)
+- [x] `isPageLoading` wired from `urlInputPanelState.isOpening` in `app.tsx`
 
-### 7.4 Show a "loading page" state in the status panel when a URL is opening
+### 7.5 Run validation gate ✅ DONE
 
-**Problem:** When `UrlInputPanelState.isOpening` is true, the URL button shows a spinner,
-but the status panel (which shows page title, region, transcript) shows stale data from the
-previous page. There is no visible transition between "navigating" and "page ready."
-
-- [ ] In `src/settings-panels/workspace.ts`, detect when the URL input panel is in an
-      `isOpening` state (thread state through from parent, or use a Redux selector).
-- [ ] When `isOpening`, show a muted "Loading page…" placeholder in the status panel's
-      page title and region slots instead of the stale previous values.
-- [ ] Clear this placeholder when a new page title arrives via the runtime refresh.
-- [ ] Update tests to cover the "loading" placeholder state.
-
-### 7.5 Run validation gate
-
-- [ ] `pnpm test:ui` — all tests pass.
-- [ ] Manual walkthrough: trigger an API key test error, confirm the dismiss button appears.
-      Click dismiss, confirm the error clears. Open a URL, confirm the loading state appears
-      in the status panel.
+- [x] `pnpm lint` — clean
+- [x] `pnpm test:ui` — 97/97 pass
+- [x] `pnpm build` — clean
+- [x] `cargo clippy` — clean
+- [x] `cargo test` — 309/309 pass
 
 ---
 

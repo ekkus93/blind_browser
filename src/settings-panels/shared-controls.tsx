@@ -6,6 +6,8 @@ interface SettingsPanelSectionOptions {
   description: ReactNode;
   children: ReactNode | ReactNode[];
   error?: string | null;
+  onDismissError?: () => void;
+  onRetry?: () => void;
   eyebrow?: string;
   sectionClassName?: string;
 }
@@ -53,6 +55,8 @@ export function renderSettingsPanelSection({
   description,
   children,
   error = null,
+  onDismissError,
+  onRetry,
   eyebrow = "Settings",
   sectionClassName = "settings-panel",
 }: SettingsPanelSectionOptions): ReactNode {
@@ -64,7 +68,21 @@ export function renderSettingsPanelSection({
         <p className="settings-panel-eyebrow">{eyebrow}</p>
         <h2 id={titleId}>{title}</h2>
         <p className="settings-panel-description">{description}</p>
-        {error ? <p className="settings-panel-error" role="alert">{error}</p> : null}
+        {error ? (
+          <p className="settings-panel-error" role="alert">
+            {error}
+            {onRetry ? (
+              <button type="button" className="panel-error-dismiss" onClick={onRetry} aria-label="Try again">
+                Try again
+              </button>
+            ) : null}
+            {onDismissError ? (
+              <button type="button" className="panel-error-dismiss" onClick={onDismissError} aria-label="Dismiss error">
+                Dismiss
+              </button>
+            ) : null}
+          </p>
+        ) : null}
       </div>
       {childNodes}
     </section>

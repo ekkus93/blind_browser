@@ -27,11 +27,13 @@ export interface SettingsGuidancePanelHandlers {
 export interface ConfirmationSettingsPanelHandlers {
   onThresholdChange?: (value: number) => void;
   onClickWithoutConfirmationChange?: (checked: boolean) => void;
+  onDismissError?: () => void;
 }
 
 export interface OcrThresholdPanelHandlers {
   onCharThresholdChange?: (value: number) => void;
   onRegionThresholdChange?: (value: number) => void;
+  onDismissError?: () => void;
 }
 
 export interface ModelManagementPanelHandlers {
@@ -40,6 +42,8 @@ export interface ModelManagementPanelHandlers {
   onCheckOnStartupChange?: (checked: boolean) => void;
   onAutoDownloadMissingChange?: (checked: boolean) => void;
   onDownloadModel?: (kind: "tts" | "asr") => void;
+  onDismissError?: () => void;
+  onRetry?: () => void;
 }
 
 function renderConfirmationThresholdValueText(value: number): string {
@@ -98,6 +102,7 @@ export function renderSettingsConfirmationPanelNode(
     title: "Action confirmation",
     description: "Choose how confident a click must be before the app asks for confirmation. Form submits still always require confirmation.",
     error: state.error,
+    onDismissError: handlers?.onDismissError,
     children: (
       <div className="settings-grid">
         <label className="settings-control-card" htmlFor="settings-confirmation-threshold-control">
@@ -151,6 +156,7 @@ export function renderSettingsOcrThresholdPanelNode(
     title: "Screen reading fallback",
     description: "Choose when sparse DOM extraction should fall back to image text recognition.",
     error: state.error,
+    onDismissError: handlers?.onDismissError,
     children: (
       <div className="settings-grid">
         <label className="settings-control-card" htmlFor="settings-ocr-char-threshold-control">
@@ -237,6 +243,8 @@ export function renderSettingsModelManagementPanelNode(
     title: "Local models",
     description: "Choose where local speech models live, whether startup checks them, and whether missing models download automatically.",
     error: state.error,
+    onDismissError: handlers?.onDismissError,
+    onRetry: handlers?.onRetry,
     children: (
       <div className="settings-grid">
         <label className="settings-control-card" htmlFor="settings-models-dir-input">

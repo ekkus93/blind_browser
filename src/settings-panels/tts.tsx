@@ -21,14 +21,17 @@ import {
 
 export interface TtsProviderPanelHandlers {
   onProviderSelect?: (mode: "Local" | "Remote") => void;
+  onDismissError?: () => void;
 }
 
 export interface TtsModelPanelHandlers {
   onModelSelect?: (profileName: string) => void;
+  onDismissError?: () => void;
 }
 
 export interface TtsVoicePanelHandlers {
   onVoiceSelect?: (voice: string) => void;
+  onDismissError?: () => void;
 }
 
 export interface RemoteTtsPanelHandlers {
@@ -36,6 +39,8 @@ export interface RemoteTtsPanelHandlers {
   onSaveApiKey?: () => void;
   onTestApiKey?: () => void;
   onOpenExternalLink?: (url: string) => void;
+  onDismissError?: () => void;
+  onRetry?: () => void;
 }
 
 export interface LocalTtsModelPanelHandlers {
@@ -84,6 +89,8 @@ export function renderSettingsRemoteTtsPanelNode(
     title: "Remote voice output profile",
     description: "Review the speech profile used when voice output runs in remote mode. API keys stay masked here and are stored securely on your device instead of the config file.",
     error: state.error,
+    onDismissError: handlers?.onDismissError,
+    onRetry: handlers?.onRetry,
     children: (
       <div className="settings-grid">
         {renderReadOnlyCard("Profile", state.profileName)}
@@ -126,6 +133,7 @@ export function renderSettingsTtsProviderPanelNode(
     title: "Voice output provider",
     description: "Choose the local or remote speech output provider. Changes apply to the next utterance.",
     error: state.error,
+    onDismissError: handlers?.onDismissError,
     children: (
       <div className="settings-grid">
         {renderSelectControlCard({
@@ -157,6 +165,7 @@ export function renderSettingsTtsModelPanelNode(
     title: "Voice model",
     description: `Choose the ${modeCopy} voice model for the current mode. Changes apply to the next utterance.`,
     error: state.error,
+    onDismissError: handlers?.onDismissError,
     children: (
       <div className="settings-grid">
         {renderSelectControlCard({
@@ -191,6 +200,7 @@ export function renderSettingsTtsVoicePanelNode(
     title: "Voice",
     description: `Choose the ${modeCopy} voice for the current mode. Changes apply to the next utterance.`,
     error: state.error,
+    onDismissError: handlers?.onDismissError,
     children: (
       <div className="settings-grid">
         {renderSelectControlCard({

@@ -6,6 +6,7 @@ import {
   focusSettingsTarget,
   openExternalLink,
   setAppView,
+  setAsrProviderPanelState,
   setAudioControlsState,
   setConfirmationSettingsPanelState,
   setModelManagementPanelState,
@@ -14,6 +15,10 @@ import {
   setRemotePlannerPanelState,
   setRemoteTtsPanelState,
   setSettingsView,
+  setStatusPanelState,
+  setTtsModelPanelState,
+  setTtsProviderPanelState,
+  setTtsVoicePanelState,
   setUrlInputPanelState,
 } from "./panel-state-setters";
 import {
@@ -107,9 +112,17 @@ export function BlindBrowserApp() {
           onStop: () => { void stopCurrentReading(); },
           onPrevious: () => { void readPreviousRegion(); },
           onNext: () => { void readNextRegion(); },
+          onDismissError: () => { setUrlInputPanelState({ error: null }); },
         }),
-        status: renderStatusPanelNode(panelStates.statusPanelState, {
+        status: renderStatusPanelNode({
+          ...panelStates.statusPanelState,
+          isPageLoading: panelStates.urlInputPanelState.isOpening,
+          plannerBusy: panelStates.urlInputPanelState.isOpening
+            || panelStates.urlInputPanelState.isReading
+            || panelStates.statusPanelState.speaking,
+        }, {
           onSetBrowserVisibility: (mode) => { void persistBrowserVisibility(mode); },
+          onDismissError: () => { setStatusPanelState({ error: null }); },
         }),
         "audio-controls": renderAudioControlsPanelNode(panelStates.audioControlsState, {
           onVolumeChange: (value) => {
@@ -120,6 +133,7 @@ export function BlindBrowserApp() {
             setAudioControlsState({ playbackSpeed: value, error: null });
             void persistPlaybackSpeed(value);
           },
+          onDismissError: () => { setAudioControlsState({ error: null }); },
         }),
         "settings-guidance": renderSettingsGuidancePanelNode(currentSettingsGuidanceState(panelStates), {
           onSelectTarget: focusSettingsTarget,
@@ -152,6 +166,8 @@ export function BlindBrowserApp() {
             void resetRemotePlannerConnectionToDefaults();
           },
           onCancelReset: () => { setRemotePlannerPanelState({ isConfirmingReset: false }); },
+          onDismissError: () => { setRemotePlannerPanelState({ error: null }); },
+          onRetry: () => { void loadRemotePlannerModels(); },
         }),
         "settings-confirmation": renderSettingsConfirmationPanelNode(panelStates.confirmationSettingsPanelState, {
           onThresholdChange: (value) => {
@@ -159,6 +175,7 @@ export function BlindBrowserApp() {
             void persistConfirmationThreshold(value);
           },
           onClickWithoutConfirmationChange: (checked) => { void persistAllowClickWithoutConfirmation(checked); },
+          onDismissError: () => { setConfirmationSettingsPanelState({ error: null }); },
         }),
         "settings-ocr-threshold": renderSettingsOcrThresholdPanelNode(panelStates.ocrThresholdSettingsPanelState, {
           onCharThresholdChange: (value) => {
@@ -169,9 +186,11 @@ export function BlindBrowserApp() {
             setOcrThresholdSettingsPanelState({ sparseTextRegionThreshold: value, error: null });
             void persistOcrThresholds(panelStates.ocrThresholdSettingsPanelState.sparseTextCharThreshold, value);
           },
+          onDismissError: () => { setOcrThresholdSettingsPanelState({ error: null }); },
         }),
         "settings-asr-provider": renderSettingsAsrProviderPanelNode(panelStates.asrProviderPanelState, {
           onProviderSelect: (mode) => { void persistAsrProviderSelection(mode); },
+          onDismissError: () => { setAsrProviderPanelState({ error: null }); },
         }),
         "settings-local-asr-model": renderSettingsLocalAsrModelPanelNode(
           { ...panelStates.localAsrModelPanelState, modelAvailable: panelStates.modelManagementPanelState.localAsrAvailable },
@@ -195,6 +214,8 @@ export function BlindBrowserApp() {
             }
             void downloadManagedLocalAsrModel();
           },
+          onDismissError: () => { setModelManagementPanelState({ error: null }); },
+          onRetry: () => { void persistModelManagementSettings(); },
         }),
         "settings-remote-asr": renderSettingsRemoteAsrPanelNode(panelStates.remoteAsrPanelState, {
           onApiKeyInput: (value) => {
@@ -203,12 +224,16 @@ export function BlindBrowserApp() {
           onSaveApiKey: () => { void persistRemoteAsrApiKey(); },
           onTestApiKey: () => { void testConfiguredRemoteAsrApiKey(); },
           onOpenExternalLink: openExternalLink,
+          onDismissError: () => { setRemoteAsrPanelState({ error: null }); },
+          onRetry: () => { void testConfiguredRemoteAsrApiKey(); },
         }),
         "settings-tts-provider": renderSettingsTtsProviderPanelNode(panelStates.ttsProviderPanelState, {
           onProviderSelect: (mode) => { void persistTtsProviderSelection(mode); },
+          onDismissError: () => { setTtsProviderPanelState({ error: null }); },
         }),
         "settings-tts-model": renderSettingsTtsModelPanelNode(panelStates.ttsModelPanelState, {
           onModelSelect: (profileName) => { void persistTtsModelSelection(profileName); },
+          onDismissError: () => { setTtsModelPanelState({ error: null }); },
         }),
         "settings-local-tts-model": renderSettingsLocalTtsModelPanelNode(
           { ...panelStates.localTtsModelPanelState, modelAvailable: panelStates.modelManagementPanelState.localTtsAvailable },
@@ -221,9 +246,12 @@ export function BlindBrowserApp() {
           onSaveApiKey: () => { void persistRemoteTtsApiKey(); },
           onTestApiKey: () => { void testConfiguredRemoteTtsApiKey(); },
           onOpenExternalLink: openExternalLink,
+          onDismissError: () => { setRemoteTtsPanelState({ error: null }); },
+          onRetry: () => { void testConfiguredRemoteTtsApiKey(); },
         }),
         "settings-tts-voice": renderSettingsTtsVoicePanelNode(panelStates.ttsVoicePanelState, {
           onVoiceSelect: (voice) => { void persistTtsVoiceSelection(voice); },
+          onDismissError: () => { setTtsVoicePanelState({ error: null }); },
         }),
         "confirmation-panel": renderConfirmationPanelNode(confirmationState, {
           onRespond: submitConfirmationAction,

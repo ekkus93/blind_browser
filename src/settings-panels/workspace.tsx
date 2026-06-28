@@ -55,10 +55,12 @@ export interface UrlInputPanelHandlers {
   onStop?: () => void;
   onPrevious?: () => void;
   onNext?: () => void;
+  onDismissError?: () => void;
 }
 
 export interface StatusPanelHandlers {
   onSetBrowserVisibility?: (mode: "Visible" | "Headless") => void;
+  onDismissError?: () => void;
 }
 
 export function statusPanelStateFromAgentState(
@@ -150,7 +152,14 @@ export function renderUrlInputPanelNode(
             handlers?.onNext,
           )}
         </div>
-        {state.error ? <p className="url-input-error" role="alert">{state.error}</p> : null}
+        {state.error ? (
+          <p className="url-input-error" role="alert">
+            {state.error}
+            {handlers?.onDismissError ? (
+              <button type="button" className="panel-error-dismiss" onClick={handlers.onDismissError} aria-label="Dismiss error">Dismiss</button>
+            ) : null}
+          </p>
+        ) : null}
       </div>
     </section>
   );
@@ -160,19 +169,29 @@ export function renderStatusPanelNode(
   state: StatusPanelState,
   handlers?: StatusPanelHandlers,
 ): ReactNode {
-  const title = state.pageTitle ?? "No page open yet";
-  const region = state.currentRegionLabel ?? "No current section";
+  const isFirstLoad = state.pageTitle == null && !state.isPageLoading;
+  const title = state.isPageLoading ? "Loading page…" : (state.pageTitle ?? "No page open yet");
+  const region = state.isPageLoading ? "—" : (state.currentRegionLabel ?? "No current section");
   const transcript = state.lastTranscript ?? "No spoken command captured yet";
   const visiblePressed = state.browserVisibility === "Visible";
   const headlessPressed = state.browserVisibility === "Headless";
-  const isFirstLoad = state.pageTitle == null;
 
   return (
     <section className="status-panel" aria-labelledby="status-panel-title">
       <div className="status-panel-copy">
-        <p className="status-panel-eyebrow">Runtime status</p>
+        <p className="status-panel-eyebrow">
+          Runtime status
+          {state.plannerBusy ? <span className="status-panel-busy" aria-live="polite" aria-label="Working">Working…</span> : null}
+        </p>
         <h2 id="status-panel-title">Current browser state</h2>
-        {state.error ? <p className="status-panel-error" role="alert">{state.error}</p> : null}
+        {state.error ? (
+          <p className="status-panel-error" role="alert">
+            {state.error}
+            {handlers?.onDismissError ? (
+              <button type="button" className="panel-error-dismiss" onClick={handlers.onDismissError} aria-label="Dismiss error">Dismiss</button>
+            ) : null}
+          </p>
+        ) : null}
       </div>
       {isFirstLoad
         ? <p className="status-panel-empty" aria-live="polite">Hold the Talk button and say a URL or command to get started.</p>
