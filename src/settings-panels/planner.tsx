@@ -89,6 +89,11 @@ export function renderSettingsRemotePlannerPanelNode(
               onBlur={handlers?.onEndpointBlur}
             />
           </label>
+          {state.isLoadingModels ? (
+            <span className="settings-inline-loading" role="status" aria-live="polite">
+              <span className="btn-spinner" aria-hidden="true" /> Loading models...
+            </span>
+          ) : null}
         </div>
       </div>,
       <div className="settings-grid settings-grid-single settings-grid-compact" key="planner-model">

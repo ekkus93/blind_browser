@@ -461,6 +461,7 @@ test("renders spinner on the Load models button while models are loading", () =>
 
   assert.match(html, /Loading models\.\.\./);
   assert.match(html, /btn-spinner/);
+  assert.match(html, /settings-inline-loading/);
 });
 
 test("renders spinner on the Save settings button while saving", () => {

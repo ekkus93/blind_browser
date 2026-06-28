@@ -1303,6 +1303,16 @@ h1 {
   min-width: min(320px, 100%);
 }
 
+.settings-inline-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .settings-button-row {
   display: flex;
   gap: 10px;
