@@ -155,10 +155,10 @@ test("renders remote planner API reference details", () => {
   assert.match(html, /data-remote-planner-models-refresh="true"/);
   assert.match(html, /data-remote-planner-settings-save="true"/);
   assert.match(html, /data-remote-planner-settings-reset="true"/);
-  assert.match(html, /Load models/);
+  assert.match(html, /Refresh model list/);
   assert.match(html, /Reset to defaults/);
-  assert.match(html, /Models are loaded for the current endpoint/);
-  assert.match(html, /Up to date/);
+  assert.match(html, /Model list is loaded for the current endpoint/);
+  assert.match(html, /Model list up to date/);
   assert.doesNotMatch(html, /Planner remote profile/);
   assert.doesNotMatch(html, /Service/);
   assert.doesNotMatch(html, /Temperature \(milli\)/);
@@ -341,7 +341,7 @@ test("renders remote planner API key test status while testing", () => {
   assert.match(html, /OpenAI accepted the configured API key\./);
   assert.match(html, /settings-api-key-test-status/);
   assert.match(html, /role="status"/);
-  assert.match(html, /Models are loaded for the current endpoint/);
+  assert.match(html, /Model list is loaded for the current endpoint/);
 });
 
 test("renders a masked planner API key value when a key is already configured", () => {
@@ -430,8 +430,8 @@ test("renders stale planner model indicator when endpoint models need reload", (
     error: null,
   });
 
-  assert.match(html, /Models need to be reloaded for the current endpoint/);
-  assert.match(html, /Reload needed/);
+  assert.match(html, /Model list has not been loaded for the current endpoint/);
+  assert.match(html, /Model list may be outdated/);
 });
 
 test("renders spinner on the Load models button while models are loading", () => {
@@ -490,4 +490,66 @@ test("renders spinner on the Save settings button while saving", () => {
 
   assert.match(html, /Saving\.\.\./);
   assert.match(html, /btn-spinner/);
+});
+
+test("manual planner model does not render as a verified loaded model list", () => {
+  const html = renderSettingsRemotePlannerPanel({
+    profileName: "openai-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.example.com/v1",
+    model: "gpt-manual",
+    availableModels: [],
+    loadedModelsEndpoint: null,
+    isLoadingModels: false,
+    isSavingConnection: false,
+    isResettingConnection: false,
+    isConfirmingReset: false,
+    apiKeyReference: "Environment variable: OPENAI_API_KEY",
+    organizationReference: null,
+    project: null,
+    temperatureMilli: 200,
+    maxOutputTokens: 1024,
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  assert.match(html, /value="gpt-manual"/);
+  assert.match(html, /Model list may be outdated/);
+  assert.doesNotMatch(html, /Model list up to date/);
+  assert.doesNotMatch(html, /<select[^>]*data-remote-planner-model-select/);
+});
+
+test("verified model list shows fresh indicator after successful load", () => {
+  const html = renderSettingsRemotePlannerPanel({
+    profileName: "openai-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.example.com/v1",
+    model: "gpt-test",
+    availableModels: ["gpt-test", "gpt-other"],
+    loadedModelsEndpoint: "https://api.example.com/v1",
+    isLoadingModels: false,
+    isSavingConnection: false,
+    isResettingConnection: false,
+    isConfirmingReset: false,
+    apiKeyReference: null,
+    organizationReference: null,
+    project: null,
+    temperatureMilli: 200,
+    maxOutputTokens: 1024,
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  assert.match(html, /Model list up to date/);
+  assert.match(html, /Model list is loaded for the current endpoint/);
+  assert.match(html, /<select[^>]*data-remote-planner-model-select/);
+  assert.doesNotMatch(html, /Model list may be outdated/);
 });

@@ -30,18 +30,17 @@ export function renderSettingsRemotePlannerPanelNode(
   const modelsAreFresh = baseUrlTrimmed.length > 0
     && state.loadedModelsEndpoint === state.baseUrl
     && state.availableModels.length > 0;
+  const hasLoadedModels = state.availableModels.length > 0;
+  const modelsNotLoadedForEndpoint = baseUrlTrimmed.length > 0 && !modelsAreFresh;
   const isConnectionBusy = state.isLoadingModels || state.isSavingConnection || state.isResettingConnection;
-  const modelDisabled = isConnectionBusy || state.availableModels.length === 0;
+  const modelDisabled = isConnectionBusy || !hasLoadedModels;
   const loadModelsDisabled = isConnectionBusy || baseUrlTrimmed.length === 0;
   const saveSettingsDisabled = isConnectionBusy
     || !state.profileName
     || baseUrlTrimmed.length === 0
     || (state.model?.trim().length ?? 0) === 0;
   const resetSettingsDisabled = isConnectionBusy || !state.profileName;
-  const hasLoadedModels = state.availableModels.length > 0;
-  const modelsNotLoadedForEndpoint = baseUrlTrimmed.length > 0 && state.loadedModelsEndpoint !== state.baseUrl;
-  const currentModelForEndpoint = !hasLoadedModels && state.loadedModelsEndpoint === state.baseUrl ? state.model : null;
-  const modelOptions = hasLoadedModels ? state.availableModels : (currentModelForEndpoint ? [currentModelForEndpoint] : []);
+  const modelOptions = hasLoadedModels ? state.availableModels : [];
 
   return renderSettingsPanelSection({
     titleId: "settings-remote-planner-title",
@@ -100,13 +99,13 @@ export function renderSettingsRemotePlannerPanelNode(
               <span className="settings-model-freshness-indicator" aria-hidden="true">
                 <span className={`settings-status-light ${modelsAreFresh ? "settings-status-light-fresh" : "settings-status-light-stale"}`} />
                 <span className="settings-model-freshness-label">
-                  {modelsAreFresh ? "Up to date" : "Reload needed"}
+                  {modelsAreFresh ? "Model list up to date" : "Model list may be outdated — reload to refresh"}
                 </span>
               </span>
               <span className="sr-only">
                 {modelsAreFresh
-                  ? "Models are loaded for the current endpoint"
-                  : "Models need to be reloaded for the current endpoint"}
+                  ? "Model list is loaded for the current endpoint"
+                  : "Model list has not been loaded for the current endpoint"}
               </span>
             </span>
             {hasLoadedModels ? (
@@ -136,7 +135,7 @@ export function renderSettingsRemotePlannerPanelNode(
                 >
                   {state.isLoadingModels
                     ? <><span className="btn-spinner" aria-hidden="true" />Loading models...</>
-                    : "Load models"}
+                    : "Refresh model list"}
                 </button>
               </div>
             ) : (
@@ -151,7 +150,7 @@ export function renderSettingsRemotePlannerPanelNode(
                 >
                   {state.isLoadingModels
                     ? <><span className="btn-spinner" aria-hidden="true" />Loading models...</>
-                    : "Load models"}
+                    : "Refresh model list"}
                 </button>
               </div>
             )}

@@ -211,15 +211,16 @@ export async function persistRemotePlannerConnection() {
       baseUrl,
       model,
     });
-    const currentAvailable = getPanelStates().remotePlannerPanelState.availableModels;
+    const currentPlannerState = getPanelStates().remotePlannerPanelState;
+    const currentAvailable = currentPlannerState.availableModels;
+    const modelsWereLoadedForSavedEndpoint = currentPlannerState.loadedModelsEndpoint === result.base_url
+      && currentAvailable.length > 0;
     setRemotePlannerPanelState({
       profileName: result.profile_name,
       baseUrl: result.base_url,
       model: result.model,
-      availableModels: currentAvailable.includes(result.model)
-        ? currentAvailable
-        : [result.model, ...currentAvailable],
-      loadedModelsEndpoint: result.base_url,
+      availableModels: modelsWereLoadedForSavedEndpoint ? currentAvailable : [],
+      loadedModelsEndpoint: modelsWereLoadedForSavedEndpoint ? result.base_url : null,
       isSavingConnection: false,
       error: null,
     });
@@ -255,8 +256,8 @@ export async function resetRemotePlannerConnectionToDefaults() {
       profileName: result.profile_name,
       baseUrl: result.base_url,
       model: result.model,
-      availableModels: [result.model],
-      loadedModelsEndpoint: result.base_url,
+      availableModels: [],
+      loadedModelsEndpoint: null,
       isResettingConnection: false,
       error: null,
     });

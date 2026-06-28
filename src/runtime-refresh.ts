@@ -58,10 +58,8 @@ export function createRuntimeRefreshHandlers(dependencies: RuntimeRefreshDepende
       provider: agentState.remote_planner_settings.provider,
       baseUrl: agentState.remote_planner_settings.base_url,
       model: agentState.remote_planner_settings.model,
-      availableModels: agentState.remote_planner_settings.model
-        ? [agentState.remote_planner_settings.model]
-        : [],
-      loadedModelsEndpoint: agentState.remote_planner_settings.base_url,
+      availableModels: [],
+      loadedModelsEndpoint: null,
       isLoadingModels: false,
       isSavingConnection: false,
       isResettingConnection: false,
