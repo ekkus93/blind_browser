@@ -73,6 +73,32 @@ export function renderPushToTalkPanelNode(
   state: PushToTalkPanelState,
   handlers?: PushToTalkPanelHandlers,
 ): ReactNode {
+  if (!state.enabled) {
+    return (
+      <section className="push-to-talk-panel push-to-talk-panel-setup-required" aria-label="Talk control setup required">
+        <div className="ptt-setup-banner" role="status" aria-live="polite">
+          <p className="ptt-setup-banner-message">
+            Voice input isn't set up yet. Open settings to configure your microphone and speech providers.
+          </p>
+          <button
+            type="button"
+            className="ptt-setup-banner-button"
+            data-ptt-open-settings="true"
+            onClick={handlers?.onOpenSettings}
+          >
+            Open settings
+          </button>
+        </div>
+        {state.lastError
+          ? <span className="sr-only" role="alert">{state.lastError}</span>
+          : null}
+        {state.lastError
+          ? <p className="push-to-talk-error" aria-hidden="true">{state.lastError}</p>
+          : null}
+      </section>
+    );
+  }
+
   const buttonLabel = state.isHolding
     ? "Release to send"
     : state.isListening && state.isBusy
@@ -81,9 +107,7 @@ export function renderPushToTalkPanelNode(
         ? "Voice input active"
         : state.isBusy
           ? "Processing"
-          : state.enabled
-            ? "Hold to talk"
-            : "Talk unavailable";
+          : "Hold to talk";
 
   return (
     <section className="push-to-talk-panel" aria-label="Talk control">
@@ -93,8 +117,8 @@ export function renderPushToTalkPanelNode(
         data-push-to-talk-button="true"
         aria-label={buttonLabel}
         aria-pressed={state.isHolding}
-        disabled={(!state.enabled || state.isBusy || state.isListening) || undefined}
-        aria-disabled={(!state.enabled || state.isBusy || state.isListening) ? "true" : undefined}
+        disabled={(state.isBusy || state.isListening) || undefined}
+        aria-disabled={(state.isBusy || state.isListening) ? "true" : undefined}
         onPointerDown={handlers?.onPointerDown
           ? (event) => {
             if (event.button !== 0) {
@@ -121,23 +145,6 @@ export function renderPushToTalkPanelNode(
         : null}
       {state.lastError
         ? <p className="push-to-talk-error" aria-hidden="true">{state.lastError}</p>
-        : null}
-      {!state.enabled
-        ? (
-          <div className="ptt-setup-banner" role="status" aria-live="polite">
-            <p className="ptt-setup-banner-message">
-              Voice input isn't set up yet. Open settings to configure your microphone and speech providers.
-            </p>
-            <button
-              type="button"
-              className="ptt-setup-banner-button"
-              data-ptt-open-settings="true"
-              onClick={handlers?.onOpenSettings}
-            >
-              Open settings
-            </button>
-          </div>
-        )
         : null}
     </section>
   );

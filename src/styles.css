@@ -501,6 +501,19 @@ h1 {
   background: rgba(41, 88, 63, 0.2);
 }
 
+.ptt-setup-banner-button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.push-to-talk-panel-setup-required {
+  align-items: stretch;
+}
+
+.push-to-talk-panel-setup-required .ptt-setup-banner {
+  margin: 0;
+}
+
 .icon-button-glyph {
   width: 24px;
   height: 24px;

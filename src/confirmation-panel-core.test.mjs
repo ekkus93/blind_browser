@@ -157,5 +157,7 @@ test("renders setup banner when push-to-talk is disabled, hides it when enabled"
   assert.match(disabledHtml, /ptt-setup-banner/);
   assert.match(disabledHtml, /Voice input isn&#39;t set up yet/);
   assert.match(disabledHtml, /data-ptt-open-settings="true"/);
+  assert.doesNotMatch(disabledHtml, /data-push-to-talk-button="true"/);
   assert.doesNotMatch(enabledHtml, /ptt-setup-banner/);
+  assert.match(enabledHtml, /data-push-to-talk-button="true"/);
 });
