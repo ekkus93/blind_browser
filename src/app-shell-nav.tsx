@@ -38,7 +38,7 @@ const SETTINGS_STATUS_LABEL: Record<SettingsCardStatus, string> = {
   ok: "Configured",
   warning: "Action needed",
   error: "Error",
-  unconfigured: "Not configured",
+  unconfigured: "Setup required",
 };
 
 export function renderPanelRootPlaceholderElement(rootKey: PanelRootKey) {

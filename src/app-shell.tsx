@@ -124,7 +124,9 @@ export function AppShellMarkup({
           aria-hidden={initialSettingsView !== "planner"}
         >
           <section className="hero hero-settings hero-settings-subpage">
+            <p className="settings-breadcrumb">Settings › AI assistant setup</p>
             <h2>AI assistant setup</h2>
+            <p className="lede">The AI assistant interprets your voice commands and decides what to do. It requires an OpenAI-compatible API endpoint and key. If you're using OpenAI, the endpoint is <code>https://api.openai.com/v1</code>. For local models via Ollama, use <code>http://localhost:11434</code>.</p>
           </section>
           {renderPanelContent("settings-remote-planner", panelContent)}
         </div>
@@ -136,7 +138,9 @@ export function AppShellMarkup({
           aria-hidden={initialSettingsView !== "tts"}
         >
           <section className="hero hero-settings hero-settings-subpage">
+            <p className="settings-breadcrumb">Settings › Voice output setup</p>
             <h2>Voice output setup</h2>
+            <p className="lede">Voice output converts the assistant's text responses to speech. Choose a local model for offline use or a remote service for higher quality voices.</p>
           </section>
           {renderPanelContent("settings-tts-provider", panelContent)}
           {renderPanelContent("settings-tts-model", panelContent)}
@@ -152,7 +156,9 @@ export function AppShellMarkup({
           aria-hidden={initialSettingsView !== "asr"}
         >
           <section className="hero hero-settings hero-settings-subpage">
+            <p className="settings-breadcrumb">Settings › Voice input setup</p>
             <h2>Voice input setup</h2>
+            <p className="lede">Voice input converts your speech to text. Choose a local Whisper model for offline use or a remote transcription service.</p>
           </section>
           {renderPanelContent("settings-asr-provider", panelContent)}
           {renderPanelContent("settings-local-asr-model", panelContent)}
@@ -166,7 +172,9 @@ export function AppShellMarkup({
           aria-hidden={initialSettingsView !== "runtime"}
         >
           <section className="hero hero-settings hero-settings-subpage">
+            <p className="settings-breadcrumb">Settings › Advanced settings</p>
             <h2>Advanced settings</h2>
+            <p className="lede">Model management, confirmation behavior, and OCR settings. Most users won't need to change these.</p>
           </section>
           {renderPanelContent("settings-model-management", panelContent)}
           {renderPanelContent("settings-confirmation", panelContent)}
