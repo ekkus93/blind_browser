@@ -1,3 +1,20 @@
+## 2026-06-28T22:52:12Z - Claude Sonnet 4.6 - UIUX_IMPROVEMENTS2_TODO.md Phase 7 complete
+
+- Phase 7.1: Added `.panel-error-dismiss` CSS and "Dismiss" button to all panel error displays. `onDismissError?` threaded through `SettingsPanelSectionOptions` and all panel handler interfaces; wired via `setXxxPanelState({ error: null })` in `app.tsx` for every panel. Added new setter imports: `setAsrProviderPanelState`, `setStatusPanelState`, `setTtsModelPanelState`, `setTtsProviderPanelState`, `setTtsVoicePanelState`.
+- Phase 7.2: Added "Try again" button for retryable errors. `onRetry?` in `shared-controls` and handler interfaces; planner→`loadRemotePlannerModels`, ASR→`testConfiguredRemoteAsrApiKey`, TTS→`testConfiguredRemoteTtsApiKey`, model-management→`persistModelManagementSettings`.
+- Phase 7.3: Added pulsing "Working…" indicator (`status-panel-busy` CSS) in status panel eyebrow. `plannerBusy?: boolean` in `StatusPanelState`; derived in `app.tsx` from `isOpening || isReading || speaking`. Includes `prefers-reduced-motion` override.
+- Phase 7.4: Status panel shows "Loading page…" and "—" placeholders while `isPageLoading`. `isPageLoading?: boolean` in `StatusPanelState`; wired from `urlInputPanelState.isOpening`. `isFirstLoad` guard updated.
+- Phase 8: Full validation suite passed — 97/97 JS, 309/309 Rust, lint/clippy/build clean. Commit: `91e8495`.
+- Next: push to GitHub and continue with any remaining UIUX improvements or new work.
+
+## 2026-06-28T22:32:07Z - Claude Sonnet 4.6 - TAILWIND1 Phases 1-3: Tailwind v4, TSX conversion, MUI removed
+
+- Phase 1: Tailwind CSS v4 (`tailwindcss 4.3.1`, `@tailwindcss/vite 4.3.1`) added; `styles.css` rewritten with `@import "tailwindcss"` + `@theme {}` design tokens; `"jsx": "react-jsx"` in tsconfig; eslint/lint updated for `.tsx`.
+- Phase 2: `src/icons.tsx` — `SettingsIcon` and `ArrowBackIcon` SVG components replacing `@mui/icons-material`.
+- Phase 3: All 13 render `.ts` files converted to `.tsx` (JSX syntax, no `createElement`/`h`); `app-shell-theme.ts` deleted; `app.tsx` uses `useSelector` + JSX directly; barrel exports updated to `.tsx` extensions; `tsx` dev dep added so Node test runner handles JSX (test script: `node --import tsx/esm --test`); test files updated to import from `.tsx`; MUI packages (`@mui/material`, `@mui/icons-material`, `@emotion/react`, `@emotion/styled`) removed.
+- Bundle: 417KB → 305KB (MUI gone). 97/97 JS tests + clippy + lint + build all clean. Commit: `e0ba161`.
+- Next: continue UIUX_IMPROVEMENTS2_TODO.md Phase 3 (font loading), Phase 5 (remote planner UX), Phase 6 (settings UX), Phase 7 (feedback/progress).
+
 ## 2026-06-06T16:14:22Z - Claude Sonnet 4.6 - REFACTOR5_TODO.md all 4 phases complete
 
 - Splits: `commands/tests/contracts/` (3 subfiles), `config/tests/load_tests/` (3 subfiles), `src/confirmation-panel.test.mjs` → 5 themed files (needed second pass: settings file was still 834 lines → split into planner 493 + voice 346).

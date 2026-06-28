@@ -504,16 +504,16 @@ to the thing the user wants to click.
 
 ---
 
-## Phase 8 — Final validation and audit
+## Phase 8 — Final validation and audit ✅ DONE
 
-### 8.1 Run the full validation suite
+### 8.1 Run the full validation suite ✅ DONE
 
-- [ ] `source ./fix-node-version.sh`
-- [ ] `pnpm lint`
-- [ ] `pnpm test:ui`
-- [ ] `pnpm build`
-- [ ] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
-- [ ] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
+- [x] `source ./fix-node-version.sh`
+- [x] `pnpm lint` — clean
+- [x] `pnpm test:ui` — 97/97 pass
+- [x] `pnpm build` — clean (309 KB JS, 50.8 KB CSS)
+- [x] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` — clean
+- [x] `cargo test --manifest-path src-tauri/Cargo.toml --all-features` — 309/309 pass
 
 ### 8.2 Visual audit checklist
 
