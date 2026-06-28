@@ -39,6 +39,10 @@
   /* Nav button gradient */
   --color-nav-start: #5a5048;
   --color-nav-end:   #7a6860;
+
+  /* Focus rings */
+  --focus-ring:   2px solid var(--color-green-active);
+  --focus-offset: 2px;
 }
 
 /* Dark mode surface overrides */
@@ -149,8 +153,8 @@ body {
 }
 
 .shell-toolbar-action:focus-visible {
-  outline: 2px solid var(--color-green-active);
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
   transform: translateY(-1px);
   box-shadow: 0 14px 24px rgba(31, 127, 92, 0.14);
 }
@@ -255,8 +259,8 @@ body {
 }
 
 .settings-subpage-card:focus-visible {
-  outline: 2px solid var(--color-green-active);
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
   background: rgba(255, 252, 247, 0.9);
   box-shadow: 0 6px 16px rgba(41, 88, 63, 0.12);
   transform: translateY(-1px);
@@ -323,8 +327,8 @@ body {
 }
 
 .settings-subpage-back:focus-visible {
-  outline: 2px solid var(--color-green-active);
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
   transform: translateY(-1px);
   box-shadow: 0 14px 24px rgba(31, 127, 92, 0.14);
 }
@@ -514,8 +518,8 @@ h1 {
 }
 
 .push-to-talk-button:focus-visible {
-  outline: 3px solid var(--color-green-active);
-  outline-offset: 4px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
   transform: translateY(-1px);
   box-shadow: 0 18px 30px rgba(31, 127, 92, 0.3);
 }
@@ -632,8 +636,8 @@ h1 {
 }
 
 .url-input-control:focus-visible {
-  outline: 2px solid rgba(122, 87, 39, 0.28);
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
   border-color: rgba(122, 87, 39, 0.32);
 }
 
@@ -854,8 +858,8 @@ h1 {
 }
 
 .status-toggle-button:focus-visible {
-  outline: 2px solid rgba(123, 98, 70, 0.3);
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 .status-toggle-button-active {
@@ -1122,8 +1126,8 @@ h1 {
 }
 
 .settings-control-select:focus-visible {
-  outline: 2px solid rgba(41, 88, 63, 0.22);
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
   border-color: rgba(41, 88, 63, 0.3);
 }
 
@@ -1152,8 +1156,8 @@ h1 {
 }
 
 .settings-control-button:focus-visible {
-  outline: 2px solid var(--color-green-active);
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 .settings-control-button:disabled {
@@ -1544,8 +1548,8 @@ h1 {
 }
 
 .confirmation-button:focus-visible {
-  outline: 2px solid var(--color-green-active);
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 .confirmation-button:disabled {
