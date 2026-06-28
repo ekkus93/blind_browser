@@ -41,7 +41,7 @@ pnpm build
 
 ---
 
-## Phase 1 — CSS design token system
+## Phase 1 — CSS design token system ✅ DONE (absorbed into TAILWIND1)
 
 **Problem:** The codebase has five near-identical greens (`#29583f`, `#1f7f5c`, `#1f6b57`,
 `#1d4a30`, `#2d9b57`), two teals (`#1c5871`, `#24404f`), and inline hex values scattered
@@ -51,7 +51,7 @@ confirmation panel has a blue-teal tint that appears nowhere else.
 
 ### 1.1 Define CSS variables for all color tokens
 
-- [ ] In `src/styles.css`, expand the `:root` block to include a complete token set:
+- [x] In `src/styles.css`, expand the `:root` block to include a complete token set:
   ```css
   :root {
     /* Brand greens */
@@ -101,7 +101,7 @@ confirmation panel has a blue-teal tint that appears nowhere else.
 
 ### 1.2 Replace inline hex green/teal values with tokens
 
-- [ ] Search for all occurrences of `#29583f` and replace with `var(--green-primary)`.
+- [x] Search for all occurrences of `#29583f` and replace with `var(--green-primary)`.
 - [ ] Search for all occurrences of `#1f7f5c` and replace with `var(--green-active)`.
 - [ ] Search for all occurrences of `#1f6b57`, `#1f6b57`, `#185745` (approve button hover)
       — these are the "third green". Decide: either map to `--green-primary`/`--green-active`,
@@ -150,7 +150,7 @@ confirmation panel has a blue-teal tint that appears nowhere else.
 
 ---
 
-## Phase 2 — Focus ring unification
+## Phase 2 — Focus ring unification ✅ DONE (absorbed into TAILWIND1)
 
 **Problem:** Four different focus indicator styles exist across the app: green on toolbar
 buttons, amber on the URL input, a different green shade on settings selects, and blue on
@@ -192,7 +192,7 @@ makes it harder for low-vision users to track focus.
 
 ---
 
-## Phase 3 — Font loading verification and fix
+## Phase 3 — Font loading verification and fix ✅ DONE
 
 **Problem:** `styles.css` declares `font-family: "IBM Plex Sans"` and `font-family: "Fraunces"`
 as preferred fonts, but there is no `@font-face`, `@import`, or `<link>` confirmed to be
@@ -227,7 +227,7 @@ loading these. If fonts aren't loaded, the app silently falls back to Segoe UI /
 
 ---
 
-## Phase 4 — Dark mode
+## Phase 4 — Dark mode ✅ DONE (absorbed into TAILWIND1)
 
 **Problem:** The app has no `@media (prefers-color-scheme: dark)` support. Dark mode is
 particularly important for this app's target audience (users with low vision or light

@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Fonts load via Google Fonts <link> tags in index.html:
+   Fraunces (display headings) + IBM Plex Sans (UI body text).
+   Fallbacks ensure the layout holds offline. */
+
 @theme {
   /* Fonts */
   --font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
