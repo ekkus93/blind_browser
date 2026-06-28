@@ -55,9 +55,19 @@ export function focusSettingsTarget(targetId: string) {
   setSettingsView(targetId as SettingsView);
 }
 
+function describeExternalLinkFailure(url: string, error: unknown): string {
+  const detail = error instanceof Error && error.message.trim().length > 0
+    ? ` ${error.message}`
+    : "";
+  return `Could not open the external link. Copy this URL and open it manually: ${url}.${detail}`;
+}
+
 export function openExternalLink(url: string) {
   void openExternalUrl({ url }).catch((error) => {
     console.error("Failed to open external link.", error);
+    appShellStore.dispatch(setUrlInputPanelStoreState({
+      error: describeExternalLinkFailure(url, error),
+    }));
   });
 }
 
