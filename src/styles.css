@@ -35,6 +35,7 @@
   --color-text-primary:   #1d1a16;
   --color-text-secondary: #433d37;
   --color-text-muted:     #6b5e52;
+  --color-text-label:     #6f675c;
 
   /* Nav button gradient */
   --color-nav-start: #5a5048;
@@ -45,12 +46,34 @@
   --focus-offset: 2px;
 }
 
-/* Dark mode surface overrides */
+/* Dark mode token overrides */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-surface-base: #1a1712;
-    --color-surface-mid:  #141210;
-    --color-surface-card: rgba(36, 32, 26, 0.92);
+    color-scheme: dark;
+
+    --color-surface-base:  #1a1712;
+    --color-surface-mid:   #141210;
+    --color-surface-card:  rgba(36, 32, 26, 0.92);
+    --color-surface-inner: rgba(48, 43, 36, 0.80);
+
+    --color-text-primary:   #f0ead8;
+    --color-text-secondary: #c8bfae;
+    --color-text-muted:     #a99b86;
+    --color-text-label:     #b4a48e;
+
+    --card-border:       1px solid rgba(180, 155, 110, 0.14);
+    --inner-card-border: 1px solid rgba(180, 155, 110, 0.10);
+    --eyebrow-color:     #b4a48e;
+
+    --color-amber-primary: #c49a50;
+    --color-amber-active:  #e0b86a;
+    --color-amber-light:   rgba(196, 154, 80, 0.14);
+
+    --color-error-primary: #e17b6f;
+    --color-error-active:  #ff9588;
+    --color-error-dark:    #ffb4aa;
+
+    background: linear-gradient(180deg, var(--color-surface-base) 0%, var(--color-surface-mid) 100%);
   }
 }
 
@@ -218,7 +241,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   font-size: 0.76rem;
-  color: #7b6246;
+  color: var(--eyebrow-color);
 }
 
 .settings-group h2 {
@@ -629,8 +652,8 @@ h1 {
   padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid rgba(123, 98, 70, 0.18);
-  background: rgba(255, 255, 255, 0.92);
-  color: #1f2527;
+  background: var(--color-surface-inner);
+  color: var(--color-text-primary);
   font: inherit;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
@@ -809,12 +832,12 @@ h1 {
   font-size: 0.84rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #6f675c;
+  color: var(--color-text-label);
 }
 
 .status-card dd {
   margin: 0;
-  color: #1f2527;
+  color: var(--color-text-primary);
   font-weight: 600;
   line-height: 1.45;
 }
@@ -1120,8 +1143,8 @@ h1 {
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid rgba(41, 88, 63, 0.18);
-  background: rgba(255, 255, 255, 0.92);
-  color: #1f2527;
+  background: var(--color-surface-inner);
+  color: var(--color-text-primary);
   font: inherit;
 }
 
@@ -1167,9 +1190,9 @@ h1 {
 }
 
 .settings-control-button-secondary {
-  background: linear-gradient(135deg, #d9e5dd, #eef5ef);
-  color: #1f2527;
-  border: 1px solid rgba(41, 88, 63, 0.16);
+  background: var(--color-surface-inner);
+  color: var(--color-text-primary);
+  border: var(--inner-card-border);
 }
 
 .settings-control-button-danger {
@@ -1360,7 +1383,7 @@ h1 {
 .confirmation-prompt {
   font-size: 1rem;
   line-height: 1.6;
-  color: #2f3436;
+  color: var(--color-text-secondary);
 }
 
 .confirmation-status {
@@ -1574,18 +1597,19 @@ h1 {
 }
 
 .confirmation-button-reject {
-  background: #efe6d8;
-  color: #5b2a1f;
-  border: 1px solid rgba(91, 42, 31, 0.12);
+  background: var(--color-surface-inner);
+  color: var(--color-amber-active);
+  border: 1px solid rgba(122, 87, 39, 0.18);
 }
 
 .confirmation-button-reject:hover,
 .confirmation-button-reject:focus-visible {
-  background: #e7d8c6;
+  background: var(--color-amber-light);
 }
 
 .confirmation-button-reject:disabled {
-  background: #f2ebdf;
+  background: var(--color-surface-inner);
+  opacity: 0.58;
 }
 
 .confirmation-card ul {
