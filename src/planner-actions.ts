@@ -199,13 +199,6 @@ export async function persistRemotePlannerConnection() {
     });
     return;
   }
-  if (state.loadedModelsEndpoint !== baseUrl) {
-    setRemotePlannerPanelState({
-      error: "Load models for the current endpoint before saving the planner settings.",
-    });
-    return;
-  }
-
   setRemotePlannerPanelState({
     isSavingConnection: true,
     error: null,

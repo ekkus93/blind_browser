@@ -10,7 +10,9 @@ export interface RemotePlannerPanelHandlers {
   onTestApiKey?: () => void;
   onOpenExternalLink?: (url: string) => void;
   onEndpointInput?: (value: string) => void;
+  onEndpointBlur?: () => void;
   onModelSelect?: (value: string) => void;
+  onModelInput?: (value: string) => void;
   onLoadModels?: () => void;
   onSaveSettings?: () => void;
   onBeginReset?: () => void;
@@ -22,19 +24,20 @@ export function renderSettingsRemotePlannerPanelNode(
   state: RemotePlannerPanelState,
   handlers?: RemotePlannerPanelHandlers,
 ): ReactNode {
-  const modelsAreFresh = (state.baseUrl?.trim().length ?? 0) > 0
+  const baseUrlTrimmed = state.baseUrl?.trim() ?? "";
+  const modelsAreFresh = baseUrlTrimmed.length > 0
     && state.loadedModelsEndpoint === state.baseUrl
     && state.availableModels.length > 0;
   const isConnectionBusy = state.isLoadingModels || state.isSavingConnection || state.isResettingConnection;
   const modelDisabled = isConnectionBusy || state.availableModels.length === 0;
-  const loadModelsDisabled = isConnectionBusy || (state.baseUrl?.trim().length ?? 0) === 0;
+  const loadModelsDisabled = isConnectionBusy || baseUrlTrimmed.length === 0;
   const saveSettingsDisabled = isConnectionBusy
     || !state.profileName
-    || (state.baseUrl?.trim().length ?? 0) === 0
-    || (state.model?.trim().length ?? 0) === 0
-    || state.loadedModelsEndpoint !== state.baseUrl;
+    || baseUrlTrimmed.length === 0
+    || (state.model?.trim().length ?? 0) === 0;
   const resetSettingsDisabled = isConnectionBusy || !state.profileName;
   const hasLoadedModels = state.availableModels.length > 0;
+  const modelsNotLoadedForEndpoint = baseUrlTrimmed.length > 0 && state.loadedModelsEndpoint !== state.baseUrl;
   const currentModelForEndpoint = !hasLoadedModels && state.loadedModelsEndpoint === state.baseUrl ? state.model : null;
   const modelOptions = hasLoadedModels ? state.availableModels : (currentModelForEndpoint ? [currentModelForEndpoint] : []);
 
@@ -80,13 +83,14 @@ export function renderSettingsRemotePlannerPanelNode(
               onChange={handlers?.onEndpointInput
                 ? (event) => { handlers.onEndpointInput?.(event.currentTarget.value); }
                 : undefined}
+              onBlur={handlers?.onEndpointBlur}
             />
           </label>
         </div>
       </div>,
       <div className="settings-grid settings-grid-single settings-grid-compact" key="planner-model">
         <div className="settings-control-card settings-planner-connection-card">
-          <label className="settings-field-group" htmlFor="settings-remote-planner-model-select">
+          <div className="settings-field-group">
             <span className="settings-control-label settings-inline-label-row">
               <span>Model</span>
               <span className="settings-model-freshness-indicator" aria-hidden="true">
@@ -101,39 +105,78 @@ export function renderSettingsRemotePlannerPanelNode(
                   : "Models need to be reloaded for the current endpoint"}
               </span>
             </span>
-            <div className="settings-inline-control-row settings-inline-control-row-wrap">
-              <select
-                id="settings-remote-planner-model-select"
-                className="settings-control-select settings-inline-control-fill"
-                data-remote-planner-model-select="true"
+            {hasLoadedModels ? (
+              <div className="settings-inline-control-row settings-inline-control-row-wrap">
+                <select
+                  id="settings-remote-planner-model-select"
+                  className="settings-control-select settings-inline-control-fill"
+                  data-remote-planner-model-select="true"
+                  value={state.model ?? ""}
+                  disabled={modelDisabled || undefined}
+                  aria-disabled={modelDisabled ? "true" : undefined}
+                  onChange={handlers?.onModelSelect
+                    ? (event) => { handlers.onModelSelect?.(event.currentTarget.value); }
+                    : () => undefined}
+                >
+                  {modelOptions.map((model) => (
+                    <option key={model} value={model}>{model}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="settings-control-button settings-control-button-secondary"
+                  data-remote-planner-models-refresh="true"
+                  disabled={loadModelsDisabled || undefined}
+                  aria-disabled={loadModelsDisabled ? "true" : undefined}
+                  onClick={handlers?.onLoadModels}
+                >
+                  {state.isLoadingModels
+                    ? <><span className="btn-spinner" aria-hidden="true" />Loading models...</>
+                    : "Load models"}
+                </button>
+              </div>
+            ) : (
+              <div className="settings-inline-control-row settings-inline-control-row-wrap">
+                <button
+                  type="button"
+                  className="settings-control-button settings-control-button-secondary"
+                  data-remote-planner-models-refresh="true"
+                  disabled={loadModelsDisabled || undefined}
+                  aria-disabled={loadModelsDisabled ? "true" : undefined}
+                  onClick={handlers?.onLoadModels}
+                >
+                  {state.isLoadingModels
+                    ? <><span className="btn-spinner" aria-hidden="true" />Loading models...</>
+                    : "Load models"}
+                </button>
+              </div>
+            )}
+            <label className="settings-field-group" htmlFor="settings-remote-planner-model-input">
+              <span className="settings-control-label">
+                {hasLoadedModels ? "Or enter a model name manually" : "Model name"}
+              </span>
+              <input
+                id="settings-remote-planner-model-input"
+                className="settings-control-select"
+                data-remote-planner-model-input="true"
+                type="text"
                 value={state.model ?? ""}
-                disabled={modelDisabled || undefined}
-                aria-disabled={modelDisabled ? "true" : undefined}
-                onChange={handlers?.onModelSelect
-                  ? (event) => { handlers.onModelSelect?.(event.currentTarget.value); }
-                  : () => undefined}
-              >
-                {modelOptions.length === 0
-                  ? <option value="" disabled>Load models for this endpoint</option>
-                  : null}
-                {modelOptions.map((model) => (
-                  <option key={model} value={model}>{model}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="settings-control-button settings-control-button-secondary"
-                data-remote-planner-models-refresh="true"
-                disabled={loadModelsDisabled || undefined}
-                aria-disabled={loadModelsDisabled ? "true" : undefined}
-                onClick={handlers?.onLoadModels}
-              >
-                {state.isLoadingModels
-                  ? <><span className="btn-spinner" aria-hidden="true" />Loading models...</>
-                  : "Load models"}
-              </button>
-            </div>
-          </label>
+                placeholder="e.g. gpt-4o"
+                spellCheck={false}
+                autoComplete="off"
+                disabled={isConnectionBusy || undefined}
+                aria-disabled={isConnectionBusy ? "true" : undefined}
+                onChange={handlers?.onModelInput
+                  ? (event) => { handlers.onModelInput?.(event.currentTarget.value); }
+                  : undefined}
+              />
+            </label>
+            {modelsNotLoadedForEndpoint && !state.isLoadingModels ? (
+              <p className="settings-panel-description settings-panel-warning">
+                Model list hasn't been loaded for this endpoint — make sure the model name is correct before saving.
+              </p>
+            ) : null}
+          </div>
           {state.isConfirmingReset
             ? (
               <div className="settings-button-row settings-reset-confirm-row">
