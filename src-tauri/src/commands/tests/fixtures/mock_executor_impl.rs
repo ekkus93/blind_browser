@@ -1,3 +1,9 @@
+// FILE SIZE EXEMPTION: this file exceeds the 600-line target documented in the project TODO.
+// It is intentionally exempt because it is a single coherent mock implementation of the entire
+// DeterministicToolExecutor trait. Splitting it across submodules would fragment what is logically
+// one unit (a test double for all deterministic tools) without reducing complexity.
+// Exemption recorded in docs/BLIND_BROWSER_UIUX_FIX3_TODO.md P2.3.
+
 use super::*;
 
 impl DeterministicToolExecutor for MockExecutor {
