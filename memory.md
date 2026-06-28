@@ -1,3 +1,20 @@
+## 2026-06-28T23:40:27Z - Claude Sonnet 4.6 - BLIND_BROWSER_UIUX_FIX3_TODO.md all tasks complete
+
+- All P0, P1, and P2 tasks implemented and committed. Full validation gate: 100 JS tests, 309 Rust tests, lint/clippy/build/tsc all clean.
+- P0.1: Fixed false "model list loaded" planner state in `persistRemotePlannerConnection`, `resetRemotePlannerConnectionToDefaults`, and `runtime-refresh.ts`. Only a successful `listRemotePlannerModels()` call sets `availableModels` + `loadedModelsEndpoint`.
+- P0.2: Added `FrontendToolError` class; `unwrapToolResult()` now throws it; `parseToolError()` recognizes it so `classifyInvokeFailure()` returns `kind: "tool-error"` for backend errors.
+- P0.3: `openExternalLink()` now sets a visible URL input panel error instead of console-only logging.
+- P1.1: Removed blue radial background gradient; replaced all teal/hardcoded colors (`#1c5871`, `#24404f`, `#1f6b57`, `#185745`) with `--color-green-*` / `--color-amber-*` tokens; added `--color-amber-light` and `--color-surface-inner` tokens.
+- P1.2: Added `--focus-ring` / `--focus-offset` tokens; unified all 14 `:focus-visible` outline declarations across the stylesheet.
+- P1.3: Expanded dark mode block from 3-variable surface-only to full override (surfaces, text, borders, amber, error tokens, `color-scheme: dark`). Tokenized inputs, secondary buttons, confirmation-reject, status-card dt/dd, eyebrow, prompt text.
+- P1.4: PTT early-return when `!state.enabled`: renders only setup banner (no large disabled talk button). Tests updated.
+- P1.5: Endpoint-adjacent `settings-inline-loading` spinner added to planner panel when loading models.
+- P2.1: Documented Google Fonts network dependency in `index.html` comment.
+- P2.2: Audio capture lock failure now observable: `AtomicBool` flag in `CaptureSession`; one-shot `tracing::warn!` on first poisoned-mutex callback; `snapshot()` returns error if flag is set.
+- P2.3: `mock_executor_impl.rs` exempted from 600-line target with comment explaining why (full trait implementation is a unified test double).
+- P2.4: TODO all marked DONE, full validation passed, memory.md updated.
+- Final commit range: `fbc4d2a` – `069985f` on master. 10 commits total.
+
 ## 2026-06-28T22:52:12Z - Claude Sonnet 4.6 - UIUX_IMPROVEMENTS2_TODO.md Phase 7 complete
 
 - Phase 7.1: Added `.panel-error-dismiss` CSS and "Dismiss" button to all panel error displays. `onDismissError?` threaded through `SettingsPanelSectionOptions` and all panel handler interfaces; wired via `setXxxPanelState({ error: null })` in `app.tsx` for every panel. Added new setter imports: `setAsrProviderPanelState`, `setStatusPanelState`, `setTtsModelPanelState`, `setTtsProviderPanelState`, `setTtsVoicePanelState`.

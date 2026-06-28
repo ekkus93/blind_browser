@@ -27,7 +27,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --all-features
 
 ## P0.1 — Fix false “model list loaded/up to date” planner state
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/planner-actions.ts`
@@ -216,7 +216,7 @@ test("manual planner model does not render as a verified loaded model list", () 
 
 ## P0.2 — Preserve structured backend `ToolError` in frontend API wrappers
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/api/errors.ts`
@@ -337,7 +337,7 @@ test("unwrapToolResult preserves structured backend tool errors", () => {
 
 ## P0.3 — Make external-link open failures visible to users
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/panel-state-setters.ts`
@@ -400,7 +400,7 @@ Use the actual setter available in this codebase. Do not leave the fallback as c
 
 ## P1.1 — Complete CSS token cleanup and remove teal/blue remnants
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -569,7 +569,7 @@ Expected: no matches unless commented as intentional compatibility fallback.
 
 ## P1.2 — Complete focus-ring unification
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -644,7 +644,7 @@ Manually inspect every block. Every visible outline must use `var(--focus-ring)`
 
 ## P1.3 — Finish dark mode
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -756,7 +756,7 @@ Manual check dark mode.
 
 ## P1.4 — Fix push-to-talk setup-required visual hierarchy
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/confirmation-panels/push-to-talk.tsx`
@@ -840,7 +840,7 @@ assert.match(enabledHtml, /data-push-to-talk-button="true"/);
 
 ## P1.5 — Improve planner loading indicator placement and copy
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/settings-panels/planner.tsx`
@@ -894,7 +894,7 @@ Use `Refresh model list`, not `Load models`, except maybe for first-load copy if
 
 ## P2.1 — Bundle fonts locally or document network-font dependency explicitly
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `index.html`
@@ -925,7 +925,7 @@ If you do not bundle fonts in this pass, add an explicit docs note:
 
 ## P2.2 — Make audio capture lock failure observable
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/asr/capture.rs`
@@ -971,7 +971,7 @@ If you choose not to surface this as a user-visible error, add a comment explain
 
 ## P2.3 — Resolve or document the >600-line non-CSS fixture
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/commands/tests/fixtures/mock_executor_impl.rs`
@@ -1014,7 +1014,7 @@ Then either:
 
 ## P2.4 — Add final validation and memory entry
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `memory.md`
