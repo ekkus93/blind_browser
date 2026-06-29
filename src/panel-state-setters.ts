@@ -2,6 +2,7 @@ import { appShellStore } from "./store";
 import {
   setAppView as setAppShellView,
   setSettingsView as setAppShellSettingsView,
+  setAppAlertPanelState as setAppAlertPanelStoreState,
   setAsrProviderPanelState as setAsrProviderPanelStoreState,
   setAudioControlsPanelState as setAudioControlsPanelStoreState,
   setConfirmationSettingsPanelState as setConfirmationSettingsPanelStoreState,
@@ -23,6 +24,7 @@ import {
 import { openExternalUrl } from "./tauri-api";
 import type { AppView, SettingsView } from "./app-shell";
 import type {
+  AppAlertState,
   AsrProviderPanelState,
   AudioControlsPanelState,
   ConfirmationSettingsPanelState,
@@ -62,12 +64,17 @@ function describeExternalLinkFailure(url: string, error: unknown): string {
   return `Could not open the external link. Copy this URL and open it manually: ${url}.${detail}`;
 }
 
+export function setAppAlertState(nextState: Partial<AppAlertState>) {
+  appShellStore.dispatch(setAppAlertPanelStoreState(nextState));
+}
+
 export function openExternalLink(url: string) {
   void openExternalUrl({ url }).catch((error) => {
     console.error("Failed to open external link.", error);
-    appShellStore.dispatch(setUrlInputPanelStoreState({
-      error: describeExternalLinkFailure(url, error),
-    }));
+    setAppAlertState({
+      kind: "error",
+      message: describeExternalLinkFailure(url, error),
+    });
   });
 }
 

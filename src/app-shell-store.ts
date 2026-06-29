@@ -47,6 +47,9 @@ const panelStateSlice = createSlice({
   name: "panelStates",
   initialState: initialPanelStates,
   reducers: {
+    setAppAlertPanelState(state, action: PayloadAction<Partial<PanelStates["appAlertState"]>>) {
+      Object.assign(state.appAlertState, action.payload);
+    },
     setPushToTalkPanelState(state, action: PayloadAction<Partial<PanelStates["pushToTalkState"]>>) {
       Object.assign(state.pushToTalkState, action.payload);
     },
@@ -159,6 +162,7 @@ const executionUiSlice = createSlice({
 
 export const { setAppView, setSettingsView } = appShellViewSlice.actions;
 export const {
+  setAppAlertPanelState,
   setPushToTalkPanelState,
   setAudioControlsPanelState,
   setRemotePlannerPanelState,

@@ -1,4 +1,5 @@
 import type {
+  AppAlertState,
   AudioControlsPanelState,
   AsrProviderPanelState,
   ConfirmationSettingsPanelState,
@@ -19,6 +20,7 @@ import type {
 } from "./confirmation-panel";
 
 export interface PanelStates {
+  appAlertState: AppAlertState;
   pushToTalkState: PushToTalkPanelState;
   audioControlsState: AudioControlsPanelState;
   remotePlannerPanelState: RemotePlannerPanelState;
@@ -40,6 +42,10 @@ export interface PanelStates {
 
 export function createInitialPanelStates(): PanelStates {
   return {
+    appAlertState: {
+      kind: "info",
+      message: null,
+    },
     pushToTalkState: {
       enabled: true,
       isHolding: false,

@@ -27,7 +27,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --all-features
 
 ## P0.1 — Make external-link failures visible in settings
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/panel-types.ts`
@@ -311,7 +311,7 @@ Expected:
 
 ## P0.2 — Preserve verified planner model-list state across runtime refresh
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/runtime-refresh.ts`
@@ -434,7 +434,7 @@ Manual flow:
 
 ## P1.1 — Fix CSS token cascade and `--color-surface-inner`
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -552,7 +552,7 @@ PY
 
 ## P1.2 — Tokenize remaining hardcoded light-mode surfaces and text
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -636,7 +636,7 @@ Manual check:
 
 ## P1.3 — Restore URL action button focus ring
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -697,7 +697,7 @@ Every visible focus outline should use shared focus tokens unless an explicit co
 
 ## P2.1 — Add final closeout tests/static audit
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - relevant `*.test.mjs` files
@@ -766,18 +766,18 @@ Do not fabricate the timestamp. Use the actual command output.
 
 ## Final done checklist
 
-- [ ] External-link failures render visible settings alert on every settings subpage.
-- [ ] External-link failure message includes copyable failed URL.
-- [ ] External-link alert can be dismissed.
-- [ ] `openExternalLink()` does not route failures into `urlInputPanelState.error`.
-- [ ] Runtime refresh does not clear the new settings/global alert.
-- [ ] Runtime refresh preserves an already verified planner model list when endpoint still matches.
-- [ ] Runtime refresh clears planner model list when endpoint changes or no verified list exists.
-- [ ] Runtime refresh does not synthesize model list from saved settings.
-- [ ] `--color-surface-inner` has a concrete light-mode value.
-- [ ] Dark-mode block appears after base `:root` block.
-- [ ] Remaining component-level hardcoded light text/surface values are tokenized or justified.
-- [ ] `.url-action-button:focus-visible` uses `--focus-ring` and `--focus-offset`.
-- [ ] Full validation gate passes.
-- [ ] Static audit commands pass or have documented intentional exceptions.
-- [ ] `memory.md` has a real UTC completion entry.
+- [x] External-link failures render visible settings alert on every settings subpage.
+- [x] External-link failure message includes copyable failed URL.
+- [x] External-link alert can be dismissed.
+- [x] `openExternalLink()` does not route failures into `urlInputPanelState.error`.
+- [x] Runtime refresh does not clear the new settings/global alert.
+- [x] Runtime refresh preserves an already verified planner model list when endpoint still matches.
+- [x] Runtime refresh clears planner model list when endpoint changes or no verified list exists.
+- [x] Runtime refresh does not synthesize model list from saved settings.
+- [x] `--color-surface-inner` has a concrete light-mode value.
+- [x] Dark-mode block appears after base `:root` block.
+- [x] Remaining component-level hardcoded light text/surface values are tokenized or justified.
+- [x] `.url-action-button:focus-visible` uses `--focus-ring` and `--focus-offset`.
+- [x] Full validation gate passes.
+- [x] Static audit commands pass or have documented intentional exceptions.
+- [x] `memory.md` has a real UTC completion entry.

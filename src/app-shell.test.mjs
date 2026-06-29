@@ -49,3 +49,22 @@ test("settings shell groups related sections in a logical order", async () => {
   assert.ok(html.indexOf('data-panel-root="settings-remote-planner"') < html.indexOf('data-panel-root="settings-tts-provider"'));
   assert.ok(html.indexOf('data-panel-root="settings-remote-asr"') < html.indexOf('data-panel-root="settings-model-management"'));
 });
+
+test("app-alert renders above both workspace and settings sections", async () => {
+  const alertHtml = '<section class="app-alert app-alert-error" role="alert">Could not open the external link. Copy this URL and open it manually: https://example.test/docs.</section>';
+
+  const workspaceHtml = await renderAppShell({
+    initialAppView: "workspace",
+    panelContent: { "app-alert": alertHtml },
+  });
+  assert.match(workspaceHtml, /Could not open the external link/);
+  assert.ok(workspaceHtml.indexOf("app-alert") < workspaceHtml.indexOf('data-app-view-section="workspace"'));
+
+  const settingsHtml = await renderAppShell({
+    initialAppView: "settings",
+    initialSettingsView: "planner",
+    panelContent: { "app-alert": alertHtml },
+  });
+  assert.match(settingsHtml, /Could not open the external link/);
+  assert.ok(settingsHtml.indexOf("app-alert") < settingsHtml.indexOf('data-settings-view-section="planner"'));
+});

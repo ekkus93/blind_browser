@@ -50,6 +50,8 @@ export function AppShellMarkup({
         {renderPanelContent("voice-status", panelContent)}
       </header>
 
+      {renderPanelContent("app-alert", panelContent)}
+
       <section
         className={`app-view${workspaceActive ? " app-view-active" : ""}`}
         data-app-view-section="workspace"
@@ -219,7 +221,13 @@ export function AppShellRuntime(props: {
   );
 }
 
-export async function renderAppShell(): Promise<string> {
+export async function renderAppShell(props?: Partial<AppShellMarkupProps>): Promise<string> {
   const { renderToStaticMarkup } = await import("react-dom/server");
-  return renderToStaticMarkup(renderShellTree("workspace", "overview"));
+  return renderToStaticMarkup(renderShellTree(
+    props?.initialAppView ?? "workspace",
+    props?.initialSettingsView ?? "overview",
+    props?.panelContent,
+    props?.navigationHandlers,
+    props?.settingsStatuses,
+  ));
 }

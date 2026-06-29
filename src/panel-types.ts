@@ -182,6 +182,11 @@ export interface SettingsGuidancePanelState {
   actions: SettingsGuidancePanelAction[];
 }
 
+export interface AppAlertState {
+  kind: "error" | "warning" | "info";
+  message: string | null;
+}
+
 export interface UrlInputPanelState {
   draftValue: string;
   currentUrl: string | null;

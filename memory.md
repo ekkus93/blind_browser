@@ -1,3 +1,13 @@
+## 2026-06-29T01:18:46Z - Claude Sonnet 4.6 - BLIND_BROWSER_UIUX_FIX4_TODO.md all tasks complete
+
+- All P0, P1, and P2 tasks implemented. Full validation gate: 104 JS tests, 309 Rust tests, lint/clippy/build/tsc all clean.
+- P0.1: Added global `AppAlertState` + `"app-alert"` panel root rendered between header and workspace/settings sections — visible in all views. `openExternalLink()` now routes failures to `setAppAlertState()` instead of `urlInputPanelState.error`. Renderer in `src/app-alert-panel.tsx`.
+- P0.2: Extracted `applyAgentStateToPanels()` as exported function in `runtime-refresh.ts`. Preserves `availableModels`/`loadedModelsEndpoint` when refreshed endpoint matches current verified endpoint; clears on mismatch or no verified list. 3 regression tests added in `runtime-refresh.test.mjs`.
+- P1.1: Fixed self-referential `--color-surface-inner: var(--color-surface-inner)` → concrete `rgba(255, 255, 255, 0.68)`. Added `--color-error-light` token. Reordered CSS so dark mode `@media` block appears after base `:root` (was before, causing cascade override).
+- P1.2: Tokenized `.voice-status-strip`, `.url-input-label`, `.status-toggle-button`, `.settings-control-card`, `.settings-control-card-readonly`, `.settings-control-label`, `.settings-control-value`, `.confirmation-panel`, `.confirmation-meta dt/h3/dd` — all use `--color-*` tokens now.
+- P1.3: Split `.url-action-button:hover:not(:disabled)` from `:focus-visible`; restored `outline: var(--focus-ring)` on focus.
+- P2.1: Static audits passed, full validation gate passed, memory.md updated.
+
 ## 2026-06-28T23:40:27Z - Claude Sonnet 4.6 - BLIND_BROWSER_UIUX_FIX3_TODO.md all tasks complete
 
 - All P0, P1, and P2 tasks implemented and committed. Full validation gate: 100 JS tests, 309 Rust tests, lint/clippy/build/tsc all clean.

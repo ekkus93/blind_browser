@@ -2,9 +2,11 @@ import { useSelector } from "react-redux";
 
 import { AppShellRuntime } from "./app-shell.tsx";
 import { type AppShellState } from "./app-shell-store";
+import { renderAppAlertPanelNode } from "./app-alert-panel.tsx";
 import {
   focusSettingsTarget,
   openExternalLink,
+  setAppAlertState,
   setAppView,
   setAsrProviderPanelState,
   setAudioControlsState,
@@ -94,6 +96,9 @@ export function BlindBrowserApp() {
       }}
       settingsStatuses={deriveSettingsStatuses(panelStates)}
       panelContent={{
+        "app-alert": renderAppAlertPanelNode(panelStates.appAlertState, {
+          onDismiss: () => { setAppAlertState({ message: null }); },
+        }),
         "voice-status": renderVoiceStatusStripNode({
           isListening: panelStates.pushToTalkState.isListening,
           isSpeaking: panelStates.statusPanelState.speaking,

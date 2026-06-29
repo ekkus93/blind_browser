@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 import { ArrowBackIcon, SettingsIcon } from "./icons.tsx";
 
 export type PanelRootKey =
+  | "app-alert"
   | "push-to-talk"
   | "url-input"
   | "status"
