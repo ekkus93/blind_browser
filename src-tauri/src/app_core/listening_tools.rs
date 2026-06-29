@@ -1,10 +1,72 @@
 use super::voice_tools::asr_runtime_error_to_tool_error;
-use crate::asr::{DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS};
+use crate::asr::{AsrTranscription, DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS};
 use crate::commands::{
     ExecutionOutcome, StartListeningData, StartListeningInput, StopListeningData,
     StopListeningInput, ToolError, ToolName, ToolResult, TranscribeCommandData,
     TranscribeCommandInput,
 };
+use crate::state::ListeningState;
+
+/// Build the observation strings shared by both transcription success paths.
+fn build_transcribe_observations(
+    requested_duration_ms: u64,
+    effective_duration_ms: u64,
+    timeout_ms: Option<u64>,
+    transcript_present: bool,
+) -> Vec<String> {
+    let mut observations = vec![String::from(
+        "Captured microphone audio and ran deterministic speech transcription.",
+    )];
+    if requested_duration_ms > MAX_TRANSCRIBE_DURATION_MS {
+        observations.push(format!(
+            "Requested capture duration was clamped to the supported maximum of {} ms.",
+            MAX_TRANSCRIBE_DURATION_MS
+        ));
+    }
+    if timeout_ms.is_some_and(|timeout_ms| timeout_ms < effective_duration_ms) {
+        observations.push(String::from(
+            "Capture duration was reduced to respect the requested tool timeout.",
+        ));
+    }
+    observations.push(if transcript_present {
+        String::from("ASR returned a non-empty spoken command transcript.")
+    } else {
+        String::from("ASR completed but did not detect a spoken command transcript.")
+    });
+    observations
+}
+
+/// Build the shared `TranscribeCommand` success `ToolResult` from a completed ASR
+/// transcription. Used by both transcription paths — the lock-released handler path
+/// ([`super::AppCore::finish_transcribe_command`]) and the planner-dispatched
+/// lock-held tool path ([`super::AppCore::execute_transcribe_command`]) — so the
+/// observation wording and result shape cannot drift apart.
+fn transcribe_success_result(
+    request_id: String,
+    requested_duration_ms: u64,
+    effective_duration_ms: u64,
+    timeout_ms: Option<u64>,
+    asr_result: AsrTranscription,
+    listening_state: ListeningState,
+) -> ToolResult<TranscribeCommandData> {
+    let observations = build_transcribe_observations(
+        requested_duration_ms,
+        effective_duration_ms,
+        timeout_ms,
+        asr_result.transcript.is_some(),
+    );
+    ToolResult::success(
+        ToolName::TranscribeCommand,
+        request_id,
+        TranscribeCommandData {
+            transcript: asr_result.transcript,
+            confidence: asr_result.confidence,
+            audio_duration_ms: asr_result.audio_duration_ms,
+            listening_state,
+        },
+        observations,
+    )
+}
 
 /// Plan carried across the unlocked audio-capture window between
 /// [`super::AppCore::begin_transcribe_command`] and
@@ -76,6 +138,12 @@ impl super::AppCore {
         )
     }
 
+    /// Planner-dispatched `TranscribeCommand` tool path. Runs synchronously under
+    /// the held `AppCore` lock by design — it executes inside a plan as one locked
+    /// transaction (already off the main thread). The top-level handler path
+    /// ([`Self::begin_transcribe_command`] / [`Self::finish_transcribe_command`])
+    /// instead releases the lock across the capture window. Both share
+    /// [`transcribe_success_result`] for result/observation construction.
     pub fn execute_transcribe_command(
         &mut self,
         input: TranscribeCommandInput,
@@ -114,40 +182,13 @@ impl super::AppCore {
             Ok(result) => {
                 self.state.set_listening(result.listening_active);
                 self.state.record_transcript(result.transcript.clone());
-
-                let mut observations = vec![String::from(
-                    "Captured microphone audio and ran deterministic speech transcription.",
-                )];
-                if requested_duration_ms > MAX_TRANSCRIBE_DURATION_MS {
-                    observations.push(format!(
-                        "Requested capture duration was clamped to the supported maximum of {} ms.",
-                        MAX_TRANSCRIBE_DURATION_MS
-                    ));
-                }
-                if input
-                    .timeout_ms
-                    .is_some_and(|timeout_ms| timeout_ms < effective_duration_ms)
-                {
-                    observations.push(String::from(
-                        "Capture duration was reduced to respect the requested tool timeout.",
-                    ));
-                }
-                observations.push(if result.transcript.is_some() {
-                    String::from("ASR returned a non-empty spoken command transcript.")
-                } else {
-                    String::from("ASR completed but did not detect a spoken command transcript.")
-                });
-
-                ToolResult::success(
-                    ToolName::TranscribeCommand,
+                transcribe_success_result(
                     input.request_id,
-                    TranscribeCommandData {
-                        transcript: result.transcript,
-                        confidence: result.confidence,
-                        audio_duration_ms: result.audio_duration_ms,
-                        listening_state: self.state.listening.clone(),
-                    },
-                    observations,
+                    requested_duration_ms,
+                    effective_duration_ms,
+                    input.timeout_ms,
+                    result,
+                    self.state.listening.clone(),
                 )
             }
             Err(error) => {
@@ -228,6 +269,10 @@ impl super::AppCore {
     /// Phase 2 of a lock-released transcription: drain the captured audio, run the
     /// configured ASR backend, and record the transcript + listening state. Called
     /// after the unlocked capture window, with the `AppCore` lock re-acquired.
+    ///
+    /// Counterpart to the planner-dispatched [`Self::execute_transcribe_command`],
+    /// which runs under the held lock; both share [`transcribe_success_result`] for
+    /// the success result/observation construction.
     pub fn finish_transcribe_command(
         &mut self,
         plan: TranscribeCapturePlan,
@@ -239,40 +284,13 @@ impl super::AppCore {
             Ok(Some(result)) => {
                 self.state.set_listening(result.listening_active);
                 self.state.record_transcript(result.transcript.clone());
-
-                let mut observations = vec![String::from(
-                    "Captured microphone audio and ran deterministic speech transcription.",
-                )];
-                if plan.requested_duration_ms > MAX_TRANSCRIBE_DURATION_MS {
-                    observations.push(format!(
-                        "Requested capture duration was clamped to the supported maximum of {} ms.",
-                        MAX_TRANSCRIBE_DURATION_MS
-                    ));
-                }
-                if plan
-                    .timeout_ms
-                    .is_some_and(|timeout_ms| timeout_ms < plan.effective_duration_ms)
-                {
-                    observations.push(String::from(
-                        "Capture duration was reduced to respect the requested tool timeout.",
-                    ));
-                }
-                observations.push(if result.transcript.is_some() {
-                    String::from("ASR returned a non-empty spoken command transcript.")
-                } else {
-                    String::from("ASR completed but did not detect a spoken command transcript.")
-                });
-
-                ToolResult::success(
-                    ToolName::TranscribeCommand,
+                transcribe_success_result(
                     plan.request_id,
-                    TranscribeCommandData {
-                        transcript: result.transcript,
-                        confidence: result.confidence,
-                        audio_duration_ms: result.audio_duration_ms,
-                        listening_state: self.state.listening.clone(),
-                    },
-                    observations,
+                    plan.requested_duration_ms,
+                    plan.effective_duration_ms,
+                    plan.timeout_ms,
+                    result,
+                    self.state.listening.clone(),
                 )
             }
             Ok(None) => {

@@ -181,7 +181,7 @@ setters) can stay as they are, but verify they do not contend on a held lock.
 
 ### P1.1.2 — Release the lock across the audio capture window
 
-**Status:** BLOCKED (requires CaptureHandle extraction and multi-phase transcribe restructuring; see spec section 2)
+**Status:** DONE (async-runtime Phase 2 — `begin_capture`/`finish_capture` keep the `CaptureSession` in `AsrController` so the lock is released across the capture sleep; `stop_listening` can interrupt mid-window, regression test added)
 
 Restructure the capture path so the `AppCore` guard is not held during the
 `thread::sleep` capture window. Acquire briefly to start/inspect the session,
@@ -191,13 +191,15 @@ an in-flight capture.
 
 ### P1.1.3 — Release the lock across remote network calls
 
-**Status:** BLOCKED (requires CaptureHandle extraction and multi-phase transcribe restructuring; see spec section 2)
+**Status:** DEFERRED (async-runtime Phase 3, tracked in `BB_RUNTIME_PHASE3_TODO.md` P2.1/P2.2 as optional/low-value — remote-provider only; the project defaults to local. Consciously not implemented.)
 
 Apply the same scoping to the remote planner, remote ASR, and model-download
 paths: resolve the inputs under the lock, drop the guard, perform the network call
 on a blocking thread, then re-acquire to apply results.
 
 ### P1.1.4 — Confirm the CDP handler keeps progressing
+
+**Status:** DONE (async-runtime Phase 1 — browser-reaching commands run their blocking section in `spawn_blocking` on the multi-thread runtime's blocking pool, so the spawned `chromiumoxide` handler future keeps progressing; live `--features full` verification still pending)
 
 After the browser-op commands stop blocking the main thread, confirm navigation /
 extraction still work and the spawned `chromiumoxide` handler future is not
@@ -389,9 +391,13 @@ old timestamp.
       work off the main thread, and Phase 2 releases the lock across the capture
       window. Remote planner/ASR calls still hold the lock — Phase 3 / P1.1.3,
       deferred. Live `--features full` verification still pending.)
-- [ ] The AppCore lock is not held across blocking capture / network calls. (P1.1.2/P1.1.3 BLOCKED — requires CaptureHandle extraction)
-- [ ] `stop_listening` can interrupt an active capture; `get_agent_state` returns
-      promptly during an active operation. (BLOCKED — depends on P1.1.2)
+- [x] The AppCore lock is not held across the blocking capture window (P1.1.2 DONE,
+      async-runtime Phase 2). The remote-network half (P1.1.3 / Phase 3) is
+      consciously deferred — remote-provider only; see `BB_RUNTIME_PHASE3_TODO.md`.
+- [x] `stop_listening` can interrupt an active capture (async-runtime Phase 2 —
+      code + regression test landed; live `--features full` verification pending).
+      `get_agent_state` returns promptly during a capture window; the during-a-
+      remote-network-call case is Phase 3 / consciously deferred.
 - [x] No `MutexGuard` is held across an `.await`.
 - [x] Planner execution returns an Aborted outcome instead of panicking on a
       missing step position.
