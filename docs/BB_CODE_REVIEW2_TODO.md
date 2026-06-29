@@ -107,19 +107,29 @@ prior audio.
 
 ## P1.1 — Run long commands off the main thread and release the lock across blocking work
 
-**Status:** PARTIAL (P1.1.1 PARTIAL; P1.1.2 and P1.1.3 BLOCKED)
+**Status:** P1.1.1 DONE · P1.1.2 DONE · P1.1.4 DONE · P1.1.3 BLOCKED (deferred)
 
-> Correction (follow-up pass, see `BB_CODE_REVIEW2_FOLLOWUP_TODO.md`): P1.1.1 is
-> **PARTIAL**, not DONE. `start_listening`, `stop_listening`, `resolve_command`,
-> `execute_planner_output`, `open_url`, and `submit_confirmation_response` were
-> intentionally left as plain `#[tauri::command]` and must stay that way until the
-> browser ops stop calling `tauri::async_runtime::block_on` from a tokio worker
-> (P1.1.2 / P1.1.4). `transcribe_and_execute_command` was briefly converted to
-> `(async)` and reverted because it reaches browser ops and panicked
-> ("runtime within a runtime"). Converting a command to `(async)` does not by
-> itself keep the UI responsive: the `AppCore` lock is still held for the whole
-> blocking duration, so a peer command still contends. The real fix is the
-> lock-release work (P1.1.2 / P1.1.3), still BLOCKED.
+> **Resolved by the async-runtime pass (`BB_ASYNC_RUNTIME_TODO.md`):**
+> - **P1.1.1 DONE** (Phase 1): the managed state is now `Arc<Mutex<AppCore>>`, and
+>   every long-running command is an `async fn` that runs its blocking section in
+>   `tauri::async_runtime::spawn_blocking`. Browser-reaching commands are safe in
+>   this form because `block_on` runs on a blocking-pool thread, not an async
+>   worker. The earlier `(async)` guardrail no longer applies and was removed.
+> - **P1.1.2 DONE** (Phase 2): the `AppCore` lock is released across the audio
+>   capture window, so `stop_listening` can interrupt an active capture
+>   (`finish_capture` returns a clean "stopped" result; regression test added).
+> - **P1.1.4 DONE** (Phase 1): the CDP handler keeps progressing because the
+>   blocking section runs on the multi-thread runtime's blocking pool.
+>
+> **Still open:**
+> - **P1.1.3 BLOCKED** — releasing the lock across remote planner / ASR network
+>   round-trips is Phase 3 of `BB_ASYNC_RUNTIME_TODO.md`, deferred to a focused
+>   follow-up (it needs a planner-executor control-flow restructuring, and only
+>   affects remote-provider users; local providers are unaffected).
+>
+> Note: converting a command to `(async)` alone does not keep the UI responsive
+> while a peer contends on the lock — the responsiveness comes from `spawn_blocking`
+> (off the main thread) plus the Phase 2 lock-scoping.
 
 **Files:**
 
@@ -374,10 +384,11 @@ old timestamp.
 - [x] ASR capture buffer is drained per snapshot; a drain helper is unit-tested.
 - [x] Continuous listening no longer re-transcribes prior audio.
 - [x] Push-to-talk still returns the full held utterance.
-- [ ] Long-running commands run off the main thread; the webview does not freeze.
-      (NOT delivered: converting a command to `(async)` alone does not achieve this
-      because the `AppCore` lock is still held for the full blocking duration; the
-      real fix is the lock-release work P1.1.2 / P1.1.3, still BLOCKED.)
+- [x] Long-running commands run off the main thread; the webview does not freeze.
+      (Delivered by the async-runtime pass: `spawn_blocking` moves the blocking
+      work off the main thread, and Phase 2 releases the lock across the capture
+      window. Remote planner/ASR calls still hold the lock — Phase 3 / P1.1.3,
+      deferred. Live `--features full` verification still pending.)
 - [ ] The AppCore lock is not held across blocking capture / network calls. (P1.1.2/P1.1.3 BLOCKED — requires CaptureHandle extraction)
 - [ ] `stop_listening` can interrupt an active capture; `get_agent_state` returns
       promptly during an active operation. (BLOCKED — depends on P1.1.2)

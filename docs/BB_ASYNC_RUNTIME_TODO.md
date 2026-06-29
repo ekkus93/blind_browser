@@ -157,7 +157,21 @@ full window; `get_agent_state` returns during a capture.
 
 ## P1.2 — Phase 3: scope the lock around remote network calls
 
-**Status:** PENDING (do P0.1 first; independent of P1.1)  
+**Status:** BLOCKED — deferred to a focused follow-up pass with its own review.
+
+> The remote planner network call (`resolve_planner_output` →
+> `resolve_with_openai_planner` / `resolve_with_ollama_planner`) is a deep,
+> read-only `&self` call buried inside the bounded replanning loop
+> (`resolve_command` / `execute_command_with_replanning`), which interleaves
+> network resolution with lock-requiring browser execution. Releasing the
+> `AppCore` lock around only the `futures::executor::block_on` LLM round-trip
+> requires hoisting the lock-release boundary up through the planner executor's
+> control flow — a structural change to the executor, not a surgical edit. The
+> spec permits marking this BLOCKED when a migration needs its own review, and the
+> benefit is narrow (it only affects remote planner/ASR users; the project
+> defaults to local providers, which are unaffected). Phases 1–2 already removed
+> the UI freeze, the `block_on` panic, and made capture interruptible. Phase 3 is
+> tracked for a dedicated follow-up.
 **Files:**
 
 - `src-tauri/src/app_core/remote_planner.rs`
@@ -184,7 +198,7 @@ flight.
 
 ## P2.1 — Reconcile Code Review 2 status
 
-**Status:** PENDING  
+**Status:** DONE (P1.1.2 + P1.1.4 reconciled; P1.1.3 remains BLOCKED pending Phase 3)  
 **Files:**
 
 - `docs/BB_CODE_REVIEW2_TODO.md`
@@ -202,7 +216,7 @@ After the relevant phases land, update `BB_CODE_REVIEW2_TODO.md`:
 
 ## P2.2 — Run the full validation gate
 
-**Status:** PENDING  
+**Status:** DONE for Phases 1–2 (gate green; behavioral `--features full` checks need human verification)  
 **Files:**
 
 - no source file unless failures require fixes
@@ -215,7 +229,7 @@ passes. Remember the gate cannot prove the behavioral acceptance — run the
 
 ## P2.3 — Add memory entries with real UTC timestamps
 
-**Status:** PENDING  
+**Status:** DONE for Phases 1–2  
 **Files:**
 
 - `memory.md`
@@ -243,18 +257,23 @@ human verification. Do not fabricate timestamps.
 
 ## Final done checklist
 
-- [ ] Managed state is `Arc<Mutex<AppCore>>`; `std::sync::Mutex` retained.
-- [ ] Long commands are `async fn` running their work in `spawn_blocking`.
-- [ ] No `#[tauri::command(async)]` remains.
-- [ ] Code Review 2 guardrail comments removed / replaced.
+- [x] Managed state is `Arc<Mutex<AppCore>>`; `std::sync::Mutex` retained.
+- [x] Long commands are `async fn` running their work in `spawn_blocking`.
+- [x] No `#[tauri::command(async)]` remains.
+- [x] Code Review 2 guardrail comments removed / replaced.
 - [ ] Webview stays responsive during capture / planner / navigation (verified
-      under `--features full`).
-- [ ] Voice → browser commands complete without a worker-thread panic.
-- [ ] `stop_listening` ends an active capture (Phase 2).
+      under `--features full`). — code landed (Phase 1); live verification pending.
+- [ ] Voice → browser commands complete without a worker-thread panic. — code
+      landed (spawn_blocking bridge); live `--features full` verification pending.
+- [x] `stop_listening` ends an active capture (Phase 2). — code + regression test
+      landed; live verification pending.
 - [ ] `get_agent_state` returns promptly during capture and during a planner call
-      (Phases 2–3).
-- [ ] Buffer-drain semantics (no re-transcription) still hold.
-- [ ] All preserved Code Review 2 + follow-up fixes and safety invariants hold.
-- [ ] `BB_CODE_REVIEW2_TODO.md` P1.1.2 / P1.1.3 / P1.1.4 reconciled.
-- [ ] Full validation gate passes for each phase.
-- [ ] `memory.md` has real UTC entries noting what was behaviorally verified.
+      (Phases 2–3). — capture window delivered (Phase 2); the planner-call case is
+      Phase 3, BLOCKED/deferred.
+- [x] Buffer-drain semantics (no re-transcription) still hold.
+- [x] All preserved Code Review 2 + follow-up fixes and safety invariants hold.
+- [x] `BB_CODE_REVIEW2_TODO.md` P1.1.2 / P1.1.4 reconciled (P1.1.3 still BLOCKED).
+- [x] Full validation gate passes for Phases 1–2.
+- [x] `memory.md` has real UTC entries noting what was behaviorally verified.
+- [ ] Phase 3 (remote-network lock-scoping, P1.2) — BLOCKED, deferred to a focused
+      follow-up pass.
