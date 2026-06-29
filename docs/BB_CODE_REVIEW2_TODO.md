@@ -35,7 +35,7 @@ developer environment.
 
 ## P0.1 — Drain the audio capture buffer on each snapshot
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/asr/capture.rs`
@@ -203,7 +203,7 @@ migration that needs its own review.
 
 ## P1.2 — Replace main-thread panics with error returns
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/commands/planner_executor/execution.rs`
@@ -257,7 +257,7 @@ the WAV short-input error path if the helper is testable.
 
 ## P2.1 — Minor cleanups and hardening
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/app_core/mod.rs`
@@ -298,7 +298,7 @@ zeroized / cleared; CI runs `cargo fmt --check`.
 
 ## P2.2 — Run the full validation gate
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - no source file unless failures require fixes
@@ -323,7 +323,7 @@ memory entry.
 
 ## P2.3 — Add Code Review 2 memory entry with real UTC timestamp
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `memory.md`
@@ -358,22 +358,22 @@ old timestamp.
 
 ## Final done checklist
 
-- [ ] ASR capture buffer is drained per snapshot; a drain helper is unit-tested.
-- [ ] Continuous listening no longer re-transcribes prior audio.
-- [ ] Push-to-talk still returns the full held utterance.
-- [ ] Long-running commands run off the main thread; the webview does not freeze.
-- [ ] The AppCore lock is not held across blocking capture / network calls.
+- [x] ASR capture buffer is drained per snapshot; a drain helper is unit-tested.
+- [x] Continuous listening no longer re-transcribes prior audio.
+- [x] Push-to-talk still returns the full held utterance.
+- [x] Long-running commands run off the main thread; the webview does not freeze.
+- [ ] The AppCore lock is not held across blocking capture / network calls. (P1.1.2/P1.1.3 BLOCKED — requires CaptureHandle extraction)
 - [ ] `stop_listening` can interrupt an active capture; `get_agent_state` returns
-      promptly during an active operation.
-- [ ] No `MutexGuard` is held across an `.await`.
-- [ ] Planner execution returns an Aborted outcome instead of panicking on a
+      promptly during an active operation. (BLOCKED — depends on P1.1.2)
+- [x] No `MutexGuard` is held across an `.await`.
+- [x] Planner execution returns an Aborted outcome instead of panicking on a
       missing step position.
-- [ ] `model_management` display name no longer uses `unreachable!()`.
-- [ ] `tts/wav.rs` returns an error on short / malformed input.
-- [ ] ID helpers are collapsed / de-duplicated.
-- [ ] Cached secrets are zeroized or cleared on update.
-- [ ] CI runs `cargo fmt --check`.
-- [ ] Preserved safety invariants (confirmation gating, side-effect block,
+- [x] `model_management` display name no longer uses `unreachable!()`.
+- [x] `tts/wav.rs` returns an error on short / malformed input.
+- [x] ID helpers are collapsed / de-duplicated.
+- [x] Cached secrets are zeroized or cleared on update.
+- [x] CI runs `cargo fmt --check`.
+- [x] Preserved safety invariants (confirmation gating, side-effect block,
       step-cycle detection, planner validation) still hold.
-- [ ] Full validation gate passes.
-- [ ] `memory.md` has a real UTC Code Review 2 completion entry.
+- [x] Full validation gate passes.
+- [x] `memory.md` has a real UTC Code Review 2 completion entry.
