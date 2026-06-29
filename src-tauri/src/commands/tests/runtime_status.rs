@@ -162,4 +162,3 @@ fn get_runtime_status_reports_null_provider_modes_when_not_requested() {
         .expect("provider_modes field should still be present in serialized output");
     assert_eq!(provider_modes, &serde_json::Value::Null);
 }
-

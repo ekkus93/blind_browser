@@ -22,8 +22,6 @@ const MAX_SCROLL_AMOUNT_PX: f32 = crate::commands::MAX_SCROLL_AMOUNT_PX;
 const MAX_COMMAND_REPLAN_CYCLES: usize = 1;
 const MAX_DIRECT_FIELD_CANDIDATE_NAMES: usize = 2;
 
-
-
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct ManagedLocalModelStatusData {
     pub profile_name: Option<String>,
@@ -96,9 +94,9 @@ use element_scoring::region_bbox_by_id;
 
 mod interaction_tools;
 
-mod voice_tools;
-mod reading_tools;
 mod listening_tools;
+mod reading_tools;
+mod voice_tools;
 
 mod planner_prompt;
 
@@ -249,36 +247,28 @@ impl AppCore {
         )
     }
 
-    fn next_confirmation_id(&self, request_id: &str) -> String {
+    fn next_id(&self, prefix: &str, request_id: &str) -> String {
         let timestamp_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(duration) => duration.as_millis(),
             Err(_) => 0,
         };
-        format!("confirm-{request_id}-{timestamp_ms}")
+        format!("{prefix}-{request_id}-{timestamp_ms}")
+    }
+
+    fn next_confirmation_id(&self, request_id: &str) -> String {
+        self.next_id("confirm", request_id)
     }
 
     fn next_page_id(&self, request_id: &str) -> String {
-        let timestamp_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(duration) => duration.as_millis(),
-            Err(_) => 0,
-        };
-        format!("page-{request_id}-{timestamp_ms}")
+        self.next_id("page", request_id)
     }
 
     fn next_image_id(&self, request_id: &str) -> String {
-        let timestamp_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(duration) => duration.as_millis(),
-            Err(_) => 0,
-        };
-        format!("image-{request_id}-{timestamp_ms}")
+        self.next_id("image", request_id)
     }
 
     fn next_ocr_region_id(&self, request_id: &str) -> String {
-        let timestamp_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(duration) => duration.as_millis(),
-            Err(_) => 0,
-        };
-        format!("ocr-region-{request_id}-{timestamp_ms}")
+        self.next_id("ocr-region", request_id)
     }
 
     fn cached_image_dir(&self) -> Result<PathBuf, ToolError> {
@@ -317,7 +307,6 @@ impl AppCore {
         Ok(self.cached_image_dir()?.join(format!("{image_id}.png")))
     }
 }
-
 
 #[cfg(test)]
 mod tests;

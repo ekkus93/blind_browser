@@ -89,9 +89,8 @@ fn persists_asr_provider_selection_and_reloads_it() {
         failover_to_local: None,
     };
 
-    let persisted =
-        AppConfig::persist_asr_provider_selection_at_path(&path, &expected_selection)
-            .expect("asr provider selection should persist successfully");
+    let persisted = AppConfig::persist_asr_provider_selection_at_path(&path, &expected_selection)
+        .expect("asr provider selection should persist successfully");
     let reloaded = AppConfig::load_from_path(&path).expect("persisted config should reload");
 
     assert_eq!(persisted.providers.asr, expected_selection);
@@ -108,9 +107,8 @@ fn persists_tts_provider_selection_and_reloads_it() {
         failover_to_local: None,
     };
 
-    let persisted =
-        AppConfig::persist_tts_provider_selection_at_path(&path, &expected_selection)
-            .expect("tts provider selection should persist successfully");
+    let persisted = AppConfig::persist_tts_provider_selection_at_path(&path, &expected_selection)
+        .expect("tts provider selection should persist successfully");
     let reloaded = AppConfig::load_from_path(&path).expect("persisted config should reload");
 
     assert_eq!(persisted.providers.tts, expected_selection);
@@ -120,7 +118,6 @@ fn persists_tts_provider_selection_and_reloads_it() {
         let _ = std::fs::remove_dir_all(parent);
     }
 }
-
 
 #[test]
 fn persists_remote_planner_connection_settings_and_reloads_them() {

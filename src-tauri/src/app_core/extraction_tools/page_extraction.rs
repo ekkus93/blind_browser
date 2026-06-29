@@ -1,15 +1,15 @@
-use crate::commands::{
-    CaptureScreenshotInput, ExtractPageModelData, ExtractPageModelInput, GetPageSnapshotInput,
-    MergeOcrIntoPageModelInput, PageSnapshotData, RunOcrInput, ToolError, ToolName, ToolResult,
-    ScreenshotScope,
-};
-use crate::extractor::extract_structured_article_from_html;
+use super::ocr_tools::should_trigger_extract_page_model_ocr_fallback;
 use crate::app_core::ocr_merge::region_first_ocr_target_ids;
 use crate::app_core::page_model_builder::{
     build_extracted_page_model, build_visible_text_excerpt, extract_page_model_internal_failure,
     infer_extraction_source, nested_tool_failure_as_extract_page_model,
 };
-use super::ocr_tools::should_trigger_extract_page_model_ocr_fallback;
+use crate::commands::{
+    CaptureScreenshotInput, ExtractPageModelData, ExtractPageModelInput, GetPageSnapshotInput,
+    MergeOcrIntoPageModelInput, PageSnapshotData, RunOcrInput, ScreenshotScope, ToolError,
+    ToolName, ToolResult,
+};
+use crate::extractor::extract_structured_article_from_html;
 
 impl super::super::AppCore {
     pub fn execute_get_page_snapshot(
@@ -80,16 +80,14 @@ impl super::super::AppCore {
         };
         let page_metrics = match self.browser.get_page_metrics() {
             Ok(page_metrics) => page_metrics,
-            Err(error) => {
-                return self.browser_tool_failure(
-                    ToolName::GetPageSnapshot,
-                    input.request_id,
-                    String::from(
-                        "Live page snapshot metrics could not be read from the active browser page.",
-                    ),
-                    error,
-                )
-            }
+            Err(error) => return self.browser_tool_failure(
+                ToolName::GetPageSnapshot,
+                input.request_id,
+                String::from(
+                    "Live page snapshot metrics could not be read from the active browser page.",
+                ),
+                error,
+            ),
         };
 
         ToolResult::success(

@@ -40,7 +40,9 @@ pub(crate) use schemas::schema_json;
 #[cfg(test)]
 pub(crate) use skill_loader::{discover_skills, BUNDLED_SKILLS_MARKDOWN};
 #[cfg(test)]
-pub(crate) use skill_parser::{parse_bundled_skills, parse_intent_name_value, parse_skill_document};
+pub(crate) use skill_parser::{
+    parse_bundled_skills, parse_intent_name_value, parse_skill_document,
+};
 #[cfg(test)]
 pub(crate) use validators::{validate_confirm_action_input, validate_planned_step_arguments};
 

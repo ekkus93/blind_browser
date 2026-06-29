@@ -63,7 +63,7 @@ pub fn set_model_management_settings(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn download_active_local_tts_model(
     request_id: String,
     timeout_ms: Option<u64>,
@@ -82,7 +82,7 @@ pub fn download_active_local_tts_model(
         })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn download_active_local_asr_model(
     request_id: String,
     timeout_ms: Option<u64>,

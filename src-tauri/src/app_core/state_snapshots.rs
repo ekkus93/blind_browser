@@ -63,7 +63,10 @@ impl AppCore {
         build_ocr_threshold_settings(&self.config)
     }
 
-    pub(super) fn current_agent_state_snapshot(&self, include_last_transcript: bool) -> AgentStateData {
+    pub(super) fn current_agent_state_snapshot(
+        &self,
+        include_last_transcript: bool,
+    ) -> AgentStateData {
         AgentStateData {
             page_id: self.state.current_page_id.clone(),
             url: self

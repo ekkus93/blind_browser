@@ -41,7 +41,9 @@ pub(super) fn format_runtime_status_summary(runtime_status: &GetRuntimeStatusDat
     )
 }
 
-pub(super) fn current_page_label_from_runtime_status(runtime_status: &GetRuntimeStatusData) -> String {
+pub(super) fn current_page_label_from_runtime_status(
+    runtime_status: &GetRuntimeStatusData,
+) -> String {
     normalized_optional_text(runtime_status.title.as_deref())
         .or_else(|| normalized_optional_text(runtime_status.url.as_deref()))
         .unwrap_or_else(|| String::from("no page open"))

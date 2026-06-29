@@ -1,5 +1,9 @@
 #[cfg(any(feature = "remote-openai", test))]
-pub(crate) fn encode_wav_pcm16(samples: &[f32], sample_rate: u32, channels: u16) -> Result<Vec<u8>, String> {
+pub(crate) fn encode_wav_pcm16(
+    samples: &[f32],
+    sample_rate: u32,
+    channels: u16,
+) -> Result<Vec<u8>, String> {
     if sample_rate == 0 {
         return Err(String::from("sample rate must be greater than zero"));
     }

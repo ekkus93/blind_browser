@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use crate::config::RemoteProviderKind;
 #[cfg(feature = "remote-openai")]
 use crate::config::resolve_secret_ref;
+use crate::config::RemoteProviderKind;
 use reqwest::blocking::Client;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

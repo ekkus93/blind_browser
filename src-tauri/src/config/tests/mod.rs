@@ -2,19 +2,18 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::{
-    keyring_ref_for_remote_api_key, resolve_secret_ref, secret_ref_reference,
-    AppConfig, AudioSettings, ConfigError, KeyringRef, LocalAsrBackend,
-    LocalAsrProfile, LocalTtsBackend, LocalTtsProfile, ModelManagementSettings,
-    ProviderMode, ProviderSelection, ProviderSelections, RemoteAsrProfile, RemotePlannerProfile,
-    RemoteProviderKind, RemoteTtsAudioFormat, RemoteTtsProfile, SafetySettings, SecretRef,
-    SpeechFeedbackStyle,
-};
 use super::keyring_store::set_keyring_secret;
+use super::{
+    keyring_ref_for_remote_api_key, resolve_secret_ref, secret_ref_reference, AppConfig,
+    AudioSettings, ConfigError, KeyringRef, LocalAsrBackend, LocalAsrProfile, LocalTtsBackend,
+    LocalTtsProfile, ModelManagementSettings, ProviderMode, ProviderSelection, ProviderSelections,
+    RemoteAsrProfile, RemotePlannerProfile, RemoteProviderKind, RemoteTtsAudioFormat,
+    RemoteTtsProfile, SafetySettings, SecretRef, SpeechFeedbackStyle,
+};
 use crate::ocr::OcrSettings;
 
-mod load_tests;
 mod keyring_tests;
+mod load_tests;
 mod persistence_tests;
 mod validation_tests;
 

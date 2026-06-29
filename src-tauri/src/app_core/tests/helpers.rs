@@ -301,21 +301,19 @@ pub(super) fn resolve_app_core_planner_fixture(
             .unwrap_or_else(|| panic!("fixture {} should resolve", fixture.name)),
             None,
         ),
-        AppCorePlannerFixtureKind::FollowUpCorrection => {
-            resolve_recent_fill_correction_command(
-                fixture.transcript,
-                fixture.name,
-                fixture.current_page_id,
-                fixture.page.as_ref(),
-                &fixture
-                    .active_skills
-                    .iter()
-                    .map(|skill| String::from(*skill))
-                    .collect::<Vec<_>>(),
-                fixture.recent_context.as_ref(),
-            )
-            .unwrap_or_else(|| panic!("fixture {} should resolve", fixture.name))
-        }
+        AppCorePlannerFixtureKind::FollowUpCorrection => resolve_recent_fill_correction_command(
+            fixture.transcript,
+            fixture.name,
+            fixture.current_page_id,
+            fixture.page.as_ref(),
+            &fixture
+                .active_skills
+                .iter()
+                .map(|skill| String::from(*skill))
+                .collect::<Vec<_>>(),
+            fixture.recent_context.as_ref(),
+        )
+        .unwrap_or_else(|| panic!("fixture {} should resolve", fixture.name)),
         AppCorePlannerFixtureKind::SubmitForm => (
             resolve_direct_submit_form_command(
                 fixture.transcript,

@@ -3,16 +3,16 @@ use std::path::Path;
 
 use tauri::AppHandle;
 
-use crate::ocr::OcrSettings;
-use super::{
-    AppConfig, AudioSettings, ConfigError, ModelManagementSettings, ProviderSelection,
-    SafetySettings, SecretRef,
-};
 use super::keyring_store::{keyring_ref_for_remote_api_key, set_keyring_secret};
 use super::loading::{load_document_table_from_path, load_document_table_from_str};
 use super::validation::{
     normalize_remote_endpoint, validate_audio_settings, validate_model_settings,
 };
+use super::{
+    AppConfig, AudioSettings, ConfigError, ModelManagementSettings, ProviderSelection,
+    SafetySettings, SecretRef,
+};
+use crate::ocr::OcrSettings;
 
 impl AppConfig {
     pub fn persist_audio_settings_for_app(
@@ -76,7 +76,10 @@ impl AppConfig {
         profile_name: &str,
     ) -> Result<Self, ConfigError> {
         let config_path = Self::config_path_for_app(app_handle)?;
-        Self::reset_remote_planner_connection_settings_to_defaults_at_path(&config_path, profile_name)
+        Self::reset_remote_planner_connection_settings_to_defaults_at_path(
+            &config_path,
+            profile_name,
+        )
     }
 
     pub fn persist_remote_tts_api_key_for_app(
@@ -413,7 +416,10 @@ impl AppConfig {
         }
 
         let default_config = Self::load_from_str(Self::default_template())?;
-        let Some(default_profile) = default_config.remote_planner_profiles.get(normalized_profile_name) else {
+        let Some(default_profile) = default_config
+            .remote_planner_profiles
+            .get(normalized_profile_name)
+        else {
             return Err(ConfigError::Validation(format!(
                 "remote planner defaults are not defined for profile '{normalized_profile_name}'"
             )));

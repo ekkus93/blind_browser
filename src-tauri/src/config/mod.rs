@@ -15,15 +15,18 @@ pub const MAX_PLAYBACK_SPEED: f32 = 5.0;
 
 const DEFAULT_CONFIG_TEMPLATE: &str = include_str!("../../../config.example.toml");
 
-mod types;
-mod loading;
-mod validation;
 mod keyring_store;
+mod loading;
 mod persistence;
+mod types;
+mod validation;
 pub use keyring_store::{keyring_ref_for_remote_api_key, resolve_secret_ref, secret_ref_reference};
-use validation::{validate_audio_settings, validate_model_settings, validate_ocr_settings, validate_safety_settings};
 use loading::{load_planner_profiles, load_provider_profiles};
 pub use types::*;
+use validation::{
+    validate_audio_settings, validate_model_settings, validate_ocr_settings,
+    validate_safety_settings,
+};
 
 impl AppConfig {
     pub fn default_template() -> &'static str {
@@ -126,8 +129,6 @@ impl AppConfig {
         })
     }
 }
-
-
 
 impl Default for AppConfig {
     fn default() -> Self {

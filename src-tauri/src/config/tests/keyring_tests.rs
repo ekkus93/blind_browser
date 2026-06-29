@@ -106,7 +106,6 @@ fn resolve_secret_ref_rejects_missing_or_empty_values() {
     let _ = fs::remove_file(&empty_file_path);
 }
 
-
 #[test]
 fn persists_remote_planner_api_key_to_keyring_reference_and_reloads_it() {
     let path = test_config_path("persist_remote_planner_api_key");
@@ -170,4 +169,3 @@ fn rejects_empty_remote_api_key_persistence_input() {
         other => panic!("expected validation error, got {other}"),
     }
 }
-

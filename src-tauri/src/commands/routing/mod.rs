@@ -2,8 +2,8 @@ use super::*;
 
 mod intent;
 pub use intent::infer_intent_hint;
-pub(crate) use intent::{normalize_transcript_for_routing, tokenize_text, likely_tools_for_intent};
 use intent::*;
+pub(crate) use intent::{likely_tools_for_intent, normalize_transcript_for_routing, tokenize_text};
 
 mod audio_commands;
 pub(crate) use audio_commands::{
@@ -11,8 +11,8 @@ pub(crate) use audio_commands::{
 };
 
 mod url_commands;
-use url_commands::*;
 pub(crate) use url_commands::resolve_direct_open_url_command;
+use url_commands::*;
 
 mod planner_outputs;
 use planner_outputs::*;

@@ -11,9 +11,9 @@ use super::settings_adapters::{
 };
 use super::{AppCore, DownloadedLocalModelData, ModelManagementSettingsData};
 use crate::browser::BrowserVisibilityMode;
-use crate::config::{AppConfig, ConfigError, ModelManagementSettings};
 #[cfg(feature = "remote-openai")]
 use crate::config::resolve_secret_ref;
+use crate::config::{AppConfig, ConfigError, ModelManagementSettings};
 
 impl AppCore {
     pub fn set_playback_volume(&mut self, playback_volume: f32) -> Result<(), ConfigError> {

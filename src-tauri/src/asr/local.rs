@@ -5,8 +5,8 @@ use crate::config::{AppConfig, LocalAsrProfile};
 #[cfg(feature = "local-asr")]
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
-use super::{AsrController, AsrRuntimeError};
 use super::processing::CapturedAudio;
+use super::{AsrController, AsrRuntimeError};
 
 impl AsrController {
     pub(super) fn transcribe_local(

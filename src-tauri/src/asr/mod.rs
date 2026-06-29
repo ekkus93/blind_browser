@@ -1,6 +1,6 @@
 mod capture;
-mod processing;
 mod local;
+mod processing;
 mod remote;
 mod wav;
 
@@ -15,9 +15,9 @@ use processing::CapturedAudio;
 #[cfg(test)]
 use processing::{interleaved_to_mono, resample_linear};
 #[cfg(test)]
-use wav::encode_wav_pcm16;
-#[cfg(test)]
 use remote::normalized_optional_string;
+#[cfg(test)]
+use wav::encode_wav_pcm16;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -204,7 +204,7 @@ impl AsrController {
         {
             if let Some(active_capture) = self.active_capture.as_ref() {
                 thread::sleep(Duration::from_millis(capture_duration_ms));
-                let captured_audio = active_capture.snapshot()?;
+                let captured_audio = active_capture.take_captured_audio()?;
                 if auto_stop {
                     self.active_capture.take();
                 }
@@ -213,7 +213,7 @@ impl AsrController {
 
             let temporary_capture = CaptureSession::start()?;
             thread::sleep(Duration::from_millis(capture_duration_ms));
-            temporary_capture.snapshot()?.ensure_non_empty()
+            temporary_capture.take_captured_audio()?.ensure_non_empty()
         }
     }
 }

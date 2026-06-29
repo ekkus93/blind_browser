@@ -89,13 +89,13 @@ pub(crate) fn whisper_download_plan_for_model_id(
     model_id: &str,
 ) -> Result<WhisperDownloadPlan, String> {
     let normalized = model_id.trim().to_ascii_lowercase();
-    let file_name = match normalized.as_str() {
-        "tiny" => "ggml-tiny.bin",
-        "base" => "ggml-base.bin",
-        "small" => "ggml-small.bin",
-        "medium" => "ggml-medium.bin",
-        "large-v3" => "ggml-large-v3.bin",
-        "large-v3-turbo" => "ggml-large-v3-turbo.bin",
+    let (file_name, display_name) = match normalized.as_str() {
+        "tiny" => ("ggml-tiny.bin", "tiny model"),
+        "base" => ("ggml-base.bin", "base model"),
+        "small" => ("ggml-small.bin", "small model"),
+        "medium" => ("ggml-medium.bin", "medium model"),
+        "large-v3" => ("ggml-large-v3.bin", "large-v3 model"),
+        "large-v3-turbo" => ("ggml-large-v3-turbo.bin", "large-v3-turbo model"),
         _ => {
             return Err(format!(
                 "local ASR model_id '{}' does not have a known Hugging Face download mapping",
@@ -103,18 +103,9 @@ pub(crate) fn whisper_download_plan_for_model_id(
             ))
         }
     };
-
     Ok(WhisperDownloadPlan {
         repository: "ggerganov/whisper.cpp",
-        display_name: match normalized.as_str() {
-            "tiny" => "tiny model",
-            "base" => "base model",
-            "small" => "small model",
-            "medium" => "medium model",
-            "large-v3" => "large-v3 model",
-            "large-v3-turbo" => "large-v3-turbo model",
-            _ => unreachable!(),
-        },
+        display_name,
         file_name,
     })
 }
@@ -199,9 +190,8 @@ pub(crate) fn resolved_models_dir_for_app(
         return Ok(candidate);
     }
 
-    let config_path =
-        crate::config::AppConfig::config_path_for_app(app_handle)
-            .map_err(|error| error.to_string())?;
+    let config_path = crate::config::AppConfig::config_path_for_app(app_handle)
+        .map_err(|error| error.to_string())?;
     let config_dir = config_path.parent().ok_or_else(|| {
         format!(
             "Failed to resolve the parent config directory for {}",

@@ -97,10 +97,7 @@ impl super::AppCore {
         )
     }
 
-    pub fn execute_scroll_page(
-        &mut self,
-        input: ScrollPageInput,
-    ) -> ToolResult<ScrollPageData> {
+    pub fn execute_scroll_page(&mut self, input: ScrollPageInput) -> ToolResult<ScrollPageData> {
         if self.state.current_page_id.is_none() {
             return Self::browser_runtime_missing_page(ToolName::ScrollPage, input.request_id);
         }

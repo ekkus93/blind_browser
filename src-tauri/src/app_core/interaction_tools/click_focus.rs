@@ -1,6 +1,6 @@
 use crate::commands::{
-    ClickElementData, ClickElementInput, FocusElementData, FocusElementInput,
-    ToolError, ToolName, ToolResult,
+    ClickElementData, ClickElementInput, FocusElementData, FocusElementInput, ToolError, ToolName,
+    ToolResult,
 };
 use crate::page_model::{InteractiveElement, PageModel};
 

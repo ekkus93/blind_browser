@@ -1,11 +1,13 @@
 #[cfg(feature = "browser")]
-use std::collections::BTreeMap;
-#[cfg(feature = "browser")]
 use chromiumoxide::Page;
 use serde::Deserialize;
+#[cfg(feature = "browser")]
+use std::collections::BTreeMap;
 
 use super::{BrowserController, BrowserError};
-use crate::page_model::{ElementRole, InteractiveElement, PageModel, PageRegion, Rect, RegionRole, RegionSource};
+use crate::page_model::{
+    ElementRole, InteractiveElement, PageModel, PageRegion, Rect, RegionRole, RegionSource,
+};
 
 impl BrowserController {
     pub fn extract_page_model(&mut self) -> Result<PageModel, BrowserError> {
@@ -21,7 +23,6 @@ impl BrowserController {
             Err(BrowserError::FeatureDisabled)
         }
     }
-
 }
 
 #[derive(Debug, Deserialize)]

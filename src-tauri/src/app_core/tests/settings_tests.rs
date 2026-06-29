@@ -231,15 +231,11 @@ fn build_tts_model_settings_uses_selected_local_profile() {
     assert!(settings
         .available_profiles
         .iter()
-        .any(
-            |option| option.profile_name == "kitten-default" && option.model_label == "default"
-        ));
+        .any(|option| option.profile_name == "kitten-default" && option.model_label == "default"));
     assert!(settings
         .available_profiles
         .iter()
-        .any(
-            |option| option.profile_name == "kitten-alt" && option.model_label == "expressive"
-        ));
+        .any(|option| option.profile_name == "kitten-alt" && option.model_label == "expressive"));
 }
 
 #[test]

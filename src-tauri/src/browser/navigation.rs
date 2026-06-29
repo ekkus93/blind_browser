@@ -1,7 +1,9 @@
 #[cfg(feature = "browser")]
 use chromiumoxide::cdp::browser_protocol::page::{NavigateToHistoryEntryParams, ReloadParams};
 
-use super::session::{normalize_optional_text, read_navigation_history_snapshot, snapshot_page_state};
+use super::session::{
+    normalize_optional_text, read_navigation_history_snapshot, snapshot_page_state,
+};
 use super::{BrowserController, BrowserError, BrowserNavigationState, BrowserPageState, LoadState};
 
 impl BrowserController {

@@ -450,4 +450,3 @@ fn infer_intent_hint_recognizes_tts_voice_phrases() {
         IntentName::SetTtsVoice
     );
 }
-

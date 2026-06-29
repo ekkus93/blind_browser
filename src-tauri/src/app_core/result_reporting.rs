@@ -1,8 +1,8 @@
+use super::element_scoring::normalize_optional_text;
 use crate::commands::{
     AgentStateData, GetAgentStateInput, GetRuntimeStatusData, GetRuntimeStatusInput,
     ReportResultData, ReportResultInput, ToolError, ToolName, ToolResult,
 };
-use super::element_scoring::normalize_optional_text;
 
 impl super::AppCore {
     pub fn execute_get_agent_state(

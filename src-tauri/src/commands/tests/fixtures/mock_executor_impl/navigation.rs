@@ -25,10 +25,7 @@ pub(super) fn execute_open_url(
     )
 }
 
-pub(super) fn execute_go_back(
-    ex: &mut MockExecutor,
-    input: GoBackInput,
-) -> ToolResult<GoBackData> {
+pub(super) fn execute_go_back(ex: &mut MockExecutor, input: GoBackInput) -> ToolResult<GoBackData> {
     ex.last_go_back_request = Some(input.clone());
     ToolResult::success(
         ToolName::GoBack,
@@ -121,10 +118,7 @@ pub(super) fn execute_get_html(
     )
 }
 
-pub(super) fn execute_eval_js(
-    ex: &mut MockExecutor,
-    input: EvalJsInput,
-) -> ToolResult<EvalJsData> {
+pub(super) fn execute_eval_js(ex: &mut MockExecutor, input: EvalJsInput) -> ToolResult<EvalJsData> {
     ex.last_eval_js_request = Some(input.clone());
     ToolResult::success(
         ToolName::EvalJs,
@@ -138,7 +132,9 @@ pub(super) fn execute_eval_js(
                 "regionCount": 3
             }),
         },
-        vec![String::from("evaluated the requested JavaScript expression")],
+        vec![String::from(
+            "evaluated the requested JavaScript expression",
+        )],
     )
 }
 

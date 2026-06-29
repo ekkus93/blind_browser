@@ -1,5 +1,5 @@
 use super::invalid_planner_output;
-use crate::commands::{ReadRegionInput, TranscribeCommandInput, ToolError};
+use crate::commands::{ReadRegionInput, ToolError, TranscribeCommandInput};
 
 pub(super) fn validate_read_region_input(input: &ReadRegionInput) -> Result<(), ToolError> {
     if input.region_id.trim().is_empty() {

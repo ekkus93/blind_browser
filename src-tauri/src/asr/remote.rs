@@ -10,8 +10,8 @@ use crate::config::{AppConfig, RemoteAsrProfile, RemoteProviderKind};
 #[cfg(feature = "remote-openai")]
 use crate::config::resolve_secret_ref;
 
-use super::{AsrController, AsrRuntimeError};
 use super::processing::CapturedAudio;
+use super::{AsrController, AsrRuntimeError};
 
 impl AsrController {
     pub(super) fn transcribe_remote(

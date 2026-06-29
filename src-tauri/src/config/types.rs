@@ -239,4 +239,3 @@ pub(super) struct RawAppConfig {
     #[serde(default)]
     pub(super) local_profiles: BTreeMap<String, toml::Table>,
 }
-

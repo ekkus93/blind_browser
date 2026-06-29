@@ -567,7 +567,10 @@ pub(super) fn is_browser_visibility_phrase(normalized: &str) -> bool {
         || normalized.contains("headless mode")
 }
 
-pub(super) fn selected_skill(active_skill_names: &[String], skill_name: &'static str) -> Vec<String> {
+pub(super) fn selected_skill(
+    active_skill_names: &[String],
+    skill_name: &'static str,
+) -> Vec<String> {
     if active_skill_names
         .iter()
         .any(|active_name| active_name == skill_name)
@@ -578,7 +581,10 @@ pub(super) fn selected_skill(active_skill_names: &[String], skill_name: &'static
     }
 }
 
-pub(super) fn selected_audio_skill(active_skill_names: &[String], skill_name: &'static str) -> Vec<String> {
+pub(super) fn selected_audio_skill(
+    active_skill_names: &[String],
+    skill_name: &'static str,
+) -> Vec<String> {
     selected_skill(active_skill_names, skill_name)
 }
 

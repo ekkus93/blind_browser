@@ -1,7 +1,6 @@
 use crate::commands::{
-    resume_after_confirmation,
-    ConfirmActionData, ConfirmActionInput, ConfirmActionResolution, ExecutionOutcome,
-    ExecutionTrace, ToolError, ToolName, ToolResult,
+    resume_after_confirmation, ConfirmActionData, ConfirmActionInput, ConfirmActionResolution,
+    ExecutionOutcome, ExecutionTrace, ToolError, ToolName, ToolResult,
 };
 
 impl super::AppCore {

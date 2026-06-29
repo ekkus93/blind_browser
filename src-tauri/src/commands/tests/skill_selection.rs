@@ -457,4 +457,3 @@ fn planner_skill_regression_fixtures_cover_problematic_page_shapes() {
         assert_planner_skill_fixture(fixture);
     }
 }
-

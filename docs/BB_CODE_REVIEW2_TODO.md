@@ -107,7 +107,7 @@ prior audio.
 
 ## P1.1 — Run long commands off the main thread and release the lock across blocking work
 
-**Status:** PENDING  
+**Status:** IN PROGRESS (P1.1.1 DONE; P1.1.2 and P1.1.3 BLOCKED)  
 **Files:**
 
 - `src-tauri/src/lib.rs`
@@ -158,6 +158,8 @@ setters) can stay as they are, but verify they do not contend on a held lock.
 
 ### P1.1.2 — Release the lock across the audio capture window
 
+**Status:** BLOCKED (requires CaptureHandle extraction and multi-phase transcribe restructuring; see spec section 2)
+
 Restructure the capture path so the `AppCore` guard is not held during the
 `thread::sleep` capture window. Acquire briefly to start/inspect the session,
 release, run the blocking capture, then re-acquire to record the transcript and
@@ -165,6 +167,8 @@ listening state. This is what lets `stop_listening` take the session and interru
 an in-flight capture.
 
 ### P1.1.3 — Release the lock across remote network calls
+
+**Status:** BLOCKED (requires CaptureHandle extraction and multi-phase transcribe restructuring; see spec section 2)
 
 Apply the same scoping to the remote planner, remote ASR, and model-download
 paths: resolve the inputs under the lock, drop the guard, perform the network call

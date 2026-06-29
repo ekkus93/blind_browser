@@ -57,7 +57,11 @@ pub(super) fn interleaved_to_mono(samples: &[f32], channels: u16) -> Vec<f32> {
     mono
 }
 
-pub(super) fn resample_linear(samples: &[f32], input_sample_rate: u32, output_sample_rate: u32) -> Vec<f32> {
+pub(super) fn resample_linear(
+    samples: &[f32],
+    input_sample_rate: u32,
+    output_sample_rate: u32,
+) -> Vec<f32> {
     if samples.is_empty() || input_sample_rate == output_sample_rate || input_sample_rate == 0 {
         return samples.to_vec();
     }

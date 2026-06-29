@@ -4,9 +4,9 @@ mod execution;
 mod step_helpers;
 mod tool_dispatch;
 
-pub use tool_dispatch::execute_planned_step;
 #[cfg(test)]
 pub(crate) use execution::execute_planner_output_with_runner;
+pub use tool_dispatch::execute_planned_step;
 
 struct StepExecutionContext<'a> {
     request_id: String,

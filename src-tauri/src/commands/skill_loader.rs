@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-use super::*;
 use super::skill_parser::{parse_bundled_skills, parse_skill_document};
+use super::*;
 
 pub(crate) const BUNDLED_SKILLS_MARKDOWN: &str = include_str!("../../../docs/SKILLS.md");
 

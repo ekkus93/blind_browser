@@ -5,14 +5,14 @@ use crate::audio_io::RuntimeAudioState;
 use crate::config::AppConfig;
 
 #[cfg(feature = "remote-openai")]
-use crate::config::{resolve_secret_ref, RemoteProviderKind, RemoteTtsAudioFormat, RemoteTtsProfile};
+use crate::config::{
+    resolve_secret_ref, RemoteProviderKind, RemoteTtsAudioFormat, RemoteTtsProfile,
+};
 
 #[cfg(feature = "remote-openai")]
 use super::wav::decode_wav_samples;
 
-use super::{
-    CachedSpeechKey, SynthesizedSpeech, TtsController, TtsProviderKind, TtsRuntimeError,
-};
+use super::{CachedSpeechKey, SynthesizedSpeech, TtsController, TtsProviderKind, TtsRuntimeError};
 
 #[cfg(feature = "remote-openai")]
 use super::{OPENAI_REMOTE_TTS_MAX_SPEED, OPENAI_REMOTE_TTS_MIN_SPEED, OPENAI_TTS_VOICES};
@@ -177,7 +177,9 @@ fn is_openai_builtin_voice(voice: &str) -> bool {
 }
 
 #[cfg(feature = "remote-openai")]
-pub(super) fn openai_speech_response_format_value(audio_format: RemoteTtsAudioFormat) -> &'static str {
+pub(super) fn openai_speech_response_format_value(
+    audio_format: RemoteTtsAudioFormat,
+) -> &'static str {
     match audio_format {
         RemoteTtsAudioFormat::Wav => "wav",
     }

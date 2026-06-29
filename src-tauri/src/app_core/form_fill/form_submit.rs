@@ -1,12 +1,12 @@
-use crate::commands::{
-    IntentName, IntentSummary, PlannedStep, PlannerOutput, PlannerStatus,
-    StepTransition, ToolName, is_direct_submit_form_command,
-};
-use crate::page_model::PageModel;
 use crate::app_core::element_scoring::{
     describe_form_element, submittable_form_elements, summarize_form_candidate_names,
 };
 use crate::app_core::fill_correction::{build_direct_follow_up_output, DirectFollowUpSpec};
+use crate::commands::{
+    is_direct_submit_form_command, IntentName, IntentSummary, PlannedStep, PlannerOutput,
+    PlannerStatus, StepTransition, ToolName,
+};
+use crate::page_model::PageModel;
 
 pub(crate) fn resolve_direct_submit_form_command(
     transcript: &str,

@@ -7,7 +7,10 @@ pub(super) struct NormalizedAudioSetting {
     pub(super) skill_name: &'static str,
 }
 
-pub(super) fn parse_volume_command(normalized: &str, current_volume: f32) -> Option<NormalizedAudioSetting> {
+pub(super) fn parse_volume_command(
+    normalized: &str,
+    current_volume: f32,
+) -> Option<NormalizedAudioSetting> {
     if normalized == "mute" || normalized.contains("mute volume") {
         return Some(NormalizedAudioSetting {
             value: 0.0,
@@ -46,7 +49,10 @@ pub(super) fn parse_volume_command(normalized: &str, current_volume: f32) -> Opt
     })
 }
 
-pub(super) fn parse_speed_command(normalized: &str, current_speed: f32) -> Option<NormalizedAudioSetting> {
+pub(super) fn parse_speed_command(
+    normalized: &str,
+    current_speed: f32,
+) -> Option<NormalizedAudioSetting> {
     if let Some(step) = speed_relative_step(normalized) {
         let target = (current_speed + step).clamp(MIN_PLAYBACK_SPEED, MAX_PLAYBACK_SPEED);
         let goal = if step.is_sign_positive() {

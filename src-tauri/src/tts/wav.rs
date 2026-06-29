@@ -22,7 +22,7 @@ pub(crate) fn decode_wav_samples(bytes: &[u8]) -> Result<DecodedWav, String> {
         let chunk_size = u32::from_le_bytes(
             bytes[cursor + 4..cursor + 8]
                 .try_into()
-                .expect("chunk size should be four bytes"),
+                .map_err(|_| String::from("WAV chunk size bytes were truncated"))?,
         ) as usize;
         let chunk_start = cursor + 8;
         let chunk_end = chunk_start.saturating_add(chunk_size);
@@ -50,10 +50,26 @@ pub(crate) fn decode_wav_samples(bytes: &[u8]) -> Result<DecodedWav, String> {
         return Err(String::from("WAV fmt chunk was too short"));
     }
 
-    let format_tag = u16::from_le_bytes(fmt_chunk[0..2].try_into().expect("format tag size"));
-    let channels = u16::from_le_bytes(fmt_chunk[2..4].try_into().expect("channel count size"));
-    let sample_rate = u32::from_le_bytes(fmt_chunk[4..8].try_into().expect("sample rate size"));
-    let bits_per_sample = u16::from_le_bytes(fmt_chunk[14..16].try_into().expect("bit depth size"));
+    let format_tag = u16::from_le_bytes(
+        fmt_chunk[0..2]
+            .try_into()
+            .map_err(|_| String::from("WAV fmt chunk format tag was truncated"))?,
+    );
+    let channels = u16::from_le_bytes(
+        fmt_chunk[2..4]
+            .try_into()
+            .map_err(|_| String::from("WAV fmt chunk channel count was truncated"))?,
+    );
+    let sample_rate = u32::from_le_bytes(
+        fmt_chunk[4..8]
+            .try_into()
+            .map_err(|_| String::from("WAV fmt chunk sample rate was truncated"))?,
+    );
+    let bits_per_sample = u16::from_le_bytes(
+        fmt_chunk[14..16]
+            .try_into()
+            .map_err(|_| String::from("WAV fmt chunk bit depth was truncated"))?,
+    );
 
     if channels == 0 {
         return Err(String::from("WAV response reported zero channels"));
@@ -107,4 +123,3 @@ pub(crate) fn decode_wav_samples(bytes: &[u8]) -> Result<DecodedWav, String> {
         samples,
     })
 }
-

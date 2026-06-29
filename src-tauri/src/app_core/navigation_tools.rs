@@ -1,3 +1,4 @@
+use super::RecentFieldContext;
 use crate::browser::{BrowserError, LoadState};
 use crate::commands::{
     GoBackData, GoBackInput, GoForwardData, GoForwardInput, OpenUrlData, OpenUrlInput,
@@ -5,7 +6,6 @@ use crate::commands::{
 };
 use crate::page_model::PageModel;
 use crate::state::AppState;
-use super::RecentFieldContext;
 
 pub(crate) fn normalize_absolute_url(url: &str) -> Result<String, ToolError> {
     let trimmed = url.trim();
@@ -212,7 +212,10 @@ impl super::AppCore {
             "Requested backward history navigation for up to {} step(s).",
             requested_steps
         )];
-        if input.steps.is_some_and(|steps| steps > super::MAX_HISTORY_STEPS) {
+        if input
+            .steps
+            .is_some_and(|steps| steps > super::MAX_HISTORY_STEPS)
+        {
             observations.push(format!(
                 "Requested steps were clamped to the supported maximum of {}.",
                 super::MAX_HISTORY_STEPS
@@ -283,7 +286,10 @@ impl super::AppCore {
             "Requested forward history navigation for up to {} step(s).",
             requested_steps
         )];
-        if input.steps.is_some_and(|steps| steps > super::MAX_HISTORY_STEPS) {
+        if input
+            .steps
+            .is_some_and(|steps| steps > super::MAX_HISTORY_STEPS)
+        {
             observations.push(format!(
                 "Requested steps were clamped to the supported maximum of {}.",
                 super::MAX_HISTORY_STEPS

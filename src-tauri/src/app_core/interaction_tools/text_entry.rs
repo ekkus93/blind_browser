@@ -1,9 +1,9 @@
+use super::click_focus::resolve_clickable_element;
 use crate::commands::{
     SubmitActiveFormData, SubmitActiveFormInput, ToolError, ToolName, ToolResult,
     TypeIntoElementData, TypeIntoElementInput,
 };
 use crate::page_model::{ElementRole, InteractiveElement, PageModel};
-use super::click_focus::resolve_clickable_element;
 
 impl super::super::AppCore {
     pub fn execute_type_into_element(

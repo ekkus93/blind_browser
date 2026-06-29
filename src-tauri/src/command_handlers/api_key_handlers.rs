@@ -66,7 +66,7 @@ pub fn set_remote_planner_api_key(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn test_remote_planner_api_key(
     request_id: String,
     timeout_ms: Option<u64>,
@@ -108,7 +108,7 @@ pub fn test_remote_planner_api_key(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_remote_planner_models(
     request_id: String,
     timeout_ms: Option<u64>,
@@ -209,7 +209,7 @@ pub fn set_remote_tts_api_key(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn test_remote_tts_api_key(
     request_id: String,
     timeout_ms: Option<u64>,
@@ -297,7 +297,7 @@ pub fn set_remote_asr_api_key(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn test_remote_asr_api_key(
     request_id: String,
     timeout_ms: Option<u64>,

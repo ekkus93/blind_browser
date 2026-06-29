@@ -171,4 +171,3 @@ fn transcribe_command_updates_following_state_reads_for_auto_stop_and_manual_sto
         );
     }
 }
-

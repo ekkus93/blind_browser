@@ -1,17 +1,19 @@
+use super::model_management::{
+    kitten_download_plan_for_model_id, local_asr_model_is_available, local_tts_model_is_available,
+    whisper_download_plan_for_model_id,
+};
+use super::{ManagedLocalModelStatusData, ModelManagementSettingsData};
 use crate::audio_io::RuntimeAudioState;
-use crate::config::{secret_ref_reference, AppConfig, LocalAsrProfile, LocalTtsProfile, RemoteProviderKind};
 use crate::commands::{
     AsrProviderSettings, ConfirmationSettings, LocalAsrModelSettings, LocalTtsModelSettings,
     OcrThresholdSettings, ProviderFailoverSettings, RemoteAsrSettings, RemotePlannerSettings,
     RemoteProviderLabel, RemoteTtsSettings, TtsModelOption, TtsModelSettings, TtsProviderSettings,
     TtsVoiceOption, TtsVoiceSettings,
 };
-use crate::tts::{KITTEN_TTS_VOICES, OPENAI_TTS_VOICES};
-use super::model_management::{
-    kitten_download_plan_for_model_id, local_asr_model_is_available, local_tts_model_is_available,
-    whisper_download_plan_for_model_id,
+use crate::config::{
+    secret_ref_reference, AppConfig, LocalAsrProfile, LocalTtsProfile, RemoteProviderKind,
 };
-use super::{ManagedLocalModelStatusData, ModelManagementSettingsData};
+use crate::tts::{KITTEN_TTS_VOICES, OPENAI_TTS_VOICES};
 
 fn remote_provider_label(provider: &RemoteProviderKind) -> RemoteProviderLabel {
     match provider {

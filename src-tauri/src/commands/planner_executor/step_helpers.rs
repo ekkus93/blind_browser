@@ -1,8 +1,6 @@
-use std::collections::HashMap;
+use super::super::{PlannedStep, SerializedToolResult, ToolError, ToolResult};
 use serde::Serialize;
-use super::super::{
-    PlannedStep, SerializedToolResult, ToolError, ToolResult,
-};
+use std::collections::HashMap;
 
 pub(in crate::commands::planner_executor) fn build_step_positions(
     steps: &[PlannedStep],

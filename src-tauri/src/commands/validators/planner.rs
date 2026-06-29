@@ -3,9 +3,7 @@ use std::collections::HashSet;
 use super::invalid_planner_output;
 use crate::commands::{ConfirmActionInput, ReportResultInput, StepTransition, ToolError};
 
-pub(crate) fn validate_confirm_action_input(
-    input: &ConfirmActionInput,
-) -> Result<(), ToolError> {
+pub(crate) fn validate_confirm_action_input(input: &ConfirmActionInput) -> Result<(), ToolError> {
     if input.prompt_text.trim().is_empty() {
         return Err(invalid_planner_output(
             "confirm_action requires a non-empty prompt_text",
@@ -23,9 +21,7 @@ pub(crate) fn validate_confirm_action_input(
     Ok(())
 }
 
-pub(super) fn validate_report_result_input(
-    input: &ReportResultInput,
-) -> Result<(), ToolError> {
+pub(super) fn validate_report_result_input(input: &ReportResultInput) -> Result<(), ToolError> {
     if input.summary.trim().is_empty() {
         return Err(invalid_planner_output(
             "report_result requires a non-empty summary",

@@ -216,4 +216,3 @@ fn rejects_resume_with_mismatched_confirmation_id() {
         other => panic!("expected aborted outcome after mismatch, got {other:?}"),
     }
 }
-

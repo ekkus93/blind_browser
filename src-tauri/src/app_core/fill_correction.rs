@@ -1,10 +1,9 @@
+use super::interaction_tools::resolve_typeable_element;
 use crate::commands::{
-    FillFieldCorrectionCommand, IntentName, IntentSummary, PlannedStep,
-    PlannerOutput, PlannerStatus, ReportStatus, StepTransition, ToolName,
-    parse_fill_field_correction_command,
+    parse_fill_field_correction_command, FillFieldCorrectionCommand, IntentName, IntentSummary,
+    PlannedStep, PlannerOutput, PlannerStatus, ReportStatus, StepTransition, ToolName,
 };
 use crate::page_model::PageModel;
-use super::interaction_tools::resolve_typeable_element;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PendingRecentFieldContext {

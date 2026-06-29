@@ -11,17 +11,16 @@ use kitten_tts::model::KittenTTS;
 use crate::audio_io::RuntimeAudioState;
 use crate::config::{AppConfig, ProviderMode};
 
-
-mod wav;
 mod local;
 mod remote;
+mod wav;
 
-#[cfg(test)]
-use wav::decode_wav_samples;
 #[cfg(test)]
 use local::{normalized_model_path, resolved_voice};
 #[cfg(all(feature = "remote-openai", test))]
 use remote::{openai_speech_response_format_value, resolved_remote_voice};
+#[cfg(test)]
+use wav::decode_wav_samples;
 
 pub const KITTEN_TTS_SAMPLE_RATE: u32 = 24_000;
 pub const KITTEN_TTS_CHANNELS: u16 = 1;

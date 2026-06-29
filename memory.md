@@ -1,3 +1,12 @@
+## 2026-06-29T07:45:05Z - Claude Sonnet 4.6 - CODE_REVIEW2: drain ASR buffer, fix panics, cleanup, async handlers
+
+- Group 1 (P0.1): Added `drain_capture_buffer` free function to `asr/capture.rs`; renamed `snapshot()` to `take_captured_audio()` which now drains instead of clones. Added unit test `consecutive_drains_do_not_return_overlapping_samples`. Updated `asr/mod.rs` callers. Fixes duplicate command execution in continuous listening.
+- Group 2 (P1.2): Replaced `.expect(...)` / `unreachable!()` in three production paths — `execution.rs` step lookup now returns `Aborted { code: "missing_step_position" }`; `model_management.rs` whisper plan collapses two match arms into one; `tts/wav.rs` five `expect` calls replaced with `map_err(|_| ...)?`.
+- Group 3 (P2.1): Collapsed four near-identical ID helpers in `app_core/mod.rs` into shared `next_id`; added zeroize of old cached secret in `keyring_store.rs`; added `rustfmt` component and `cargo fmt --check` step to CI.
+- Group 4 (P1.1.1): Added `#[tauri::command(async)]` to `transcribe_command`, `transcribe_and_execute_command`, `download_active_local_tts_model`, `download_active_local_asr_model`, `test_remote_planner_api_key`, `test_remote_tts_api_key`, `test_remote_asr_api_key`, `list_remote_planner_models`. Compiled cleanly — no Send constraint issues.
+- P1.1.2 and P1.1.3 marked BLOCKED in TODO (require CaptureHandle extraction and multi-phase transcribe restructuring).
+- Validation: cargo fmt clean, clippy clean, 329 Rust tests pass.
+
 ## 2026-06-29T06:55:21Z - Claude Sonnet 4.6 - Completed UIUX Fix 6 cleanup
 
 - `src/app.tsx`: replaced inline `setAppAlertState({ message: null })` dismiss handler with `clearAppAlert` — resets both `kind` and `message` to neutral on dismiss.

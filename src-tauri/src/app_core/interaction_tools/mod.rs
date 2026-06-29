@@ -1,5 +1,5 @@
-mod element_queries;
 mod click_focus;
+mod element_queries;
 mod text_entry;
 
 pub(crate) use text_entry::resolve_typeable_element;

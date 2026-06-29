@@ -236,10 +236,7 @@ fn ambiguous_click_regression_fixtures_pin_confirmation_threshold_behavior() {
 
     for fixture in fixtures {
         let (chosen_element_id, chosen_confidence, requires_confirmation) =
-            determine_find_element_resolution(
-                &fixture.candidates,
-                fixture.confirmation_threshold,
-            );
+            determine_find_element_resolution(&fixture.candidates, fixture.confirmation_threshold);
 
         assert_eq!(
             chosen_element_id.as_deref(),
@@ -372,8 +369,7 @@ fn problematic_page_regression_fixtures_cover_checkout_and_duplicate_cta_shapes(
         max_candidates: Some(3),
     })
     .expect("landing-page query should be valid");
-    let candidates =
-        rank_find_element_candidates(&landing_page.interactive_elements, &query, 3);
+    let candidates = rank_find_element_candidates(&landing_page.interactive_elements, &query, 3);
     let (chosen_element_id, _, requires_confirmation) =
         determine_find_element_resolution(&candidates, 0.9);
 

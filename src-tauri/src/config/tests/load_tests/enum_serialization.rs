@@ -2,18 +2,14 @@ use super::*;
 
 #[test]
 fn config_enums_round_trip_and_reject_invalid_variants() {
-    fn assert_enum_round_trip<T>(
-        value: T,
-        expected: serde_json::Value,
-        invalid: serde_json::Value,
-    ) where
+    fn assert_enum_round_trip<T>(value: T, expected: serde_json::Value, invalid: serde_json::Value)
+    where
         T: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
     {
         let serialized = serde_json::to_value(&value).expect("enum should serialize");
         assert_eq!(serialized, expected);
 
-        let round_tripped: T =
-            serde_json::from_value(serialized).expect("enum should deserialize");
+        let round_tripped: T = serde_json::from_value(serialized).expect("enum should deserialize");
         assert_eq!(round_tripped, value);
         assert!(serde_json::from_value::<T>(invalid).is_err());
     }
@@ -140,10 +136,9 @@ fn provider_configs_round_trip_through_json() {
         "local_asr_profile": local_asr_profile
     });
 
-    let round_tripped = serde_json::from_value::<serde_json::Map<String, serde_json::Value>>(
-        serialized.clone(),
-    )
-    .expect("provider config payload should deserialize as JSON object");
+    let round_tripped =
+        serde_json::from_value::<serde_json::Map<String, serde_json::Value>>(serialized.clone())
+            .expect("provider config payload should deserialize as JSON object");
 
     let decoded_providers: ProviderSelections =
         serde_json::from_value(serialized.get("providers").cloned().unwrap())

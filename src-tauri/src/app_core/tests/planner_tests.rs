@@ -315,10 +315,8 @@ fn resolve_clickable_element_rejects_blank_and_unknown_ids() {
 
 #[test]
 fn test_openai_api_key_connectivity_accepts_valid_response() {
-    let (base_url, server) = spawn_openai_models_test_server(
-        "200 OK",
-        r#"{"object":"list","data":[]}"#,
-    );
+    let (base_url, server) =
+        spawn_openai_models_test_server("200 OK", r#"{"object":"list","data":[]}"#);
 
     let result = test_openai_api_key_connectivity(
         &base_url,
@@ -373,15 +371,16 @@ fn fetch_openai_compatible_models_returns_sorted_model_ids() {
     .expect("model list should load");
 
     server.join().expect("test server should exit cleanly");
-    assert_eq!(models, vec![String::from("gpt-4o-mini"), String::from("gpt-5.4-mini")]);
+    assert_eq!(
+        models,
+        vec![String::from("gpt-4o-mini"), String::from("gpt-5.4-mini")]
+    );
 }
 
 #[test]
 fn fetch_openai_compatible_models_rejects_empty_lists() {
-    let (base_url, server) = spawn_openai_models_test_server(
-        "200 OK",
-        r#"{"object":"list","data":[]}"#,
-    );
+    let (base_url, server) =
+        spawn_openai_models_test_server("200 OK", r#"{"object":"list","data":[]}"#);
 
     let error = fetch_openai_compatible_models(
         &base_url,

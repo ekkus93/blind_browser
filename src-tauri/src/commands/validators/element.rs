@@ -1,7 +1,7 @@
 use super::invalid_planner_output;
 use crate::commands::{
-    ClickElementInput, FindElementInput, FocusElementInput, SubmitActiveFormInput,
-    TypeIntoElementInput, ToolError, DEFAULT_FIND_ELEMENT_MAX_CANDIDATES,
+    ClickElementInput, FindElementInput, FocusElementInput, SubmitActiveFormInput, ToolError,
+    TypeIntoElementInput, DEFAULT_FIND_ELEMENT_MAX_CANDIDATES,
 };
 
 pub(super) fn validate_find_element_input(input: &FindElementInput) -> Result<(), ToolError> {

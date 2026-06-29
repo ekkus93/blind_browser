@@ -5,7 +5,9 @@ use serde::de::DeserializeOwned;
 
 use super::*;
 
-pub(in crate::config) fn load_document_table_from_path(path: &Path) -> Result<toml::Table, ConfigError> {
+pub(in crate::config) fn load_document_table_from_path(
+    path: &Path,
+) -> Result<toml::Table, ConfigError> {
     let contents = fs::read_to_string(path).map_err(|source| ConfigError::Read {
         path: path.to_path_buf(),
         source,
@@ -14,7 +16,9 @@ pub(in crate::config) fn load_document_table_from_path(path: &Path) -> Result<to
     load_document_table_from_str(&contents)
 }
 
-pub(in crate::config) fn load_document_table_from_str(contents: &str) -> Result<toml::Table, ConfigError> {
+pub(in crate::config) fn load_document_table_from_str(
+    contents: &str,
+) -> Result<toml::Table, ConfigError> {
     toml::from_str(contents).map_err(ConfigError::Parse)
 }
 

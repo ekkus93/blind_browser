@@ -1,20 +1,19 @@
-use crate::commands::{
-    ElementVisibilityFilter, FindElementInput, IntentName,
-    parse_direct_fill_and_submit_command, parse_direct_fill_field_command,
-    DEFAULT_FIND_ELEMENT_MAX_CANDIDATES,
-};
-#[cfg(test)]
-use crate::commands::PlannerOutput;
-use crate::page_model::PageModel;
 use crate::app_core::element_scoring::{
     build_find_element_query, determine_find_element_resolution, focusable_field_elements,
     rank_find_element_candidates, summarize_candidate_names,
 };
 use crate::app_core::fill_correction::{
     build_direct_fill_and_submit_ready_output, build_direct_fill_ready_output,
-    build_direct_follow_up_output, selected_skills_for_fill_command,
-    DirectFollowUpSpec, PendingRecentFieldContext, ResolvedDirectFieldCommand,
+    build_direct_follow_up_output, selected_skills_for_fill_command, DirectFollowUpSpec,
+    PendingRecentFieldContext, ResolvedDirectFieldCommand,
 };
+#[cfg(test)]
+use crate::commands::PlannerOutput;
+use crate::commands::{
+    parse_direct_fill_and_submit_command, parse_direct_fill_field_command, ElementVisibilityFilter,
+    FindElementInput, IntentName, DEFAULT_FIND_ELEMENT_MAX_CANDIDATES,
+};
+use crate::page_model::PageModel;
 
 pub(crate) fn resolve_direct_fill_command_internal(
     transcript: &str,

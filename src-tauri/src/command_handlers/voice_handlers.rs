@@ -34,7 +34,7 @@ pub fn stop_listening(
     }))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn transcribe_command(
     request_id: String,
     timeout_ms: Option<u64>,
@@ -55,7 +55,7 @@ pub fn transcribe_command(
     }))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn transcribe_and_execute_command(
     request_id: String,
     timeout_ms: Option<u64>,

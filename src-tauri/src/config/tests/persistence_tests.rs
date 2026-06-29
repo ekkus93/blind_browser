@@ -136,9 +136,12 @@ fn persist_remote_planner_connection_settings_rejects_invalid_url() {
 #[test]
 fn persist_local_model_path_and_reloads_it() {
     let path = test_config_path("persist_local_model_path");
-    let persisted =
-        AppConfig::persist_local_model_path_at_path(&path, "kitten-default", "/data/models/kitten.onnx")
-            .expect("local model path should persist successfully");
+    let persisted = AppConfig::persist_local_model_path_at_path(
+        &path,
+        "kitten-default",
+        "/data/models/kitten.onnx",
+    )
+    .expect("local model path should persist successfully");
     let reloaded = AppConfig::load_from_path(&path).expect("persisted config should reload");
     assert_eq!(
         persisted
@@ -164,9 +167,12 @@ fn persist_local_model_path_and_reloads_it() {
 #[test]
 fn persist_local_model_path_rejects_unknown_profile() {
     let path = test_config_path("persist_local_model_path_unknown");
-    let error =
-        AppConfig::persist_local_model_path_at_path(&path, "nonexistent-local-profile", "/data/models/something.onnx")
-            .expect_err("unknown profile should fail");
+    let error = AppConfig::persist_local_model_path_at_path(
+        &path,
+        "nonexistent-local-profile",
+        "/data/models/something.onnx",
+    )
+    .expect_err("unknown profile should fail");
     match error {
         ConfigError::Validation(message) => {
             assert!(

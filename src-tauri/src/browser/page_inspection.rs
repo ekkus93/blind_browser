@@ -5,8 +5,8 @@ use chromiumoxide::cdp::browser_protocol::page::{CaptureScreenshotFormat, Viewpo
 #[cfg(feature = "browser")]
 use chromiumoxide::page::ScreenshotParams;
 
+use super::{BrowserError, BrowserEvalState, BrowserHtmlState, BrowserScreenshotState};
 use crate::page_model::Rect;
-use super::{BrowserEvalState, BrowserError, BrowserHtmlState, BrowserScreenshotState};
 
 impl super::BrowserController {
     pub fn capture_screenshot(

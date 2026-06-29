@@ -2,17 +2,19 @@
 use std::collections::BTreeMap;
 
 use super::planner_prompt::planner_interpretation_unavailable_error;
-#[cfg(feature = "remote-openai")]
-use super::planner_prompt::PlannerPromptPayload;
 #[cfg(any(feature = "remote-openai", test))]
 use super::planner_prompt::planner_system_prompt;
+#[cfg(feature = "remote-openai")]
+use super::planner_prompt::PlannerPromptPayload;
 use super::AppCore;
+#[cfg(feature = "remote-openai")]
+use crate::commands::{
+    canonical_planner_output_examples, planner_output_schema, tool_input_schema,
+};
 use crate::commands::{PlannerInput, PlannerOutput, ToolError};
 #[cfg(feature = "remote-openai")]
-use crate::commands::{canonical_planner_output_examples, planner_output_schema, tool_input_schema};
-use crate::config::{RemotePlannerProfile, RemoteProviderKind};
-#[cfg(feature = "remote-openai")]
 use crate::config::resolve_secret_ref;
+use crate::config::{RemotePlannerProfile, RemoteProviderKind};
 
 impl AppCore {
     pub(super) fn resolve_planner_output(

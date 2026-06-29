@@ -1,5 +1,8 @@
 use super::invalid_planner_output;
-use crate::commands::{EvalJsInput, GoBackInput, GoForwardInput, OpenUrlInput, ScrollPageInput, ToolError, MAX_HISTORY_STEPS};
+use crate::commands::{
+    EvalJsInput, GoBackInput, GoForwardInput, OpenUrlInput, ScrollPageInput, ToolError,
+    MAX_HISTORY_STEPS,
+};
 
 pub(super) fn validate_open_url_input(input: &OpenUrlInput) -> Result<(), ToolError> {
     let trimmed = input.url.trim();

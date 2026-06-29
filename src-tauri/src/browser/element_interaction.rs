@@ -1,15 +1,17 @@
+#[cfg(any(feature = "browser", test))]
+use super::session::normalize_optional_text;
 #[cfg(feature = "browser")]
 use super::session::{
     ensure_live_element, snapshot_page_state, stable_dom_selector, LiveFocusResult,
     LiveSubmitResult, LiveTypeResult,
 };
-#[cfg(any(feature = "browser", test))]
-use super::session::normalize_optional_text;
 #[cfg(feature = "browser")]
 use chromiumoxide::types::ClickOptions;
 
+use super::{
+    BrowserClickState, BrowserError, BrowserFocusState, BrowserSubmitState, BrowserTypeState,
+};
 use crate::page_model::InteractiveElement;
-use super::{BrowserClickState, BrowserError, BrowserFocusState, BrowserSubmitState, BrowserTypeState};
 
 impl super::BrowserController {
     pub fn click_element(

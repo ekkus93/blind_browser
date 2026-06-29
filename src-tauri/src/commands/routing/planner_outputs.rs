@@ -169,7 +169,11 @@ pub(super) fn build_status_query_planner_output(spec: StatusQueryPlanSpec<'_>) -
     }
 }
 
-pub(super) fn build_report_result_step(request_id: &str, step_id: &str, summary: String) -> PlannedStep {
+pub(super) fn build_report_result_step(
+    request_id: &str,
+    step_id: &str,
+    summary: String,
+) -> PlannedStep {
     PlannedStep {
         step_id: String::from(step_id),
         tool_name: ToolName::ReportResult,
@@ -294,7 +298,10 @@ mod tests {
             serde_json::json!(BrowserVisibilityMode::Headless)
         );
         assert_eq!(output.steps[1].tool_name, ToolName::ReportResult);
-        assert!(matches!(output.steps[1].on_success, StepTransition::Complete));
+        assert!(matches!(
+            output.steps[1].on_success,
+            StepTransition::Complete
+        ));
         assert_eq!(
             output.steps[1].arguments["summary"],
             serde_json::json!("Browser is now headless.")

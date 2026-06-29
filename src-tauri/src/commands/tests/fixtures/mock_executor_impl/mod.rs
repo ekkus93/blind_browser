@@ -1,9 +1,9 @@
 // Re-export the fixtures scope so submodules can reach all tool types via `use super::*;`.
 pub(crate) use super::*;
 
-mod navigation;
-mod media;
 mod interaction;
+mod media;
+mod navigation;
 mod settings;
 mod state;
 

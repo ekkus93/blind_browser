@@ -80,4 +80,3 @@ fn set_playback_speed_clamps_requested_value_and_updates_readback() {
         crate::config::MAX_PLAYBACK_SPEED
     );
 }
-

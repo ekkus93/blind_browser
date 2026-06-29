@@ -1,12 +1,12 @@
+use crate::app_core::element_scoring::region_bbox_by_id;
+use crate::app_core::ocr_merge::{extracted_text_metrics, merge_ocr_text_into_page_model};
+use crate::app_core::page_model_builder::ocr_runtime_error_to_tool_error;
 use crate::commands::{
-    MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput, RunOcrData, RunOcrInput,
-    ToolError, ToolName, ToolResult,
+    MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput, RunOcrData, RunOcrInput, ToolError,
+    ToolName, ToolResult,
 };
 use crate::ocr::OcrSettings;
 use crate::page_model::PageModel;
-use crate::app_core::ocr_merge::{extracted_text_metrics, merge_ocr_text_into_page_model};
-use crate::app_core::page_model_builder::ocr_runtime_error_to_tool_error;
-use crate::app_core::element_scoring::region_bbox_by_id;
 
 impl super::super::AppCore {
     pub fn execute_run_ocr(&mut self, input: RunOcrInput) -> ToolResult<RunOcrData> {
@@ -73,8 +73,8 @@ impl super::super::AppCore {
                         input.request_id,
                         error,
                         vec![String::from(
-                            "Region-targeted OCR requires readable regions in the current page model.",
-                        )],
+                        "Region-targeted OCR requires readable regions in the current page model.",
+                    )],
                     )
                 }
             };
@@ -213,9 +213,7 @@ impl super::super::AppCore {
                 input.request_id,
                 ToolError {
                     code: String::from("invalid_page_id"),
-                    message: String::from(
-                        "merge_ocr_into_page_model requires a non-empty page_id",
-                    ),
+                    message: String::from("merge_ocr_into_page_model requires a non-empty page_id"),
                     retryable: false,
                     details: None,
                 },
@@ -271,9 +269,7 @@ impl super::super::AppCore {
                 input.request_id,
                 ToolError {
                     code: String::from("invalid_ocr_text"),
-                    message: String::from(
-                        "merge_ocr_into_page_model requires non-empty ocr_text",
-                    ),
+                    message: String::from("merge_ocr_into_page_model requires non-empty ocr_text"),
                     retryable: false,
                     details: None,
                 },

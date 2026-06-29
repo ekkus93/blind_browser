@@ -1,6 +1,6 @@
-use super::*;
 use super::skill_loader::discover_skills;
 use super::skill_parser::score_skill;
+use super::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct SkillFrontmatter {

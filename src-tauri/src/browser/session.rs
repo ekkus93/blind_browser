@@ -102,9 +102,7 @@ pub(super) async fn snapshot_page_state(page: &Page) -> Result<BrowserPageState,
 }
 
 #[cfg(feature = "browser")]
-pub(super) fn stable_dom_selector(
-    element: &InteractiveElement,
-) -> Result<&str, BrowserError> {
+pub(super) fn stable_dom_selector(element: &InteractiveElement) -> Result<&str, BrowserError> {
     element
         .dom_locator
         .as_deref()

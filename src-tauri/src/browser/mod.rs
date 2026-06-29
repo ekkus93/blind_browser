@@ -1,19 +1,18 @@
 pub mod config;
 pub use config::*;
 
-mod session;
-mod navigation;
-mod page_metrics;
 mod dom_extraction;
 mod element_interaction;
+mod navigation;
 mod page_inspection;
+mod page_metrics;
+mod session;
 
 #[cfg(feature = "browser")]
-use session::{LiveBrowserSession, snapshot_page_state};
+use session::{snapshot_page_state, LiveBrowserSession};
 
 #[cfg(any(feature = "browser", test))]
 use std::time::Duration;
-
 
 pub struct BrowserController {
     #[cfg(feature = "browser")]
@@ -129,4 +128,3 @@ pub(super) fn wait_for_page_settle(timeout_ms: Option<u64>) {
     let wait_ms = timeout_ms.unwrap_or(400).clamp(150, 2_000);
     std::thread::sleep(Duration::from_millis(wait_ms));
 }
-

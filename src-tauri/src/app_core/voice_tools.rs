@@ -2,9 +2,9 @@ use crate::asr::AsrRuntimeError;
 use crate::audio_io::AudioPlaybackError;
 use crate::browser::BrowserError;
 use crate::commands::{
-    SetBrowserVisibilityData, SetBrowserVisibilityInput,
-    SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
-    SetTtsVoiceData, SetTtsVoiceInput, ToolError, ToolName, ToolResult,
+    SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
+    SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
+    SetTtsVoiceInput, ToolError, ToolName, ToolResult,
 };
 use crate::tts::TtsRuntimeError;
 
@@ -176,7 +176,6 @@ impl super::AppCore {
             ),
         }
     }
-
 }
 
 pub(crate) fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolError {

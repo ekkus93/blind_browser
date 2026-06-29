@@ -1,14 +1,14 @@
-use crate::commands::{
-    ElementVisibilityFilter, FindElementInput, IntentName, IntentSummary, PlannedStep,
-    PlannerOutput, PlannerStatus, StepTransition, ToolName,
-    parse_direct_focus_field_command, DEFAULT_FIND_ELEMENT_MAX_CANDIDATES,
-};
-use crate::page_model::PageModel;
 use crate::app_core::element_scoring::{
     build_find_element_query, determine_find_element_resolution, focusable_field_elements,
     rank_find_element_candidates, summarize_candidate_names,
 };
 use crate::app_core::fill_correction::{build_direct_follow_up_output, DirectFollowUpSpec};
+use crate::commands::{
+    parse_direct_focus_field_command, ElementVisibilityFilter, FindElementInput, IntentName,
+    IntentSummary, PlannedStep, PlannerOutput, PlannerStatus, StepTransition, ToolName,
+    DEFAULT_FIND_ELEMENT_MAX_CANDIDATES,
+};
+use crate::page_model::PageModel;
 
 pub(crate) fn resolve_direct_focus_field_command(
     transcript: &str,

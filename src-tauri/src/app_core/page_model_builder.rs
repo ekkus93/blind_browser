@@ -1,4 +1,6 @@
-use crate::commands::{ExtractPageModelData, ExtractPageModelInput, ToolError, ToolName, ToolResult};
+use crate::commands::{
+    ExtractPageModelData, ExtractPageModelInput, ToolError, ToolName, ToolResult,
+};
 use crate::ocr::OcrRuntimeError;
 use crate::page_model::{ExtractionSource, PageModel, RegionSource};
 
@@ -74,7 +76,10 @@ pub(crate) fn build_visible_text_excerpt(page: &PageModel, max_chars: Option<usi
     }
 }
 
-pub(crate) fn build_extracted_page_model(page: &PageModel, input: &ExtractPageModelInput) -> PageModel {
+pub(crate) fn build_extracted_page_model(
+    page: &PageModel,
+    input: &ExtractPageModelInput,
+) -> PageModel {
     use crate::page_model::ElementRole;
 
     let interactive_elements = if input.include_links {

@@ -297,4 +297,3 @@ fn browser_history_navigation_updates_following_state_reads() {
         Some(&serde_json::json!(2))
     );
 }
-

@@ -1,14 +1,14 @@
-use std::collections::HashSet;
 use super::super::{
     ExecutionOutcome, ExecutionTrace, PendingPlanExecutionState, PlannedStep, PlannerOutput,
     PlannerStatus, SerializedToolResult, StepTransition, ToolError,
 };
-use super::StepExecutionContext;
-use super::tool_dispatch::is_side_effecting_tool;
 use super::step_helpers::{
     build_step_positions, extract_confirmation_id, extract_confirmation_prompt_text,
     queued_step_ids_after, queued_steps_after,
 };
+use super::tool_dispatch::is_side_effecting_tool;
+use super::StepExecutionContext;
+use std::collections::HashSet;
 
 pub(crate) fn execute_planner_output_with_runner<Runner>(
     request_id: String,
@@ -188,9 +188,21 @@ where
             };
         }
 
-        let step = &steps[*step_positions
-            .get(&current_step_id)
-            .expect("step positions should contain the current step")];
+        let Some(step_position) = step_positions.get(&current_step_id) else {
+            return ExecutionOutcome::Aborted {
+                trace,
+                error: ToolError {
+                    code: String::from("missing_step_position"),
+                    message: format!(
+                        "step '{}' was not found in the step position map",
+                        current_step_id
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+            };
+        };
+        let step = &steps[*step_position];
 
         if block_side_effects_until_confirmation && is_side_effecting_tool(&step.tool_name) {
             return ExecutionOutcome::Aborted {

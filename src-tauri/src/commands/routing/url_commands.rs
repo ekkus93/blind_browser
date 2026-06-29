@@ -85,7 +85,6 @@ pub(super) fn first_readable_region_id(page_model: &PageModel) -> Option<String>
         .map(|region| region.region_id.clone())
 }
 
-
 pub(super) fn format_current_url_summary(agent_state: &AgentStateData) -> String {
     match (
         normalized_optional_text(agent_state.title.as_deref()),

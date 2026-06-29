@@ -19,10 +19,7 @@ pub(super) fn execute_capture_screenshot(
     )
 }
 
-pub(super) fn execute_run_ocr(
-    ex: &mut MockExecutor,
-    input: RunOcrInput,
-) -> ToolResult<RunOcrData> {
+pub(super) fn execute_run_ocr(ex: &mut MockExecutor, input: RunOcrInput) -> ToolResult<RunOcrData> {
     ex.last_run_ocr_request = Some(input.clone());
     ToolResult::success(
         ToolName::RunOcr,

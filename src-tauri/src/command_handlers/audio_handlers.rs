@@ -17,11 +17,13 @@ pub fn set_playback_volume(
     app_core: tauri::State<'_, Mutex<AppCore>>,
 ) -> Result<ToolResult<SetPlaybackVolumeData>, ToolError> {
     let mut app_core = lock_app_core(&app_core)?;
-    Ok(app_core.execute_set_playback_volume(SetPlaybackVolumeInput {
-        request_id,
-        timeout_ms,
-        volume,
-    }))
+    Ok(
+        app_core.execute_set_playback_volume(SetPlaybackVolumeInput {
+            request_id,
+            timeout_ms,
+            volume,
+        }),
+    )
 }
 
 #[tauri::command]
@@ -47,11 +49,13 @@ pub fn set_browser_visibility(
     app_core: tauri::State<'_, Mutex<AppCore>>,
 ) -> Result<ToolResult<SetBrowserVisibilityData>, ToolError> {
     let mut app_core = lock_app_core(&app_core)?;
-    Ok(app_core.execute_set_browser_visibility(SetBrowserVisibilityInput {
-        request_id,
-        timeout_ms,
-        mode,
-    }))
+    Ok(
+        app_core.execute_set_browser_visibility(SetBrowserVisibilityInput {
+            request_id,
+            timeout_ms,
+            mode,
+        }),
+    )
 }
 
 #[tauri::command]

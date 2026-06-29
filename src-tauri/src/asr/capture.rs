@@ -1,15 +1,17 @@
 #[cfg(feature = "audio")]
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(feature = "audio")]
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+#[cfg(any(feature = "audio", test))]
+use std::sync::Mutex;
 
 #[cfg(feature = "audio")]
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 #[cfg(feature = "audio")]
 use cpal::{FromSample, Sample, SampleFormat, SizedSample, Stream, SupportedStreamConfig};
 
-use super::AsrRuntimeError;
 use super::processing::CapturedAudio;
+use super::AsrRuntimeError;
 
 #[cfg(feature = "audio")]
 type SharedCaptureBuffer = Arc<Mutex<Vec<f32>>>;
@@ -58,21 +60,27 @@ impl CaptureSession {
         })
     }
 
-    pub(super) fn snapshot(&self) -> Result<CapturedAudio, AsrRuntimeError> {
+    pub(super) fn take_captured_audio(&self) -> Result<CapturedAudio, AsrRuntimeError> {
         if self.lock_failed.load(Ordering::Relaxed) {
             return Err(AsrRuntimeError::AudioBufferLockFailed);
         }
-        let samples = self
-            .buffer
-            .lock()
-            .map_err(|_| AsrRuntimeError::AudioBufferLockFailed)?
-            .clone();
+        let samples = drain_capture_buffer(&self.buffer)?;
         Ok(CapturedAudio {
             samples,
             sample_rate: self.sample_rate,
             channels: self.channels,
         })
     }
+}
+
+#[cfg(any(feature = "audio", test))]
+pub(super) fn drain_capture_buffer(buffer: &Mutex<Vec<f32>>) -> Result<Vec<f32>, AsrRuntimeError> {
+    let samples = std::mem::take(
+        &mut *buffer
+            .lock()
+            .map_err(|_| AsrRuntimeError::AudioBufferLockFailed)?,
+    );
+    Ok(samples)
 }
 
 #[cfg(feature = "audio")]
@@ -151,5 +159,26 @@ where
                 tracing::warn!("audio capture buffer lock is poisoned; audio input will be lost");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn consecutive_drains_do_not_return_overlapping_samples() {
+        let buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
+        buffer.lock().unwrap().extend([1.0f32, 2.0, 3.0]);
+
+        let first = drain_capture_buffer(&buffer).unwrap();
+        assert_eq!(first, vec![1.0f32, 2.0, 3.0]);
+        assert!(buffer.lock().unwrap().is_empty());
+
+        buffer.lock().unwrap().extend([4.0f32, 5.0]);
+
+        let second = drain_capture_buffer(&buffer).unwrap();
+        assert_eq!(second, vec![4.0f32, 5.0]);
     }
 }

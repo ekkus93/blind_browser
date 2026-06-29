@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use super::super::{
     DeterministicToolExecutor, PlannedStep, SerializedToolResult, ToolError, ToolName, ToolResult,
 };
 use super::step_helpers::{inferred_request_id, serialize_tool_result};
+use serde::{Deserialize, Serialize};
 
 pub fn execute_planned_step<E: DeterministicToolExecutor>(
     executor: &mut E,
@@ -228,9 +228,7 @@ where
     }
 }
 
-pub(in crate::commands::planner_executor) fn is_side_effecting_tool(
-    tool_name: &ToolName,
-) -> bool {
+pub(in crate::commands::planner_executor) fn is_side_effecting_tool(tool_name: &ToolName) -> bool {
     !matches!(
         tool_name,
         ToolName::CaptureScreenshot

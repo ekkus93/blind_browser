@@ -1,10 +1,10 @@
-use crate::commands::{
-    FindElementData, FindElementInput, ListInteractiveElementsData, ListInteractiveElementsInput,
-    ToolError, ToolName, ToolResult,
-};
 use crate::app_core::element_scoring::{
     build_find_element_query, determine_find_element_resolution, filter_interactive_elements,
     rank_find_element_candidates,
+};
+use crate::commands::{
+    FindElementData, FindElementInput, ListInteractiveElementsData, ListInteractiveElementsInput,
+    ToolError, ToolName, ToolResult,
 };
 
 impl super::super::AppCore {
@@ -82,10 +82,7 @@ impl super::super::AppCore {
         )
     }
 
-    pub fn execute_find_element(
-        &mut self,
-        input: FindElementInput,
-    ) -> ToolResult<FindElementData> {
+    pub fn execute_find_element(&mut self, input: FindElementInput) -> ToolResult<FindElementData> {
         let Some(page_id) = self.state.current_page_id.clone() else {
             return ToolResult::failure(
                 ToolName::FindElement,

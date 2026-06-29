@@ -300,7 +300,7 @@ fn planner_input_serializes_safety_settings_for_click_policy() {
                 base_url: Some(String::from("https://api.openai.com/v1")),
                 model: Some(String::from("gpt-5.4-mini")),
                 api_key_reference: Some(String::from("Environment variable: OPENAI_API_KEY")),
-            api_key_masked_value: None,
+                api_key_masked_value: None,
                 organization_reference: None,
                 project: None,
                 temperature_milli: Some(200),
