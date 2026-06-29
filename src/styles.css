@@ -208,7 +208,7 @@ body {
   height: 44px;
   padding: 0;
   border-radius: 999px;
-  background: rgba(255, 252, 247, 0.82);
+  background: var(--color-surface-card);
   border: 1px solid rgba(41, 88, 63, 0.16);
   box-shadow: 0 10px 20px rgba(49, 63, 74, 0.08);
 }
@@ -308,7 +308,7 @@ body {
   appearance: none;
   border: var(--card-border);
   border-radius: 10px;
-  background: rgba(255, 252, 247, 0.6);
+  background: var(--color-surface-card);
   color: var(--color-green-primary);
   font: inherit;
   font-weight: 700;
@@ -320,7 +320,7 @@ body {
 
 .settings-subpage-card:hover {
   outline: none;
-  background: rgba(255, 252, 247, 0.9);
+  background: var(--color-surface-card);
   box-shadow: 0 6px 16px rgba(41, 88, 63, 0.12);
   transform: translateY(-1px);
 }
@@ -328,7 +328,7 @@ body {
 .settings-subpage-card:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-offset);
-  background: rgba(255, 252, 247, 0.9);
+  background: var(--color-surface-card);
   box-shadow: 0 6px 16px rgba(41, 88, 63, 0.12);
   transform: translateY(-1px);
 }
@@ -383,7 +383,7 @@ body {
   height: 44px;
   padding: 0;
   border-radius: 999px;
-  background: rgba(255, 252, 247, 0.82);
+  background: var(--color-surface-card);
   border: 1px solid rgba(41, 88, 63, 0.16);
   box-shadow: 0 10px 20px rgba(49, 63, 74, 0.08);
 }
@@ -413,7 +413,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   font-size: 0.78rem;
-  color: #7b6246;
+  color: var(--eyebrow-color);
 }
 
 h1,
@@ -434,7 +434,7 @@ h1 {
   max-width: 60ch;
   font-size: 1.05rem;
   line-height: 1.6;
-  color: #3a342e;
+  color: var(--color-text-secondary);
 }
 
 .panels {
@@ -446,7 +446,7 @@ h1 {
 .panel {
   padding: 20px;
   border-radius: 18px;
-  background: rgba(255, 252, 247, 0.82);
+  background: var(--color-surface-card);
   border: 1px solid rgba(123, 98, 70, 0.16);
   box-shadow: 0 14px 32px rgba(74, 58, 43, 0.08);
 }
@@ -824,7 +824,7 @@ h1 {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   font-size: 0.76rem;
-  color: #7b6246;
+  color: var(--eyebrow-color);
 }
 
 .status-panel h2 {
@@ -965,7 +965,7 @@ h1 {
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(95, 88, 78, 0.12);
-  color: #5d584e;
+  color: var(--color-text-secondary);
   font-size: 0.88rem;
 }
 
@@ -1333,7 +1333,7 @@ h1 {
 .settings-model-freshness-label {
   font-size: 0.78rem;
   font-weight: 500;
-  color: #7b6246;
+  color: var(--eyebrow-color);
 }
 
 .settings-inline-control-row {
@@ -1412,7 +1412,7 @@ h1 {
 .settings-api-key-test-status-message {
   margin: 0;
   line-height: 1.55;
-  color: #1f2527;
+  color: var(--color-text-primary);
   font-weight: 600;
 }
 
@@ -1686,7 +1686,7 @@ h1 {
 .confirmation-card ul {
   margin: 0;
   padding-left: 18px;
-  color: #2c3233;
+  color: var(--color-text-secondary);
   line-height: 1.5;
 }
 

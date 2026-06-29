@@ -21,7 +21,16 @@ import {
   setTtsVoicePanelState as setTtsVoicePanelStoreState,
   setUrlInputPanelState as setUrlInputPanelStoreState,
 } from "./app-shell-store";
-import { openExternalUrl } from "./tauri-api";
+import { openExternalUrl as openExternalUrlDefault } from "./tauri-api";
+
+let openExternalUrlImpl: typeof openExternalUrlDefault = openExternalUrlDefault;
+
+export function setOpenExternalUrlForTest(next: typeof openExternalUrlDefault): () => void {
+  openExternalUrlImpl = next;
+  return () => {
+    openExternalUrlImpl = openExternalUrlDefault;
+  };
+}
 import type { AppView, SettingsView } from "./app-shell";
 import type {
   AppAlertState,
@@ -68,8 +77,12 @@ export function setAppAlertState(nextState: Partial<AppAlertState>) {
   appShellStore.dispatch(setAppAlertPanelStoreState(nextState));
 }
 
+export function clearAppAlert() {
+  setAppAlertState({ kind: "info", message: null });
+}
+
 export function openExternalLink(url: string) {
-  void openExternalUrl({ url }).catch((error) => {
+  void openExternalUrlImpl({ url }).catch((error) => {
     console.error("Failed to open external link.", error);
     setAppAlertState({
       kind: "error",
