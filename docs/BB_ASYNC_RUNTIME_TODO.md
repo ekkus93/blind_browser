@@ -36,7 +36,7 @@ Do not mark a task complete unless the gate passes in the developer environment.
 
 ## P0.1 — Phase 1: managed `Arc<Mutex<AppCore>>` + `spawn_blocking` commands
 
-**Status:** PENDING  
+**Status:** DONE (gate green; behavioral `--features full` checks still need human verification)  
 **Files:**
 
 - `src-tauri/src/lib.rs`

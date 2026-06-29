@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::app_core::AppCore;
 use crate::browser::BrowserVisibilityMode;
@@ -14,7 +14,7 @@ pub fn set_playback_volume(
     request_id: String,
     timeout_ms: Option<u64>,
     volume: f32,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<ToolResult<SetPlaybackVolumeData>, ToolError> {
     let mut app_core = lock_app_core(&app_core)?;
     Ok(
@@ -31,7 +31,7 @@ pub fn set_playback_speed(
     request_id: String,
     timeout_ms: Option<u64>,
     speed: f32,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<ToolResult<SetPlaybackSpeedData>, ToolError> {
     let mut app_core = lock_app_core(&app_core)?;
     Ok(app_core.execute_set_playback_speed(SetPlaybackSpeedInput {
@@ -46,7 +46,7 @@ pub fn set_browser_visibility(
     request_id: String,
     timeout_ms: Option<u64>,
     mode: BrowserVisibilityMode,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<ToolResult<SetBrowserVisibilityData>, ToolError> {
     let mut app_core = lock_app_core(&app_core)?;
     Ok(
@@ -63,7 +63,7 @@ pub fn set_tts_voice(
     request_id: String,
     timeout_ms: Option<u64>,
     voice: TtsVoiceName,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<ToolResult<SetTtsVoiceData>, ToolError> {
     let mut app_core = lock_app_core(&app_core)?;
     Ok(app_core.execute_set_tts_voice(SetTtsVoiceInput {

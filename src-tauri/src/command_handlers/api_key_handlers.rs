@@ -1,8 +1,8 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::app_core::{AppCore, RemotePlannerModelListData};
 use crate::commands::ToolError;
-use crate::lock_app_core;
+use crate::{join_error_to_tool_error, lock_app_core};
 
 #[derive(serde::Serialize)]
 pub struct SetRemoteApiKeyData {
@@ -22,7 +22,7 @@ pub fn set_remote_planner_api_key(
     timeout_ms: Option<u64>,
     profile_name: String,
     api_key: String,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<SetRemoteApiKeyData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
@@ -66,99 +66,115 @@ pub fn set_remote_planner_api_key(
     })
 }
 
-#[tauri::command(async)]
-pub fn test_remote_planner_api_key(
+// Runs in `spawn_blocking` so the `futures::executor::block_on` network round-trip
+// runs off the main thread and off the async worker threads.
+#[tauri::command]
+pub async fn test_remote_planner_api_key(
     request_id: String,
     timeout_ms: Option<u64>,
     profile_name: String,
     api_key: String,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<TestRemoteApiKeyData, ToolError> {
     let _ = request_id;
-    let app_core = lock_app_core(&app_core)?;
-    let profile_name = profile_name.trim().to_string();
-    if profile_name.is_empty() {
-        return Err(ToolError {
-            code: String::from("invalid_remote_planner_profile"),
-            message: String::from(
-                "Remote planner API key test requires a configured profile name.",
-            ),
-            retryable: false,
-            details: None,
-        });
-    }
+    let core = Arc::clone(&app_core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let app_core = lock_app_core(&core)?;
+        let profile_name = profile_name.trim().to_string();
+        if profile_name.is_empty() {
+            return Err(ToolError {
+                code: String::from("invalid_remote_planner_profile"),
+                message: String::from(
+                    "Remote planner API key test requires a configured profile name.",
+                ),
+                retryable: false,
+                details: None,
+            });
+        }
 
-    let api_key = api_key.trim().to_string();
-    let message = app_core
-        .test_remote_planner_api_key(
-            &profile_name,
-            (!api_key.is_empty()).then_some(api_key.as_str()),
-            timeout_ms,
-        )
-        .map_err(|error| ToolError {
-            code: String::from("remote_planner_api_key_test_failed"),
-            message: error,
-            retryable: false,
-            details: None,
-        })?;
+        let api_key = api_key.trim().to_string();
+        let message = app_core
+            .test_remote_planner_api_key(
+                &profile_name,
+                (!api_key.is_empty()).then_some(api_key.as_str()),
+                timeout_ms,
+            )
+            .map_err(|error| ToolError {
+                code: String::from("remote_planner_api_key_test_failed"),
+                message: error,
+                retryable: false,
+                details: None,
+            })?;
 
-    Ok(TestRemoteApiKeyData {
-        profile_name,
-        message,
+        Ok(TestRemoteApiKeyData {
+            profile_name,
+            message,
+        })
     })
+    .await
+    .map_err(join_error_to_tool_error)?
 }
 
-#[tauri::command(async)]
-pub fn list_remote_planner_models(
+// Runs in `spawn_blocking` so the `futures::executor::block_on` network round-trip
+// runs off the main thread and off the async worker threads.
+#[tauri::command]
+pub async fn list_remote_planner_models(
     request_id: String,
     timeout_ms: Option<u64>,
     profile_name: String,
     base_url: String,
     api_key: String,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<RemotePlannerModelListData, ToolError> {
     let _ = request_id;
-    let app_core = lock_app_core(&app_core)?;
-    let profile_name = profile_name.trim().to_string();
-    let base_url = base_url.trim().to_string();
-    if profile_name.is_empty() {
-        return Err(ToolError {
-            code: String::from("invalid_remote_planner_profile"),
-            message: String::from(
-                "Remote planner model loading requires a configured profile name.",
-            ),
-            retryable: false,
-            details: None,
-        });
-    }
-    if base_url.is_empty() {
-        return Err(ToolError {
-            code: String::from("invalid_remote_planner_endpoint"),
-            message: String::from("Remote planner model loading requires a non-empty endpoint."),
-            retryable: false,
-            details: None,
-        });
-    }
+    let core = Arc::clone(&app_core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let app_core = lock_app_core(&core)?;
+        let profile_name = profile_name.trim().to_string();
+        let base_url = base_url.trim().to_string();
+        if profile_name.is_empty() {
+            return Err(ToolError {
+                code: String::from("invalid_remote_planner_profile"),
+                message: String::from(
+                    "Remote planner model loading requires a configured profile name.",
+                ),
+                retryable: false,
+                details: None,
+            });
+        }
+        if base_url.is_empty() {
+            return Err(ToolError {
+                code: String::from("invalid_remote_planner_endpoint"),
+                message: String::from(
+                    "Remote planner model loading requires a non-empty endpoint.",
+                ),
+                retryable: false,
+                details: None,
+            });
+        }
 
-    let models = app_core
-        .list_remote_planner_models(
-            &profile_name,
-            Some(&base_url),
-            (!api_key.trim().is_empty()).then_some(api_key.as_str()),
-            timeout_ms,
-        )
-        .map_err(|error| ToolError {
-            code: String::from("remote_planner_models_load_failed"),
-            message: error,
-            retryable: false,
-            details: None,
-        })?;
+        let models = app_core
+            .list_remote_planner_models(
+                &profile_name,
+                Some(&base_url),
+                (!api_key.trim().is_empty()).then_some(api_key.as_str()),
+                timeout_ms,
+            )
+            .map_err(|error| ToolError {
+                code: String::from("remote_planner_models_load_failed"),
+                message: error,
+                retryable: false,
+                details: None,
+            })?;
 
-    Ok(RemotePlannerModelListData {
-        profile_name,
-        base_url,
-        models,
+        Ok(RemotePlannerModelListData {
+            profile_name,
+            base_url,
+            models,
+        })
     })
+    .await
+    .map_err(join_error_to_tool_error)?
 }
 
 #[tauri::command]
@@ -167,7 +183,7 @@ pub fn set_remote_tts_api_key(
     timeout_ms: Option<u64>,
     profile_name: String,
     api_key: String,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<SetRemoteApiKeyData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
@@ -209,44 +225,53 @@ pub fn set_remote_tts_api_key(
     })
 }
 
-#[tauri::command(async)]
-pub fn test_remote_tts_api_key(
+// Runs in `spawn_blocking` so the `futures::executor::block_on` network round-trip
+// runs off the main thread and off the async worker threads.
+#[tauri::command]
+pub async fn test_remote_tts_api_key(
     request_id: String,
     timeout_ms: Option<u64>,
     profile_name: String,
     api_key: String,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<TestRemoteApiKeyData, ToolError> {
     let _ = request_id;
-    let app_core = lock_app_core(&app_core)?;
-    let profile_name = profile_name.trim().to_string();
-    if profile_name.is_empty() {
-        return Err(ToolError {
-            code: String::from("invalid_remote_tts_profile"),
-            message: String::from("Remote TTS API key test requires a configured profile name."),
-            retryable: false,
-            details: None,
-        });
-    }
+    let core = Arc::clone(&app_core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let app_core = lock_app_core(&core)?;
+        let profile_name = profile_name.trim().to_string();
+        if profile_name.is_empty() {
+            return Err(ToolError {
+                code: String::from("invalid_remote_tts_profile"),
+                message: String::from(
+                    "Remote TTS API key test requires a configured profile name.",
+                ),
+                retryable: false,
+                details: None,
+            });
+        }
 
-    let api_key = api_key.trim().to_string();
-    let message = app_core
-        .test_remote_tts_api_key(
-            &profile_name,
-            (!api_key.is_empty()).then_some(api_key.as_str()),
-            timeout_ms,
-        )
-        .map_err(|error| ToolError {
-            code: String::from("remote_tts_api_key_test_failed"),
-            message: error,
-            retryable: false,
-            details: None,
-        })?;
+        let api_key = api_key.trim().to_string();
+        let message = app_core
+            .test_remote_tts_api_key(
+                &profile_name,
+                (!api_key.is_empty()).then_some(api_key.as_str()),
+                timeout_ms,
+            )
+            .map_err(|error| ToolError {
+                code: String::from("remote_tts_api_key_test_failed"),
+                message: error,
+                retryable: false,
+                details: None,
+            })?;
 
-    Ok(TestRemoteApiKeyData {
-        profile_name,
-        message,
+        Ok(TestRemoteApiKeyData {
+            profile_name,
+            message,
+        })
     })
+    .await
+    .map_err(join_error_to_tool_error)?
 }
 
 #[tauri::command]
@@ -255,7 +280,7 @@ pub fn set_remote_asr_api_key(
     timeout_ms: Option<u64>,
     profile_name: String,
     api_key: String,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<SetRemoteApiKeyData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
@@ -297,42 +322,51 @@ pub fn set_remote_asr_api_key(
     })
 }
 
-#[tauri::command(async)]
-pub fn test_remote_asr_api_key(
+// Runs in `spawn_blocking` so the `futures::executor::block_on` network round-trip
+// runs off the main thread and off the async worker threads.
+#[tauri::command]
+pub async fn test_remote_asr_api_key(
     request_id: String,
     timeout_ms: Option<u64>,
     profile_name: String,
     api_key: String,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<TestRemoteApiKeyData, ToolError> {
     let _ = request_id;
-    let app_core = lock_app_core(&app_core)?;
-    let profile_name = profile_name.trim().to_string();
-    if profile_name.is_empty() {
-        return Err(ToolError {
-            code: String::from("invalid_remote_asr_profile"),
-            message: String::from("Remote ASR API key test requires a configured profile name."),
-            retryable: false,
-            details: None,
-        });
-    }
+    let core = Arc::clone(&app_core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let app_core = lock_app_core(&core)?;
+        let profile_name = profile_name.trim().to_string();
+        if profile_name.is_empty() {
+            return Err(ToolError {
+                code: String::from("invalid_remote_asr_profile"),
+                message: String::from(
+                    "Remote ASR API key test requires a configured profile name.",
+                ),
+                retryable: false,
+                details: None,
+            });
+        }
 
-    let api_key = api_key.trim().to_string();
-    let message = app_core
-        .test_remote_asr_api_key(
-            &profile_name,
-            (!api_key.is_empty()).then_some(api_key.as_str()),
-            timeout_ms,
-        )
-        .map_err(|error| ToolError {
-            code: String::from("remote_asr_api_key_test_failed"),
-            message: error,
-            retryable: false,
-            details: None,
-        })?;
+        let api_key = api_key.trim().to_string();
+        let message = app_core
+            .test_remote_asr_api_key(
+                &profile_name,
+                (!api_key.is_empty()).then_some(api_key.as_str()),
+                timeout_ms,
+            )
+            .map_err(|error| ToolError {
+                code: String::from("remote_asr_api_key_test_failed"),
+                message: error,
+                retryable: false,
+                details: None,
+            })?;
 
-    Ok(TestRemoteApiKeyData {
-        profile_name,
-        message,
+        Ok(TestRemoteApiKeyData {
+            profile_name,
+            message,
+        })
     })
+    .await
+    .map_err(join_error_to_tool_error)?
 }

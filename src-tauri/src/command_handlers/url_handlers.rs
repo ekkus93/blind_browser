@@ -1,27 +1,31 @@
 use std::process::Command;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::app_core::AppCore;
 use crate::commands::{OpenUrlData, OpenUrlInput, ToolError, ToolResult};
-use crate::lock_app_core;
+use crate::{join_error_to_tool_error, lock_app_core};
 
-// GUARDRAIL: Keep this a plain `#[tauri::command]` (main-thread). Opening a URL
-// drives the browser, which calls `tauri::async_runtime::block_on` and panics
-// when driven from a tokio worker. See BB_CODE_REVIEW2_TODO.md P1.1.2 / P1.1.4.
+// Runs in `spawn_blocking` so the browser navigation's
+// `tauri::async_runtime::block_on` calls are safe off the async worker threads.
 #[tauri::command]
-pub fn open_url(
+pub async fn open_url(
     request_id: String,
     timeout_ms: Option<u64>,
     url: String,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<ToolResult<OpenUrlData>, ToolError> {
-    let mut app_core = lock_app_core(&app_core)?;
-    Ok(app_core.execute_open_url(OpenUrlInput {
-        request_id,
-        timeout_ms,
-        url,
-        wait_for_load_state: None,
-    }))
+    let core = Arc::clone(&app_core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut guard = lock_app_core(&core)?;
+        Ok(guard.execute_open_url(OpenUrlInput {
+            request_id,
+            timeout_ms,
+            url,
+            wait_for_load_state: None,
+        }))
+    })
+    .await
+    .map_err(join_error_to_tool_error)?
 }
 
 fn validate_external_url(url: &str) -> Result<(), ToolError> {

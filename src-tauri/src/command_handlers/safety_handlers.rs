@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::app_core::AppCore;
 use crate::commands::ToolError;
@@ -28,7 +28,7 @@ pub fn set_confirmation_threshold(
     request_id: String,
     timeout_ms: Option<u64>,
     confirmation_confidence_threshold: f32,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<SetConfirmationThresholdData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
@@ -56,7 +56,7 @@ pub fn set_allow_click_without_confirmation(
     request_id: String,
     timeout_ms: Option<u64>,
     allow_click_without_confirmation: bool,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<SetAllowClickWithoutConfirmationData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
@@ -87,7 +87,7 @@ pub fn set_ocr_thresholds(
     timeout_ms: Option<u64>,
     sparse_text_char_threshold: u32,
     sparse_text_region_threshold: u32,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<SetOcrThresholdsData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;

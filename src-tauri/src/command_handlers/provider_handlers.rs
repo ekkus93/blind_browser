@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::app_core::{AppCore, RemotePlannerConnectionSettingsData};
 use crate::commands::ToolError;
@@ -28,7 +28,7 @@ pub fn set_asr_provider_selection(
     request_id: String,
     timeout_ms: Option<u64>,
     mode: ProviderMode,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<SetAsrProviderSelectionData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
@@ -52,7 +52,7 @@ pub fn set_tts_provider_selection(
     request_id: String,
     timeout_ms: Option<u64>,
     mode: ProviderMode,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<SetTtsProviderSelectionData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
@@ -76,7 +76,7 @@ pub fn set_tts_model_selection(
     request_id: String,
     timeout_ms: Option<u64>,
     profile_name: String,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<SetTtsModelSelectionData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
@@ -121,7 +121,7 @@ pub fn set_remote_planner_connection_settings(
     profile_name: String,
     base_url: String,
     model: String,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<RemotePlannerConnectionSettingsData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
@@ -160,7 +160,7 @@ pub fn reset_remote_planner_connection_settings(
     request_id: String,
     timeout_ms: Option<u64>,
     profile_name: String,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<RemotePlannerConnectionSettingsData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;

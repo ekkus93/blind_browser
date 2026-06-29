@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 pub mod app_core;
 pub mod asr;
@@ -32,15 +32,31 @@ use tauri::Manager;
 use crate::app_core::AppCore;
 use crate::commands::ToolError;
 
-fn lock_app_core<'a>(
-    app_core: &'a tauri::State<'a, Mutex<AppCore>>,
-) -> Result<std::sync::MutexGuard<'a, AppCore>, ToolError> {
+/// Acquire the global runtime-state guard.
+///
+/// Takes `&Mutex<AppCore>`, so it works both with a borrowed
+/// `tauri::State<'_, Arc<Mutex<AppCore>>>` (deref-coerced) and with an owned
+/// `Arc<Mutex<AppCore>>` clone moved into a `spawn_blocking` closure.
+fn lock_app_core(
+    app_core: &Mutex<AppCore>,
+) -> Result<std::sync::MutexGuard<'_, AppCore>, ToolError> {
     app_core.lock().map_err(|_| ToolError {
         code: String::from("app_core_lock_failed"),
         message: String::from("failed to acquire the app runtime state lock"),
         retryable: true,
         details: None,
     })
+}
+
+/// Convert a `spawn_blocking` join failure (panic or cancellation in the
+/// blocking task) into a non-retryable internal `ToolError`.
+fn join_error_to_tool_error(error: tauri::Error) -> ToolError {
+    ToolError {
+        code: String::from("internal_task_failed"),
+        message: format!("a background runtime task failed to complete: {error}"),
+        retryable: false,
+        details: None,
+    }
 }
 
 pub fn run() {
@@ -86,7 +102,7 @@ pub fn run() {
             let app_handle = app.handle().clone();
             let app_core = app_core::AppCore::new(app_handle)
                 .map_err(|error| -> Box<dyn Error> { Box::new(error) })?;
-            app.manage(Mutex::new(app_core));
+            app.manage(Arc::new(Mutex::new(app_core)));
             Ok(())
         })
         .run(tauri::generate_context!())

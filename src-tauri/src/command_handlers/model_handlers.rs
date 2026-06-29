@@ -1,8 +1,8 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::app_core::{AppCore, DownloadedLocalModelData, ModelManagementSettingsData};
 use crate::commands::ToolError;
-use crate::lock_app_core;
+use crate::{join_error_to_tool_error, lock_app_core};
 
 #[derive(serde::Serialize)]
 pub struct SetModelManagementSettingsData {
@@ -15,7 +15,7 @@ pub struct SetModelManagementSettingsData {
 pub fn get_model_management_settings(
     request_id: String,
     timeout_ms: Option<u64>,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<ModelManagementSettingsData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
@@ -30,7 +30,7 @@ pub fn set_model_management_settings(
     models_dir: String,
     check_on_startup: bool,
     auto_download_missing: bool,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<SetModelManagementSettingsData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
@@ -63,40 +63,50 @@ pub fn set_model_management_settings(
     })
 }
 
-#[tauri::command(async)]
-pub fn download_active_local_tts_model(
+#[tauri::command]
+pub async fn download_active_local_tts_model(
     request_id: String,
     timeout_ms: Option<u64>,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<DownloadedLocalModelData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
-    let mut app_core = lock_app_core(&app_core)?;
-    app_core
-        .download_active_local_tts_model()
-        .map_err(|message| ToolError {
-            code: String::from("local_tts_model_download_failed"),
-            message,
-            retryable: false,
-            details: None,
-        })
+    let core = Arc::clone(&app_core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut guard = lock_app_core(&core)?;
+        guard
+            .download_active_local_tts_model()
+            .map_err(|message| ToolError {
+                code: String::from("local_tts_model_download_failed"),
+                message,
+                retryable: false,
+                details: None,
+            })
+    })
+    .await
+    .map_err(join_error_to_tool_error)?
 }
 
-#[tauri::command(async)]
-pub fn download_active_local_asr_model(
+#[tauri::command]
+pub async fn download_active_local_asr_model(
     request_id: String,
     timeout_ms: Option<u64>,
-    app_core: tauri::State<'_, Mutex<AppCore>>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
 ) -> Result<DownloadedLocalModelData, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
-    let mut app_core = lock_app_core(&app_core)?;
-    app_core
-        .download_active_local_asr_model()
-        .map_err(|message| ToolError {
-            code: String::from("local_asr_model_download_failed"),
-            message,
-            retryable: false,
-            details: None,
-        })
+    let core = Arc::clone(&app_core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut guard = lock_app_core(&core)?;
+        guard
+            .download_active_local_asr_model()
+            .map_err(|message| ToolError {
+                code: String::from("local_asr_model_download_failed"),
+                message,
+                retryable: false,
+                details: None,
+            })
+    })
+    .await
+    .map_err(join_error_to_tool_error)?
 }
