@@ -55,7 +55,14 @@ pub fn transcribe_command(
     }))
 }
 
-#[tauri::command(async)]
+// GUARDRAIL: Keep this a plain `#[tauri::command]` (main-thread), NOT
+// `#[tauri::command(async)]`. It reaches browser tools via
+// `execute_command_with_replanning`, and those tools call
+// `tauri::async_runtime::block_on`, which panics ("Cannot start a runtime from
+// within a runtime") when invoked from a tokio worker thread. Until browser ops
+// stop calling `block_on` from a worker (see BB_CODE_REVIEW2_TODO.md P1.1.2 /
+// P1.1.4), converting this to `(async)` reintroduces that crash.
+#[tauri::command]
 pub fn transcribe_and_execute_command(
     request_id: String,
     timeout_ms: Option<u64>,

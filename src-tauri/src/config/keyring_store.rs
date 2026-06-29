@@ -1,7 +1,13 @@
 use std::collections::BTreeMap;
 use std::sync::{Mutex, OnceLock};
 
+use zeroize::Zeroizing;
+
 use super::*;
+
+/// Session cache of resolved keyring secrets, keyed by `(service, account)`.
+/// Values are `Zeroizing` so they are scrubbed on replacement and on drop.
+type SessionKeyringStore = BTreeMap<(String, String), Zeroizing<String>>;
 
 pub fn keyring_ref_for_remote_api_key(provider_kind: &str, profile_name: &str) -> KeyringRef {
     KeyringRef {
@@ -50,14 +56,10 @@ fn cache_keyring_secret(service: &str, account: &str, secret: &str) -> Result<()
         .lock()
         .map_err(|_| String::from("failed to acquire the session keyring cache lock"))?;
     let key = (String::from(service), String::from(account));
-    // Overwrite the old cached secret's bytes before replacing to reduce
-    // the window during which a prior key lives in the process heap.
-    if let Some(old) = store.get_mut(&key) {
-        // SAFETY: Null bytes are valid UTF-8. The string is immediately
-        // replaced or dropped after this block.
-        unsafe { old.as_mut_vec().fill(0) }
-    }
-    store.insert(key, String::from(secret));
+    // `Zeroizing` scrubs the prior cached value on replacement and scrubs every
+    // entry when the session store is dropped, so a resolved secret never lingers
+    // in the process heap after it is no longer cached.
+    store.insert(key, Zeroizing::new(String::from(secret)));
     Ok(())
 }
 
@@ -68,12 +70,12 @@ fn cached_keyring_secret(service: &str, account: &str) -> Result<Option<String>,
         .map_err(|_| String::from("failed to acquire the session keyring cache lock"))?;
     Ok(store
         .get(&(String::from(service), String::from(account)))
-        .cloned())
+        .map(|cached| cached.as_str().to_string()))
 }
 
-fn session_keyring_store() -> &'static Mutex<BTreeMap<(String, String), String>> {
-    static STORE: OnceLock<Mutex<BTreeMap<(String, String), String>>> = OnceLock::new();
-    STORE.get_or_init(|| Mutex::new(BTreeMap::new()))
+fn session_keyring_store() -> &'static Mutex<SessionKeyringStore> {
+    static STORE: OnceLock<Mutex<SessionKeyringStore>> = OnceLock::new();
+    STORE.get_or_init(|| Mutex::new(SessionKeyringStore::new()))
 }
 
 #[cfg(not(test))]

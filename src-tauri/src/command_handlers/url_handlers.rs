@@ -5,6 +5,9 @@ use crate::app_core::AppCore;
 use crate::commands::{OpenUrlData, OpenUrlInput, ToolError, ToolResult};
 use crate::lock_app_core;
 
+// GUARDRAIL: Keep this a plain `#[tauri::command]` (main-thread). Opening a URL
+// drives the browser, which calls `tauri::async_runtime::block_on` and panics
+// when driven from a tokio worker. See BB_CODE_REVIEW2_TODO.md P1.1.2 / P1.1.4.
 #[tauri::command]
 pub fn open_url(
     request_id: String,

@@ -7,6 +7,10 @@ use crate::commands::{
 };
 use crate::lock_app_core;
 
+// GUARDRAIL: Keep this a plain `#[tauri::command]` (main-thread), NOT
+// `#[tauri::command(async)]`. Planner execution can run browser tools, which
+// call `tauri::async_runtime::block_on` and panic when driven from a tokio
+// worker. See BB_CODE_REVIEW2_TODO.md P1.1.2 / P1.1.4 before converting.
 #[tauri::command]
 pub fn execute_planner_output(
     request_id: String,
@@ -17,6 +21,9 @@ pub fn execute_planner_output(
     Ok(app_core.execute_planner_output(request_id, &planner_output))
 }
 
+// GUARDRAIL: Keep this a plain `#[tauri::command]` (main-thread). Command
+// resolution can run browser tools that call `tauri::async_runtime::block_on`,
+// which panics from a tokio worker. See BB_CODE_REVIEW2_TODO.md P1.1.2 / P1.1.4.
 #[tauri::command]
 pub fn resolve_command(
     request_id: String,
@@ -27,6 +34,10 @@ pub fn resolve_command(
     app_core.resolve_command(request_id, transcript)
 }
 
+// GUARDRAIL: Keep this a plain `#[tauri::command]` (main-thread). Resuming after
+// confirmation can run side-effecting browser tools that call
+// `tauri::async_runtime::block_on`, which panics from a tokio worker. See
+// BB_CODE_REVIEW2_TODO.md P1.1.2 / P1.1.4 before converting.
 #[tauri::command]
 pub fn submit_confirmation_response(
     confirmation_id: String,

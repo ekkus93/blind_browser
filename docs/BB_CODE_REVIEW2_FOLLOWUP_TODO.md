@@ -35,7 +35,7 @@ developer environment.
 
 ## P0.1 — Stop `transcribe_and_execute_command` from panicking on browser actions
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/command_handlers/voice_handlers.rs`
@@ -98,7 +98,7 @@ element completes without a worker-thread panic.
 
 ## P1.1 — Zeroize cached secrets with the `zeroize` crate
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/config/keyring_store.rs`
@@ -149,7 +149,7 @@ Expected: `Zeroizing` is used; no `unsafe` and no `fill(0)` remain.
 
 ## P2.1 — Correct the Code Review 2 status and checklist
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `docs/BB_CODE_REVIEW2_TODO.md`
@@ -185,7 +185,7 @@ duration; the real fix is the lock-release work (P1.1.2 / P1.1.3, BLOCKED).
 
 ## P2.2 — Run the full validation gate
 
-**Status:** PENDING  
+**Status:** DONE (gate green; P0.1 behavioral check under `--features full` still requires manual verification on a real page)  
 **Files:**
 
 - no source file unless failures require fixes
@@ -212,7 +212,7 @@ with a real page in addition to the gate.
 
 ## P2.3 — Add follow-up memory entry with real UTC timestamp
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `memory.md`
@@ -245,17 +245,19 @@ old timestamp.
 
 ## Final done checklist
 
-- [ ] `transcribe_and_execute_command` is `#[tauri::command]` again;
+- [x] `transcribe_and_execute_command` is `#[tauri::command]` again;
       `transcribe_command` stays `(async)`.
-- [ ] No browser-reaching command is `(async)`; guard comments are in place.
+- [x] No browser-reaching command is `(async)`; guard comments are in place.
 - [ ] A voice command that navigates / clicks / reads no longer panics
-      (verified under `--features full`).
-- [ ] Cached secrets use `zeroize::Zeroizing`; no `unsafe` remains in
+      (verified under `--features full`). — code fix landed (revert to sync); the
+      live `--features full` behavioral check still needs a human on a real page,
+      since `cargo test` does not drive Chromium.
+- [x] Cached secrets use `zeroize::Zeroizing`; no `unsafe` remains in
       `keyring_store.rs`.
-- [ ] `BB_CODE_REVIEW2_TODO.md` P1.1.1 is restated as PARTIAL with the reason.
-- [ ] The "no freeze" checklist item in `BB_CODE_REVIEW2_TODO.md` is unchecked
+- [x] `BB_CODE_REVIEW2_TODO.md` P1.1.1 is restated as PARTIAL with the reason.
+- [x] The "no freeze" checklist item in `BB_CODE_REVIEW2_TODO.md` is unchecked
       with a note.
-- [ ] Preserved Code Review 2 fixes (P0.1 drain, P1.2 panics, P2.1.1 id helper,
+- [x] Preserved Code Review 2 fixes (P0.1 drain, P1.2 panics, P2.1.1 id helper,
       P2.1.3 CI fmt) still hold.
-- [ ] Full validation gate passes.
-- [ ] `memory.md` has a real UTC follow-up entry.
+- [x] Full validation gate passes.
+- [x] `memory.md` has a real UTC follow-up entry.
