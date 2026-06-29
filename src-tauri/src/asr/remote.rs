@@ -1,8 +1,4 @@
 #[cfg(feature = "remote-openai")]
-use std::sync::mpsc;
-#[cfg(feature = "remote-openai")]
-use std::thread;
-#[cfg(feature = "remote-openai")]
 use std::time::Duration;
 
 use crate::config::{AppConfig, RemoteAsrProfile, RemoteProviderKind};
@@ -41,52 +37,91 @@ pub(super) fn transcribe_remote(
     }
 }
 
+// Blocking multipart upload with a real request-level timeout, mirroring the remote
+// TTS path. The previous async-openai + thread::spawn + recv_timeout approach left
+// the spawned request running after a caller-side timeout, leaking in-flight
+// requests/threads; `reqwest::blocking` with `.timeout(...)` bounds the actual HTTP
+// request and surfaces `RemoteRequestTimedOut` via `error.is_timeout()`.
 #[cfg(feature = "remote-openai")]
 fn transcribe_with_openai_remote(
     profile: &RemoteAsrProfile,
     captured_audio: &CapturedAudio,
 ) -> Result<String, AsrRuntimeError> {
-    use async_openai::{config::OpenAIConfig, Client};
+    let timeout_ms = profile.timeout_ms.max(1);
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_millis(timeout_ms))
+        .build()
+        .map_err(|error| AsrRuntimeError::RemoteRequestBuildFailed {
+            reason: error.to_string(),
+        })?;
 
     let api_key = resolve_secret_ref(&profile.api_key)
         .map_err(|reason| AsrRuntimeError::RemoteSecretUnavailable { reason })?;
     let audio_bytes = captured_audio.to_remote_wav_bytes()?;
 
-    let mut openai_config = OpenAIConfig::new()
-        .with_api_base(profile.base_url.clone())
-        .with_api_key(api_key);
+    let part = reqwest::blocking::multipart::Part::bytes(audio_bytes)
+        .file_name("command.wav")
+        .mime_str("audio/wav")
+        .map_err(|error| AsrRuntimeError::RemoteRequestBuildFailed {
+            reason: error.to_string(),
+        })?;
+
+    let mut form = reqwest::blocking::multipart::Form::new()
+        .text("model", profile.model.clone())
+        .text("response_format", "json")
+        .text(
+            "temperature",
+            format!("{:.3}", (profile.temperature_milli as f32) / 1000.0),
+        )
+        .part("file", part);
+    if let Some(language) = normalized_optional_string(profile.language.as_deref()) {
+        form = form.text("language", language);
+    }
+
+    let endpoint = format!(
+        "{}/audio/transcriptions",
+        profile.base_url.trim_end_matches('/')
+    );
+    let mut request = client.post(endpoint).bearer_auth(api_key).multipart(form);
     if let Some(organization) = profile.organization.as_ref() {
-        openai_config = openai_config.with_org_id(
+        request = request.header(
+            "OpenAI-Organization",
             resolve_secret_ref(organization)
                 .map_err(|reason| AsrRuntimeError::RemoteSecretUnavailable { reason })?,
         );
     }
     if let Some(project) = profile.project.as_ref() {
-        openai_config = openai_config.with_project_id(project.clone());
+        request = request.header("OpenAI-Project", project);
     }
 
-    let request = build_openai_transcription_request(profile, audio_bytes)?;
-    let timeout_ms = profile.timeout_ms.max(1);
-    let (sender, receiver) = mpsc::channel();
-    thread::spawn(move || {
-        let client = Client::with_config(openai_config);
-        let result = futures::executor::block_on(client.audio().transcription().create(request))
-            .map(|response| response.text)
-            .map_err(|error| AsrRuntimeError::RemoteRequestFailed {
-                reason: error.to_string(),
-            });
-        let _ = sender.send(result);
-    });
+    let response = request
+        .send()
+        .and_then(reqwest::blocking::Response::error_for_status)
+        .map_err(|error| {
+            if error.is_timeout() {
+                AsrRuntimeError::RemoteRequestTimedOut { timeout_ms }
+            } else {
+                AsrRuntimeError::RemoteRequestFailed {
+                    reason: error.to_string(),
+                }
+            }
+        })?;
 
-    match receiver.recv_timeout(Duration::from_millis(timeout_ms)) {
-        Ok(result) => result,
-        Err(mpsc::RecvTimeoutError::Timeout) => {
-            Err(AsrRuntimeError::RemoteRequestTimedOut { timeout_ms })
-        }
-        Err(mpsc::RecvTimeoutError::Disconnected) => Err(AsrRuntimeError::RemoteRequestFailed {
-            reason: String::from("remote transcription task ended without a response"),
-        }),
-    }
+    let body = response
+        .text()
+        .map_err(|error| AsrRuntimeError::RemoteRequestFailed {
+            reason: error.to_string(),
+        })?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&body).map_err(|error| AsrRuntimeError::RemoteRequestFailed {
+            reason: format!("failed to parse remote transcription response: {error}"),
+        })?;
+
+    Ok(parsed
+        .get("text")
+        .and_then(|value| value.as_str())
+        .unwrap_or_default()
+        .to_string())
 }
 
 #[cfg(not(feature = "remote-openai"))]
@@ -95,34 +130,6 @@ fn transcribe_with_openai_remote(
     _captured_audio: &CapturedAudio,
 ) -> Result<String, AsrRuntimeError> {
     Err(AsrRuntimeError::RemoteAsrFeatureUnavailable)
-}
-
-#[cfg(feature = "remote-openai")]
-fn build_openai_transcription_request(
-    profile: &RemoteAsrProfile,
-    audio_bytes: Vec<u8>,
-) -> Result<async_openai::types::audio::CreateTranscriptionRequest, AsrRuntimeError> {
-    use async_openai::types::audio::{
-        AudioInput, AudioResponseFormat, CreateTranscriptionRequestArgs,
-    };
-
-    let mut request = CreateTranscriptionRequestArgs::default();
-    request.file(AudioInput::from_vec_u8(
-        String::from("command.wav"),
-        audio_bytes,
-    ));
-    request.model(profile.model.clone());
-    request.response_format(AudioResponseFormat::Json);
-    request.temperature((profile.temperature_milli as f32) / 1000.0);
-    if let Some(language) = normalized_optional_string(profile.language.as_deref()) {
-        request.language(language);
-    }
-
-    request
-        .build()
-        .map_err(|error| AsrRuntimeError::RemoteRequestBuildFailed {
-            reason: error.to_string(),
-        })
 }
 
 #[cfg(any(feature = "remote-openai", test))]

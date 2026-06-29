@@ -579,10 +579,10 @@ Current code spawns a thread and waits on `recv_timeout`. When timeout occurs, t
 
 ### Tasks
 
-- [ ] Remove the unbounded `thread::spawn + recv_timeout` pattern.
-- [ ] Use an actual HTTP/request timeout.
-- [ ] Do not ignore send/cancellation errors as a meaningful runtime path.
-- [ ] Add a test at the seam if possible.
+- [x] Remove the unbounded `thread::spawn + recv_timeout` pattern.
+- [x] Use an actual HTTP/request timeout. (`reqwest::blocking` `.timeout(...)`, mirroring remote TTS.)
+- [x] Do not ignore send/cancellation errors as a meaningful runtime path. (No more `let _ = sender.send(...)`.)
+- [~] Add a test at the seam if possible. (Timeout is delegated to reqwest's tested `.timeout()`; a seam test needs a mock-HTTP dependency, not added. Removal verified by grep.)
 
 ### Implementation option A — prefer request-level timeout
 
@@ -641,9 +641,9 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 
 ### Acceptance checks
 
-- [ ] `src-tauri/src/asr/remote.rs` no longer uses unbounded `thread::spawn` for timeout.
-- [ ] Timeout returns `AsrRuntimeError::RemoteRequestTimedOut` and bounds the actual request.
-- [ ] No `let _ = sender.send(result);` remains in this path.
+- [x] `src-tauri/src/asr/remote.rs` no longer uses unbounded `thread::spawn` for timeout.
+- [x] Timeout returns `AsrRuntimeError::RemoteRequestTimedOut` and bounds the actual request.
+- [x] No `let _ = sender.send(result);` remains in this path.
 
 ---
 
