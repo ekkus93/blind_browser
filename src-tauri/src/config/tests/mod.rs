@@ -5,15 +5,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use super::{
     keyring_ref_for_remote_api_key, resolve_secret_ref, secret_ref_reference,
     AppConfig, AudioSettings, ConfigError, KeyringRef, LocalAsrBackend,
-    LocalAsrProfile, LocalTtsBackend, LocalTtsProfile, ProviderMode, ProviderSelection,
-    ProviderSelections, RemoteAsrProfile, RemotePlannerProfile, RemoteProviderKind,
-    RemoteTtsAudioFormat, RemoteTtsProfile, SafetySettings, SecretRef, SpeechFeedbackStyle,
+    LocalAsrProfile, LocalTtsBackend, LocalTtsProfile, ModelManagementSettings,
+    ProviderMode, ProviderSelection, ProviderSelections, RemoteAsrProfile, RemotePlannerProfile,
+    RemoteProviderKind, RemoteTtsAudioFormat, RemoteTtsProfile, SafetySettings, SecretRef,
+    SpeechFeedbackStyle,
 };
 use super::keyring_store::set_keyring_secret;
 use crate::ocr::OcrSettings;
 
 mod load_tests;
 mod keyring_tests;
+mod persistence_tests;
 mod validation_tests;
 
 fn test_config_path(label: &str) -> PathBuf {

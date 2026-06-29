@@ -271,6 +271,108 @@ fn parse_direct_fill_and_submit_command_extracts_description_and_text() {
 }
 
 #[test]
+fn parse_direct_fill_field_command_handles_fill_in_prefix() {
+    assert_eq!(
+        parse_direct_fill_field_command("fill in the email field with hello"),
+        Some(FillFieldCommand {
+            description: Some(String::from("email")),
+            text: Some(String::from("hello")),
+        })
+    );
+    assert_eq!(
+        parse_direct_fill_field_command("fill in the first name field"),
+        Some(FillFieldCommand {
+            description: Some(String::from("first name")),
+            text: None,
+        })
+    );
+}
+
+#[test]
+fn parse_direct_fill_field_command_handles_put_in_and_enter_in_patterns() {
+    assert_eq!(
+        parse_direct_fill_field_command("put hello in the search field"),
+        Some(FillFieldCommand {
+            description: Some(String::from("search")),
+            text: Some(String::from("hello")),
+        })
+    );
+    assert_eq!(
+        parse_direct_fill_field_command("enter Seattle in the city field"),
+        Some(FillFieldCommand {
+            description: Some(String::from("city")),
+            text: Some(String::from("Seattle")),
+        })
+    );
+}
+
+#[test]
+fn parse_direct_fill_field_command_normalizes_textbox_and_input_suffixes() {
+    // "fill in" prefix is recognized by is_fill_input_phrase, enabling normalize_field_target
+    // to strip the " textbox" / " input" suffix from the field target
+    assert_eq!(
+        parse_direct_fill_field_command("fill in the name textbox with Alice"),
+        Some(FillFieldCommand {
+            description: Some(String::from("name")),
+            text: Some(String::from("Alice")),
+        })
+    );
+    assert_eq!(
+        parse_direct_fill_field_command("fill in the email input with test"),
+        Some(FillFieldCommand {
+            description: Some(String::from("email")),
+            text: Some(String::from("test")),
+        })
+    );
+}
+
+#[test]
+fn parse_direct_fill_field_command_strips_single_quoted_fill_value() {
+    assert_eq!(
+        parse_direct_fill_field_command("fill the name field with 'John Doe'"),
+        Some(FillFieldCommand {
+            description: Some(String::from("name")),
+            text: Some(String::from("John Doe")),
+        })
+    );
+}
+
+#[test]
+fn is_direct_submit_form_command_detects_submit_phrases() {
+    assert!(is_direct_submit_form_command("submit this form"));
+    assert!(is_direct_submit_form_command("submit form"));
+    assert!(!is_direct_submit_form_command("fill the email field"));
+    assert!(!is_direct_submit_form_command("read page"));
+    assert!(!is_direct_submit_form_command(""));
+}
+
+#[test]
+fn parse_direct_fill_and_submit_command_recognizes_additional_submit_suffixes() {
+    let expected = Some(FillFieldCommand {
+        description: Some(String::from("email")),
+        text: Some(String::from("test@example.com")),
+    });
+    assert_eq!(
+        parse_direct_fill_and_submit_command(
+            "fill the email field with test@example.com and then press submit"
+        ),
+        expected.clone()
+    );
+    assert_eq!(
+        parse_direct_fill_and_submit_command(
+            "fill the email field with test@example.com and hit submit"
+        ),
+        expected.clone()
+    );
+    assert_eq!(
+        parse_direct_fill_and_submit_command(
+            "fill the email field with test@example.com and submit form"
+        ),
+        expected
+    );
+}
+
+#[test]
 fn normalize_transcript_for_routing_merges_compound_tokens_and_sanitizes_punctuation() {
     assert_eq!(
         normalize_transcript_for_routing("Go HEAD less, please!!"),
