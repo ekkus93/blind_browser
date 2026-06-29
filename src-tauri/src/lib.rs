@@ -15,6 +15,7 @@ pub mod ocr;
 pub mod page_model;
 pub mod state;
 pub mod tts;
+pub mod url_policy;
 
 mod command_handlers;
 

@@ -11,14 +11,14 @@ fn normalize_optional_text_trims_and_drops_empty_values() {
 }
 
 #[test]
-fn normalize_absolute_url_accepts_trimmed_absolute_urls() {
+fn normalize_absolute_url_accepts_trimmed_web_urls() {
     assert_eq!(
         normalize_absolute_url("  https://example.com/page  ").unwrap(),
         String::from("https://example.com/page")
     );
     assert_eq!(
-        normalize_absolute_url("about:blank").unwrap(),
-        String::from("about:blank")
+        normalize_absolute_url("http://localhost:3000").unwrap(),
+        String::from("http://localhost:3000")
     );
 }
 
@@ -26,6 +26,24 @@ fn normalize_absolute_url_accepts_trimmed_absolute_urls() {
 fn normalize_absolute_url_rejects_relative_urls() {
     let error = normalize_absolute_url("/relative/path").unwrap_err();
     assert_eq!(error.code, "invalid_url");
+}
+
+#[test]
+fn normalize_absolute_url_rejects_non_web_schemes() {
+    // Planner/user navigation must fail closed to http/https only.
+    for raw in [
+        "about:blank",
+        "file:///etc/passwd",
+        "javascript:alert(1)",
+        "data:text/html,<h1>x</h1>",
+        "chrome://version",
+        "//example.com",
+        "http:example.com",
+        "https:///missing-host",
+    ] {
+        let error = normalize_absolute_url(raw).unwrap_err();
+        assert_eq!(error.code, "invalid_url", "expected rejection for {raw}");
+    }
 }
 
 #[test]

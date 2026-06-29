@@ -7,43 +7,17 @@ use crate::commands::{
 use crate::page_model::PageModel;
 use crate::state::AppState;
 
+/// Normalize a planner/user-supplied browser navigation URL, failing closed to
+/// `http`/`https` via the shared [`crate::url_policy`] so the validator and runtime
+/// paths cannot drift. The name is kept for existing call sites; the behavior is now
+/// "normalize an allowed web navigation URL," not "any absolute URL."
 pub(crate) fn normalize_absolute_url(url: &str) -> Result<String, ToolError> {
-    let trimmed = url.trim();
-    if trimmed.is_empty() {
-        return Err(ToolError {
-            code: String::from("invalid_url"),
-            message: String::from("open_url requires a non-empty absolute URL"),
-            retryable: false,
-            details: None,
-        });
-    }
-
-    let Some(separator_index) = trimmed.find(':') else {
-        return Err(ToolError {
-            code: String::from("invalid_url"),
-            message: String::from("open_url requires an absolute URL with a scheme"),
-            retryable: false,
-            details: Some(serde_json::json!({ "url": trimmed })),
-        });
-    };
-
-    let scheme = &trimmed[..separator_index];
-    let remainder = &trimmed[separator_index + 1..];
-    let valid_scheme = scheme.chars().enumerate().all(|(index, ch)| match index {
-        0 => ch.is_ascii_alphabetic(),
-        _ => ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-' | '.'),
-    });
-
-    if !valid_scheme || remainder.is_empty() {
-        return Err(ToolError {
-            code: String::from("invalid_url"),
-            message: String::from("open_url requires an absolute URL with a valid scheme"),
-            retryable: false,
-            details: Some(serde_json::json!({ "url": trimmed })),
-        });
-    }
-
-    Ok(trimmed.to_string())
+    crate::url_policy::normalize_browser_navigation_url(url).map_err(|error| ToolError {
+        code: String::from("invalid_url"),
+        message: String::from(error.user_message()),
+        retryable: false,
+        details: Some(error.details()),
+    })
 }
 
 pub(crate) fn refresh_current_page_after_navigation(

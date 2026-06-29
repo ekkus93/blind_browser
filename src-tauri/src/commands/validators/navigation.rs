@@ -5,35 +5,11 @@ use crate::commands::{
 };
 
 pub(super) fn validate_open_url_input(input: &OpenUrlInput) -> Result<(), ToolError> {
-    let trimmed = input.url.trim();
-    if trimmed.is_empty() {
-        return Err(invalid_planner_output(
-            "open_url requires a non-empty url",
-            None,
-        ));
-    }
-
-    let Some(separator_index) = trimmed.find(':') else {
-        return Err(invalid_planner_output(
-            "open_url requires an absolute URL with a scheme",
-            Some(serde_json::json!({ "url": trimmed })),
-        ));
-    };
-
-    let scheme = &trimmed[..separator_index];
-    let remainder = &trimmed[separator_index + 1..];
-    let valid_scheme = scheme.chars().enumerate().all(|(index, ch)| match index {
-        0 => ch.is_ascii_alphabetic(),
-        _ => ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-' | '.'),
-    });
-
-    if !valid_scheme || remainder.is_empty() {
-        return Err(invalid_planner_output(
-            "open_url requires an absolute URL with a valid scheme",
-            Some(serde_json::json!({ "url": trimmed })),
-        ));
-    }
-
+    // Fail closed to http/https via the same shared policy the runtime uses, so a
+    // dangerous scheme (file:, javascript:, data:, chrome:, about:, …) is rejected
+    // before the plan ever reaches browser execution.
+    crate::url_policy::normalize_browser_navigation_url(&input.url)
+        .map_err(|error| invalid_planner_output(error.user_message(), Some(error.details())))?;
     Ok(())
 }
 

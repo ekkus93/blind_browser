@@ -19,9 +19,9 @@
 
 ### Tasks
 
-- [ ] Replace `"csp": null` with a restrictive CSP.
-- [ ] Confirm app dev launch and production build still work.
-- [ ] Do not disable CSP again to fix a build/runtime issue. If a directive needs expansion, document why.
+- [x] Replace `"csp": null` with a restrictive CSP.
+- [x] Confirm app dev launch and production build still work. (`pnpm build` verified in the P0 gate; dev launch needs a human with a display.)
+- [x] Do not disable CSP again to fix a build/runtime issue. If a directive needs expansion, document why.
 
 ### Suggested patch
 
@@ -56,12 +56,12 @@ Internal browser navigation currently accepts any syntactically valid absolute s
 
 ### Tasks
 
-- [ ] Create `src-tauri/src/url_policy.rs`.
-- [ ] Export it from `src-tauri/src/lib.rs` with `pub mod url_policy;`.
-- [ ] Replace permissive URL validation in `normalize_absolute_url` with the shared policy.
-- [ ] Replace permissive planner validation in `validate_open_url_input` with the same shared policy.
-- [ ] Change tests that currently accept `about:blank`; planner/user navigation should reject it.
-- [ ] Add explicit tests for dangerous schemes.
+- [x] Create `src-tauri/src/url_policy.rs`.
+- [x] Export it from `src-tauri/src/lib.rs` with `pub mod url_policy;`.
+- [x] Replace permissive URL validation in `normalize_absolute_url` with the shared policy.
+- [x] Replace permissive planner validation in `validate_open_url_input` with the same shared policy.
+- [x] Change tests that currently accept `about:blank`; planner/user navigation should reject it.
+- [x] Add explicit tests for dangerous schemes.
 
 ### Drop-in starting point: `src-tauri/src/url_policy.rs`
 
@@ -339,9 +339,9 @@ fn validate_planner_output_rejects_open_url_with_non_web_scheme() {
 
 ### Acceptance checks
 
-- [ ] `cargo test url_policy` passes.
-- [ ] `cargo test validate_planner_output_rejects_open_url` passes.
-- [ ] Internal `OpenUrl` rejects `file:`, `javascript:`, `data:`, `chrome:`, and `about:` before browser execution.
+- [x] `cargo test url_policy` passes.
+- [x] `cargo test validate_planner_output_rejects_open_url` passes.
+- [x] Internal `OpenUrl` rejects `file:`, `javascript:`, `data:`, `chrome:`, and `about:` before browser execution (validator + runtime `normalize_absolute_url`, defense in depth).
 
 ---
 

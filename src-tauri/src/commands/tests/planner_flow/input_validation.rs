@@ -58,7 +58,7 @@ fn validate_planner_output_rejects_open_url_with_blank_url() {
         &[String::from("open_url_direct")],
     )
     .expect_err("validation should reject blank open_url values");
-    assert!(error.message.contains("open_url requires a non-empty url"));
+    assert!(error.message.contains("open_url requires a non-empty URL"));
 }
 
 #[test]
@@ -119,7 +119,62 @@ fn validate_planner_output_rejects_open_url_with_relative_url() {
     .expect_err("validation should reject relative open_url values");
     assert!(error
         .message
-        .contains("open_url requires an absolute URL with a scheme"));
+        .contains("open_url requires an absolute http or https URL"));
+}
+
+#[test]
+fn validate_planner_output_rejects_open_url_with_non_web_scheme() {
+    let available_tools = planner_available_tools();
+
+    for url in [
+        "about:blank",
+        "file:///etc/passwd",
+        "javascript:alert(1)",
+        "data:text/html,<h1>x</h1>",
+        "chrome://version",
+        "http:example.com",
+        "https:///missing-host",
+    ] {
+        let planner_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::OpenUrl,
+                goal: String::from("open a page"),
+                target_description: None,
+            },
+            selected_skills: vec![String::from("open_url_direct")],
+            steps: vec![PlannedStep {
+                step_id: String::from("step-open-url"),
+                tool_name: ToolName::OpenUrl,
+                arguments: serde_json::json!({
+                    "request_id": "req-open-url",
+                    "url": url,
+                    "wait_for_load_state": "Load"
+                }),
+                purpose: String::from("open a page"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+
+        let error = validate_planner_output(
+            &planner_output,
+            &available_tools,
+            &[String::from("open_url_direct")],
+        )
+        .expect_err("validation should reject non-web open_url values");
+        assert!(
+            error.message.contains("http")
+                || error.message.contains("scheme")
+                || error.message.contains("host"),
+            "unexpected error for {url}: {}",
+            error.message
+        );
+    }
 }
 
 #[test]
