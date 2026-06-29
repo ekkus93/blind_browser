@@ -1038,8 +1038,8 @@ Prefer a scoped helper name if there are multiple modules.
 
 ### Tasks
 
-- [ ] Add a lightweight grep check for risky ignored semantic parameters.
-- [ ] Do not ban every `let _ =` globally; some are legitimate. Start with a targeted denylist.
+- [x] Add a lightweight grep check (`scripts/check-silent-fallbacks.sh`), wired into CI before fmt.
+- [x] Targeted denylist of the exact removed shapes only (e.g. `let _ = load_state`, `"csp": null`, the ASR `filter_map(...ok())`, the `parse_bool_value(value).unwrap_or(false)` default, and `.get_page_metrics().ok()?`). Deliberately excludes `let _ = timeout_ms` and bare `unwrap_or(false)`, which remain legitimate. Verified pass + a negative test.
 
 ### Suggested script
 

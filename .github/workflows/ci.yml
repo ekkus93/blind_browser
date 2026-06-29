@@ -57,6 +57,9 @@ jobs:
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check for reintroduced silent-fallback patterns
+        run: bash scripts/check-silent-fallbacks.sh
+
       - name: Check Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
 
