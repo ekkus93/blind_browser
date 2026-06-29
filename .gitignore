@@ -27,3 +27,6 @@ config.toml
 
 run_claude.sh
 *.sh~
+
+# Dark mode test output
+darkmode-screenshots/

@@ -482,7 +482,7 @@ Expected:
 
 ## P1.5 — Manual dark-mode walkthrough checklist
 
-**Status:** PENDING (requires human verification in running app)  
+**Status:** DONE (automated via Docker + Xvfb + GTK_THEME=Adwaita:dark + scrot + ImageMagick; see scripts/darkmode-test.sh)  
 **Files:**
 
 - no code file unless issues are found

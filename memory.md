@@ -1,3 +1,12 @@
+## 2026-06-29T06:06:52Z - Claude Sonnet 4.6 - Add automated dark-mode visual test (Docker + Xvfb)
+
+- `Dockerfile.darkmode-test`: Ubuntu 24.04 + Xvfb + libwebkit2gtk-4.1-0 + libasound2t64 + scrot + imagemagick + Adwaita dark theme. Copies pre-built binary + dist.
+- `scripts/darkmode-test.sh`: Builds image, launches app with `GTK_THEME=Adwaita:dark` so WebKitGTK reports `prefers-color-scheme: dark`, navigates 7 panels via xdotool, screenshots with scrot, asserts mean luminance < 0.45 per region via ImageMagick.
+- Build requirement: `pnpm tauri build --no-bundle -- --features browser,local-tts,remote-openai,audio` (plain `cargo build --release` omits Tauri asset embedding and app loads devUrl instead).
+- All 7 panels confirmed dark (luminance 0.09–0.21): workspace, toolbar, settings overview, planner, TTS, ASR, runtime/advanced.
+- P1.5 marked DONE. `darkmode-screenshots/` added to .gitignore.
+- Usage: `bash scripts/darkmode-test.sh` (or `KEEP_CONTAINER=1 ...` for debugging).
+
 ## 2026-06-29T04:26:01Z - Claude Haiku 4.5 - Completed UIUX Fix 5 closeout
 
 - Added `setOpenExternalUrlForTest` seam + `clearAppAlert` to `src/panel-state-setters.ts`.
