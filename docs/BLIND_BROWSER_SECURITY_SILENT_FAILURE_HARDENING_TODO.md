@@ -542,9 +542,9 @@ pub fn switch_visibility(&mut self, mode: BrowserVisibilityMode) -> Result<Optio
 
 ### Tasks
 
-- [ ] Change `current_page_snapshot(...) -> Option<PageSnapshotData>` to return `Result<Option<PageSnapshotData>, ToolError>` or add an explicit diagnostic field.
-- [ ] Update callers to propagate structured snapshot failure or include it in tool output.
-- [ ] Add a test/seam proving metrics failure does not silently become `None`.
+- [x] Change `current_page_snapshot(...) -> Option<PageSnapshotData>` to return `Result<Option<PageSnapshotData>, ToolError>` or add an explicit diagnostic field.
+- [x] Update callers to propagate structured snapshot failure or include it in tool output. (`build_planner_resolution` now `?`-propagates.)
+- [~] Add a test/seam proving metrics failure does not silently become `None`. (Structurally guaranteed by the Result type + `?`; a behavioral test needs Chromium or a no-browser test build the `--all-features` gate doesn't run — same seam limit as P1-1.)
 
 ### Suggested patch shape
 

@@ -11,7 +11,7 @@ use crate::commands::{
     AgentStateData, AsrProviderSettings, ConfirmationSettings, GetRuntimeStatusData,
     LocalAsrModelSettings, LocalTtsModelSettings, OcrThresholdSettings, PageSnapshotData,
     ProviderFailoverSettings, ProviderSelectionStatus, RemoteAsrSettings, RemotePlannerSettings,
-    RemoteTtsSettings, TtsModelSettings, TtsProviderSettings, TtsVoiceSettings,
+    RemoteTtsSettings, ToolError, TtsModelSettings, TtsProviderSettings, TtsVoiceSettings,
 };
 
 impl AppCore {
@@ -143,14 +143,26 @@ impl AppCore {
         }
     }
 
+    /// Build a snapshot of the current page, or `Ok(None)` when there is genuinely
+    /// no current page. A failure to read browser page metrics is surfaced as a
+    /// structured `ToolError` (`browser_metrics_failed`) rather than collapsed to
+    /// `None`, so callers can tell "no current page" apart from "metrics read
+    /// failed".
     pub(super) fn current_page_snapshot(
         &mut self,
         text_excerpt_max_chars: Option<usize>,
         include_interactive_elements: bool,
-    ) -> Option<PageSnapshotData> {
-        let page_id = self.state.current_page_id.clone()?;
-        let current_page = self.state.current_page.as_ref()?;
-        let url = current_page.url.clone()?;
+    ) -> Result<Option<PageSnapshotData>, ToolError> {
+        let Some(page_id) = self.state.current_page_id.clone() else {
+            return Ok(None);
+        };
+        let Some(current_page) = self.state.current_page.as_ref() else {
+            return Ok(None);
+        };
+        let Some(url) = current_page.url.clone() else {
+            return Ok(None);
+        };
+
         let title = current_page.title.clone();
         let visible_text_excerpt = build_visible_text_excerpt(current_page, text_excerpt_max_chars);
         let interactive_elements = if include_interactive_elements {
@@ -158,15 +170,20 @@ impl AppCore {
         } else {
             Vec::new()
         };
-        let _ = current_page;
+
         let BrowserPageMetrics {
             scroll_y,
             viewport_width,
             viewport_height,
             document_height,
-        } = self.browser.get_page_metrics().ok()?;
+        } = self.browser.get_page_metrics().map_err(|error| ToolError {
+            code: String::from("browser_metrics_failed"),
+            message: String::from("failed to read browser page metrics for current page snapshot"),
+            retryable: true,
+            details: Some(serde_json::json!({ "reason": error.to_string() })),
+        })?;
 
-        Some(PageSnapshotData {
+        Ok(Some(PageSnapshotData {
             page_id,
             url,
             title,
@@ -176,6 +193,6 @@ impl AppCore {
             viewport_width,
             viewport_height,
             document_height,
-        })
+        }))
     }
 }

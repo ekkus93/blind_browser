@@ -307,7 +307,7 @@ impl super::AppCore {
             available_tools: available_tools.clone(),
             active_skill_names: skill_selection.active_skill_names.clone(),
             relevant_skill_summaries: skill_selection.relevant_skill_summaries.clone(),
-            page_snapshot: self.current_page_snapshot(Some(1_200), true),
+            page_snapshot: self.current_page_snapshot(Some(1_200), true)?,
             page_model: self.state.current_page.clone(),
             recent_tool_results,
         };
