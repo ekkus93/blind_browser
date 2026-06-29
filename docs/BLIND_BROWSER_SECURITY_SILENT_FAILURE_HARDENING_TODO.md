@@ -888,9 +888,9 @@ For non-async function paths, make the caller async or call `void report...` onl
 
 ### Tasks
 
-- [ ] Keep stale-click guard.
-- [ ] Add visible or at least logged feedback for mismatched active confirmation ID.
-- [ ] Add a test.
+- [x] Keep stale-click guard.
+- [x] Add visible or at least logged feedback for mismatched active confirmation ID. (Sets a visible confirmation error + `console.warn`.)
+- [x] Add a test. (`submitConfirmationAction surfaces an error for a stale confirmation id`.)
 
 ### Suggested patch shape
 
@@ -910,8 +910,8 @@ If `setConfirmationError` requires the submitted ID rather than active ID, use t
 
 ### Acceptance checks
 
-- [ ] Stale confirmation ID mismatch produces visible/debuggable feedback.
-- [ ] Duplicate submission while already submitting remains safely ignored.
+- [x] Stale confirmation ID mismatch produces visible/debuggable feedback.
+- [x] Duplicate submission while already submitting remains safely ignored (now `console.warn`-logged).
 
 ---
 

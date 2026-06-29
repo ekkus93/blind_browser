@@ -253,10 +253,30 @@ export async function releasePushToTalk(source: "keyboard" | "pointer") {
 export function submitConfirmationAction(action: "approve" | "reject", confirmationId: string) {
   const confirmationState = uiStore.getState().confirmation;
   if (confirmationState.kind !== "awaiting-confirmation" || confirmationState.isSubmitting) {
+    // Duplicate click, or no confirmation is awaiting: safe to ignore, but log it so
+    // the no-op is debuggable rather than silently vanishing.
+    console.warn("Ignored confirmation submission with no active awaiting confirmation.", {
+      submittedConfirmationId: confirmationId,
+      confirmationKind: confirmationState.kind,
+    });
     return;
   }
 
   if (confirmationId !== confirmationState.confirmationId) {
+    // A different confirmation is awaiting than the one clicked (a stale button):
+    // surface a visible error instead of disappearing silently, since a blind user
+    // gets no other feedback that the click was dropped.
+    uiStore.setConfirmationError(confirmationState.confirmationId, {
+      kind: "transport-error",
+      title: "Confirmation no longer active",
+      message:
+        "That confirmation is no longer active. Review the current confirmation before approving.",
+      guidance: "Review the current confirmation, then approve or reject that one.",
+    });
+    console.warn("Ignored stale confirmation response.", {
+      submittedConfirmationId: confirmationId,
+      activeConfirmationId: confirmationState.confirmationId,
+    });
     return;
   }
 

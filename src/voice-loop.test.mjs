@@ -2,11 +2,28 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 const tauriApi = await import("./tauri-api.ts");
-const { cancelPushToTalk, stopContinuousListeningAfterFailure } = await import(
-  "./voice-loop.ts"
-);
+const { cancelPushToTalk, stopContinuousListeningAfterFailure, submitConfirmationAction } =
+  await import("./voice-loop.ts");
 const { setPushToTalkState } = await import("./panel-state-setters.ts");
 const { appShellStore } = await import("./store.ts");
+const { uiStore } = await import("./ui-store.ts");
+
+function awaitingConfirmationState(confirmationId) {
+  return {
+    lastOutcome: null,
+    confirmation: {
+      kind: "awaiting-confirmation",
+      isSubmitting: false,
+      submissionError: null,
+      confirmationId,
+      promptText: "Submit this form?",
+      requestId: "req-confirm",
+      selectedSkills: [],
+      nextStepId: null,
+      queuedStepIds: [],
+    },
+  };
+}
 
 function getPushToTalkState() {
   return appShellStore.getState().panelStates.pushToTalkState;
@@ -63,4 +80,20 @@ test("stopContinuousListeningAfterFailure preserves listening state when stop fa
     "a failed hands-free stop must not invent isListening: false",
   );
   assert.equal(state.isBusy, false);
+});
+
+test("submitConfirmationAction surfaces an error for a stale confirmation id", () => {
+  uiStore.setState(awaitingConfirmationState("active-id"));
+
+  submitConfirmationAction("approve", "stale-id");
+
+  const confirmation = uiStore.getState().confirmation;
+  assert.equal(confirmation.kind, "awaiting-confirmation");
+  assert.equal(confirmation.confirmationId, "active-id", "the active confirmation is untouched");
+  assert.equal(confirmation.isSubmitting, false, "a stale click must not start a submission");
+  assert.ok(confirmation.submissionError, "a stale click must surface a visible error");
+  assert.match(
+    confirmation.submissionError.message ?? "",
+    /no longer active/,
+  );
 });
