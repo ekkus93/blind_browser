@@ -1002,9 +1002,9 @@ Returning `0` when system time is before UNIX epoch can create duplicate/non-inf
 
 ### Tasks
 
-- [ ] Search for `Err(_) => 0` in timestamp helpers.
-- [ ] Replace with an atomic counter fallback or return an error where feasible.
-- [ ] Add a tiny helper test if possible.
+- [x] Search for `Err(_) => 0` in timestamp helpers.
+- [x] Replace with an atomic counter fallback (`commands::current_timestamp_ms` and `AppCore::next_id`).
+- [x] Add a tiny helper test: `timestamp_ms_or_fallback` uses the clock value and yields distinct increasing values without one.
 
 ### Suggested fallback
 
@@ -1025,7 +1025,7 @@ Prefer a scoped helper name if there are multiple modules.
 
 ### Acceptance checks
 
-- [ ] No timestamp helper silently returns zero.
+- [x] No timestamp helper silently returns zero.
 
 ---
 

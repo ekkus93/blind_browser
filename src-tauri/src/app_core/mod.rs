@@ -1,6 +1,11 @@
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Monotonic fallback for [`AppCore::next_id`] when the system clock is before the
+/// UNIX epoch, so generated ids stay distinct instead of all becoming `0`.
+static FALLBACK_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 use crate::asr::AsrController;
 use crate::audio_io::AudioPlaybackController;
@@ -255,7 +260,9 @@ impl AppCore {
     fn next_id(&self, prefix: &str, request_id: &str) -> String {
         let timestamp_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(duration) => duration.as_millis(),
-            Err(_) => 0,
+            // Monotonic fallback on a pre-epoch clock fault, so ids stay distinct
+            // instead of all collapsing to `0`.
+            Err(_) => u128::from(FALLBACK_ID_COUNTER.fetch_add(1, Ordering::Relaxed)),
         };
         format!("{prefix}-{request_id}-{timestamp_ms}")
     }
