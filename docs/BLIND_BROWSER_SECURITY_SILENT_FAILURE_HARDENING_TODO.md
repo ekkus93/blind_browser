@@ -33,9 +33,9 @@
 
 ### Acceptance checks
 
-- [ ] `grep -R '"csp": null' src-tauri/tauri.conf.json` returns nothing.
-- [ ] `pnpm build` passes.
-- [ ] Tauri app starts in dev mode.
+- [x] `grep -R '"csp": null' src-tauri/tauri.conf.json` returns nothing.
+- [x] `pnpm build` passes.
+- [~] Tauri app starts in dev mode. (Needs a human with a display; CSP/build verified headlessly.)
 
 ---
 
@@ -522,9 +522,9 @@ pub fn switch_visibility(&mut self, mode: BrowserVisibilityMode) -> Result<Optio
 
 ### Acceptance checks
 
-- [ ] No assignment to `self.session = None` occurs before successful replacement launch.
-- [ ] If prior URL read fails, the error is surfaced.
-- [ ] If replacement launch/navigation fails, old session remains available.
+- [x] No assignment to `self.session = None` occurs before successful replacement launch.
+- [x] If prior URL read fails, the error is surfaced (`BrowserError::Inspect`).
+- [x] If replacement launch/navigation fails, old session remains available (commit-after-prove).
 
 ---
 
@@ -561,8 +561,8 @@ Then use `metrics.scroll_y`, `metrics.viewport_width`, etc.
 
 ### Acceptance checks
 
-- [ ] No `.ok()?` remains on browser metric reads.
-- [ ] Callers can distinguish no-current-page from metric-read-failed.
+- [x] No `.ok()?` remains on browser metric reads.
+- [x] Callers can distinguish no-current-page (`Ok(None)`) from metric-read-failed (`Err(browser_metrics_failed)`).
 
 ---
 
@@ -1081,17 +1081,17 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 Completion criteria:
 
-- [ ] CSP is non-null.
-- [ ] Internal planner/browser navigation is HTTP/HTTPS only.
-- [ ] Dangerous schemes are rejected in both validator and runtime paths.
-- [ ] Navigation load/timeout behavior is implemented or explicit unsupported errors are returned.
-- [ ] Visibility switching does not destroy the old session until replacement succeeds.
-- [ ] Snapshot metric failures are explicit.
-- [ ] Remote ASR timeout bounds/cancels the request.
-- [ ] Local ASR does not silently drop transcript segments.
-- [ ] Bundled skill metadata parse defects fail loudly.
-- [ ] Voice UI does not invent `isListening: false` after backend failure.
-- [ ] Stale confirmation submissions are visible/debuggable.
-- [ ] Runtime refresh does not clear unrelated action errors.
-- [ ] Default click confirmation is conservative.
-- [ ] Tests cover the safety regressions.
+- [x] CSP is non-null.
+- [x] Internal planner/browser navigation is HTTP/HTTPS only.
+- [x] Dangerous schemes are rejected in both validator and runtime paths.
+- [x] Navigation load/timeout behavior is implemented or explicit unsupported errors are returned.
+- [x] Visibility switching does not destroy the old session until replacement succeeds.
+- [x] Snapshot metric failures are explicit.
+- [x] Remote ASR timeout bounds/cancels the request.
+- [x] Local ASR does not silently drop transcript segments.
+- [x] Bundled skill metadata parse defects fail loudly.
+- [x] Voice UI does not invent `isListening: false` after backend failure.
+- [x] Stale confirmation submissions are visible/debuggable.
+- [x] Runtime refresh does not clear unrelated action errors.
+- [x] Default click confirmation is conservative.
+- [x] Tests cover the safety regressions.
