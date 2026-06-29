@@ -1,10 +1,23 @@
 use super::voice_tools::asr_runtime_error_to_tool_error;
 use crate::asr::{DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS};
 use crate::commands::{
-    StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
-    ToolName, ToolResult, TranscribeAndExecuteCommandData, TranscribeCommandData,
+    ExecutionOutcome, StartListeningData, StartListeningInput, StopListeningData,
+    StopListeningInput, ToolError, ToolName, ToolResult, TranscribeCommandData,
     TranscribeCommandInput,
 };
+
+/// Plan carried across the unlocked audio-capture window between
+/// [`super::AppCore::begin_transcribe_command`] and
+/// [`super::AppCore::finish_transcribe_command`]. Holds only plain owned data so
+/// the `AppCore` lock can be released while the microphone captures audio.
+pub struct TranscribeCapturePlan {
+    request_id: String,
+    requested_duration_ms: u64,
+    pub effective_duration_ms: u64,
+    timeout_ms: Option<u64>,
+    auto_stop: bool,
+    started_for_this_request: bool,
+}
 
 impl super::AppCore {
     pub fn execute_start_listening(
@@ -151,50 +164,156 @@ impl super::AppCore {
         }
     }
 
-    pub fn transcribe_and_execute_command(
+    /// Phase 1 of a lock-released transcription: validate the request and start
+    /// (or locate) the capture session. On success returns a plan to carry across
+    /// the unlocked capture window; on rejection returns the `ToolResult` to
+    /// surface as-is. The caller must release the `AppCore` lock, sleep for
+    /// `plan.effective_duration_ms`, then call [`Self::finish_transcribe_command`].
+    pub fn begin_transcribe_command(
+        &mut self,
+        input: &TranscribeCommandInput,
+    ) -> Result<TranscribeCapturePlan, Box<ToolResult<TranscribeCommandData>>> {
+        let requested_duration_ms = input
+            .max_duration_ms
+            .unwrap_or(DEFAULT_TRANSCRIBE_DURATION_MS);
+        if requested_duration_ms == 0 {
+            return Err(Box::new(ToolResult::failure(
+                ToolName::TranscribeCommand,
+                input.request_id.clone(),
+                ToolError {
+                    code: String::from("invalid_max_duration_ms"),
+                    message: String::from(
+                        "transcribe_command requires max_duration_ms to be greater than zero",
+                    ),
+                    retryable: false,
+                    details: None,
+                },
+                vec![String::from(
+                    "Transcription request was rejected because the requested capture duration was zero.",
+                )],
+            )));
+        }
+
+        let mut effective_duration_ms = requested_duration_ms.min(MAX_TRANSCRIBE_DURATION_MS);
+        if let Some(timeout_ms) = input.timeout_ms {
+            effective_duration_ms = effective_duration_ms.min(timeout_ms.max(1));
+        }
+
+        match self.asr.begin_capture() {
+            Ok(started_for_this_request) => {
+                self.state.set_listening(self.asr.is_listening());
+                Ok(TranscribeCapturePlan {
+                    request_id: input.request_id.clone(),
+                    requested_duration_ms,
+                    effective_duration_ms,
+                    timeout_ms: input.timeout_ms,
+                    auto_stop: input.stop_mode.auto_stops(),
+                    started_for_this_request,
+                })
+            }
+            Err(error) => {
+                self.state.set_listening(self.asr.is_listening());
+                Err(Box::new(ToolResult::failure(
+                    ToolName::TranscribeCommand,
+                    input.request_id.clone(),
+                    asr_runtime_error_to_tool_error(&error),
+                    vec![String::from(
+                        "Could not activate voice input listening in the configured ASR backend.",
+                    )],
+                )))
+            }
+        }
+    }
+
+    /// Phase 2 of a lock-released transcription: drain the captured audio, run the
+    /// configured ASR backend, and record the transcript + listening state. Called
+    /// after the unlocked capture window, with the `AppCore` lock re-acquired.
+    pub fn finish_transcribe_command(
+        &mut self,
+        plan: TranscribeCapturePlan,
+    ) -> ToolResult<TranscribeCommandData> {
+        match self
+            .asr
+            .finish_capture(&self.config, plan.auto_stop, plan.started_for_this_request)
+        {
+            Ok(Some(result)) => {
+                self.state.set_listening(result.listening_active);
+                self.state.record_transcript(result.transcript.clone());
+
+                let mut observations = vec![String::from(
+                    "Captured microphone audio and ran deterministic speech transcription.",
+                )];
+                if plan.requested_duration_ms > MAX_TRANSCRIBE_DURATION_MS {
+                    observations.push(format!(
+                        "Requested capture duration was clamped to the supported maximum of {} ms.",
+                        MAX_TRANSCRIBE_DURATION_MS
+                    ));
+                }
+                if plan
+                    .timeout_ms
+                    .is_some_and(|timeout_ms| timeout_ms < plan.effective_duration_ms)
+                {
+                    observations.push(String::from(
+                        "Capture duration was reduced to respect the requested tool timeout.",
+                    ));
+                }
+                observations.push(if result.transcript.is_some() {
+                    String::from("ASR returned a non-empty spoken command transcript.")
+                } else {
+                    String::from("ASR completed but did not detect a spoken command transcript.")
+                });
+
+                ToolResult::success(
+                    ToolName::TranscribeCommand,
+                    plan.request_id,
+                    TranscribeCommandData {
+                        transcript: result.transcript,
+                        confidence: result.confidence,
+                        audio_duration_ms: result.audio_duration_ms,
+                        listening_state: self.state.listening.clone(),
+                    },
+                    observations,
+                )
+            }
+            Ok(None) => {
+                // stop_listening interrupted the capture during the unlocked window.
+                self.state.set_listening(self.asr.is_listening());
+                ToolResult::success(
+                    ToolName::TranscribeCommand,
+                    plan.request_id,
+                    TranscribeCommandData {
+                        transcript: None,
+                        confidence: None,
+                        audio_duration_ms: None,
+                        listening_state: self.state.listening.clone(),
+                    },
+                    vec![String::from(
+                        "Listening was stopped during capture, so no spoken command was transcribed.",
+                    )],
+                )
+            }
+            Err(error) => {
+                self.state.set_listening(self.asr.is_listening());
+                ToolResult::failure(
+                    ToolName::TranscribeCommand,
+                    plan.request_id,
+                    asr_runtime_error_to_tool_error(&error),
+                    vec![String::from(
+                        "Could not complete spoken-command transcription in the configured ASR backend.",
+                    )],
+                )
+            }
+        }
+    }
+
+    /// Run a resolved spoken command through the bounded replanning loop. Exposed
+    /// for the `transcribe_and_execute_command` handler, which executes this after
+    /// the lock-released transcription phase completes.
+    pub fn execute_transcribed_command(
         &mut self,
         request_id: String,
-        timeout_ms: Option<u64>,
-        max_duration_ms: Option<u64>,
-        auto_stop: bool,
-    ) -> Result<TranscribeAndExecuteCommandData, ToolError> {
-        let transcription_result = self.execute_transcribe_command(TranscribeCommandInput {
-            request_id: request_id.clone(),
-            timeout_ms,
-            max_duration_ms,
-            stop_mode: if auto_stop {
-                crate::commands::TranscriptionStopMode::AutoStop
-            } else {
-                crate::commands::TranscriptionStopMode::KeepListening
-            },
-        });
-
-        let Some(transcription) = transcription_result.data else {
-            return Err(transcription_result.error.unwrap_or(ToolError {
-                code: String::from("missing_transcription_result"),
-                message: String::from("transcribe_command did not return transcription data"),
-                retryable: false,
-                details: Some(serde_json::json!({
-                    "request_id": request_id,
-                    "tool_name": ToolName::TranscribeCommand,
-                })),
-            }));
-        };
-
-        let (command_error, execution_outcome) =
-            if let Some(transcript) = transcription.transcript.clone() {
-                match self.execute_command_with_replanning(request_id.clone(), transcript) {
-                    Ok(outcome) => (None, Some(outcome)),
-                    Err(error) => (Some(error), None),
-                }
-            } else {
-                (None, None)
-            };
-
-        Ok(TranscribeAndExecuteCommandData {
-            transcription,
-            command_error,
-            execution_outcome,
-        })
+        transcript: String,
+    ) -> Result<ExecutionOutcome, ToolError> {
+        self.execute_command_with_replanning(request_id, transcript)
     }
 }

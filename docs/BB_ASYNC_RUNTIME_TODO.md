@@ -111,7 +111,7 @@ Behavioral (under `--features full`, real page):
 
 ## P1.1 — Phase 2: scope the lock around the capture window
 
-**Status:** PENDING (do P0.1 first)  
+**Status:** DONE (gate green; behavioral `--features full` interrupt check still needs human verification)  
 **Files:**
 
 - `src-tauri/src/app_core/listening_tools.rs`

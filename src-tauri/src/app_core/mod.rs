@@ -95,6 +95,7 @@ use element_scoring::region_bbox_by_id;
 mod interaction_tools;
 
 mod listening_tools;
+pub use listening_tools::TranscribeCapturePlan;
 mod reading_tools;
 mod voice_tools;
 

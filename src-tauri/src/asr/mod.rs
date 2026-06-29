@@ -216,6 +216,74 @@ impl AsrController {
             temporary_capture.take_captured_audio()?.ensure_non_empty()
         }
     }
+
+    /// Phase 1 of a lock-released capture: ensure a capture session is recording.
+    ///
+    /// Returns whether a new session was started for this request (so the caller
+    /// knows to stop it again after a one-shot transcription). The cpal stream
+    /// keeps filling the shared buffer during the unlocked capture window, so the
+    /// `AppCore` lock can be released between this call and [`Self::finish_capture`].
+    pub fn begin_capture(&mut self) -> Result<bool, AsrRuntimeError> {
+        #[cfg(not(feature = "audio"))]
+        {
+            Err(AsrRuntimeError::AudioFeatureUnavailable)
+        }
+
+        #[cfg(feature = "audio")]
+        {
+            if self.active_capture.is_some() {
+                return Ok(false);
+            }
+            self.active_capture = Some(CaptureSession::start()?);
+            Ok(true)
+        }
+    }
+
+    /// Phase 2 of a lock-released capture: drain the captured audio and transcribe.
+    ///
+    /// Returns `Ok(None)` if `stop_listening` dropped the session during the
+    /// unlocked capture window, so the caller can report a clean "capture stopped"
+    /// result instead of transcribing a stale or partial buffer.
+    pub fn finish_capture(
+        &mut self,
+        config: &AppConfig,
+        auto_stop: bool,
+        started_for_this_request: bool,
+    ) -> Result<Option<AsrTranscription>, AsrRuntimeError> {
+        #[cfg(not(feature = "audio"))]
+        {
+            let _ = (config, auto_stop, started_for_this_request);
+            Err(AsrRuntimeError::AudioFeatureUnavailable)
+        }
+
+        #[cfg(feature = "audio")]
+        {
+            let captured_audio = {
+                let Some(active_capture) = self.active_capture.as_ref() else {
+                    // stop_listening took the session during the capture window.
+                    return Ok(None);
+                };
+                active_capture.take_captured_audio()?.ensure_non_empty()?
+            };
+            let audio_duration_ms = Some(captured_audio.duration_ms());
+
+            let transcript = match config.providers.asr.mode {
+                ProviderMode::Local => self.transcribe_local(config, &captured_audio)?,
+                ProviderMode::Remote => self.transcribe_remote(config, &captured_audio)?,
+            };
+
+            if auto_stop || started_for_this_request {
+                self.active_capture.take();
+            }
+
+            Ok(Some(AsrTranscription {
+                transcript: normalize_transcript(&transcript),
+                confidence: None,
+                audio_duration_ms,
+                listening_active: self.is_listening(),
+            }))
+        }
+    }
 }
 
 impl Default for AsrController {
@@ -277,5 +345,29 @@ mod tests {
         assert_eq!(&wav[12..16], b"fmt ");
         assert_eq!(&wav[36..40], b"data");
         assert_eq!(wav.len(), 44 + (3 * 2));
+    }
+
+    // When `stop_listening` drops the capture session during the unlocked capture
+    // window, `finish_capture` finds no active session and must report a clean
+    // "no transcript" result (Ok(None)) instead of erroring or transcribing a
+    // stale buffer. This path returns before touching any audio hardware, so it is
+    // exercisable without a real input device.
+    #[cfg(feature = "audio")]
+    #[test]
+    fn finish_capture_reports_none_when_session_stopped_mid_window() {
+        use super::AsrController;
+        use crate::config::AppConfig;
+
+        let mut controller = AsrController::new();
+        let config = AppConfig::default();
+
+        let result = controller
+            .finish_capture(&config, false, true)
+            .expect("finish_capture should not error when the session was stopped");
+
+        assert!(
+            result.is_none(),
+            "a session stopped mid-capture should yield no transcription"
+        );
     }
 }
