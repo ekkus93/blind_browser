@@ -29,7 +29,7 @@ Do not mark this TODO complete unless the validation gate actually passes in the
 
 ## P0.1 — Add direct regression coverage for external-link failure alert
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/panel-state-setters.ts`
@@ -196,7 +196,7 @@ export function clearAppAlert() {
 
 ## P1.1 — Fix the known failing CSS static audit match
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -247,7 +247,7 @@ Expected: no component-level matches. If there is a remaining match, either repl
 
 ## P1.2 — Tokenize remaining hardcoded parchment/light surfaces
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -358,7 +358,7 @@ Do not use this comment to justify ordinary cards, panels, controls, or buttons.
 
 ## P1.3 — Tokenize remaining hardcoded light-mode text colors
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -437,7 +437,7 @@ Expected: no component-level matches. Any intentional exception needs a nearby c
 
 ## P1.4 — Re-check focus ring did not regress
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -482,7 +482,7 @@ Expected:
 
 ## P1.5 — Manual dark-mode walkthrough checklist
 
-**Status:** PENDING  
+**Status:** PENDING (requires human verification in running app)  
 **Files:**
 
 - no code file unless issues are found
@@ -519,7 +519,7 @@ If any visual issue is found, fix it with tokens rather than dark-only one-off o
 
 ## P2.1 — Run final static audits
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -552,7 +552,7 @@ If a static-audit match remains intentionally, document it with a nearby comment
 
 ## P2.2 — Run full validation gate
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - no source file unless failures require fixes
@@ -580,7 +580,7 @@ If any command fails:
 
 ## P2.3 — Update `memory.md` with a real Fix 5 closeout entry
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `memory.md`

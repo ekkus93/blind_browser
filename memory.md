@@ -1,3 +1,20 @@
+## 2026-06-29T04:26:01Z - Claude Haiku 4.5 - Completed UIUX Fix 5 closeout
+
+- Added `setOpenExternalUrlForTest` seam + `clearAppAlert` to `src/panel-state-setters.ts`.
+- Created `src/external-link.test.mjs` with 5 regression tests: failure path sets global app alert (kind=error, message includes URL and error detail), `openExternalLink` doesn't throw, failure is not routed to `urlInputPanelState`, and dismiss tests for `clearAppAlert`.
+- CSS static audit: replaced all unjustified hardcoded light-mode component colors/surfaces:
+  - `.settings-api-key-test-status-message` color `#1f2527` → `var(--color-text-primary)` (P1.1)
+  - `.shell-toolbar-action`, `.settings-subpage-back`, `.settings-subpage-card` (:hover/:focus-visible), `.panel` backgrounds `rgba(255,252,247,...)` → `var(--color-surface-card)` (P1.2)
+  - `.eyebrow`, `.status-panel-eyebrow`, `.settings-model-freshness-label` `#7b6246` → `var(--eyebrow-color)` (P1.3)
+  - `.lede`, `.confirmation-card ul` `#3a342e`/`#2c3233` → `var(--color-text-secondary)` (P1.3)
+  - `.status-indicator` `#5d584e` → `var(--color-text-secondary)` (P1.3)
+- Remaining `#7b6246` at styles.css:58 is the `:root` CSS variable definition (`--eyebrow-color`), not a component hardcode — expected.
+- All `outline: none` instances are on `:hover` states only (not `:focus-visible`) — focus ring intact.
+- Static audits pass. Validation gate: 328 Rust + 164 JS tests clean, lint/tsc/build clean.
+- Commit `3cf3dcd` on master.
+- P1.5 (manual dark-mode walkthrough) requires human verification in the running app.
+- Note: `appAlertState` is nested under `panelStates` in the Redux store (path: `appShellStore.getState().panelStates.appAlertState`).
+
 ## 2026-06-29T03:54:07Z - Claude Sonnet 4.6 - Add test coverage: routing edge cases, planner outputs, config persistence, async actions
 
 - `src-tauri/src/commands/tests/routing.rs`: 6 new test functions covering fill-in prefix, put/enter-in patterns, textbox/input suffix normalization, single-quoted values, `is_direct_submit_form_command`, additional submit suffixes.
