@@ -33,7 +33,7 @@ Do not mark complete unless the gate passes.
 
 ## P0.1 — Set `default = ["full"]`
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/Cargo.toml`
@@ -75,7 +75,7 @@ Expected: `default = ["full"]`; the no-flag check compiles.
 
 ## P1.1 — Guard the default configuration in CI
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `.github/workflows/ci.yml`
@@ -105,7 +105,7 @@ Expected: a default-config `cargo check` step exists in CI.
 
 ## P2.1 — Validation and memory
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `memory.md`
@@ -134,9 +134,9 @@ remains intentionally unsupported, and what was verified. Do not fabricate times
 
 ## Final done checklist
 
-- [ ] `default = ["full"]` in `src-tauri/Cargo.toml`.
-- [ ] A no-flag `cargo check` compiles.
-- [ ] `--no-default-features` left intentionally unsupported (no gating changes).
-- [ ] CI has a default-config `cargo check` step.
-- [ ] `--all-features` gate still green.
-- [ ] `memory.md` has a real UTC entry.
+- [x] `default = ["full"]` in `src-tauri/Cargo.toml`.
+- [x] A no-flag `cargo check` compiles.
+- [x] `--no-default-features` left intentionally unsupported (no gating changes).
+- [x] CI has a default-config `cargo check` step.
+- [x] `--all-features` gate still green.
+- [x] `memory.md` has a real UTC entry.

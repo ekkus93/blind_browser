@@ -1,3 +1,10 @@
+## 2026-06-29T10:42:07Z - Claude Haiku 4.5 - BB_DEFAULT_BUILD: default = ["full"] so the no-flag build compiles
+
+- Fixed the pre-existing default-feature build breakage flagged during BB_RUNTIME_PHASE3: `src-tauri/Cargo.toml` `default = []` → `default = ["full"]`. The crate is an application (no minimal-build consumer), and the only no-feature `cargo build` (scripts/darkmode-test.sh) expected the default to work. Now `cargo build`/`cargo check`/rust-analyzer work with no flags.
+- `--no-default-features` (the truly minimal config) remains intentionally UNSUPPORTED — the per-item `#[cfg]` gating in browser/tts/asr/audio_io is incomplete; completing it was explicitly out of scope (buys nothing, large audit). No gating logic changed.
+- Added a CI guard: `.github/workflows/ci.yml` now has a "Check default feature configuration" step (`cargo check --manifest-path src-tauri/Cargo.toml`, no flags) so the default config can't silently rot again. Distinct from the existing `--all-features` clippy/test steps.
+- `--all-features` behavior unchanged (it already enables every feature → same compiled code). Gate green: no-flag `cargo check` compiles, fmt/clippy clean, 330 Rust + 164 JS tests, build green. Commits on master.
+
 ## 2026-06-29T09:45:24Z - Claude Opus 4.8 - BB_RUNTIME_PHASE3: tidy-ups (Part A) + Phase 3 planner lock-scoping (Part B)
 
 - Part A (recommended tidy-ups): (1) fixed stale self-contradicting checklist/subtask lines in BB_CODE_REVIEW2_TODO.md (P1.1.2 DONE/Phase 2, P1.1.4 DONE/Phase 1, P1.1.3 reconciled). (2) Extracted `transcribe_success_result` + `build_transcribe_observations` in listening_tools.rs, shared by both the planner-dispatched `execute_transcribe_command` (lock-held) and the phased `finish_transcribe_command` (lock-released) paths; cross-reference comments added. Pure de-dup, no behavior change.

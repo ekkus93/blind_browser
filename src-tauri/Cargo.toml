@@ -35,7 +35,12 @@ rodio = { version = "0.22.2", optional = true }
 whisper-rs = { version = "0.16.0", optional = true }
 
 [features]
-default = []
+# This is an application crate with no consumer of a minimal build, and the only
+# no-feature `cargo build` (scripts/darkmode-test.sh) expects the default config to
+# work. Default to the full, CI-tested feature set so `cargo build`/`cargo check`
+# and rust-analyzer work with no flags. `--no-default-features` is intentionally
+# unsupported (the per-item #[cfg] gating for a minimal build is incomplete).
+default = ["full"]
 browser = ["dep:chromiumoxide", "dep:dom_smoothie"]
 ocr = ["dep:leptess"]
 audio = ["dep:cpal", "dep:rodio"]
