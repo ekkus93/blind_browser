@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use crate::app_core::AppCore;
+use crate::app_core::{AppCore, TranscribeDrainOutcome};
 use crate::commands::{
     StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
     ToolName, ToolResult, TranscribeAndExecuteCommandData, TranscribeCommandData,
@@ -10,10 +10,16 @@ use crate::commands::{
 };
 use crate::{join_error_to_tool_error, lock_app_core};
 
-/// Run a transcription with the `AppCore` lock released across the audio-capture
-/// window: lock briefly to start capture, drop the guard during the blocking
-/// capture sleep (so `stop_listening` / `get_agent_state` can interleave), then
-/// re-lock to drain and transcribe. Runs inside `spawn_blocking`.
+/// Run a transcription with the `AppCore` lock released across both blocking
+/// windows — the audio capture *and* the (possibly remote) ASR transcription — so
+/// `stop_listening` / `get_agent_state` can interleave throughout. Runs inside
+/// `spawn_blocking`. Five phases:
+///
+/// 1. lock → `begin_transcribe_command` (start capture) → unlock
+/// 2. unlocked capture sleep (the cpal stream keeps filling its buffer)
+/// 3. lock → `drain_transcribe_command` (take audio + snapshot config) → unlock
+/// 4. unlocked `transcribe_captured_audio` (the ASR round-trip, network for remote)
+/// 5. lock → `record_transcribe_command` (record transcript + build result)
 fn run_phased_transcribe(
     core: &Arc<Mutex<AppCore>>,
     input: TranscribeCommandInput,
@@ -31,8 +37,22 @@ fn run_phased_transcribe(
     // guard is dropped, so other commands can run against the same AppCore.
     thread::sleep(Duration::from_millis(plan.effective_duration_ms));
 
+    let pending = {
+        let mut guard = lock_app_core(core)?;
+        match guard.drain_transcribe_command(plan) {
+            TranscribeDrainOutcome::Terminal(result) => return Ok(*result),
+            TranscribeDrainOutcome::Pending(pending) => pending,
+        }
+    };
+
+    // Unlocked transcription window: the ASR backend (CPU for local whisper, a
+    // network round-trip for remote) runs with the guard dropped, against the
+    // drained audio + config snapshot the pending capture carries.
+    let (config, captured_audio) = pending.transcription_inputs();
+    let transcript_result = crate::asr::transcribe_captured_audio(config, captured_audio);
+
     let mut guard = lock_app_core(core)?;
-    Ok(guard.finish_transcribe_command(plan))
+    Ok(guard.record_transcribe_command(*pending, transcript_result))
 }
 
 fn transcription_stop_mode(auto_stop: bool) -> TranscriptionStopMode {

@@ -11,11 +11,13 @@ use std::time::Duration;
 
 #[cfg(feature = "audio")]
 use capture::CaptureSession;
-use processing::CapturedAudio;
+use local::transcribe_local;
+pub(crate) use processing::CapturedAudio;
 #[cfg(test)]
 use processing::{interleaved_to_mono, resample_linear};
 #[cfg(test)]
 use remote::normalized_optional_string;
+use remote::transcribe_remote;
 #[cfg(test)]
 use wav::encode_wav_pcm16;
 
@@ -175,18 +177,8 @@ impl AsrController {
     ) -> Result<AsrTranscription, AsrRuntimeError> {
         let captured_audio = self.capture_audio(capture_duration_ms, auto_stop)?;
         let audio_duration_ms = Some(captured_audio.duration_ms());
-
-        let transcript = match config.providers.asr.mode {
-            ProviderMode::Local => self.transcribe_local(config, &captured_audio)?,
-            ProviderMode::Remote => self.transcribe_remote(config, &captured_audio)?,
-        };
-
-        Ok(AsrTranscription {
-            transcript: normalize_transcript(&transcript),
-            confidence: None,
-            audio_duration_ms,
-            listening_active: self.is_listening(),
-        })
+        let transcript = transcribe_captured_audio(config, &captured_audio)?;
+        Ok(self.finalize_transcription(transcript, audio_duration_ms))
     }
 
     fn capture_audio(
@@ -222,7 +214,7 @@ impl AsrController {
     /// Returns whether a new session was started for this request (so the caller
     /// knows to stop it again after a one-shot transcription). The cpal stream
     /// keeps filling the shared buffer during the unlocked capture window, so the
-    /// `AppCore` lock can be released between this call and [`Self::finish_capture`].
+    /// `AppCore` lock can be released between this call and [`Self::drain_capture`].
     pub fn begin_capture(&mut self) -> Result<bool, AsrRuntimeError> {
         #[cfg(not(feature = "audio"))]
         {
@@ -239,20 +231,23 @@ impl AsrController {
         }
     }
 
-    /// Phase 2 of a lock-released capture: drain the captured audio and transcribe.
+    /// Phase 2a of a lock-released capture: drain the captured audio and (for a
+    /// one-shot / auto-stop request) stop the microphone, so the subsequent
+    /// transcription can run with the `AppCore` lock released and the mic idle.
     ///
     /// Returns `Ok(None)` if `stop_listening` dropped the session during the
     /// unlocked capture window, so the caller can report a clean "capture stopped"
-    /// result instead of transcribing a stale or partial buffer.
-    pub fn finish_capture(
+    /// result instead of transcribing a stale or partial buffer. The drained audio
+    /// is then transcribed (unlocked) via [`transcribe_captured_audio`] and wrapped
+    /// with [`Self::finalize_transcription`].
+    pub(crate) fn drain_capture(
         &mut self,
-        config: &AppConfig,
         auto_stop: bool,
         started_for_this_request: bool,
-    ) -> Result<Option<AsrTranscription>, AsrRuntimeError> {
+    ) -> Result<Option<CapturedAudio>, AsrRuntimeError> {
         #[cfg(not(feature = "audio"))]
         {
-            let _ = (config, auto_stop, started_for_this_request);
+            let _ = (auto_stop, started_for_this_request);
             Err(AsrRuntimeError::AudioFeatureUnavailable)
         }
 
@@ -265,24 +260,43 @@ impl AsrController {
                 };
                 active_capture.take_captured_audio()?.ensure_non_empty()?
             };
-            let audio_duration_ms = Some(captured_audio.duration_ms());
-
-            let transcript = match config.providers.asr.mode {
-                ProviderMode::Local => self.transcribe_local(config, &captured_audio)?,
-                ProviderMode::Remote => self.transcribe_remote(config, &captured_audio)?,
-            };
 
             if auto_stop || started_for_this_request {
                 self.active_capture.take();
             }
 
-            Ok(Some(AsrTranscription {
-                transcript: normalize_transcript(&transcript),
-                confidence: None,
-                audio_duration_ms,
-                listening_active: self.is_listening(),
-            }))
+            Ok(Some(captured_audio))
         }
+    }
+
+    /// Phase 2b of a lock-released capture: wrap a completed transcript into an
+    /// [`AsrTranscription`], normalizing the text and recording the current
+    /// listening state. The transcription itself ([`transcribe_captured_audio`])
+    /// runs between [`Self::drain_capture`] and this call, with the lock released.
+    pub fn finalize_transcription(
+        &self,
+        transcript: String,
+        audio_duration_ms: Option<u64>,
+    ) -> AsrTranscription {
+        AsrTranscription {
+            transcript: normalize_transcript(&transcript),
+            confidence: None,
+            audio_duration_ms,
+            listening_active: self.is_listening(),
+        }
+    }
+}
+
+/// Transcribe drained audio with the configured ASR backend. A free function with
+/// no `AsrController` / `AppCore` state, so it can run with the `AppCore` lock
+/// released across the (possibly remote, network-bound) transcription.
+pub(crate) fn transcribe_captured_audio(
+    config: &AppConfig,
+    captured_audio: &CapturedAudio,
+) -> Result<String, AsrRuntimeError> {
+    match config.providers.asr.mode {
+        ProviderMode::Local => transcribe_local(config, captured_audio),
+        ProviderMode::Remote => transcribe_remote(config, captured_audio),
     }
 }
 
@@ -348,26 +362,24 @@ mod tests {
     }
 
     // When `stop_listening` drops the capture session during the unlocked capture
-    // window, `finish_capture` finds no active session and must report a clean
-    // "no transcript" result (Ok(None)) instead of erroring or transcribing a
-    // stale buffer. This path returns before touching any audio hardware, so it is
-    // exercisable without a real input device.
+    // window, `drain_capture` finds no active session and must report a clean
+    // "no audio" result (Ok(None)) instead of erroring or draining a stale buffer.
+    // This path returns before touching any audio hardware, so it is exercisable
+    // without a real input device.
     #[cfg(feature = "audio")]
     #[test]
-    fn finish_capture_reports_none_when_session_stopped_mid_window() {
+    fn drain_capture_reports_none_when_session_stopped_mid_window() {
         use super::AsrController;
-        use crate::config::AppConfig;
 
         let mut controller = AsrController::new();
-        let config = AppConfig::default();
 
         let result = controller
-            .finish_capture(&config, false, true)
-            .expect("finish_capture should not error when the session was stopped");
+            .drain_capture(false, true)
+            .expect("drain_capture should not error when the session was stopped");
 
         assert!(
             result.is_none(),
-            "a session stopped mid-capture should yield no transcription"
+            "a session stopped mid-capture should yield no captured audio"
         );
     }
 }

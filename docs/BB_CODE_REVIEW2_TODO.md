@@ -191,7 +191,7 @@ an in-flight capture.
 
 ### P1.1.3 — Release the lock across remote network calls
 
-**Status:** DONE for the remote planner (`BB_RUNTIME_PHASE3_TODO.md` P2.1 — lock-scoped resolve via `LockScopedReplanningRuntime`). Remote ASR consciously skipped (P2.2 — lowest-value, remote-only). Model-download already runs off the main thread after Phase 1.
+**Status:** DONE for both remote network paths. Remote planner: `BB_RUNTIME_PHASE3_TODO.md` P2.1 (lock-scoped resolve via `LockScopedReplanningRuntime`). Remote ASR: P2.2 (drain → transcribe-unlocked → record split; five-phase `run_phased_transcribe`). Model-download already runs off the main thread after Phase 1.
 
 Apply the same scoping to the remote planner, remote ASR, and model-download
 paths: resolve the inputs under the lock, drop the guard, perform the network call

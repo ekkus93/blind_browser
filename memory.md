@@ -1,3 +1,12 @@
+## 2026-06-29T11:24:36Z - Claude Haiku 4.5 - BB_RUNTIME_PHASE3 P2.2: remote ASR lock-scoping (the previously-skipped item)
+
+- Implemented at user request the Phase 3 item P2.2 had consciously SKIPPED: release the AppCore lock across the ASR transcription round-trip (matters for remote ASR; local whisper also benefits by not holding the lock during CPU transcription).
+- ASR layer: `transcribe_local`/`transcribe_remote`/`transcribe_with_openai_remote` converted from `&self` AsrController methods to FREE functions (they never read self); added free `transcribe_captured_audio(config, captured_audio)` dispatcher. `CapturedAudio` re-exported `pub(crate)` from asr. `finish_capture` split into `drain_capture(&mut self, auto_stop, started)` (takes audio, stops mic for one-shot/auto-stop, Ok(None) if stopped mid-window) + `finalize_transcription(&self, transcript, dur)` (wraps→AsrTranscription). `transcribe_command` (planner-tool path) now uses the dispatcher too.
+- AppCore layer (listening_tools.rs): `finish_transcribe_command` → `drain_transcribe_command(plan) -> TranscribeDrainOutcome::{Terminal(Box<ToolResult>)|Pending(Box<TranscribePending>)}` (lock) + `record_transcribe_command(pending, transcript_result)` (lock). `TranscribePending` carries owned CapturedAudio + an AppConfig clone + plan; exposes `transcription_inputs()`.
+- Handler: `run_phased_transcribe` is now FIVE phases — begin(lock) → capture sleep(unlocked) → drain(lock) → `crate::asr::transcribe_captured_audio`(unlocked) → record(lock).
+- Regression test renamed `finish_capture_*` → `drain_capture_reports_none_when_session_stopped_mid_window` (same Ok(None) path).
+- Validation: gate green — fmt/clippy clean, 330 Rust + 164 JS tests, build green, AND the default-feature `cargo check` (now CI default after BB_DEFAULT_BUILD) passes. Behavioral `--features full` + remote-ASR-profile check (get_agent_state interleaves during in-flight remote ASR) still needs a human. All BB_RUNTIME_PHASE3 tasks now DONE (P2.2 no longer skipped).
+
 ## 2026-06-29T10:42:07Z - Claude Haiku 4.5 - BB_DEFAULT_BUILD: default = ["full"] so the no-flag build compiles
 
 - Fixed the pre-existing default-feature build breakage flagged during BB_RUNTIME_PHASE3: `src-tauri/Cargo.toml` `default = []` → `default = ["full"]`. The crate is an application (no minimal-build consumer), and the only no-feature `cargo build` (scripts/darkmode-test.sh) expected the default to work. Now `cargo build`/`cargo check`/rust-analyzer work with no flags.

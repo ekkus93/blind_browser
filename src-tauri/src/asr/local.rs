@@ -6,30 +6,29 @@ use crate::config::{AppConfig, LocalAsrProfile};
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 use super::processing::CapturedAudio;
-use super::{AsrController, AsrRuntimeError};
+use super::AsrRuntimeError;
 
-impl AsrController {
-    pub(super) fn transcribe_local(
-        &self,
-        config: &AppConfig,
-        captured_audio: &CapturedAudio,
-    ) -> Result<String, AsrRuntimeError> {
-        let profile_name = config
-            .providers
-            .asr
-            .local_profile
-            .as_ref()
-            .ok_or(AsrRuntimeError::MissingLocalProfile)?;
-        let profile = config.local_asr_profiles.get(profile_name).ok_or_else(|| {
-            AsrRuntimeError::MissingLocalProfileDefinition {
-                profile_name: profile_name.clone(),
-            }
-        })?;
+// Free function (no `AsrController` state): pure over `(config, captured_audio)`, so
+// it can run with the `AppCore` lock released. See [`super::transcribe_captured_audio`].
+pub(super) fn transcribe_local(
+    config: &AppConfig,
+    captured_audio: &CapturedAudio,
+) -> Result<String, AsrRuntimeError> {
+    let profile_name = config
+        .providers
+        .asr
+        .local_profile
+        .as_ref()
+        .ok_or(AsrRuntimeError::MissingLocalProfile)?;
+    let profile = config.local_asr_profiles.get(profile_name).ok_or_else(|| {
+        AsrRuntimeError::MissingLocalProfileDefinition {
+            profile_name: profile_name.clone(),
+        }
+    })?;
 
-        let model_path = normalized_model_path(&profile.model_path)?;
-        let audio = captured_audio.to_whisper_audio();
-        transcribe_with_whisper(&model_path, profile, &audio)
-    }
+    let model_path = normalized_model_path(&profile.model_path)?;
+    let audio = captured_audio.to_whisper_audio();
+    transcribe_with_whisper(&model_path, profile, &audio)
 }
 
 fn normalized_model_path(model_path: &str) -> Result<String, AsrRuntimeError> {

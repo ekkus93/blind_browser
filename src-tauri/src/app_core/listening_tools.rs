@@ -1,9 +1,12 @@
 use super::voice_tools::asr_runtime_error_to_tool_error;
-use crate::asr::{AsrTranscription, DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS};
+use crate::asr::{
+    AsrTranscription, CapturedAudio, DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS,
+};
 use crate::commands::{
     StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
     ToolName, ToolResult, TranscribeCommandData, TranscribeCommandInput,
 };
+use crate::config::AppConfig;
 use crate::state::ListeningState;
 
 /// Build the observation strings shared by both transcription success paths.
@@ -37,7 +40,7 @@ fn build_transcribe_observations(
 
 /// Build the shared `TranscribeCommand` success `ToolResult` from a completed ASR
 /// transcription. Used by both transcription paths — the lock-released handler path
-/// ([`super::AppCore::finish_transcribe_command`]) and the planner-dispatched
+/// ([`super::AppCore::record_transcribe_command`]) and the planner-dispatched
 /// lock-held tool path ([`super::AppCore::execute_transcribe_command`]) — so the
 /// observation wording and result shape cannot drift apart.
 fn transcribe_success_result(
@@ -69,7 +72,7 @@ fn transcribe_success_result(
 
 /// Plan carried across the unlocked audio-capture window between
 /// [`super::AppCore::begin_transcribe_command`] and
-/// [`super::AppCore::finish_transcribe_command`]. Holds only plain owned data so
+/// [`super::AppCore::drain_transcribe_command`]. Holds only plain owned data so
 /// the `AppCore` lock can be released while the microphone captures audio.
 pub struct TranscribeCapturePlan {
     request_id: String,
@@ -78,6 +81,31 @@ pub struct TranscribeCapturePlan {
     timeout_ms: Option<u64>,
     auto_stop: bool,
     started_for_this_request: bool,
+}
+
+/// Drained capture carried across the unlocked ASR-transcription window between
+/// [`super::AppCore::drain_transcribe_command`] and
+/// [`super::AppCore::record_transcribe_command`]. Holds owned audio plus a config
+/// snapshot so the (possibly remote) transcription needs no `AppCore` access.
+pub struct TranscribePending {
+    plan: TranscribeCapturePlan,
+    captured_audio: CapturedAudio,
+    config: AppConfig,
+    audio_duration_ms: Option<u64>,
+}
+
+impl TranscribePending {
+    /// Borrow the snapshot the unlocked transcription step needs.
+    pub(crate) fn transcription_inputs(&self) -> (&AppConfig, &CapturedAudio) {
+        (&self.config, &self.captured_audio)
+    }
+}
+
+/// Result of the lock-held drain phase: either a terminal result (capture stopped
+/// mid-window or drain failed) or a pending capture to transcribe unlocked.
+pub enum TranscribeDrainOutcome {
+    Terminal(Box<ToolResult<TranscribeCommandData>>),
+    Pending(Box<TranscribePending>),
 }
 
 impl super::AppCore {
@@ -140,8 +168,9 @@ impl super::AppCore {
     /// Planner-dispatched `TranscribeCommand` tool path. Runs synchronously under
     /// the held `AppCore` lock by design — it executes inside a plan as one locked
     /// transaction (already off the main thread). The top-level handler path
-    /// ([`Self::begin_transcribe_command`] / [`Self::finish_transcribe_command`])
-    /// instead releases the lock across the capture window. Both share
+    /// ([`Self::begin_transcribe_command`] → [`Self::drain_transcribe_command`] →
+    /// [`Self::record_transcribe_command`]) instead releases the lock across both
+    /// the capture and transcription windows. Both share
     /// [`transcribe_success_result`] for result/observation construction.
     pub fn execute_transcribe_command(
         &mut self,
@@ -208,7 +237,7 @@ impl super::AppCore {
     /// (or locate) the capture session. On success returns a plan to carry across
     /// the unlocked capture window; on rejection returns the `ToolResult` to
     /// surface as-is. The caller must release the `AppCore` lock, sleep for
-    /// `plan.effective_duration_ms`, then call [`Self::finish_transcribe_command`].
+    /// `plan.effective_duration_ms`, then call [`Self::drain_transcribe_command`].
     pub fn begin_transcribe_command(
         &mut self,
         input: &TranscribeCommandInput,
@@ -265,37 +294,34 @@ impl super::AppCore {
         }
     }
 
-    /// Phase 2 of a lock-released transcription: drain the captured audio, run the
-    /// configured ASR backend, and record the transcript + listening state. Called
-    /// after the unlocked capture window, with the `AppCore` lock re-acquired.
-    ///
-    /// Counterpart to the planner-dispatched [`Self::execute_transcribe_command`],
-    /// which runs under the held lock; both share [`transcribe_success_result`] for
-    /// the success result/observation construction.
-    pub fn finish_transcribe_command(
+    /// Phase 2 of a lock-released transcription: drain the captured audio under the
+    /// re-acquired lock and snapshot what the (possibly remote, network-bound)
+    /// transcription needs, so the caller can release the lock again across the ASR
+    /// round-trip. Returns a terminal `ToolResult` when capture was stopped
+    /// mid-window or draining failed; otherwise a [`TranscribePending`] to feed to
+    /// [`crate::asr::transcribe_captured_audio`] (unlocked) and then
+    /// [`Self::record_transcribe_command`].
+    pub fn drain_transcribe_command(
         &mut self,
         plan: TranscribeCapturePlan,
-    ) -> ToolResult<TranscribeCommandData> {
+    ) -> TranscribeDrainOutcome {
         match self
             .asr
-            .finish_capture(&self.config, plan.auto_stop, plan.started_for_this_request)
+            .drain_capture(plan.auto_stop, plan.started_for_this_request)
         {
-            Ok(Some(result)) => {
-                self.state.set_listening(result.listening_active);
-                self.state.record_transcript(result.transcript.clone());
-                transcribe_success_result(
-                    plan.request_id,
-                    plan.requested_duration_ms,
-                    plan.effective_duration_ms,
-                    plan.timeout_ms,
-                    result,
-                    self.state.listening.clone(),
-                )
+            Ok(Some(captured_audio)) => {
+                let audio_duration_ms = Some(captured_audio.duration_ms());
+                TranscribeDrainOutcome::Pending(Box::new(TranscribePending {
+                    plan,
+                    captured_audio,
+                    config: self.config.clone(),
+                    audio_duration_ms,
+                }))
             }
             Ok(None) => {
                 // stop_listening interrupted the capture during the unlocked window.
                 self.state.set_listening(self.asr.is_listening());
-                ToolResult::success(
+                TranscribeDrainOutcome::Terminal(Box::new(ToolResult::success(
                     ToolName::TranscribeCommand,
                     plan.request_id,
                     TranscribeCommandData {
@@ -307,6 +333,53 @@ impl super::AppCore {
                     vec![String::from(
                         "Listening was stopped during capture, so no spoken command was transcribed.",
                     )],
+                )))
+            }
+            Err(error) => {
+                self.state.set_listening(self.asr.is_listening());
+                TranscribeDrainOutcome::Terminal(Box::new(ToolResult::failure(
+                    ToolName::TranscribeCommand,
+                    plan.request_id,
+                    asr_runtime_error_to_tool_error(&error),
+                    vec![String::from(
+                        "Could not complete spoken-command transcription in the configured ASR backend.",
+                    )],
+                )))
+            }
+        }
+    }
+
+    /// Phase 3 of a lock-released transcription: record the transcript + listening
+    /// state under the re-acquired lock and build the result. `transcript_result`
+    /// is the outcome of [`crate::asr::transcribe_captured_audio`], run unlocked
+    /// between [`Self::drain_transcribe_command`] and this call.
+    ///
+    /// Shares [`transcribe_success_result`] with the planner-dispatched
+    /// [`Self::execute_transcribe_command`] (which runs under the held lock).
+    pub fn record_transcribe_command(
+        &mut self,
+        pending: TranscribePending,
+        transcript_result: Result<String, crate::asr::AsrRuntimeError>,
+    ) -> ToolResult<TranscribeCommandData> {
+        let TranscribePending {
+            plan,
+            audio_duration_ms,
+            ..
+        } = pending;
+        match transcript_result {
+            Ok(transcript) => {
+                let asr_result = self
+                    .asr
+                    .finalize_transcription(transcript, audio_duration_ms);
+                self.state.set_listening(asr_result.listening_active);
+                self.state.record_transcript(asr_result.transcript.clone());
+                transcribe_success_result(
+                    plan.request_id,
+                    plan.requested_duration_ms,
+                    plan.effective_duration_ms,
+                    plan.timeout_ms,
+                    asr_result,
+                    self.state.listening.clone(),
                 )
             }
             Err(error) => {

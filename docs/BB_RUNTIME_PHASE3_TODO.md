@@ -168,10 +168,18 @@ produces the same plan/outcome as before.
 
 ## P2.2 — (Optional, lowest priority) Phase 3 remote ASR
 
-**Status:** SKIPPED (consciously, per spec). Remote ASR runs under the lock inside
-`finish_transcribe_command`; scoping it out is a five-phase dance for a remote-only,
-default-off path that the spec flags as the lowest-value item ("skip unless there is
-a concrete reason"). No concrete reason exists, so it is deliberately left as-is.  
+**Status:** DONE (implemented at user request). The transcription round-trip now
+runs with the `AppCore` lock released. `finish_capture` was split into
+`drain_capture` (lock: take audio + stop the mic for one-shot/auto-stop) and a free
+`transcribe_captured_audio(config, captured_audio)` (unlocked: local CPU or remote
+network); `transcribe_local`/`transcribe_remote` became free functions. AppCore
+`finish_transcribe_command` became `drain_transcribe_command` (lock → returns a
+`TranscribePending` carrying owned audio + a config snapshot, or a terminal result)
+and `record_transcribe_command` (lock → records transcript, builds result). The
+`run_phased_transcribe` handler now drives the five phases:
+begin(lock) → capture(unlocked) → drain(lock) → transcribe(unlocked) → record(lock).
+Gate green under `--all-features`; behavioral `--features full` + remote-ASR-profile
+verification still pending.  
 **Files:**
 
 - `src-tauri/src/app_core/listening_tools.rs`, `src-tauri/src/asr/remote.rs`
@@ -215,8 +223,8 @@ backlog. Do not gold-plate it.
 - [x] The two transcription paths cross-reference each other.
 - [x] (Optional) Remote planner resolve is lock-scoped with the atomicity tradeoff
       documented (implemented at user request).
-- [x] (Optional) Remote ASR lock-scoping consciously skipped (lowest-value,
-      remote-only; no concrete reason).
+- [x] (Optional) Remote ASR lock-scoping implemented at user request (drain →
+      transcribe-unlocked → record split; five-phase `run_phased_transcribe`).
 - [x] Statuses in `BB_ASYNC_RUNTIME_TODO.md` reconciled with what actually landed.
 - [x] Full validation gate passes (`--all-features`). Note: the default-feature
       build is broken by pre-existing issues in `browser/`/`tts/`/`asr` modules
