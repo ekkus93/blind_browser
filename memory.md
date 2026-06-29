@@ -1,3 +1,11 @@
+## 2026-06-29T06:55:21Z - Claude Sonnet 4.6 - Completed UIUX Fix 6 cleanup
+
+- `src/app.tsx`: replaced inline `setAppAlertState({ message: null })` dismiss handler with `clearAppAlert` — resets both `kind` and `message` to neutral on dismiss.
+- `src/styles.css`: tokenized 7 remaining hardcoded error/danger text colors (`#6b2820`, `#7a2018`, `#54100f`) across `.settings-subpage-card-status-error`, `.settings-reset-confirm-message`, `.confirmation-error`, `.confirmation-error-tool-hard-stop` (2 rules), and retry-status variants → `var(--color-error-primary)` or `var(--color-error-dark)`.
+- `docs/BLIND_BROWSER_UIUX_FIX5_TODO.md`: checked all 12 final checklist items (all done).
+- `docs/BLIND_BROWSER_UIUX_FIX6_TODO.md`: all tasks marked DONE, final checklist checked.
+- Validation gate: lint clean, 164 JS tests pass, build clean, cargo clippy clean, cargo test clean.
+
 ## 2026-06-29T06:06:52Z - Claude Sonnet 4.6 - Add automated dark-mode visual test (Docker + Xvfb)
 
 - `Dockerfile.darkmode-test`: Ubuntu 24.04 + Xvfb + libwebkit2gtk-4.1-0 + libasound2t64 + scrot + imagemagick + Adwaita dark theme. Copies pre-built binary + dist.

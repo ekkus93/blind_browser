@@ -29,7 +29,7 @@ Do not mark this TODO complete unless the validation gate actually passes in the
 
 ## P0.1 — Preserve Fix 5 quiet-failure protections
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/panel-state-setters.ts`
@@ -90,7 +90,7 @@ If any of those tests are missing, do not create a broad test rewrite. Add only 
 
 ## P1.1 — Use `clearAppAlert` for app-alert dismiss behavior
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/app.tsx`
@@ -192,7 +192,7 @@ Expected: no app-alert dismiss path uses a partial stale-state clear.
 
 ## P1.2 — Tokenize remaining hardcoded error/danger text colors
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -292,7 +292,7 @@ Do not use this comment for ordinary error text unless there is a concrete reaso
 
 ## P1.3 — Re-run dark-mode and focus static audits
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src/styles.css`
@@ -347,7 +347,7 @@ Expected:
 
 ## P2.1 — Reconcile final TODO checklist/status
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - current working TODO file, likely `BLIND_BROWSER_UIUX_FIX5_TODO(1).md` or successor
@@ -383,7 +383,7 @@ If this repo does not track uploaded TODO files, update the local project status
 
 ## P2.2 — Run final validation gate
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - no source file unless failures require fixes
@@ -411,7 +411,7 @@ If a command fails:
 
 ## P2.3 — Add Fix 6 memory entry with real UTC timestamp
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `memory.md`
@@ -445,14 +445,14 @@ Replace the timestamp with the actual command output. Do not fabricate or reuse 
 
 ## Final done checklist
 
-- [ ] `openExternalLink()` still routes rejected opens to global app alert.
-- [ ] External-link failures do not route to `urlInputPanelState.error`.
-- [ ] App-alert dismiss uses `clearAppAlert` or equivalent full-state reset.
-- [ ] App-alert clear behavior is tested or already covered.
-- [ ] Remaining hardcoded error text colors are tokenized or explicitly justified.
-- [ ] Dark-mode hardcoded light-surface/text audit passes.
-- [ ] URL action focus ring still uses `--focus-ring` and `--focus-offset`.
-- [ ] Runtime refresh still preserves verified planner model list only when endpoint matches.
-- [ ] Final TODO/checklist status is reconciled.
-- [ ] Full validation gate passes.
-- [ ] `memory.md` has a real UTC Fix 6 completion entry.
+- [x] `openExternalLink()` still routes rejected opens to global app alert.
+- [x] External-link failures do not route to `urlInputPanelState.error`.
+- [x] App-alert dismiss uses `clearAppAlert` or equivalent full-state reset.
+- [x] App-alert clear behavior is tested or already covered.
+- [x] Remaining hardcoded error text colors are tokenized or explicitly justified.
+- [x] Dark-mode hardcoded light-surface/text audit passes.
+- [x] URL action focus ring still uses `--focus-ring` and `--focus-offset`.
+- [x] Runtime refresh still preserves verified planner model list only when endpoint matches.
+- [x] Final TODO/checklist status is reconciled.
+- [x] Full validation gate passes.
+- [x] `memory.md` has a real UTC Fix 6 completion entry.

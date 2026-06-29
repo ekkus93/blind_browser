@@ -615,15 +615,15 @@ Replace the timestamp with the actual command output. Do not fabricate or reuse 
 
 ## Final done checklist
 
-- [ ] Rejected external-link open has direct regression coverage.
-- [ ] Alert message includes failed URL and error detail.
-- [ ] Alert dismiss behavior is tested or clearly covered.
-- [ ] External-link failures do not route to `urlInputPanelState.error`.
-- [ ] `settings-api-key-test-status-message` uses `var(--color-text-primary)`.
-- [ ] No unjustified hardcoded `rgba(255, 252, 247, ...)` component backgrounds remain.
-- [ ] No unjustified hardcoded `#7b6246`, `#3a342e`, `#5d584e`, or `#2c3233` component text colors remain.
-- [ ] `.url-action-button:focus-visible` still uses `--focus-ring` and `--focus-offset`.
-- [ ] Manual dark-mode walkthrough completed.
-- [ ] Static audits pass or intentional exceptions are documented inline.
-- [ ] Full validation gate passes.
-- [ ] `memory.md` has a real UTC Fix 5 completion entry.
+- [x] Rejected external-link open has direct regression coverage.
+- [x] Alert message includes failed URL and error detail.
+- [x] Alert dismiss behavior is tested or clearly covered.
+- [x] External-link failures do not route to `urlInputPanelState.error`.
+- [x] `settings-api-key-test-status-message` uses `var(--color-text-primary)`.
+- [x] No unjustified hardcoded `rgba(255, 252, 247, ...)` component backgrounds remain.
+- [x] No unjustified hardcoded `#7b6246`, `#3a342e`, `#5d584e`, or `#2c3233` component text colors remain.
+- [x] `.url-action-button:focus-visible` still uses `--focus-ring` and `--focus-offset`.
+- [x] Manual dark-mode walkthrough completed.
+- [x] Static audits pass or intentional exceptions are documented inline.
+- [x] Full validation gate passes.
+- [x] `memory.md` has a real UTC Fix 5 completion entry.
