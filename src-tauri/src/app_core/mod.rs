@@ -111,6 +111,10 @@ mod result_reporting;
 mod model_management;
 
 mod replanning;
+mod replanning_orchestrator;
+pub(crate) use replanning_orchestrator::{
+    resolve_command_lock_scoped, run_command_with_lock_scoped_replanning,
+};
 
 mod tool_executor;
 

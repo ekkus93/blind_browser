@@ -103,10 +103,11 @@ pub async fn transcribe_command(
     .map_err(join_error_to_tool_error)?
 }
 
-// Runs in `spawn_blocking` so the browser tools reached via
-// `execute_transcribed_command` can call `tauri::async_runtime::block_on` safely
-// (blocking-pool threads are not driving the async scheduler). The capture window
-// itself releases the lock via `run_phased_transcribe`.
+// Runs in `spawn_blocking` so the browser tools reached during plan execution can
+// call `tauri::async_runtime::block_on` safely (blocking-pool threads are not
+// driving the async scheduler). The capture window releases the lock via
+// `run_phased_transcribe`, and the resolve/execute loop releases it across each
+// remote planner round-trip via `run_command_with_lock_scoped_replanning`.
 #[tauri::command]
 pub async fn transcribe_and_execute_command(
     request_id: String,
@@ -141,8 +142,11 @@ pub async fn transcribe_and_execute_command(
 
         let (command_error, execution_outcome) =
             if let Some(transcript) = transcription.transcript.clone() {
-                let mut guard = lock_app_core(&core)?;
-                match guard.execute_transcribed_command(request_id.clone(), transcript) {
+                match crate::app_core::run_command_with_lock_scoped_replanning(
+                    &core,
+                    &request_id,
+                    &transcript,
+                ) {
                     Ok(outcome) => (None, Some(outcome)),
                     Err(error) => (Some(error), None),
                 }

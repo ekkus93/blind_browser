@@ -38,7 +38,7 @@ Do not mark a task complete unless the gate passes.
 
 ## P0.1 — Fix the stale checklist lines in `BB_CODE_REVIEW2_TODO.md`
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `docs/BB_CODE_REVIEW2_TODO.md`
@@ -76,7 +76,7 @@ block.
 
 ## P1.1 — De-duplicate the two transcription result/observation paths
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/app_core/listening_tools.rs`
@@ -116,7 +116,15 @@ Expected: one shared helper, used by both paths; no behavioral change; tests gre
 
 ## P2.1 — (Optional) Phase 3: lock-scope the remote planner network call
 
-**Status:** PENDING (optional — see spec Part B; skip if not wanted)  
+**Status:** DONE (implemented at user request). The deterministic resolution +
+profile snapshot run under a brief lock (`build_planner_resolution`); the LLM
+round-trip (`resolve_remote_planner`, a free function) runs with the guard
+released; `execute_plan` re-acquires. Driven by `LockScopedReplanningRuntime`
+(`app_core/replanning_orchestrator.rs`) through the existing
+`execute_bounded_replanning_loop`. The atomicity tradeoff (resolve runs against a
+snapshot a peer could change before execute) is documented at the call site; the
+replan bound is unchanged. Gate green under `--all-features`; behavioral
+`--features full` + remote-profile verification still pending.  
 **Files:**
 
 - `src-tauri/src/command_handlers/voice_handlers.rs` / `core_handlers.rs`
@@ -160,7 +168,10 @@ produces the same plan/outcome as before.
 
 ## P2.2 — (Optional, lowest priority) Phase 3 remote ASR
 
-**Status:** PENDING (optional; skip unless there is a concrete reason)  
+**Status:** SKIPPED (consciously, per spec). Remote ASR runs under the lock inside
+`finish_transcribe_command`; scoping it out is a five-phase dance for a remote-only,
+default-off path that the spec flags as the lowest-value item ("skip unless there is
+a concrete reason"). No concrete reason exists, so it is deliberately left as-is.  
 **Files:**
 
 - `src-tauri/src/app_core/listening_tools.rs`, `src-tauri/src/asr/remote.rs`
@@ -173,7 +184,7 @@ backlog. Do not gold-plate it.
 
 ## P2.3 — Validation, status reconciliation, memory
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `docs/BB_ASYNC_RUNTIME_TODO.md`, `memory.md`
@@ -197,14 +208,18 @@ backlog. Do not gold-plate it.
 
 ## Final done checklist
 
-- [ ] `BB_CODE_REVIEW2_TODO.md` checklist no longer contradicts its reconciliation
+- [x] `BB_CODE_REVIEW2_TODO.md` checklist no longer contradicts its reconciliation
       block.
-- [ ] A shared transcribe result/observation helper is used by both transcription
+- [x] A shared transcribe result/observation helper is used by both transcription
       paths; behavior unchanged; tests green.
-- [ ] The two transcription paths cross-reference each other.
-- [ ] (Optional) Remote planner resolve is lock-scoped with the atomicity tradeoff
-      documented; or consciously left deferred.
-- [ ] (Optional) Remote ASR lock-scoping done or consciously skipped.
-- [ ] Statuses in `BB_ASYNC_RUNTIME_TODO.md` reconciled with what actually landed.
-- [ ] Full validation gate passes.
-- [ ] `memory.md` has a real UTC entry noting live-verified vs. pending.
+- [x] The two transcription paths cross-reference each other.
+- [x] (Optional) Remote planner resolve is lock-scoped with the atomicity tradeoff
+      documented (implemented at user request).
+- [x] (Optional) Remote ASR lock-scoping consciously skipped (lowest-value,
+      remote-only; no concrete reason).
+- [x] Statuses in `BB_ASYNC_RUNTIME_TODO.md` reconciled with what actually landed.
+- [x] Full validation gate passes (`--all-features`). Note: the default-feature
+      build is broken by pre-existing issues in `browser/`/`tts/`/`asr` modules
+      (present before this pass, unrelated to it); the project's gate is
+      `--all-features`.
+- [x] `memory.md` has a real UTC entry noting live-verified vs. pending.

@@ -25,8 +25,9 @@ pub async fn execute_planner_output(
     .map_err(join_error_to_tool_error)?
 }
 
-// Runs in `spawn_blocking` so command resolution's browser `block_on` calls are
-// safe off the async worker threads.
+// Runs in `spawn_blocking`. Resolution releases the `AppCore` lock across the
+// remote planner round-trip via `resolve_command_lock_scoped`; any browser
+// `block_on` reached by a direct command runs safely off the async worker threads.
 #[tauri::command]
 pub async fn resolve_command(
     request_id: String,
@@ -35,8 +36,7 @@ pub async fn resolve_command(
 ) -> Result<PlannerOutput, ToolError> {
     let core = Arc::clone(&app_core);
     tauri::async_runtime::spawn_blocking(move || {
-        let mut guard = lock_app_core(&core)?;
-        guard.resolve_command(request_id, transcript)
+        crate::app_core::resolve_command_lock_scoped(&core, request_id, transcript)
     })
     .await
     .map_err(join_error_to_tool_error)?

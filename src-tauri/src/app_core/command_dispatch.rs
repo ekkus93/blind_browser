@@ -5,16 +5,32 @@ use super::form_fill::{
     resolve_direct_fill_command_internal, resolve_direct_focus_field_command,
     resolve_direct_submit_form_command,
 };
-use super::replanning::execute_bounded_replanning_loop;
 use crate::commands::{
     build_planner_skill_selection, execute_planner_output, planner_available_tools,
     resolve_direct_audio_command, resolve_direct_browser_visibility_command,
     resolve_direct_navigation_readback_command, resolve_direct_open_url_command,
     resolve_direct_read_page_command, resolve_direct_read_title_command,
     resolve_direct_repeat_command, resolve_direct_status_query_command,
-    resolve_direct_voice_input_command, validate_planner_output, ExecutionOutcome, PlannerInput,
-    PlannerOutput, PlannerToolHistoryEntry, ToolError,
+    resolve_direct_voice_input_command, validate_planner_output, AvailableTool, ExecutionOutcome,
+    PlannerInput, PlannerOutput, PlannerToolHistoryEntry, ToolError,
 };
+use crate::config::RemotePlannerProfile;
+
+/// Outcome of the deterministic resolution phase, which runs under the `AppCore`
+/// lock. A `Direct` match is already validated and needs no network. A `Remote`
+/// result carries everything the (unlocked) LLM round-trip needs, so the lock can
+/// be released before [`super::remote_planner::resolve_remote_planner`] runs.
+pub(crate) enum PlannerResolution {
+    Direct(PlannerOutput),
+    Remote {
+        // Boxed: `PlannerInput` is large, so an unboxed variant bloats every
+        // `PlannerResolution` (clippy `large_enum_variant`).
+        planner_input: Box<PlannerInput>,
+        profile: RemotePlannerProfile,
+        available_tools: Vec<AvailableTool>,
+        active_skill_names: Vec<String>,
+    },
+}
 
 impl super::AppCore {
     pub fn execute_planner_output(
@@ -27,28 +43,17 @@ impl super::AppCore {
         outcome
     }
 
-    pub(super) fn execute_command_with_replanning(
-        &mut self,
-        request_id: String,
-        transcript: String,
-    ) -> Result<ExecutionOutcome, ToolError> {
-        execute_bounded_replanning_loop(self, &request_id, &transcript)
-    }
-
-    pub fn resolve_command(
-        &mut self,
-        request_id: String,
-        transcript: String,
-    ) -> Result<PlannerOutput, ToolError> {
-        self.resolve_command_with_recent_results(request_id, &transcript, Vec::new())
-    }
-
-    pub(super) fn resolve_command_with_recent_results(
+    /// Deterministic resolution phase: try every direct-command resolver, and if
+    /// none match, assemble the `PlannerInput` and snapshot the remote planner
+    /// profile for an unlocked LLM round-trip. Runs under the `AppCore` lock; the
+    /// caller (the lock-scoped replanning orchestrator) drops the guard before the
+    /// network step. Direct results are already validated.
+    pub(crate) fn build_planner_resolution(
         &mut self,
         request_id: String,
         transcript: &str,
         recent_tool_results: Vec<PlannerToolHistoryEntry>,
-    ) -> Result<PlannerOutput, ToolError> {
+    ) -> Result<PlannerResolution, ToolError> {
         let transcript = transcript.trim();
         if transcript.is_empty() {
             return Err(ToolError {
@@ -85,7 +90,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         let current_agent_state = self.current_agent_state_snapshot(true);
@@ -100,7 +105,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         if let Some(planner_output) = resolve_direct_voice_input_command(
@@ -113,7 +118,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         if let Some(planner_output) = resolve_direct_open_url_command(
@@ -126,7 +131,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         if let Some(planner_output) = resolve_direct_read_page_command(
@@ -141,7 +146,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         if let Some((planner_output, next_recent_field_context)) =
@@ -160,7 +165,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         if let Some(resolved) = resolve_direct_fill_command_internal(
@@ -179,7 +184,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         if let Some(resolved) = resolve_direct_fill_command_internal(
@@ -198,7 +203,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         if let Some(planner_output) = resolve_direct_submit_form_command(
@@ -212,7 +217,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         if let Some(planner_output) = resolve_direct_focus_field_command(
@@ -227,7 +232,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         if let Some(planner_output) = resolve_direct_repeat_command(
@@ -241,7 +246,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         if let Some(planner_output) = resolve_direct_read_title_command(
@@ -255,7 +260,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         let current_runtime_status = self.current_runtime_status_snapshot(false);
@@ -272,7 +277,7 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
 
         if let Some(planner_output) = resolve_direct_audio_command(
@@ -287,8 +292,12 @@ impl super::AppCore {
                 &available_tools,
                 &skill_selection.active_skill_names,
             )?;
-            return Ok(planner_output);
+            return Ok(PlannerResolution::Direct(planner_output));
         }
+
+        // No direct command matched: snapshot the remote planner profile under the
+        // lock so the LLM round-trip can run with the guard released.
+        let profile = self.remote_planner_profile_snapshot()?;
 
         let planner_input = PlannerInput {
             request_id: request_id.clone(),
@@ -303,12 +312,11 @@ impl super::AppCore {
             recent_tool_results,
         };
 
-        let planner_output = self.resolve_planner_output(&planner_input)?;
-        validate_planner_output(
-            &planner_output,
-            &available_tools,
-            &planner_input.active_skill_names,
-        )?;
-        Ok(planner_output)
+        Ok(PlannerResolution::Remote {
+            active_skill_names: planner_input.active_skill_names.clone(),
+            planner_input: Box::new(planner_input),
+            profile,
+            available_tools,
+        })
     }
 }

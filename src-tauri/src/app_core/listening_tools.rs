@@ -1,9 +1,8 @@
 use super::voice_tools::asr_runtime_error_to_tool_error;
 use crate::asr::{AsrTranscription, DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS};
 use crate::commands::{
-    ExecutionOutcome, StartListeningData, StartListeningInput, StopListeningData,
-    StopListeningInput, ToolError, ToolName, ToolResult, TranscribeCommandData,
-    TranscribeCommandInput,
+    StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
+    ToolName, ToolResult, TranscribeCommandData, TranscribeCommandInput,
 };
 use crate::state::ListeningState;
 
@@ -322,16 +321,5 @@ impl super::AppCore {
                 )
             }
         }
-    }
-
-    /// Run a resolved spoken command through the bounded replanning loop. Exposed
-    /// for the `transcribe_and_execute_command` handler, which executes this after
-    /// the lock-released transcription phase completes.
-    pub fn execute_transcribed_command(
-        &mut self,
-        request_id: String,
-        transcript: String,
-    ) -> Result<ExecutionOutcome, ToolError> {
-        self.execute_command_with_replanning(request_id, transcript)
     }
 }

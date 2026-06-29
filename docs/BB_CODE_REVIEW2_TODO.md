@@ -191,7 +191,7 @@ an in-flight capture.
 
 ### P1.1.3 — Release the lock across remote network calls
 
-**Status:** DEFERRED (async-runtime Phase 3, tracked in `BB_RUNTIME_PHASE3_TODO.md` P2.1/P2.2 as optional/low-value — remote-provider only; the project defaults to local. Consciously not implemented.)
+**Status:** DONE for the remote planner (`BB_RUNTIME_PHASE3_TODO.md` P2.1 — lock-scoped resolve via `LockScopedReplanningRuntime`). Remote ASR consciously skipped (P2.2 — lowest-value, remote-only). Model-download already runs off the main thread after Phase 1.
 
 Apply the same scoping to the remote planner, remote ASR, and model-download
 paths: resolve the inputs under the lock, drop the guard, perform the network call

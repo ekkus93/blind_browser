@@ -149,25 +149,6 @@ pub(crate) fn execute_bounded_replanning_loop<R: ReplanningRuntime>(
     }
 }
 
-impl ReplanningRuntime for super::AppCore {
-    fn resolve_plan(
-        &mut self,
-        request_id: String,
-        transcript: &str,
-        recent_tool_results: &[PlannerToolHistoryEntry],
-    ) -> Result<PlannerOutput, ToolError> {
-        self.resolve_command_with_recent_results(
-            request_id,
-            transcript,
-            recent_tool_results.to_vec(),
-        )
-    }
-
-    fn execute_plan(
-        &mut self,
-        request_id: String,
-        planner_output: &PlannerOutput,
-    ) -> ExecutionOutcome {
-        self.execute_planner_output(request_id, planner_output)
-    }
-}
+// The production `ReplanningRuntime` is `LockScopedReplanningRuntime` (in
+// `replanning_orchestrator`), which releases the `AppCore` lock across the remote
+// LLM round-trip. Tests provide their own `MockReplanningRuntime`.

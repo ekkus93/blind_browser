@@ -157,21 +157,17 @@ full window; `get_agent_state` returns during a capture.
 
 ## P1.2 — Phase 3: scope the lock around remote network calls
 
-**Status:** BLOCKED — deferred to a focused follow-up pass with its own review.
+**Status:** RESOLVED for the remote planner (the follow-up pass landed it; see
+`BB_RUNTIME_PHASE3_TODO.md` P2.1). Remote ASR consciously skipped (P2.2 there).
 
-> The remote planner network call (`resolve_planner_output` →
-> `resolve_with_openai_planner` / `resolve_with_ollama_planner`) is a deep,
-> read-only `&self` call buried inside the bounded replanning loop
-> (`resolve_command` / `execute_command_with_replanning`), which interleaves
-> network resolution with lock-requiring browser execution. Releasing the
-> `AppCore` lock around only the `futures::executor::block_on` LLM round-trip
-> requires hoisting the lock-release boundary up through the planner executor's
-> control flow — a structural change to the executor, not a surgical edit. The
-> spec permits marking this BLOCKED when a migration needs its own review, and the
-> benefit is narrow (it only affects remote planner/ASR users; the project
-> defaults to local providers, which are unaffected). Phases 1–2 already removed
-> the UI freeze, the `block_on` panic, and made capture interruptible. Phase 3 is
-> tracked for a dedicated follow-up.
+> The structural change anticipated here was carried out in the dedicated
+> `BB_RUNTIME_PHASE3` pass: `execute_command_with_replanning` was split into
+> `build_planner_resolution` (deterministic resolution + profile snapshot, under a
+> brief lock) and a free `resolve_remote_planner` (unlocked LLM round-trip), driven
+> by a handler-level `LockScopedReplanningRuntime` through the existing
+> `execute_bounded_replanning_loop`. The atomicity tradeoff is documented at the
+> call site. Remote ASR lock-scoping was deliberately skipped as the lowest-value,
+> remote-only item.
 **Files:**
 
 - `src-tauri/src/app_core/remote_planner.rs`
