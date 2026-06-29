@@ -969,9 +969,9 @@ For an LLM/planner-controlled blind browser, conservative click confirmation is 
 
 ### Tasks
 
-- [ ] Change example/default config to `allow_click_without_confirmation = false`.
-- [ ] Update docs explaining how to opt into faster unconfirmed clicks.
-- [ ] Ensure submit confirmation remains always-on by default.
+- [x] Change example/default config to `allow_click_without_confirmation = false`. (config.example.toml + the Rust `AppConfig::default` + SPECS.md examples.)
+- [x] Update docs explaining how to opt into faster unconfirmed clicks. (Comment in config.example.toml.)
+- [x] Ensure submit confirmation remains always-on by default (`always_confirm_submit = true`).
 
 ### Suggested patch
 
@@ -984,8 +984,8 @@ always_confirm_submit = true
 
 ### Acceptance checks
 
-- [ ] Fresh config defaults are conservative.
-- [ ] User can still intentionally enable unconfirmed safe clicks from settings/config.
+- [x] Fresh config defaults are conservative.
+- [x] User can still intentionally enable unconfirmed safe clicks from settings/config.
 
 ---
 

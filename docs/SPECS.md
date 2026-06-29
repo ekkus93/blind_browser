@@ -60,7 +60,7 @@ local_profile = "whisper-default"
 
 [safety]
 confirmation_confidence_threshold = 0.90
-allow_click_without_confirmation = true
+allow_click_without_confirmation = false
 always_confirm_submit = true
 
 [ocr]
@@ -385,7 +385,7 @@ playback_speed = 1.0
 
 [safety]
 confirmation_confidence_threshold = 0.90
-allow_click_without_confirmation = true
+allow_click_without_confirmation = false
 always_confirm_submit = true
 
 [ocr]

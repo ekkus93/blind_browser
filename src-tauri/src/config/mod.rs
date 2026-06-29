@@ -254,7 +254,9 @@ impl Default for AppConfig {
             },
             safety: SafetySettings {
                 confirmation_confidence_threshold: 0.90,
-                allow_click_without_confirmation: true,
+                // Conservative default: confirm ordinary clicks (opt into faster
+                // unconfirmed clicks via config). Submit stays always-confirmed.
+                allow_click_without_confirmation: false,
                 always_confirm_submit: true,
             },
             ocr: OcrSettings::default(),

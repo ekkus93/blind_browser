@@ -19,7 +19,10 @@ default_tts_voice = "Bruno"
 
 [safety]
 confirmation_confidence_threshold = 0.90
-allow_click_without_confirmation = true
+# Conservative default for a blind, planner-controlled browser: ordinary clicks are
+# confirmed. Set this to true to opt into faster unconfirmed clicks once you trust the
+# planner in your workflow. Submit actions are always confirmed (below).
+allow_click_without_confirmation = false
 always_confirm_submit = true
 
 [ocr]

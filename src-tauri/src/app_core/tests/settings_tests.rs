@@ -184,7 +184,8 @@ fn build_confirmation_settings_reflects_configured_safety_values() {
     let settings = build_confirmation_settings(&config);
 
     assert_eq!(settings.confirmation_confidence_threshold, 0.9);
-    assert!(settings.allow_click_without_confirmation);
+    // Conservative default: ordinary clicks are confirmed unless explicitly opted out.
+    assert!(!settings.allow_click_without_confirmation);
     assert!(settings.always_confirm_submit);
 }
 
