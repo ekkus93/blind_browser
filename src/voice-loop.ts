@@ -22,6 +22,31 @@ function getPushToTalkState() {
   return appShellStore.getState().panelStates.pushToTalkState;
 }
 
+// Report a stop/transcribe failure without asserting a listening state the backend
+// never confirmed. The runtime may still be listening after a failed stop, so we
+// keep the previous isListening and try to refresh authoritative runtime state; if
+// the refresh also fails we surface that explicitly rather than inventing `false`.
+async function reportPushToTalkFailureWithoutInventingListeningState(message: string) {
+  const previous = getPushToTalkState();
+  setPushToTalkState({
+    isBusy: false,
+    isListening: previous.isListening,
+    lastError: `${message} Runtime listening state could not be confirmed yet.`,
+  });
+
+  try {
+    await refreshRuntimePanels();
+  } catch (refreshError: unknown) {
+    setPushToTalkState({
+      isBusy: false,
+      isListening: previous.isListening,
+      lastError: `${message} Also failed to refresh runtime state: ${describePushToTalkFailure(
+        refreshError,
+      )}`,
+    });
+  }
+}
+
 export async function stopContinuousListeningAfterFailure(message: string) {
   const pttState = getPushToTalkState();
   if (!pttState.isListening) {
@@ -44,11 +69,9 @@ export async function stopContinuousListeningAfterFailure(message: string) {
     });
   } catch (error: unknown) {
     const stopFailure = describePushToTalkFailure(error);
-    setPushToTalkState({
-      isListening: false,
-      isBusy: false,
-      lastError: `${message} The runtime also failed to stop hands-free listening: ${stopFailure}`,
-    });
+    await reportPushToTalkFailureWithoutInventingListeningState(
+      `${message} The runtime also failed to stop hands-free listening: ${stopFailure}`,
+    );
   }
 }
 
@@ -166,11 +189,9 @@ export async function cancelPushToTalk() {
     });
     await refreshRuntimePanels();
   } catch (error: unknown) {
-    setPushToTalkState({
-      isListening: false,
-      isBusy: false,
-      lastError: describePushToTalkFailure(error),
-    });
+    await reportPushToTalkFailureWithoutInventingListeningState(
+      describePushToTalkFailure(error),
+    );
   }
 }
 
@@ -223,11 +244,9 @@ export async function releasePushToTalk(source: "keyboard" | "pointer") {
       void ensureContinuousListeningLoop();
     }
   } catch (error: unknown) {
-    setPushToTalkState({
-      isListening: false,
-      isBusy: false,
-      lastError: describePushToTalkFailure(error),
-    });
+    await reportPushToTalkFailureWithoutInventingListeningState(
+      describePushToTalkFailure(error),
+    );
   }
 }
 

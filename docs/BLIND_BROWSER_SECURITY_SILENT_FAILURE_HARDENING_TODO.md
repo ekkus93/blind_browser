@@ -810,10 +810,10 @@ Several catch blocks force `isListening: false` after backend errors. If the bac
 
 ### Tasks
 
-- [ ] Add a helper that reports failure without inventing listening state.
-- [ ] Use it in `stopContinuousListeningAfterFailure`, `cancelPushToTalk`, and `releasePushToTalk` catch paths.
-- [ ] Consider using it in `beginPushToTalk` catch path too, unless start failure always proves no capture started.
-- [ ] Add tests proving previous listening state is preserved until refresh gives authoritative state.
+- [x] Add a helper that reports failure without inventing listening state. (`reportPushToTalkFailureWithoutInventingListeningState`.)
+- [x] Use it in `stopContinuousListeningAfterFailure`, `cancelPushToTalk`, and `releasePushToTalk` catch paths.
+- [x] `beginPushToTalk` consciously kept `isListening: false`: a failed `startListening` means capture never began, so it is the truthful state (spec marks this optional).
+- [x] Add tests proving previous listening state is preserved until refresh gives authoritative state. (`voice-loop.test.mjs`: cancel + hands-free stop.)
 
 ### Suggested helper
 
@@ -868,9 +868,9 @@ For non-async function paths, make the caller async or call `void report...` onl
 
 ### Acceptance checks
 
-- [ ] No voice-loop catch block sets `isListening: false` without backend confirmation.
-- [ ] Tests prove failed stop/transcribe preserves prior listening state.
-- [ ] User sees an explicit error when runtime state cannot be confirmed.
+- [x] No stop/transcribe catch sets `isListening: false` without backend confirmation; `beginPushToTalk` start-failure is the one truthful exception.
+- [x] Tests prove failed stop/transcribe preserves prior listening state.
+- [x] User sees an explicit error when runtime state cannot be confirmed.
 
 ---
 
