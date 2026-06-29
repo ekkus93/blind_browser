@@ -1,3 +1,13 @@
+## 2026-06-29T03:54:07Z - Claude Sonnet 4.6 - Add test coverage: routing edge cases, planner outputs, config persistence, async actions
+
+- `src-tauri/src/commands/tests/routing.rs`: 6 new test functions covering fill-in prefix, put/enter-in patterns, textbox/input suffix normalization, single-quoted values, `is_direct_submit_form_command`, additional submit suffixes.
+- `src-tauri/src/commands/routing/planner_outputs.rs`: inline `#[cfg(test)] mod tests` with 4 tests for `round_audio_setting_value`, `build_report_result_step`, `build_single_step_planner_output`, `build_browser_visibility_planner_output`. Access requires explicit `use crate::commands::{...}` + `use crate::browser::BrowserVisibilityMode` (not available via `use super::*;` alone in inline test module).
+- `src-tauri/src/config/tests/persistence_tests.rs`: 9 new tests for model management, remote planner connection, local model path, and audio settings validation. Added `ModelManagementSettings` to `tests/mod.rs` imports.
+- `src/planner-actions.test.mjs`: 20 tests for all 9 async planner actions (validation, success, failure paths). Key pattern: `__setInvokeForTests` returns raw `{ profile_name, ... }` (not tool result envelope) for settings commands.
+- `src/settings-actions.test.mjs`: 35 tests covering busy guards, success, rollback for all 11 settings actions. Tool-executor commands (setPlaybackVolume, setPlaybackSpeed, setTtsVoice, setBrowserVisibility) return the full `{ ok, data, ... }` tool result envelope. Settings commands (setAsrProviderSelection, etc.) return raw objects.
+- Lessons: `is_fill_input_phrase` requires " field" keyword — "textbox" alone doesn't trigger phrase recognition. `is_fill_and_submit_phrase` requires "submit" — "send form" alone doesn't trigger it.
+- Commit `ca3f14e`. Tests: 328 Rust + 159 JS.
+
 ## 2026-06-29T01:36:45Z - Claude Sonnet 4.6 - Split mock_executor_impl.rs into 5 themed submodules
 
 - Converted 859-line flat file to `mock_executor_impl/` directory: `mod.rs` (delegation impl) + `navigation.rs` / `media.rs` / `interaction.rs` / `settings.rs` / `state.rs`. No file exceeds ~250 lines.
