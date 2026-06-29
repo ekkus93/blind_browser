@@ -466,11 +466,11 @@ Current code sets `self.session = None` before the replacement browser has launc
 
 ### Tasks
 
-- [ ] Refactor `switch_visibility` so it builds a candidate session first.
-- [ ] Do not commit `self.config.visibility = mode` until the candidate session succeeds.
-- [ ] Do not drop old `self.session` until the candidate session is ready.
-- [ ] Replace `.ok().flatten()` URL reads with explicit error handling.
-- [ ] Add tests if browser/session seams allow it. If not, add a small internal helper for extracting/preserving URL and test that helper.
+- [x] Refactor `switch_visibility` so it builds a candidate session first.
+- [x] Do not commit `self.config.visibility = mode` until the candidate session succeeds.
+- [x] Do not drop old `self.session` until the candidate session is ready.
+- [x] Replace `.ok().flatten()` URL reads with explicit error handling (`read_current_non_blank_url` → `BrowserError::Inspect`).
+- [~] Tests: the candidate-session seam requires a live Chromium; the commit-after-prove invariant is satisfied by construction (verified by code + `no premature session drop` grep). Behavioral test needs a display.
 
 ### Suggested helper
 

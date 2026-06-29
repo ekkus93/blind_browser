@@ -109,34 +109,26 @@ impl BrowserController {
         }
     }
 
+    /// Switch browser visibility two-phase, so the working session is never lost on
+    /// a failed switch: read the prior URL, launch a *candidate* session with the new
+    /// visibility, navigate it to the prior URL, and only then commit the new config
+    /// and session. If any step fails the `?` returns early with the old session and
+    /// config still in place.
     pub fn switch_visibility(
         &mut self,
         mode: BrowserVisibilityMode,
     ) -> Result<Option<String>, BrowserError> {
         #[cfg(feature = "browser")]
         {
-            self.config.visibility = mode;
+            let prior_url = self.read_current_non_blank_url()?;
 
-            let prior_url = self
-                .session
-                .as_ref()
-                .and_then(|session| session.page.clone())
-                .and_then(|page| {
-                    tauri::async_runtime::block_on(async {
-                        page.url()
-                            .await
-                            .ok()
-                            .flatten()
-                            .filter(|url| url != "about:blank" && !url.is_empty())
-                    })
-                });
-
-            self.session = None;
+            let mut candidate_config = self.config.clone();
+            candidate_config.visibility = mode;
+            let mut candidate_session = LiveBrowserSession::launch(&candidate_config)?;
 
             if let Some(ref url) = prior_url {
-                let user_agent = self.config.user_agent.clone();
-                let session = self.ensure_session()?;
-                let page = session.ensure_page(user_agent.as_deref())?;
+                let user_agent = candidate_config.user_agent.clone();
+                let page = candidate_session.ensure_page(user_agent.as_deref())?;
                 tauri::async_runtime::block_on(async {
                     page.goto(url)
                         .await
@@ -144,6 +136,9 @@ impl BrowserController {
                 })?;
             }
 
+            // Candidate is proven; commit it and drop the old session only now.
+            self.config = candidate_config;
+            self.session = Some(candidate_session);
             Ok(prior_url)
         }
 
@@ -152,6 +147,27 @@ impl BrowserController {
             let _ = mode;
             Err(BrowserError::FeatureDisabled)
         }
+    }
+
+    /// Read the current page URL, treating `about:blank`/empty as "no URL to
+    /// preserve". Failures to read the URL are surfaced as `BrowserError::Inspect`
+    /// rather than swallowed with `.ok().flatten()`, since the read failing changes
+    /// whether the prior page is recovered after a visibility switch.
+    #[cfg(feature = "browser")]
+    fn read_current_non_blank_url(&self) -> Result<Option<String>, BrowserError> {
+        let Some(session) = self.session.as_ref() else {
+            return Ok(None);
+        };
+        let Some(page) = session.page.clone() else {
+            return Ok(None);
+        };
+
+        tauri::async_runtime::block_on(async {
+            page.url()
+                .await
+                .map_err(|error| BrowserError::Inspect(error.to_string()))
+                .map(|url| url.filter(|url| url != "about:blank" && !url.is_empty()))
+        })
     }
 
     #[cfg(feature = "browser")]
