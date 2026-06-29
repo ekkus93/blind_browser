@@ -659,8 +659,8 @@ Current code silently drops transcript segments that fail conversion. That can t
 
 ### Tasks
 
-- [ ] Replace `filter_map(...ok())` with explicit error handling.
-- [ ] Add a test if a seam is feasible; otherwise add a small helper for segment collection and test it.
+- [x] Replace `filter_map(...ok())` with explicit error handling.
+- [x] Add a test if a seam is feasible; otherwise add a small helper for segment collection and test it. (Extracted `collect_transcript_segments`, tested for both join/trim and decode-error-fails.)
 
 ### Suggested patch
 
@@ -687,8 +687,8 @@ reason: format!("failed to decode whisper transcript segment: {error:?}"),
 
 ### Acceptance checks
 
-- [ ] No ASR transcript segment conversion uses `filter_map(...ok())`.
-- [ ] Segment conversion failure returns `AsrRuntimeError::TranscriptionFailed`.
+- [x] No ASR transcript segment conversion uses `filter_map(...ok())`.
+- [x] Segment conversion failure returns `AsrRuntimeError::TranscriptionFailed`.
 
 ---
 

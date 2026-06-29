@@ -80,15 +80,67 @@ fn transcribe_with_whisper(
             reason: error.to_string(),
         })?;
 
-    let transcript = state
-        .as_iter()
-        .filter_map(|segment| segment.to_str_lossy().ok())
-        .map(|segment| segment.trim().to_string())
-        .filter(|segment| !segment.is_empty())
-        .collect::<Vec<_>>()
-        .join(" ");
+    collect_transcript_segments(state.as_iter().map(|segment| segment.to_str_lossy()))
+}
 
-    Ok(transcript)
+/// Join whisper transcript segments, failing the whole transcription if any segment
+/// fails to decode rather than silently dropping it (a dropped segment can turn a
+/// spoken command into a partial command). Empty/whitespace-only segments are
+/// skipped. Generic over the segment string/error types so it is testable without a
+/// real whisper model.
+#[cfg(any(feature = "local-asr", test))]
+fn collect_transcript_segments<S, E>(
+    segments: impl Iterator<Item = Result<S, E>>,
+) -> Result<String, AsrRuntimeError>
+where
+    S: AsRef<str>,
+    E: std::fmt::Display,
+{
+    let mut collected = Vec::new();
+    for segment in segments {
+        let text = segment.map_err(|error| AsrRuntimeError::TranscriptionFailed {
+            reason: format!("failed to decode whisper transcript segment: {error}"),
+        })?;
+        let trimmed = text.as_ref().trim();
+        if !trimmed.is_empty() {
+            collected.push(trimmed.to_string());
+        }
+    }
+    Ok(collected.join(" "))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collect_transcript_segments_joins_and_trims_ok_segments() {
+        let segments = vec![
+            Ok::<&str, String>("  open  "),
+            Ok("the"),
+            Ok("   "),
+            Ok("page  "),
+        ];
+        let transcript = collect_transcript_segments(segments.into_iter()).unwrap();
+        assert_eq!(transcript, "open the page");
+    }
+
+    #[test]
+    fn collect_transcript_segments_fails_on_a_decode_error() {
+        let segments = vec![
+            Ok::<&str, String>("open"),
+            Err(String::from("bad utf-8")),
+            Ok("page"),
+        ];
+        let error = collect_transcript_segments(segments.into_iter())
+            .expect_err("a segment decode failure must fail the whole transcription");
+        match error {
+            AsrRuntimeError::TranscriptionFailed { reason } => {
+                assert!(reason.contains("bad utf-8"), "unexpected reason: {reason}");
+            }
+            other => panic!("expected TranscriptionFailed, got {other:?}"),
+        }
+    }
 }
 
 #[cfg(not(feature = "local-asr"))]
