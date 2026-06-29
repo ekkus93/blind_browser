@@ -1,3 +1,10 @@
+## 2026-06-29T01:36:45Z - Claude Sonnet 4.6 - Split mock_executor_impl.rs into 5 themed submodules
+
+- Converted 859-line flat file to `mock_executor_impl/` directory: `mod.rs` (delegation impl) + `navigation.rs` / `media.rs` / `interaction.rs` / `settings.rs` / `state.rs`. No file exceeds ~250 lines.
+- Lifts the FIX3 P2.3 file-size exemption comment.
+- Pattern: `mod.rs` uses `pub(crate) use super::*;` so submodules reach all tool types via `use super::*;`. Trait impl in `mod.rs` delegates to `pub(super) fn` free functions per submodule.
+- Commit: `d958247`. 309 Rust + 104 JS tests clean.
+
 ## 2026-06-29T01:18:46Z - Claude Sonnet 4.6 - BLIND_BROWSER_UIUX_FIX4_TODO.md all tasks complete
 
 - All P0, P1, and P2 tasks implemented. Full validation gate: 104 JS tests, 309 Rust tests, lint/clippy/build/tsc all clean.
