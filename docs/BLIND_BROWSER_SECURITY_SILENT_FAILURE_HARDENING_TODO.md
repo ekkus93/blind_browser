@@ -930,11 +930,11 @@ Runtime refresh currently clears several panel errors. Some are stale runtime er
 
 ### Tasks
 
-- [ ] Identify every `lastError: null` / action-error clear in `runtime-refresh.ts`.
-- [ ] Classify each as runtime-owned or action-owned.
-- [ ] Add separate fields if needed: `runtimeRefreshError`, `lastActionError`.
-- [ ] Ensure generic refresh clears only runtime-owned errors.
-- [ ] Add regression tests.
+- [x] Identify every `error: null` / action-error clear in `runtime-refresh.ts`.
+- [x] Classify each as runtime-owned or action-owned. (Status panel = runtime-owned; audio/confirmation/OCR/ASR-provider/TTS-provider/TTS-model/TTS-voice/URL/model-management = action-owned.)
+- [x] No new fields needed: generic refresh simply stops clearing action-owned errors, which are already owned by their actions (cleared on start/retry, on `onDismissError`, or on success).
+- [x] Ensure generic refresh clears only runtime-owned errors (status panel via `statusPanelStateFromAgentState`).
+- [x] Add regression test: generic refresh writes no `error` key to any action-owned panel.
 
 ### Suggested model
 
@@ -949,9 +949,9 @@ Do not necessarily apply this exact type everywhere if the existing state shape 
 
 ### Acceptance checks
 
-- [ ] Failed API key save/test errors are not cleared by unrelated runtime refresh.
-- [ ] Failed URL/audio/confirmation action errors are not cleared by unrelated runtime refresh.
-- [ ] Runtime refresh success can clear only refresh-owned errors.
+- [x] Failed API key save/test errors are not cleared by unrelated runtime refresh (those panels were never cleared by refresh).
+- [x] Failed URL/audio/confirmation action errors are not cleared by unrelated runtime refresh.
+- [x] Runtime refresh success can clear only refresh-owned errors.
 
 ---
 

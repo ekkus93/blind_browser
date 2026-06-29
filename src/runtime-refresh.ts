@@ -50,10 +50,14 @@ export function applyAgentStateToPanels(
     isListening: agentState.listening_state.is_listening,
     lastTranscript: agentState.last_transcript,
   });
+  // Note: action-owned panel errors (audio/confirmation/OCR/provider/TTS/URL/model
+  // save/test/navigation failures) are intentionally NOT cleared here. A generic
+  // runtime refresh does not own those errors; they persist until the user retries,
+  // edits, or dismisses the action, or the same action succeeds. Only runtime-status
+  // errors (the status panel) are refresh-owned.
   dependencies.setAudioControlsState({
     playbackVolume: agentState.audio.playback_volume,
     playbackSpeed: agentState.audio.playback_speed,
-    error: null,
   });
 
   const currentPlannerState = dependencies.getPanelStates().remotePlannerPanelState;
@@ -91,19 +95,16 @@ export function applyAgentStateToPanels(
     allowClickWithoutConfirmation: agentState.confirmation_settings.allow_click_without_confirmation,
     alwaysConfirmSubmit: agentState.confirmation_settings.always_confirm_submit,
     isBusy: false,
-    error: null,
   });
   dependencies.setOcrThresholdSettingsPanelState({
     sparseTextCharThreshold: agentState.ocr_threshold_settings.sparse_text_char_threshold,
     sparseTextRegionThreshold: agentState.ocr_threshold_settings.sparse_text_region_threshold,
     isBusy: false,
-    error: null,
   });
   dependencies.setAsrProviderPanelState({
     activeMode: agentState.asr_provider_settings.active_mode,
     availableModes: agentState.asr_provider_settings.available_modes,
     isBusy: false,
-    error: null,
   });
   dependencies.setLocalAsrModelPanelState({
     profileName: agentState.local_asr_model_settings.profile_name,
@@ -130,7 +131,6 @@ export function applyAgentStateToPanels(
     activeMode: agentState.tts_provider_settings.active_mode,
     availableModes: agentState.tts_provider_settings.available_modes,
     isBusy: false,
-    error: null,
   });
   dependencies.setTtsModelPanelState({
     mode: agentState.tts_model_settings.mode,
@@ -140,7 +140,6 @@ export function applyAgentStateToPanels(
       modelLabel: option.model_label,
     })),
     isBusy: false,
-    error: null,
   });
   dependencies.setLocalTtsModelPanelState({
     profileName: agentState.local_tts_model_settings.profile_name,
@@ -171,13 +170,13 @@ export function applyAgentStateToPanels(
       displayLabel: option.display_label,
     })),
     isBusy: false,
-    error: null,
   });
   dependencies.setStatusPanelState(statusPanelStateFromAgentState(agentState));
 
   // Re-read panel states for URL input — the URL input draft is preserved across refreshes
-  // when the user has uncommitted changes. URL input errors are cleared here because they
-  // reflect workspace navigation state; settings/global alerts are unaffected by this path.
+  // when the user has uncommitted changes. A failed URL entry is a user-action error owned
+  // by the navigation action (cleared on retry, edit, dismiss, or success), so a generic
+  // refresh no longer clears it; only the transient in-flight flags are reset.
   const panelStates = dependencies.getPanelStates();
   dependencies.setUrlInputPanelState({
     currentUrl: agentState.url,
@@ -189,7 +188,6 @@ export function applyAgentStateToPanels(
     isStopping: false,
     isAdvancing: false,
     isRewinding: false,
-    error: null,
   });
 
   if (agentState.listening_state.is_listening && !dependencies.getPanelStates().pushToTalkState.isHolding) {
@@ -243,7 +241,6 @@ export function createRuntimeRefreshHandlers(dependencies: RuntimeRefreshDepende
         isSaving: false,
         isDownloadingTts: false,
         isDownloadingAsr: false,
-        error: null,
       });
     } else if (refreshResults.modelSettingsError) {
       dependencies.setModelManagementPanelState({

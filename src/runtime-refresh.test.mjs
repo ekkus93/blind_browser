@@ -129,3 +129,45 @@ test("runtime refresh clears planner model list when no verified list exists", (
   assert.deepEqual(last.availableModels, []);
   assert.equal(last.loadedModelsEndpoint, null);
 });
+
+test("runtime refresh does not clear action-owned panel errors", () => {
+  const captured = {};
+  const deps = createMinimalDeps(
+    { availableModels: [], loadedModelsEndpoint: null },
+    () => {},
+  );
+  // Record what generic refresh writes to each action-owned panel.
+  deps.setAudioControlsState = (next) => {
+    captured.audio = next;
+  };
+  deps.setConfirmationSettingsPanelState = (next) => {
+    captured.confirmation = next;
+  };
+  deps.setOcrThresholdSettingsPanelState = (next) => {
+    captured.ocr = next;
+  };
+  deps.setAsrProviderPanelState = (next) => {
+    captured.asrProvider = next;
+  };
+  deps.setTtsProviderPanelState = (next) => {
+    captured.ttsProvider = next;
+  };
+  deps.setTtsModelPanelState = (next) => {
+    captured.ttsModel = next;
+  };
+  deps.setTtsVoicePanelState = (next) => {
+    captured.ttsVoice = next;
+  };
+  deps.setUrlInputPanelState = (next) => {
+    captured.urlInput = next;
+  };
+
+  applyAgentStateToPanels(deps, createMinimalAgentState());
+
+  for (const [panel, next] of Object.entries(captured)) {
+    assert.ok(
+      !("error" in next),
+      `generic runtime refresh must not clear the ${panel} action error`,
+    );
+  }
+});
