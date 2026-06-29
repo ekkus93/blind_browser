@@ -33,6 +33,7 @@ impl BrowserController {
     ) -> Result<BrowserPageState, BrowserError> {
         #[cfg(feature = "browser")]
         {
+            super::ensure_supported_load_state(load_state)?;
             let page = self
                 .ensure_session()?
                 .page
@@ -40,30 +41,34 @@ impl BrowserController {
                 .ok_or(BrowserError::NoActivePage)?;
 
             tauri::async_runtime::block_on(async {
-                if hard_reload {
-                    page.execute(ReloadParams::builder().ignore_cache(true).build())
-                        .await
-                        .map_err(|error| BrowserError::Reload(error.to_string()))?;
-                    page.wait_for_navigation()
-                        .await
-                        .map_err(|error| BrowserError::Reload(error.to_string()))?;
-                } else {
-                    page.reload()
-                        .await
-                        .map_err(|error| BrowserError::Reload(error.to_string()))?;
-                }
+                super::with_browser_timeout(
+                    async {
+                        if hard_reload {
+                            page.execute(ReloadParams::builder().ignore_cache(true).build())
+                                .await
+                                .map_err(|error| BrowserError::Reload(error.to_string()))?;
+                            page.wait_for_navigation()
+                                .await
+                                .map_err(|error| BrowserError::Reload(error.to_string()))?;
+                        } else {
+                            page.reload()
+                                .await
+                                .map_err(|error| BrowserError::Reload(error.to_string()))?;
+                        }
+                        Ok(())
+                    },
+                    timeout_ms,
+                    "browser reload",
+                )
+                .await?;
 
-                let _ = load_state;
-                let _ = timeout_ms;
                 snapshot_page_state(&page).await
             })
         }
 
         #[cfg(not(feature = "browser"))]
         {
-            let _ = hard_reload;
-            let _ = load_state;
-            let _ = timeout_ms;
+            let _ = (hard_reload, load_state, timeout_ms);
             Err(BrowserError::FeatureDisabled)
         }
     }
@@ -76,6 +81,7 @@ impl BrowserController {
     ) -> Result<BrowserNavigationState, BrowserError> {
         #[cfg(feature = "browser")]
         {
+            super::ensure_supported_load_state(load_state)?;
             let page = self
                 .ensure_session()?
                 .page
@@ -106,14 +112,21 @@ impl BrowserController {
                 }
 
                 let target_entry = &history_snapshot.entries[target_index as usize];
-                page.execute(NavigateToHistoryEntryParams::new(target_entry.id))
-                    .await
-                    .map_err(|error| BrowserError::Navigate(error.to_string()))?;
-                page.wait_for_navigation()
-                    .await
-                    .map_err(|error| BrowserError::Navigate(error.to_string()))?;
-                let _ = load_state;
-                let _ = timeout_ms;
+                super::with_browser_timeout(
+                    async {
+                        page.execute(NavigateToHistoryEntryParams::new(target_entry.id))
+                            .await
+                            .map_err(|error| BrowserError::Navigate(error.to_string()))?;
+                        page.wait_for_navigation()
+                            .await
+                            .map_err(|error| BrowserError::Navigate(error.to_string()))?;
+                        Ok(())
+                    },
+                    timeout_ms,
+                    "browser history navigation",
+                )
+                .await?;
+
                 let current_page = snapshot_page_state(&page).await?;
 
                 Ok(BrowserNavigationState {
@@ -127,9 +140,7 @@ impl BrowserController {
 
         #[cfg(not(feature = "browser"))]
         {
-            let _ = delta;
-            let _ = load_state;
-            let _ = timeout_ms;
+            let _ = (delta, load_state, timeout_ms);
             Err(BrowserError::FeatureDisabled)
         }
     }

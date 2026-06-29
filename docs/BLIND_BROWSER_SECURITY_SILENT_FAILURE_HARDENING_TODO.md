@@ -360,10 +360,10 @@ fn validate_planner_output_rejects_open_url_with_non_web_scheme() {
 
 ### Tasks
 
-- [ ] Search for `let _ = load_state;` and `let _ = timeout_ms;` in production code.
-- [ ] For browser navigation, implement timeout and wait behavior or reject unsupported states explicitly.
-- [ ] Add tests around timeout helper/seam.
-- [ ] Do not leave ignored semantic parameters in production code.
+- [x] Search for `let _ = load_state;` and `let _ = timeout_ms;` in production code.
+- [x] For browser navigation, implement timeout and wait behavior or reject unsupported states explicitly.
+- [x] Add tests around timeout helper/seam.
+- [x] Do not leave ignored semantic parameters in production code. (Navigation: done — `load_state` discards eliminated entirely; `timeout_ms` honored. Remaining `let _ = timeout_ms;` are `#[cfg(not(feature = "browser"))]` stubs or non-navigation handlers (e.g. set-volume) where it is genuinely unused — pre-existing, out of P0-3 scope.)
 
 ### Search command
 
@@ -446,10 +446,10 @@ tauri::async_runtime::block_on(async {
 
 ### Acceptance checks
 
-- [ ] There are no `let _ = load_state;` or `let _ = timeout_ms;` lines in live browser navigation code.
-- [ ] A requested unsupported load state returns a structured error.
-- [ ] A timeout bounds the real async navigation/wait future.
-- [ ] Tests cover timeout/unsupported-state behavior at least at a seam/helper level.
+- [x] There are no `let _ = load_state;` or `let _ = timeout_ms;` lines in live browser navigation code.
+- [x] A requested unsupported load state returns a structured error. (`NetworkIdle` → `BrowserError::Navigate`.)
+- [x] A timeout bounds the real async navigation/wait future. (`with_browser_timeout` via `tokio::time::timeout`.)
+- [x] Tests cover timeout/unsupported-state behavior at least at a seam/helper level.
 
 ---
 
