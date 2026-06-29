@@ -314,7 +314,8 @@ fn bundled_skills_cover_planner_visible_command_family_intents() {
         .into_iter()
         .map(|tool| tool.name)
         .collect::<Vec<_>>();
-    let bundled_skills = parse_bundled_skills(BUNDLED_SKILLS_MARKDOWN, &available_tool_names);
+    let bundled_skills = parse_bundled_skills(BUNDLED_SKILLS_MARKDOWN, &available_tool_names)
+        .expect("bundled skills should parse");
     let bundled_intents = bundled_skills
         .iter()
         .flat_map(|skill| skill.summary.intent_tags.iter())
@@ -456,4 +457,54 @@ fn planner_skill_regression_fixtures_cover_problematic_page_shapes() {
     for fixture in fixtures {
         assert_planner_skill_fixture(fixture);
     }
+}
+
+fn bundled_parser_tool_names() -> Vec<ToolName> {
+    planner_available_tools()
+        .into_iter()
+        .map(|tool| tool.name)
+        .collect()
+}
+
+#[test]
+fn parse_bundled_skills_accepts_the_shipped_bundle() {
+    // Regression guard: the bundled docs/SKILLS.md must always parse, so a malformed
+    // bundled skill fails CI before it can panic the app at startup.
+    parse_bundled_skills(BUNDLED_SKILLS_MARKDOWN, &bundled_parser_tool_names())
+        .expect("the shipped bundled skills must parse");
+}
+
+#[test]
+fn parse_bundled_skills_rejects_invalid_requires_confirmation() {
+    let markdown = "\
+#### risky_skill
+- intent_tags: `intent:submit_form`
+- allowed_tools: `SubmitForm`
+- requires_confirmation: maybe
+- description: Submit a form.
+";
+
+    let error = parse_bundled_skills(markdown, &bundled_parser_tool_names())
+        .expect_err("invalid requires_confirmation must fail bundled skill parsing");
+    assert!(
+        error.contains("requires_confirmation"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
+fn parse_bundled_skills_rejects_unknown_tool() {
+    let markdown = "\
+#### bad_tool_skill
+- allowed_tools: `DefinitelyNotATool`
+- requires_confirmation: false
+- description: Bad tool.
+";
+
+    let error = parse_bundled_skills(markdown, &bundled_parser_tool_names())
+        .expect_err("an unknown bundled tool must fail bundled skill parsing");
+    assert!(
+        error.contains("DefinitelyNotATool"),
+        "unexpected error: {error}"
+    );
 }

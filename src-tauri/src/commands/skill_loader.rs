@@ -36,7 +36,14 @@ pub(crate) fn discover_skills(
         );
     }
 
-    for skill in parse_bundled_skills(BUNDLED_SKILLS_MARKDOWN, &available_tool_names) {
+    // Bundled skills are a compile-time asset (include_str! of docs/SKILLS.md); a
+    // parse defect (e.g. a malformed requires_confirmation safety flag) is a build
+    // error that must fail loudly rather than ship a skill with a silently-wrong
+    // confirmation policy. A regression test parses the same constant, so this
+    // expect cannot fire in a shipped build that passed CI.
+    let bundled_skills = parse_bundled_skills(BUNDLED_SKILLS_MARKDOWN, &available_tool_names)
+        .expect("bundled skills (docs/SKILLS.md) must parse; fix the malformed bundled skill");
+    for skill in bundled_skills {
         discovered
             .entry(skill.summary.name.clone())
             .or_insert(skill);

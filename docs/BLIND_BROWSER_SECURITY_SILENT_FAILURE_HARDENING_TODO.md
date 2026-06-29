@@ -706,12 +706,12 @@ Current bundled skill parser defaults malformed `requires_confirmation` to `fals
 
 ### Tasks
 
-- [ ] Change `parse_bundled_skills` to return `Result<Vec<LoadedSkill>, String>` or a typed error.
-- [ ] Make malformed `requires_confirmation` an error.
-- [ ] Make invalid bundled skill frontmatter/tool names an error.
-- [ ] Update `skill_loader` and callers to propagate the error.
-- [ ] Preserve best-effort behavior only for user/project skills if the UI surfaces errors.
-- [ ] Add parser tests.
+- [x] Change `parse_bundled_skills` to return `Result<Vec<LoadedSkill>, String>` or a typed error.
+- [x] Make malformed `requires_confirmation` an error.
+- [x] Make invalid bundled skill frontmatter/tool names an error.
+- [x] Update `skill_loader` and callers to propagate the error. (Bundled skills are a compile-time `include_str!` asset, so `discover_skills` `.expect()`s the parse — a build defect fails loudly at startup; a regression test parses the shipped bundle so CI catches it first.)
+- [x] Preserve best-effort behavior only for user/project skills if the UI surfaces errors. (Unchanged — only the bundled path was hardened.)
+- [x] Add parser tests. (Shipped-bundle parses; malformed requires_confirmation rejected; unknown tool rejected.)
 
 ### Snippet: replace malformed bool default
 
@@ -791,9 +791,9 @@ Adjust helper names/imports to match the existing command test module.
 
 ### Acceptance checks
 
-- [ ] Malformed bundled skill confirmation metadata cannot produce `requires_confirmation = false`.
-- [ ] Invalid bundled skills fail tests/startup instead of being skipped.
-- [ ] User-visible skill loading errors remain actionable.
+- [x] Malformed bundled skill confirmation metadata cannot produce `requires_confirmation = false`.
+- [x] Invalid bundled skills fail tests/startup instead of being skipped.
+- [x] User-visible skill loading errors remain actionable. (User/project skip path unchanged.)
 
 ---
 

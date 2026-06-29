@@ -72,10 +72,17 @@ fn parse_skill_frontmatter(
     skill_frontmatter_from_parts(scalar_fields, list_fields, available_tool_names)
 }
 
+/// Parse the bundled skills markdown, failing loudly on any defect.
+///
+/// Confirmation metadata is a safety contract: a malformed `requires_confirmation`
+/// value (or an invalid frontmatter / unknown tool name) is a build defect, not a
+/// best-effort parse condition, so it returns `Err` instead of defaulting to `false`
+/// or skipping the skill with a warning. Bundled skills come from a compile-time
+/// `include_str!`, so the caller treats any `Err` as fatal.
 pub(crate) fn parse_bundled_skills(
     markdown: &str,
     available_tool_names: &[ToolName],
-) -> Vec<LoadedSkill> {
+) -> Result<Vec<LoadedSkill>, String> {
     let mut current_name: Option<String> = None;
     let mut description = String::new();
     let mut intent_tags = Vec::new();
@@ -87,13 +94,14 @@ pub(crate) fn parse_bundled_skills(
                        description: &mut String,
                        intent_tags: &mut Vec<String>,
                        allowed_tools: &mut Vec<String>,
-                       requires_confirmation: bool| {
+                       requires_confirmation: bool|
+     -> Result<(), String> {
         let Some(name) = current_name.take() else {
-            return;
+            return Ok(());
         };
 
         let mut scalar_fields = HashMap::new();
-        scalar_fields.insert(String::from("name"), name);
+        scalar_fields.insert(String::from("name"), name.clone());
         scalar_fields.insert(String::from("description"), description.trim().to_string());
         scalar_fields.insert(
             String::from("requires_confirmation"),
@@ -103,20 +111,19 @@ pub(crate) fn parse_bundled_skills(
         list_fields.insert(String::from("intent_tags"), intent_tags.clone());
         list_fields.insert(String::from("allowed_tools"), allowed_tools.clone());
 
-        match skill_frontmatter_from_parts(scalar_fields, list_fields, available_tool_names) {
-            Ok(frontmatter) => skills.push(LoadedSkill {
-                summary: skill_summary_from_frontmatter(frontmatter),
-                body: description.trim().to_string(),
-                source: SkillSource::Bundled,
-            }),
-            Err(error) => {
-                tracing::warn!(skill_name = %skills.last().map(|skill| skill.summary.name.as_str()).unwrap_or("unknown"), error = %error, "skipping invalid bundled skill");
-            }
-        }
+        let frontmatter =
+            skill_frontmatter_from_parts(scalar_fields, list_fields, available_tool_names)
+                .map_err(|error| format!("invalid bundled skill {name:?}: {error}"))?;
+        skills.push(LoadedSkill {
+            summary: skill_summary_from_frontmatter(frontmatter),
+            body: description.trim().to_string(),
+            source: SkillSource::Bundled,
+        });
 
         description.clear();
         intent_tags.clear();
         allowed_tools.clear();
+        Ok(())
     };
 
     let mut requires_confirmation_value = false;
@@ -130,7 +137,7 @@ pub(crate) fn parse_bundled_skills(
                 &mut intent_tags,
                 &mut allowed_tools,
                 requires_confirmation_value,
-            );
+            )?;
             current_name = Some(name.trim().to_string());
             requires_confirmation_value = false;
             continue;
@@ -145,7 +152,12 @@ pub(crate) fn parse_bundled_skills(
         } else if let Some(value) = trimmed.strip_prefix("- allowed_tools:") {
             allowed_tools = parse_backticked_list(value);
         } else if let Some(value) = trimmed.strip_prefix("- requires_confirmation:") {
-            requires_confirmation_value = parse_bool_value(value).unwrap_or(false);
+            requires_confirmation_value = parse_bool_value(value).map_err(|error| {
+                format!(
+                    "invalid requires_confirmation value for bundled skill {}: {error}",
+                    current_name.as_deref().unwrap_or("<unknown>")
+                )
+            })?;
         } else if let Some(value) = trimmed.strip_prefix("- description:") {
             description = clean_skill_value(value);
         }
@@ -158,9 +170,9 @@ pub(crate) fn parse_bundled_skills(
         &mut intent_tags,
         &mut allowed_tools,
         requires_confirmation_value,
-    );
+    )?;
 
-    skills
+    Ok(skills)
 }
 
 fn skill_frontmatter_from_parts(
