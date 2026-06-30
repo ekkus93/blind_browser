@@ -79,16 +79,24 @@ pnpm tauri:dev:ocr
 
 ## Validation
 
-Use these commands after bringing up a new machine or after changing native dependencies:
+Use these commands after bringing up a new machine or after changing native dependencies. They match what CI runs:
 
 ```bash
+bash scripts/check-silent-fallbacks.sh
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+cargo check --manifest-path src-tauri/Cargo.toml
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml --all-features
+pnpm lint
 pnpm test:ui
 pnpm build
 ```
 
-If `cargo clippy --all-features` or `cargo test --all-features` fails in native dependencies, check the Linux prerequisite sections below first.
+`scripts/check-silent-fallbacks.sh` is a local guardrail that catches reintroduced silent-fallback patterns (direct final-path model writes, missing masked-secret status, and similar regressions). Run it first to get a fast signal before the longer Rust build.
+
+`cargo check` without `--all-features` catches breakage in the default feature set. `cargo clippy --all-features` and `cargo test --all-features` then verify the full feature set including native OCR and audio backends.
+
+If `cargo clippy --all-features` or `cargo test --all-features` fails on native dependencies, check the Linux prerequisite sections below first.
 
 ## Linux Tauri Prerequisites
 
