@@ -57,9 +57,11 @@ fn write_config_atomic(path: &Path, serialized: &str) -> Result<(), ConfigError>
             source,
         })?;
 
-        fs::rename(&tmp_path, path).map_err(|source| ConfigError::Write {
-            path: path.to_path_buf(),
-            source,
+        crate::atomic_file::replace_file_atomically(&tmp_path, path).map_err(|message| {
+            ConfigError::Write {
+                path: path.to_path_buf(),
+                source: std::io::Error::other(message),
+            }
         })?;
 
         Ok(())
@@ -599,5 +601,16 @@ mod tests {
 
         let tmp = dir.path().join("config.toml.tmp");
         assert!(!tmp.exists(), "temp file must not remain after successful write");
+    }
+
+    #[test]
+    fn atomic_config_write_replaces_existing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        write_config_atomic(&path, "value = 1\n").unwrap();
+        write_config_atomic(&path, "value = 2\n").unwrap();
+
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "value = 2\n");
     }
 }

@@ -31,7 +31,7 @@ Do not mark this TODO complete unless the validation gate actually passes.
 
 ## P0-1 — Add failure-cleanup regression tests for atomic model downloads
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/app_core/model_management.rs`
@@ -219,7 +219,7 @@ Expected: no direct final-path download write remains.
 
 ## P0-2 — Make atomic replace behavior portable or explicitly scoped
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/app_core/model_management.rs`
@@ -358,7 +358,7 @@ fn atomic_model_write_success_replaces_existing_final_file() {
 
 ## P1-1 — Correct Hardening 2 tracked TODO path and final checklist
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING2_TODO.md`
@@ -414,7 +414,7 @@ Expected: no matches unless a historical note explicitly says it was the old wro
 
 ## P1-2 — Add an exact guardrail for direct final-path model writes if practical
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `scripts/check-silent-fallbacks.sh`
@@ -450,7 +450,7 @@ If the existing script uses an associative-array style, add this in that style i
 
 ## P2-1 — Re-run static checks and validation
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - no source file unless validation failures require fixes
@@ -493,7 +493,7 @@ Do not mark this task done unless all commands pass.
 
 ## P2-2 — Add Hardening 3 memory entry
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `memory.md`
@@ -528,15 +528,15 @@ Use the actual timestamp. Do not fabricate or reuse a previous timestamp.
 
 ## Final done checklist
 
-- [ ] Atomic model-download failure removes `.part` file.
-- [ ] Failed new model download does not create final target.
-- [ ] Failed replacement preserves existing final model file.
-- [ ] Successful atomic model write replaces/creates final target.
-- [ ] Atomic config write replaces existing config successfully on supported platforms.
-- [ ] Atomic replace platform strategy is implemented or explicitly documented.
-- [ ] Hardening 2 TODO uses the correct `src-tauri/src/app_core/settings_adapters.rs` path.
-- [ ] Hardening 2 final checklist is reconciled.
-- [ ] Silent-fallback guardrails include direct final-path model write regression if practical.
-- [ ] Static checks pass.
-- [ ] Full validation gate passes.
-- [ ] `memory.md` has a real UTC Hardening 3 completion entry.
+- [x] Atomic model-download failure removes `.part` file.
+- [x] Failed new model download does not create final target.
+- [x] Failed replacement preserves existing final model file.
+- [x] Successful atomic model write replaces/creates final target.
+- [x] Atomic config write replaces existing config successfully on supported platforms.
+- [x] Atomic replace platform strategy is implemented or explicitly documented.
+- [x] Hardening 2 TODO uses the correct `src-tauri/src/app_core/settings_adapters.rs` path.
+- [x] Hardening 2 final checklist is reconciled.
+- [x] Silent-fallback guardrails include direct final-path model write regression if practical.
+- [x] Static checks pass.
+- [x] Full validation gate passes.
+- [x] `memory.md` has a real UTC Hardening 3 completion entry.

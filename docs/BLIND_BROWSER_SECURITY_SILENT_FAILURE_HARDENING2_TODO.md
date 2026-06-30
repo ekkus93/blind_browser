@@ -739,7 +739,7 @@ Keep existing dangerous-scheme tests.
 **Status:** DONE  
 **Files:**
 
-- `src-tauri/src/commands/settings_adapters.rs`
+- `src-tauri/src/app_core/settings_adapters.rs`
 - panel types/renderers for settings if necessary
 - settings tests
 
@@ -825,7 +825,7 @@ In the relevant settings panel, display the error as a warning near the key refe
 ### Acceptance checks
 
 ```bash
-rg -n "masked_secret_value.*\.ok\(\)\?" src-tauri/src/commands/settings_adapters.rs
+rg -n "masked_secret_value.*\.ok\(\)\?" src-tauri/src/app_core/settings_adapters.rs
 ```
 
 Expected: no matches.
@@ -866,7 +866,7 @@ if grep -R -F 'resolve_secret_ref(&profile.api_key).ok()' src-tauri/src; then
   exit 1
 fi
 
-if grep -R -E 'masked_secret_value.*\.ok\(\)\?' src-tauri/src/commands/settings_adapters.rs; then
+if grep -R -E 'masked_secret_value.*\.ok\(\)\?' src-tauri/src/app_core/settings_adapters.rs; then
   echo "Found forbidden masked-secret inspection fallback" >&2
   exit 1
 fi
@@ -946,13 +946,15 @@ Do not fabricate the timestamp. Use the command output.
 
 ## Final done checklist
 
-- [ ] Remote planner model listing does not swallow configured API-key resolution failures.
-- [ ] Model downloads use temp-file + sync + rename and clean up partial files on failure.
-- [ ] Model availability checks reject empty/obviously partial files.
-- [ ] Config persistence writes are atomic.
-- [ ] Remote ASR rejects missing/non-string `text` in success JSON.
-- [ ] URL policy uses robust parsing and rejects malformed HTTP(S) authorities.
-- [ ] Settings UI distinguishes missing secret from secret-inspection failure.
-- [ ] Silent-fallback guard script covers the new exact regressions.
-- [ ] Full validation gate passes.
-- [ ] `memory.md` has a real UTC completion entry.
+- [x] Remote planner model listing does not swallow configured API-key resolution failures.
+- [x] Model downloads use temp-file + sync + rename and clean up partial files on failure.
+- [x] Model availability checks reject empty/obviously partial files.
+- [x] Config persistence writes are atomic.
+- [x] Remote ASR rejects missing/non-string `text` in success JSON.
+- [x] URL policy uses robust parsing and rejects malformed HTTP(S) authorities.
+- [x] Settings UI distinguishes missing secret from secret-inspection failure.
+- [x] Silent-fallback guard script covers the new exact regressions.
+- [x] Full validation gate passes.
+- [x] `memory.md` has a real UTC completion entry.
+
+Hardening 2 final checklist reconciled after Hardening 3 added atomic model-download failure cleanup coverage and reran validation.

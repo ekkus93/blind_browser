@@ -38,6 +38,13 @@ if grep -In -E 'masked_secret_value.*\.ok\(\)\?' \
   status=1
 fi
 
+# Regex check: direct final-path model download write (bypasses atomic temp-file pattern).
+if grep -In -E 'File::create\((target_path|&target_path)\)|fs::File::create\((target_path|&target_path)\)' \
+    src-tauri/src/app_core/model_management.rs 2>/dev/null; then
+  echo "ERROR: forbidden direct final-path model download write in model_management.rs" >&2
+  status=1
+fi
+
 if [ "$status" -ne 0 ]; then
   echo "" >&2
   echo "Silent-fallback guard failed. These patterns were removed in the security and" >&2

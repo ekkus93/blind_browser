@@ -208,13 +208,8 @@ fn download_response_to_file_atomically(
             format!("failed to sync model file {}: {error}", tmp_path.display())
         })?;
 
-        fs::rename(&tmp_path, target_path).map_err(|error| {
-            format!(
-                "failed to finalize model file {} from {}: {error}",
-                target_path.display(),
-                tmp_path.display()
-            )
-        })?;
+        crate::atomic_file::replace_file_atomically(&tmp_path, target_path)
+            .map_err(|message| format!("failed to finalize model file: {message}"))?;
 
         Ok(())
     })();
@@ -339,5 +334,172 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let profile = tts_profile_at(dir.path().join("nonexistent-model").to_str().unwrap());
         assert!(!local_tts_model_is_available(&profile));
+    }
+
+    // ── Atomic model-download failure-cleanup tests ──────────────────────────
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum AtomicFileFailurePoint {
+        None,
+        BeforeRename,
+        AfterTempWriteBeforeRename,
+    }
+
+    fn write_bytes_atomically_for_testable_path(
+        target_path: &std::path::Path,
+        bytes: &[u8],
+        failure_point: AtomicFileFailurePoint,
+    ) -> Result<(), String> {
+        use std::io::Write;
+
+        let parent = target_path.parent().ok_or_else(|| {
+            format!("target {} has no parent directory", target_path.display())
+        })?;
+
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("failed to create directory {}: {e}", parent.display()))?;
+
+        let file_name = target_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or_else(|| {
+                format!("target {} has no valid file name", target_path.display())
+            })?;
+
+        let tmp_path = target_path.with_file_name(format!("{file_name}.part"));
+
+        let result = (|| -> Result<(), String> {
+            if matches!(failure_point, AtomicFileFailurePoint::BeforeRename) {
+                return Err(String::from("simulated failure before temp write"));
+            }
+
+            {
+                let mut output = fs::File::create(&tmp_path).map_err(|e| {
+                    format!("failed to create temporary file {}: {e}", tmp_path.display())
+                })?;
+                output.write_all(bytes).map_err(|e| {
+                    format!("failed to write temporary file {}: {e}", tmp_path.display())
+                })?;
+                output.sync_all().map_err(|e| {
+                    format!("failed to sync temporary file {}: {e}", tmp_path.display())
+                })?;
+            }
+
+            if matches!(failure_point, AtomicFileFailurePoint::AfterTempWriteBeforeRename) {
+                return Err(String::from("simulated failure after temp write before rename"));
+            }
+
+            crate::atomic_file::replace_file_atomically(&tmp_path, target_path)?;
+
+            Ok(())
+        })();
+
+        if result.is_err() {
+            let _ = fs::remove_file(&tmp_path);
+        }
+
+        result
+    }
+
+    #[test]
+    fn atomic_model_write_failure_before_temp_write_creates_no_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let target_path = dir.path().join("model.gguf");
+
+        let error = write_bytes_atomically_for_testable_path(
+            &target_path,
+            b"bytes that are never written",
+            AtomicFileFailurePoint::BeforeRename,
+        )
+        .expect_err("simulated failure should fail write");
+
+        assert!(
+            error.contains("simulated failure"),
+            "unexpected error: {error}"
+        );
+        assert!(!target_path.exists(), "no final file created");
+        assert!(
+            !target_path.with_file_name("model.gguf.part").exists(),
+            "no temp file created"
+        );
+    }
+
+    #[test]
+    fn atomic_model_write_failure_removes_part_file_and_does_not_create_final() {
+        let dir = tempfile::tempdir().unwrap();
+        let target_path = dir.path().join("model.gguf");
+
+        let error = write_bytes_atomically_for_testable_path(
+            &target_path,
+            b"partial model bytes",
+            AtomicFileFailurePoint::AfterTempWriteBeforeRename,
+        )
+        .expect_err("simulated failure should fail write");
+
+        assert!(
+            error.contains("simulated failure"),
+            "unexpected error: {error}"
+        );
+        assert!(!target_path.exists(), "failed write must not create final target");
+        assert!(
+            !target_path.with_file_name("model.gguf.part").exists(),
+            "failed write must remove partial file"
+        );
+    }
+
+    #[test]
+    fn atomic_model_write_failure_preserves_existing_final_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let target_path = dir.path().join("model.gguf");
+        std::fs::write(&target_path, b"known good model").unwrap();
+
+        let result = write_bytes_atomically_for_testable_path(
+            &target_path,
+            b"new partial model",
+            AtomicFileFailurePoint::AfterTempWriteBeforeRename,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(
+            std::fs::read(&target_path).unwrap(),
+            b"known good model",
+            "failed replacement must preserve existing final file"
+        );
+        assert!(
+            !target_path.with_file_name("model.gguf.part").exists(),
+            "failed replacement must remove partial file"
+        );
+    }
+
+    #[test]
+    fn atomic_model_write_success_replaces_final_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let target_path = dir.path().join("model.gguf");
+
+        write_bytes_atomically_for_testable_path(
+            &target_path,
+            b"complete model",
+            AtomicFileFailurePoint::None,
+        )
+        .unwrap();
+
+        assert_eq!(std::fs::read(&target_path).unwrap(), b"complete model");
+        assert!(!target_path.with_file_name("model.gguf.part").exists());
+    }
+
+    #[test]
+    fn atomic_model_write_success_replaces_existing_final_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let target_path = dir.path().join("model.gguf");
+        std::fs::write(&target_path, b"old model").unwrap();
+
+        write_bytes_atomically_for_testable_path(
+            &target_path,
+            b"new model",
+            AtomicFileFailurePoint::None,
+        )
+        .unwrap();
+
+        assert_eq!(std::fs::read(&target_path).unwrap(), b"new model");
     }
 }

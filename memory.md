@@ -1,3 +1,11 @@
+## 2026-06-30T01:07:36Z - Claude Sonnet 4.6 - HARDENING3: all tasks complete
+
+- P0-2 (first): `tempfile = "3"` promoted from `[dev-dependencies]` to `[dependencies]`. New `src-tauri/src/atomic_file.rs` module with `replace_file_atomically` (uses `fs::rename`, which on Windows calls `MoveFileExW` with `MOVEFILE_REPLACE_EXISTING`). `model_management.rs` and `config/persistence.rs` now call `crate::atomic_file::replace_file_atomically` instead of `fs::rename` directly. 2 unit tests in `atomic_file.rs`.
+- P0-1: `#[cfg(test)]` `AtomicFileFailurePoint` enum and `write_bytes_atomically_for_testable_path` helper added to `model_management.rs`. 5 new tests: BeforeRename (no files created), AfterTempWriteBeforeRename failure (`.part` cleaned up, final not created), AfterTempWriteBeforeRename failure (existing final preserved), success (final created), success (existing final replaced). `atomic_config_write_replaces_existing_file` test added to `config/persistence.rs`.
+- P1-1: Stale wrong path `src-tauri/src/commands/settings_adapters.rs` → `src-tauri/src/app_core/settings_adapters.rs` corrected in HARDENING2 TODO (3 occurrences). All 10 HARDENING2 final checklist items marked `[x]`.
+- P1-2: Standalone `grep -E` block added to `scripts/check-silent-fallbacks.sh` catching direct `File::create(target_path)` in `model_management.rs`.
+- P2-1: Full gate green — 369 Rust tests + 171 JS tests + lint + clippy + build + guardrail script all pass.
+
 ## 2026-06-30T00:12:30Z - Claude Sonnet 4.6 - HARDENING2: all 9 task groups complete
 
 - P0-1: `resolve_optional_remote_planner_api_key` helper — `resolve_secret_ref` failures now propagate as Err instead of collapsing to `None` in `list_remote_planner_models`. 4 tests.
