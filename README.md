@@ -28,7 +28,7 @@ Still intentionally incomplete:
 - `src/app-shell-store.ts` is the frontend source of truth for shell view routing, settings subpages, panel state, and confirmation UI state.
 - Panel renderers live under `src/settings-panels/` and `src/confirmation-panels/`, with stable barrel exports kept in `src/settings-status-panels.ts` and `src/confirmation-panel.ts`.
 - React-owned handlers now drive live shell, URL, settings, confirmation, and nearby-control interactions. The remaining imperative DOM listeners are limited to masked API-key focus behavior and global push-to-talk release/cancel handling.
-- Tauri commands stay behind the explicit async functions in `src/main.ts` and `src/tauri-api.ts`; presentational components do not call backend APIs directly.
+- Tauri command wrappers live in `src/api/` (split by domain: `navigation`, `voice`, `audio`, `planner`, `providers`, `safety`, `remote-keys`, `models`, `errors`). `src/tauri-api.ts` is a barrel that re-exports everything from those modules. Presentational components do not call backend APIs directly.
 
 ## Local Development
 
@@ -39,6 +39,12 @@ Quick start on a new Linux machine:
 3. Install the Linux native packages from the Tauri and OCR prerequisite sections below.
 4. Run `pnpm install` at the workspace root.
 5. Use the validation commands in the `Validation` section to confirm the environment is complete.
+
+`setup-dev-env.sh` automates steps 1–5 on Ubuntu or Debian. It installs Rust via `rustup`, checks the Node.js version (upgrading via `nvm` if needed), installs `pnpm`, installs all native apt packages, and runs the validation gate:
+
+```bash
+bash setup-dev-env.sh
+```
 
 Install frontend dependencies:
 
