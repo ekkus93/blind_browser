@@ -67,6 +67,11 @@ export function renderSettingsRemotePlannerPanelNode(
             onOpenExternalLink: handlers?.onOpenExternalLink,
           },
         )}
+        {state.apiKeyReferenceError ? (
+          <p className="settings-panel-description settings-panel-warning" role="alert">
+            {state.apiKeyReferenceError}
+          </p>
+        ) : null}
       </div>,
       <div className="settings-grid settings-grid-single settings-grid-compact" key="planner-endpoint">
         <div className="settings-control-card settings-planner-connection-card">

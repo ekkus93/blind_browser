@@ -15,6 +15,24 @@ use crate::browser::BrowserVisibilityMode;
 use crate::config::resolve_secret_ref;
 use crate::config::{AppConfig, ConfigError, ModelManagementSettings};
 
+#[cfg(feature = "remote-openai")]
+fn resolve_optional_remote_planner_api_key(
+    profile: &crate::config::RemotePlannerProfile,
+    api_key_override: Option<&str>,
+) -> Result<Option<String>, String> {
+    if let Some(override_value) = api_key_override.map(str::trim) {
+        if !override_value.is_empty() {
+            return Ok(Some(override_value.to_string()));
+        }
+    }
+    match resolve_secret_ref(&profile.api_key) {
+        Ok(value) => Ok(Some(value)),
+        Err(reason) => Err(format!(
+            "Remote planner model list could not read the configured API key: {reason}"
+        )),
+    }
+}
+
 impl AppCore {
     pub fn set_playback_volume(&mut self, playback_volume: f32) -> Result<(), ConfigError> {
         let mut audio = self.config.audio.clone();
@@ -182,10 +200,7 @@ impl AppCore {
             .get(profile_name)
             .ok_or_else(|| format!("unknown remote planner profile '{profile_name}'"))?;
 
-        let api_key = match api_key_override.map(str::trim) {
-            Some(override_value) if !override_value.is_empty() => Some(override_value.to_string()),
-            _ => resolve_secret_ref(&profile.api_key).ok(),
-        };
+        let api_key = resolve_optional_remote_planner_api_key(profile, api_key_override)?;
         let organization = profile
             .organization
             .as_ref()
@@ -386,5 +401,75 @@ impl AppCore {
         let next_config = AppConfig::persist_ocr_settings_for_app(&self.app_handle, &ocr)?;
         self.config = next_config;
         Ok(())
+    }
+}
+
+#[cfg(all(test, feature = "remote-openai"))]
+mod tests {
+    use super::resolve_optional_remote_planner_api_key;
+    use crate::config::{RemotePlannerProfile, RemoteProviderKind, SecretRef};
+
+    fn planner_profile_with_env_key(env_var: &str) -> RemotePlannerProfile {
+        RemotePlannerProfile {
+            provider: RemoteProviderKind::OpenAi,
+            base_url: String::from("https://api.openai.com/v1"),
+            model: String::from("gpt-4"),
+            api_key: SecretRef::FromEnv {
+                from_env: env_var.to_string(),
+            },
+            organization: None,
+            project: None,
+            temperature_milli: 200,
+            max_output_tokens: 1024,
+            timeout_ms: 30_000,
+        }
+    }
+
+    #[test]
+    fn override_key_wins_without_inspecting_configured_secret() {
+        // Configured secret is definitely unresolvable; override must win regardless.
+        let profile = planner_profile_with_env_key("BLIND_BROWSER_NONEXISTENT_KEY_XYZ99");
+
+        let result = resolve_optional_remote_planner_api_key(&profile, Some("my-override-key"));
+
+        assert_eq!(result, Ok(Some(String::from("my-override-key"))));
+    }
+
+    #[test]
+    fn empty_override_falls_through_to_configured_secret() {
+        let profile = planner_profile_with_env_key("BLIND_BROWSER_NONEXISTENT_KEY_XYZ99");
+
+        // Empty override must not win; it falls through to secret resolution which fails.
+        let result = resolve_optional_remote_planner_api_key(&profile, Some("  "));
+        assert!(
+            result.is_err(),
+            "whitespace-only override must fall through to secret resolution"
+        );
+    }
+
+    #[test]
+    fn configured_secret_resolution_failure_is_err_not_none() {
+        let profile = planner_profile_with_env_key("BLIND_BROWSER_NONEXISTENT_KEY_XYZ99");
+
+        let error = resolve_optional_remote_planner_api_key(&profile, None)
+            .expect_err("configured secret resolution failure must surface as Err");
+
+        assert!(
+            error.contains("could not read the configured API key"),
+            "error message should identify the API key: {error}"
+        );
+        // Crucially: the error is not Ok(None).
+    }
+
+    #[test]
+    fn configured_secret_resolution_failure_is_not_converted_to_none() {
+        let profile = planner_profile_with_env_key("BLIND_BROWSER_NONEXISTENT_KEY_XYZ99");
+
+        let result = resolve_optional_remote_planner_api_key(&profile, None);
+
+        assert!(
+            !matches!(result, Ok(None)),
+            "configured secret resolution failure must not be silently folded into Ok(None)"
+        );
     }
 }

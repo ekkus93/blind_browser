@@ -117,11 +117,7 @@ fn transcribe_with_openai_remote(
             reason: format!("failed to parse remote transcription response: {error}"),
         })?;
 
-    Ok(parsed
-        .get("text")
-        .and_then(|value| value.as_str())
-        .unwrap_or_default()
-        .to_string())
+    parse_remote_transcription_text(&parsed)
 }
 
 #[cfg(not(feature = "remote-openai"))]
@@ -138,4 +134,61 @@ pub(super) fn normalized_optional_string(value: Option<&str>) -> Option<String> 
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
+}
+
+#[cfg(any(feature = "remote-openai", test))]
+pub(super) fn parse_remote_transcription_text(
+    parsed: &serde_json::Value,
+) -> Result<String, AsrRuntimeError> {
+    let text = parsed
+        .get("text")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| AsrRuntimeError::RemoteRequestFailed {
+            reason: String::from(
+                "remote transcription response did not contain a string 'text' field",
+            ),
+        })?;
+    Ok(text.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_remote_transcription_text;
+
+    #[test]
+    fn parse_remote_transcription_text_requires_text_field() {
+        let parsed = serde_json::json!({ "duration": 1.0 });
+
+        let error = parse_remote_transcription_text(&parsed)
+            .expect_err("missing text must be an error");
+
+        assert!(
+            error.to_string().contains("text"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn parse_remote_transcription_text_rejects_non_string_text() {
+        let parsed = serde_json::json!({ "text": 42 });
+
+        assert!(parse_remote_transcription_text(&parsed).is_err());
+    }
+
+    #[test]
+    fn parse_remote_transcription_text_allows_empty_string_text() {
+        let parsed = serde_json::json!({ "text": "" });
+
+        assert_eq!(parse_remote_transcription_text(&parsed).unwrap(), "");
+    }
+
+    #[test]
+    fn parse_remote_transcription_text_returns_the_text_value() {
+        let parsed = serde_json::json!({ "text": "hello world" });
+
+        assert_eq!(
+            parse_remote_transcription_text(&parsed).unwrap(),
+            "hello world"
+        );
+    }
 }

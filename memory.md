@@ -1,3 +1,14 @@
+## 2026-06-30T00:12:30Z - Claude Sonnet 4.6 - HARDENING2: all 9 task groups complete
+
+- P0-1: `resolve_optional_remote_planner_api_key` helper — `resolve_secret_ref` failures now propagate as Err instead of collapsing to `None` in `list_remote_planner_models`. 4 tests.
+- P0-2/P0-3: model-availability floor (1MB ASR, 2B TTS config, 1MB TTS onnx); `download_response_to_file_atomically` (`.part` temp → sync → rename → remove-on-error). 6 tests; `tempfile = "3"` added as first `[dev-dependencies]`.
+- P0-4: `write_config_atomic` in `config/persistence.rs`; all 9 `fs::write` call-sites replaced. 3 tests.
+- P1-1: `parse_remote_transcription_text` — missing/non-string `text` field in ASR response now returns `RemoteRequestFailed` error instead of empty string. 4 tests.
+- P1-2: `normalize_browser_navigation_url` rewritten to use `url` crate for structural validation; `url = "2"` added. Added pre-parse `://` check (rejects `http:example.com`), raw-authority empty check (rejects `https:///missing-host`), and host-str None guard. Returns `parsed.to_string()` for trailing-slash normalisation. Fixed `http://localhost:3000/` expectation in browser tests. 362 Rust tests total.
+- P2-1: `masked_secret_status` replaces `masked_secret_value` returning `(Option<String>, Option<String>)`. `api_key_reference_error: Option<String>` added to all three DTOs (Rust + TS). Warning rendered in all three remote settings panels. Wired in `runtime-refresh.ts`, `panel-state.ts`, `tauri-types.ts`. 3 new JS tests; 171 total JS tests.
+- P2-2: `check-silent-fallbacks.sh` extended with 2 new fixed-string entries and 1 regex check for the exact removed patterns.
+- P2-3: full gate green (362 Rust + 171 JS + lint + build + guardrail script).
+
 ## 2026-06-29T11:24:36Z - Claude Haiku 4.5 - BB_RUNTIME_PHASE3 P2.2: remote ASR lock-scoping (the previously-skipped item)
 
 - Implemented at user request the Phase 3 item P2.2 had consciously SKIPPED: release the AppCore lock across the ASR transcription round-trip (matters for remote ASR; local whisper also benefits by not holding the lock during CPU transcription).

@@ -554,3 +554,34 @@ test("verified model list shows fresh indicator after successful load", () => {
   assert.match(html, /<select[^>]*data-remote-planner-model-select/);
   assert.doesNotMatch(html, /Model list may be outdated/);
 });
+
+test("renders api key reference error warning in remote planner panel", () => {
+  const html = renderSettingsRemotePlannerPanel({
+    profileName: "openai-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o",
+    availableModels: [],
+    loadedModelsEndpoint: null,
+    isLoadingModels: false,
+    isSavingConnection: false,
+    isResettingConnection: false,
+    isConfirmingReset: false,
+    apiKeyReference: "OS keyring entry: blind_browser / remote_planner:openai-default:api_key",
+    apiKeyMaskedValue: null,
+    apiKeyReferenceError: "Configured secret could not be inspected: keyring service unavailable",
+    organizationReference: null,
+    project: null,
+    temperatureMilli: 200,
+    maxOutputTokens: 1024,
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  assert.match(html, /role="alert"/);
+  assert.match(html, /keyring service unavailable/);
+});

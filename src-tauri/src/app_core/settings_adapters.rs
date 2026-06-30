@@ -22,22 +22,34 @@ fn remote_provider_label(provider: &RemoteProviderKind) -> RemoteProviderLabel {
     }
 }
 
-fn masked_secret_value(secret_ref: &crate::config::SecretRef) -> Option<String> {
-    let secret = crate::config::resolve_secret_ref(secret_ref).ok()?;
-    let trimmed_secret = secret.trim();
-    if trimmed_secret.is_empty() {
-        return None;
+/// Returns `(masked_value, error_message)`.
+/// - `(Some(masked), None)` — secret resolved and masked.
+/// - `(None, None)` — secret resolved but was empty (key intentionally absent).
+/// - `(None, Some(err))` — secret configured but could not be read; surface as a warning.
+fn masked_secret_status(
+    secret_ref: &crate::config::SecretRef,
+) -> (Option<String>, Option<String>) {
+    match crate::config::resolve_secret_ref(secret_ref) {
+        Ok(secret) => {
+            let trimmed = secret.trim();
+            if trimmed.is_empty() {
+                return (None, None);
+            }
+            let suffix = trimmed
+                .chars()
+                .rev()
+                .take(4)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<String>();
+            (Some(format!("***{suffix}")), None)
+        }
+        Err(error) => (
+            None,
+            Some(format!("Configured secret could not be inspected: {error}")),
+        ),
     }
-
-    let suffix = trimmed_secret
-        .chars()
-        .rev()
-        .take(4)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<String>();
-    Some(format!("***{suffix}"))
 }
 
 pub(crate) fn build_tts_model_settings(config: &AppConfig) -> TtsModelSettings {
@@ -128,6 +140,10 @@ pub(crate) fn build_remote_planner_settings(config: &AppConfig) -> RemotePlanner
         .as_ref()
         .and_then(|configured_profile| config.remote_planner_profiles.get(configured_profile));
 
+    let (api_key_masked_value, api_key_reference_error) = profile
+        .map(|p| masked_secret_status(&p.api_key))
+        .unwrap_or((None, None));
+
     RemotePlannerSettings {
         profile_name,
         provider: profile
@@ -136,8 +152,8 @@ pub(crate) fn build_remote_planner_settings(config: &AppConfig) -> RemotePlanner
         model: profile.map(|configured_profile| configured_profile.model.clone()),
         api_key_reference: profile
             .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
-        api_key_masked_value: profile
-            .and_then(|configured_profile| masked_secret_value(&configured_profile.api_key)),
+        api_key_masked_value,
+        api_key_reference_error,
         organization_reference: profile
             .and_then(|configured_profile| configured_profile.organization.as_ref())
             .map(secret_ref_reference),
@@ -154,6 +170,10 @@ pub(crate) fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings
         .as_ref()
         .and_then(|configured_profile| config.remote_tts_profiles.get(configured_profile));
 
+    let (api_key_masked_value, api_key_reference_error) = profile
+        .map(|p| masked_secret_status(&p.api_key))
+        .unwrap_or((None, None));
+
     RemoteTtsSettings {
         profile_name,
         provider: profile
@@ -162,8 +182,8 @@ pub(crate) fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings
         model: profile.map(|configured_profile| configured_profile.model.clone()),
         api_key_reference: profile
             .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
-        api_key_masked_value: profile
-            .and_then(|configured_profile| masked_secret_value(&configured_profile.api_key)),
+        api_key_masked_value,
+        api_key_reference_error,
         organization_reference: profile
             .and_then(|configured_profile| configured_profile.organization.as_ref())
             .map(secret_ref_reference),
@@ -180,6 +200,10 @@ pub(crate) fn build_remote_asr_settings(config: &AppConfig) -> RemoteAsrSettings
         .as_ref()
         .and_then(|configured_profile| config.remote_asr_profiles.get(configured_profile));
 
+    let (api_key_masked_value, api_key_reference_error) = profile
+        .map(|p| masked_secret_status(&p.api_key))
+        .unwrap_or((None, None));
+
     RemoteAsrSettings {
         profile_name,
         provider: profile
@@ -188,8 +212,8 @@ pub(crate) fn build_remote_asr_settings(config: &AppConfig) -> RemoteAsrSettings
         model: profile.map(|configured_profile| configured_profile.model.clone()),
         api_key_reference: profile
             .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
-        api_key_masked_value: profile
-            .and_then(|configured_profile| masked_secret_value(&configured_profile.api_key)),
+        api_key_masked_value,
+        api_key_reference_error,
         organization_reference: profile
             .and_then(|configured_profile| configured_profile.organization.as_ref())
             .map(secret_ref_reference),

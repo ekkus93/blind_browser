@@ -4,6 +4,11 @@ use std::path::{Path, PathBuf};
 use crate::config::{LocalAsrProfile, LocalTtsProfile};
 use reqwest::blocking::Client;
 
+const MIN_LOCAL_ASR_MODEL_BYTES: u64 = 1_000_000; // 1 MB sanity floor
+const MIN_TTS_CONFIG_BYTES: u64 = 2;
+const MIN_TTS_VOICES_BYTES: u64 = 1_000;
+const MIN_TTS_ONNX_BYTES: u64 = 1_000_000; // 1 MB sanity floor
+
 pub(crate) struct KittenDownloadPlan {
     pub(crate) repository: &'static str,
     pub(crate) directory_name: &'static str,
@@ -17,32 +22,41 @@ pub(crate) struct WhisperDownloadPlan {
     pub(crate) file_name: &'static str,
 }
 
+fn file_size_at_least(path: &Path, min_bytes: u64) -> bool {
+    path.metadata()
+        .map(|metadata| metadata.is_file() && metadata.len() >= min_bytes)
+        .unwrap_or(false)
+}
+
 pub(crate) fn local_tts_model_is_available(profile: &LocalTtsProfile) -> bool {
     let model_path = Path::new(profile.model_path.trim());
     if !model_path.is_dir() {
         return false;
     }
 
-    let has_config = model_path.join("config.json").is_file();
-    let has_voices = model_path.join("voices.npz").is_file();
+    let has_config = file_size_at_least(&model_path.join("config.json"), MIN_TTS_CONFIG_BYTES);
+    let has_voices = file_size_at_least(&model_path.join("voices.npz"), MIN_TTS_VOICES_BYTES);
     let has_onnx = fs::read_dir(model_path)
         .ok()
         .into_iter()
         .flatten()
         .flatten()
-        .any(|entry| {
-            entry
-                .path()
-                .extension()
-                .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("onnx"))
+        .map(|entry| entry.path())
+        .any(|path| {
+            path.extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("onnx"))
+                && file_size_at_least(&path, MIN_TTS_ONNX_BYTES)
         });
 
     has_config && has_voices && has_onnx
 }
 
 pub(crate) fn local_asr_model_is_available(profile: &LocalAsrProfile) -> bool {
-    Path::new(profile.model_path.trim()).is_file()
+    file_size_at_least(
+        Path::new(profile.model_path.trim()),
+        MIN_LOCAL_ASR_MODEL_BYTES,
+    )
 }
 
 pub(crate) fn kitten_download_plan_for_model_id(
@@ -133,20 +147,11 @@ pub(crate) fn download_hugging_face_file(
     repository: &str,
     file_name: &str,
 ) -> Result<(), String> {
-    let parent = target_path.parent().ok_or_else(|| {
-        format!(
-            "Failed to resolve the parent directory for download target {}",
-            target_path.display()
-        )
-    })?;
-    fs::create_dir_all(parent)
-        .map_err(|error| format!("Failed to create directory {}: {error}", parent.display()))?;
-
     let url = format!("https://huggingface.co/{repository}/resolve/main/{file_name}");
     let client = Client::builder()
         .build()
         .map_err(|error| format!("Failed to create the download client: {error}"))?;
-    let mut response = client
+    let response = client
         .get(&url)
         .send()
         .map_err(|error| format!("Failed to download {url}: {error}"))?;
@@ -158,12 +163,67 @@ pub(crate) fn download_hugging_face_file(
         ));
     }
 
-    let mut output = fs::File::create(target_path)
-        .map_err(|error| format!("Failed to create {}: {error}", target_path.display()))?;
-    response
-        .copy_to(&mut output)
-        .map_err(|error| format!("Failed to write {}: {error}", target_path.display()))?;
-    Ok(())
+    download_response_to_file_atomically(response, target_path)
+}
+
+fn download_response_to_file_atomically(
+    mut response: reqwest::blocking::Response,
+    target_path: &Path,
+) -> Result<(), String> {
+    let parent = target_path.parent().ok_or_else(|| {
+        format!(
+            "download target {} has no parent directory",
+            target_path.display()
+        )
+    })?;
+
+    fs::create_dir_all(parent)
+        .map_err(|error| format!("failed to create model directory {}: {error}", parent.display()))?;
+
+    let file_name = target_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| {
+            format!(
+                "download target {} has no valid file name",
+                target_path.display()
+            )
+        })?;
+
+    let tmp_path = target_path.with_file_name(format!("{file_name}.part"));
+
+    let result = (|| -> Result<(), String> {
+        let mut output = fs::File::create(&tmp_path).map_err(|error| {
+            format!(
+                "failed to create temporary model file {}: {error}",
+                tmp_path.display()
+            )
+        })?;
+
+        response.copy_to(&mut output).map_err(|error| {
+            format!("failed to write model file {}: {error}", tmp_path.display())
+        })?;
+
+        output.sync_all().map_err(|error| {
+            format!("failed to sync model file {}: {error}", tmp_path.display())
+        })?;
+
+        fs::rename(&tmp_path, target_path).map_err(|error| {
+            format!(
+                "failed to finalize model file {} from {}: {error}",
+                target_path.display(),
+                tmp_path.display()
+            )
+        })?;
+
+        Ok(())
+    })();
+
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp_path);
+    }
+
+    result
 }
 
 pub(crate) fn resolved_models_dir_for_app(
@@ -199,4 +259,85 @@ pub(crate) fn resolved_models_dir_for_app(
         )
     })?;
     Ok(config_dir.join(candidate))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{LocalAsrBackend, LocalAsrProfile, LocalTtsBackend, LocalTtsProfile};
+
+    fn asr_profile_at(path: &str) -> LocalAsrProfile {
+        LocalAsrProfile {
+            backend: LocalAsrBackend::Whisper,
+            model_id: String::from("tiny"),
+            model_path: path.to_string(),
+            language: Some(String::from("en")),
+            threads: 4,
+        }
+    }
+
+    fn tts_profile_at(path: &str) -> LocalTtsProfile {
+        LocalTtsProfile {
+            backend: LocalTtsBackend::KittenTtsRs,
+            model_id: String::from("default"),
+            model_path: path.to_string(),
+            default_voice: String::from("Bruno"),
+            sample_rate: 24_000,
+        }
+    }
+
+    #[test]
+    fn local_asr_model_availability_rejects_empty_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let model_path = dir.path().join("tiny.gguf");
+        std::fs::write(&model_path, []).unwrap();
+        let profile = asr_profile_at(model_path.to_str().unwrap());
+        assert!(!local_asr_model_is_available(&profile));
+    }
+
+    #[test]
+    fn local_asr_model_availability_rejects_file_below_minimum_size() {
+        let dir = tempfile::tempdir().unwrap();
+        let model_path = dir.path().join("tiny.gguf");
+        std::fs::write(&model_path, vec![0u8; 100]).unwrap();
+        let profile = asr_profile_at(model_path.to_str().unwrap());
+        assert!(!local_asr_model_is_available(&profile));
+    }
+
+    #[test]
+    fn local_asr_model_availability_rejects_missing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let profile = asr_profile_at(dir.path().join("missing.gguf").to_str().unwrap());
+        assert!(!local_asr_model_is_available(&profile));
+    }
+
+    #[test]
+    fn local_tts_model_availability_rejects_empty_config_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let model_dir = dir.path();
+        std::fs::write(model_dir.join("config.json"), []).unwrap();
+        std::fs::write(model_dir.join("voices.npz"), vec![0u8; 2_000]).unwrap();
+        // Write a plausibly-sized .onnx to ensure only config.json triggers rejection.
+        std::fs::write(model_dir.join("model.onnx"), vec![0u8; 2_000_000]).unwrap();
+        let profile = tts_profile_at(model_dir.to_str().unwrap());
+        assert!(!local_tts_model_is_available(&profile));
+    }
+
+    #[test]
+    fn local_tts_model_availability_rejects_empty_onnx_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let model_dir = dir.path();
+        std::fs::write(model_dir.join("config.json"), b"{}").unwrap();
+        std::fs::write(model_dir.join("voices.npz"), vec![0u8; 2_000]).unwrap();
+        std::fs::write(model_dir.join("model.onnx"), []).unwrap();
+        let profile = tts_profile_at(model_dir.to_str().unwrap());
+        assert!(!local_tts_model_is_available(&profile));
+    }
+
+    #[test]
+    fn local_tts_model_availability_rejects_missing_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let profile = tts_profile_at(dir.path().join("nonexistent-model").to_str().unwrap());
+        assert!(!local_tts_model_is_available(&profile));
+    }
 }

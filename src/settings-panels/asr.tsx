@@ -112,6 +112,11 @@ export function renderSettingsRemoteAsrPanelNode(
         {renderReadOnlyCard("Base URL", state.baseUrl)}
         {renderReadOnlyCard("Model", state.model)}
         {renderReadOnlyCard("API key source", state.apiKeyReference)}
+        {state.apiKeyReferenceError ? (
+          <p className="settings-panel-description settings-panel-warning" role="alert">
+            {state.apiKeyReferenceError}
+          </p>
+        ) : null}
         {renderReadOnlyCard("Organization source", state.organizationReference)}
         {renderReadOnlyCard("Project", state.project)}
         {renderReadOnlyCard("Language", state.language)}

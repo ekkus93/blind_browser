@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Write as _;
 use std::path::Path;
 
 use tauri::AppHandle;
@@ -13,6 +14,63 @@ use super::{
     SafetySettings, SecretRef,
 };
 use crate::ocr::OcrSettings;
+
+fn write_config_atomic(path: &Path, serialized: &str) -> Result<(), ConfigError> {
+    let parent = path.parent().ok_or_else(|| {
+        ConfigError::Validation(format!(
+            "config path {} has no parent directory",
+            path.display()
+        ))
+    })?;
+
+    fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
+        path: parent.to_path_buf(),
+        source,
+    })?;
+
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| {
+            ConfigError::Validation(format!(
+                "config path {} has no valid file name",
+                path.display()
+            ))
+        })?;
+
+    let tmp_path = path.with_file_name(format!("{file_name}.tmp"));
+
+    let write_result = (|| -> Result<(), ConfigError> {
+        let mut file = fs::File::create(&tmp_path).map_err(|source| ConfigError::Write {
+            path: tmp_path.clone(),
+            source,
+        })?;
+
+        file.write_all(serialized.as_bytes())
+            .map_err(|source| ConfigError::Write {
+                path: tmp_path.clone(),
+                source,
+            })?;
+
+        file.sync_all().map_err(|source| ConfigError::Write {
+            path: tmp_path.clone(),
+            source,
+        })?;
+
+        fs::rename(&tmp_path, path).map_err(|source| ConfigError::Write {
+            path: path.to_path_buf(),
+            source,
+        })?;
+
+        Ok(())
+    })();
+
+    if write_result.is_err() {
+        let _ = fs::remove_file(&tmp_path);
+    }
+
+    write_result
+}
 
 impl AppConfig {
     pub fn persist_audio_settings_for_app(
@@ -137,18 +195,8 @@ impl AppConfig {
 
         document.insert(String::from("audio"), toml::Value::try_from(audio.clone())?);
 
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
-                path: parent.to_path_buf(),
-                source,
-            })?;
-        }
-
         let serialized = toml::to_string_pretty(&document)?;
-        fs::write(path, serialized).map_err(|source| ConfigError::Write {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        write_config_atomic(path, &serialized)?;
 
         Self::load_from_path(path)
     }
@@ -170,18 +218,8 @@ impl AppConfig {
             toml::Value::try_from(safety.clone())?,
         );
 
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
-                path: parent.to_path_buf(),
-                source,
-            })?;
-        }
-
         let serialized = toml::to_string_pretty(&document)?;
-        fs::write(path, serialized).map_err(|source| ConfigError::Write {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        write_config_atomic(path, &serialized)?;
 
         Self::load_from_path(path)
     }
@@ -200,18 +238,8 @@ impl AppConfig {
 
         document.insert(String::from("ocr"), toml::Value::try_from(ocr.clone())?);
 
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
-                path: parent.to_path_buf(),
-                source,
-            })?;
-        }
-
         let serialized = toml::to_string_pretty(&document)?;
-        fs::write(path, serialized).map_err(|source| ConfigError::Write {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        write_config_atomic(path, &serialized)?;
 
         Self::load_from_path(path)
     }
@@ -238,18 +266,8 @@ impl AppConfig {
             toml::Value::try_from(models.clone())?,
         );
 
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
-                path: parent.to_path_buf(),
-                source,
-            })?;
-        }
-
         let serialized = toml::to_string_pretty(&document)?;
-        fs::write(path, serialized).map_err(|source| ConfigError::Write {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        write_config_atomic(path, &serialized)?;
 
         Self::load_from_path(path)
     }
@@ -315,18 +333,8 @@ impl AppConfig {
             })?,
         );
 
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
-                path: parent.to_path_buf(),
-                source,
-            })?;
-        }
-
         let serialized = toml::to_string_pretty(&document)?;
-        fs::write(path, serialized).map_err(|source| ConfigError::Write {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        write_config_atomic(path, &serialized)?;
 
         Self::load_from_path(path)
     }
@@ -388,18 +396,8 @@ impl AppConfig {
             toml::Value::String(String::from(normalized_model)),
         );
 
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
-                path: parent.to_path_buf(),
-                source,
-            })?;
-        }
-
         let serialized = toml::to_string_pretty(&document)?;
-        fs::write(path, serialized).map_err(|source| ConfigError::Write {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        write_config_atomic(path, &serialized)?;
 
         Self::load_from_path(path)
     }
@@ -483,18 +481,8 @@ impl AppConfig {
             toml::Value::String(normalized_model_path.to_string()),
         );
 
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
-                path: parent.to_path_buf(),
-                source,
-            })?;
-        }
-
         let serialized = toml::to_string_pretty(&document)?;
-        fs::write(path, serialized).map_err(|source| ConfigError::Write {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        write_config_atomic(path, &serialized)?;
 
         Self::load_from_path(path)
     }
@@ -540,18 +528,8 @@ impl AppConfig {
             toml::Value::try_from(selection.clone())?,
         );
 
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
-                path: parent.to_path_buf(),
-                source,
-            })?;
-        }
-
         let serialized = toml::to_string_pretty(&document)?;
-        fs::write(path, serialized).map_err(|source| ConfigError::Write {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        write_config_atomic(path, &serialized)?;
 
         Self::load_from_path(path)
     }
@@ -581,19 +559,45 @@ impl AppConfig {
             toml::Value::try_from(selection.clone())?,
         );
 
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|source| ConfigError::CreateDir {
-                path: parent.to_path_buf(),
-                source,
-            })?;
-        }
-
         let serialized = toml::to_string_pretty(&document)?;
-        fs::write(path, serialized).map_err(|source| ConfigError::Write {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        write_config_atomic(path, &serialized)?;
 
         Self::load_from_path(path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::write_config_atomic;
+
+    #[test]
+    fn write_config_atomic_writes_expected_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        write_config_atomic(&path, "value = 1\n").unwrap();
+
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "value = 1\n");
+    }
+
+    #[test]
+    fn write_config_atomic_creates_parent_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nested").join("config.toml");
+
+        write_config_atomic(&path, "x = 2\n").unwrap();
+
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn write_config_atomic_does_not_leave_tmp_file_on_success() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        write_config_atomic(&path, "a = 1\n").unwrap();
+
+        let tmp = dir.path().join("config.toml.tmp");
+        assert!(!tmp.exists(), "temp file must not remain after successful write");
     }
 }

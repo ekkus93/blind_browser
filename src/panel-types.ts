@@ -99,6 +99,7 @@ export interface RemotePlannerPanelState {
   isConfirmingReset: boolean;
   apiKeyReference: string | null;
   apiKeyMaskedValue: string | null;
+  apiKeyReferenceError: string | null;
   organizationReference: string | null;
   project: string | null;
   temperatureMilli: number | null;
@@ -118,6 +119,7 @@ export interface RemoteTtsPanelState {
   model: string | null;
   apiKeyReference: string | null;
   apiKeyMaskedValue: string | null;
+  apiKeyReferenceError: string | null;
   organizationReference: string | null;
   project: string | null;
   voice: string | null;
@@ -137,6 +139,7 @@ export interface RemoteAsrPanelState {
   model: string | null;
   apiKeyReference: string | null;
   apiKeyMaskedValue: string | null;
+  apiKeyReferenceError: string | null;
   organizationReference: string | null;
   project: string | null;
   language: string | null;

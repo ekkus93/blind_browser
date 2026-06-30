@@ -344,3 +344,53 @@ test("renders settings voice errors and disabled state while saving", () => {
   assert.match(html, /remote voice for the current mode/i);
   assert.match(html, /disabled aria-disabled="true"/);
 });
+
+test("renders api key reference error warning in remote ASR panel", () => {
+  const html = renderSettingsRemoteAsrPanel({
+    profileName: "openai-transcribe-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini-transcribe",
+    apiKeyReference: "OS keyring entry: blind_browser / remote_asr:openai-transcribe-default:api_key",
+    apiKeyMaskedValue: null,
+    apiKeyReferenceError: "Configured secret could not be inspected: keyring service unavailable",
+    organizationReference: null,
+    project: null,
+    language: "en",
+    temperatureMilli: 0,
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  assert.match(html, /role="alert"/);
+  assert.match(html, /keyring service unavailable/);
+});
+
+test("renders api key reference error warning in remote TTS panel", () => {
+  const html = renderSettingsRemoteTtsPanel({
+    profileName: "openai-tts-default",
+    provider: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini-tts",
+    apiKeyReference: "OS keyring entry: blind_browser / remote_tts:openai-tts-default:api_key",
+    apiKeyMaskedValue: null,
+    apiKeyReferenceError: "Configured secret could not be inspected: keyring service unavailable",
+    organizationReference: null,
+    project: null,
+    voice: "alloy",
+    audioFormat: "wav",
+    timeoutMs: 30000,
+    apiKeyDraft: "",
+    isSavingApiKey: false,
+    isTestingApiKey: false,
+    apiKeyTestMessage: null,
+    error: null,
+  });
+
+  assert.match(html, /role="alert"/);
+  assert.match(html, /keyring service unavailable/);
+});

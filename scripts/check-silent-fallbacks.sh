@@ -18,6 +18,8 @@ declare -A pattern_roots=(
   ['filter_map(|segment| segment.to_str_lossy().ok())']='src-tauri/src'
   ['parse_bool_value(value).unwrap_or(false)']='src-tauri/src'
   ['.get_page_metrics().ok()?']='src-tauri/src'
+  ['resolve_secret_ref(&profile.api_key).ok()']='src-tauri/src'
+  ['unwrap_or_default().to_string()']='src-tauri/src/asr/remote.rs'
 )
 
 status=0
@@ -28,6 +30,13 @@ for pattern in "${!pattern_roots[@]}"; do
     status=1
   fi
 done
+
+# Regex check: masked_secret_value used with .ok()? (silently drops inspection errors).
+if grep -In -E 'masked_secret_value.*\.ok\(\)\?' \
+    src-tauri/src/app_core/settings_adapters.rs 2>/dev/null; then
+  echo "ERROR: forbidden masked-secret inspection fallback in settings_adapters.rs" >&2
+  status=1
+fi
 
 if [ "$status" -ne 0 ]; then
   echo "" >&2

@@ -31,7 +31,7 @@ Do not mark this TODO complete unless the validation gate actually passes.
 
 ## P0-1 — Surface configured remote planner API-key resolution failures
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/app_core/runtime_config.rs`
@@ -140,7 +140,7 @@ Expected: no matches.
 
 ## P0-2 — Make model downloads atomic and partial-file-safe
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/app_core/model_management.rs`
@@ -255,7 +255,7 @@ Expected: no direct final-path download write remains, or any remaining match is
 
 ## P0-3 — Strengthen model availability checks
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/app_core/model_management.rs`
@@ -362,7 +362,7 @@ Use existing config/profile test helpers if available.
 
 ## P0-4 — Make config persistence writes atomic
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/config/persistence.rs`
@@ -491,7 +491,7 @@ Expected: no direct config persistence write remains, except inside tests if int
 
 ## P1-1 — Treat malformed remote ASR success JSON as an error
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/asr/remote.rs`
@@ -593,7 +593,7 @@ Expected: no remote ASR response text fallback remains.
 
 ## P1-2 — Strengthen URL policy with real URL parsing and host validation
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/url_policy.rs`
@@ -736,7 +736,7 @@ Keep existing dangerous-scheme tests.
 
 ## P2-1 — Surface masked-secret inspection failures in settings
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `src-tauri/src/commands/settings_adapters.rs`
@@ -834,7 +834,7 @@ Expected: no matches.
 
 ## P2-2 — Extend silent-fallback guardrails for exact new regressions
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `scripts/check-silent-fallbacks.sh`
@@ -889,7 +889,7 @@ Do **not** ban all `.ok()` or all `unwrap_or_default()` globally.
 
 ## P2-3 — Final validation and memory entry
 
-**Status:** PENDING  
+**Status:** DONE  
 **Files:**
 
 - `memory.md`

@@ -18,7 +18,7 @@ fn normalize_absolute_url_accepts_trimmed_web_urls() {
     );
     assert_eq!(
         normalize_absolute_url("http://localhost:3000").unwrap(),
-        String::from("http://localhost:3000")
+        String::from("http://localhost:3000/")
     );
 }
 

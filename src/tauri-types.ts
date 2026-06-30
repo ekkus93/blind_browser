@@ -251,6 +251,7 @@ export interface RemotePlannerSettings {
   model: string | null;
   api_key_reference: string | null;
   api_key_masked_value: string | null;
+  api_key_reference_error: string | null;
   organization_reference: string | null;
   project: string | null;
   temperature_milli: number | null;
@@ -265,6 +266,7 @@ export interface RemoteTtsSettings {
   model: string | null;
   api_key_reference: string | null;
   api_key_masked_value: string | null;
+  api_key_reference_error: string | null;
   organization_reference: string | null;
   project: string | null;
   voice: string | null;
@@ -279,6 +281,7 @@ export interface RemoteAsrSettings {
   model: string | null;
   api_key_reference: string | null;
   api_key_masked_value: string | null;
+  api_key_reference_error: string | null;
   organization_reference: string | null;
   project: string | null;
   language: string | null;
