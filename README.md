@@ -71,11 +71,7 @@ Run the Tauri app in development with the full native backend set:
 pnpm tauri:dev:full
 ```
 
-If you only need the OCR backend without the other optional native integrations:
-
-```bash
-pnpm tauri:dev:ocr
-```
+`pnpm tauri:dev:ocr` is an alias that explicitly passes the `ocr` feature flag. Because the Cargo default feature set is already `full` (which includes `ocr`), both commands produce the same result. The alias exists as a stable reference for scripts that need to name an explicit feature.
 
 ## Validation
 
@@ -97,6 +93,16 @@ pnpm build
 `cargo check` without `--all-features` catches breakage in the default feature set. `cargo clippy --all-features` and `cargo test --all-features` then verify the full feature set including native OCR and audio backends.
 
 If `cargo clippy --all-features` or `cargo test --all-features` fails on native dependencies, check the Linux prerequisite sections below first.
+
+### Dark mode manual test
+
+`scripts/darkmode-test.sh` is an optional manual dark mode regression test. It requires Docker, a pre-built release binary (`cargo build --release`), and a built frontend (`pnpm build`). It launches the app in a container under `GTK_THEME=Adwaita:dark`, screenshots each major panel, and checks that no panel region is bright enough to indicate a light-mode leak:
+
+```bash
+bash scripts/darkmode-test.sh
+```
+
+This script is not part of the standard CI gate. Run it manually when making significant CSS or theming changes.
 
 ## Linux Tauri Prerequisites
 
@@ -124,9 +130,7 @@ If you execute `./fix-node-version.sh` normally, it will reinstall dependencies 
 
 ## Linux OCR Prerequisites
 
-The OCR stack uses `leptess`, which depends on native Tesseract and Leptonica development libraries. Rust builds that enable OCR features, and lint commands such as `cargo clippy --all-features`, can fail until those system packages are installed.
-
-The desktop app only includes the OCR backend when the Rust `ocr` feature is enabled. Use `pnpm tauri:dev:ocr` for an OCR-only desktop run or `pnpm tauri:dev:full` for the full native stack.
+The OCR stack uses `leptess`, which depends on native Tesseract and Leptonica development libraries. The default Rust feature set is `full`, which includes OCR, so a plain `cargo build`, `cargo clippy`, or `cargo test` will require these packages. `cargo clippy --all-features` and `cargo test --all-features` require them as well.
 
 Typical Ubuntu or Debian packages:
 
