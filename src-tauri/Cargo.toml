@@ -24,7 +24,6 @@ thiserror = "2.0"
 # Time driver only, for bounding browser navigation futures via tokio::time::timeout
 # inside tauri::async_runtime::block_on (Tauri's runtime enables the time driver).
 tokio = { version = "1", features = ["time"] }
-tempfile = "3"
 toml = "0.9"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
@@ -55,3 +54,4 @@ remote-openai = ["dep:async-openai"]
 full = ["browser", "ocr", "audio", "local-tts", "local-asr", "remote-openai"]
 
 [dev-dependencies]
+tempfile = "3"
