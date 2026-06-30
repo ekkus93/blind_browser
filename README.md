@@ -102,7 +102,7 @@ If `cargo clippy --all-features` or `cargo test --all-features` fails on native 
 
 ### Dark mode manual test
 
-`scripts/darkmode-test.sh` is an optional manual dark mode regression test. It requires Docker, a pre-built release binary (`cargo build --release`), and a built frontend (`pnpm build`). It launches the app in a container under `GTK_THEME=Adwaita:dark`, screenshots each major panel, and checks that no panel region is bright enough to indicate a light-mode leak:
+`scripts/darkmode-test.sh` is an optional manual dark mode regression test. It uses `Dockerfile.darkmode-test` (at the repo root) to build a container, then launches the app under `GTK_THEME=Adwaita:dark`, screenshots each major panel, and checks that no panel region is bright enough to indicate a light-mode leak. Prerequisites: Docker running, a pre-built release binary (`cargo build --release`), and a built frontend (`pnpm build`):
 
 ```bash
 bash scripts/darkmode-test.sh
@@ -157,4 +157,4 @@ Keyring-backed API keys
 - Saving an API key in the Settings UI always writes the secret to the OS keyring rather than storing plaintext in `config.toml`.
 - CI and unit tests use an in-memory test keyring; production uses the OS keyring on supported platforms.
 
-For a fast restart on another machine, the project handoff notes are tracked in `memory.md`. The latest entry should include the current commit, validation status, and where development stopped.
+For a fast restart on another machine, the project handoff notes are tracked in `memory.md`. Each entry has an ISO 8601 UTC timestamp, the model name, and a summary of what was done and validated.
