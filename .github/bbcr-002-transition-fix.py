@@ -93,3 +93,75 @@ fn changing_a_queued_transition_invalidates_confirmation() {
 '''
 text = replace_once(text, marker, new_test + marker, path)
 write(path, text)
+
+# This compatibility wrapper is now used only by unit tests. Do not compile it
+# into production merely to silence dead-code analysis.
+path = "src-tauri/src/commands/planner_executor/execution.rs"
+text = read(path)
+text = replace_once(
+    text,
+    '''pub(crate) fn execute_planner_output_with_runner<Runner>(
+''',
+    '''#[cfg(test)]
+pub(crate) fn execute_planner_output_with_runner<Runner>(
+''',
+    path,
+)
+text = replace_once(
+    text,
+    '''                pending_plan_execution,
+            };
+''',
+    '''                pending_plan_execution: Box::new(pending_plan_execution),
+            };
+''',
+    path,
+)
+write(path, text)
+
+# Keep ExecutionOutcome compact: the pending confirmation state is intentionally
+# substantial and should be held behind one indirection. Serde preserves the
+# existing JSON shape, so this is not a frontend wire-format change.
+path = "src-tauri/src/commands/contracts/planner.rs"
+text = read(path)
+text = replace_once(
+    text,
+    '''        pending_plan_execution: PendingPlanExecutionState,
+''',
+    '''        pending_plan_execution: Box<PendingPlanExecutionState>,
+''',
+    path,
+)
+write(path, text)
+
+path = "src-tauri/src/state.rs"
+text = read(path)
+text = replace_once(
+    text,
+    '''                self.pending_plan_execution = Some(pending_plan_execution.clone());
+''',
+    '''                self.pending_plan_execution = Some(pending_plan_execution.as_ref().clone());
+''',
+    path,
+)
+text = replace_once(
+    text,
+    '''            pending_plan_execution: PendingPlanExecutionState {
+''',
+    '''            pending_plan_execution: Box::new(PendingPlanExecutionState {
+''',
+    path,
+)
+text = replace_once(
+    text,
+    '''                queued_steps: Vec::new(),
+            },
+        };
+''',
+    '''                queued_steps: Vec::new(),
+            }),
+        };
+''',
+    path,
+)
+write(path, text)
