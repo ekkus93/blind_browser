@@ -1,0 +1,8 @@
+src-tauri/src/commands/action_policy.rs
+src-tauri/src/commands/mod.rs
+src-tauri/src/commands/validators/mod.rs
+src-tauri/src/commands/planner_executor/execution.rs
+src-tauri/src/app_core/command_dispatch.rs
+src-tauri/src/app_core/replanning_orchestrator.rs
+src-tauri/src/commands/tests/mod.rs
+src-tauri/src/commands/tests/security_policy.rs
