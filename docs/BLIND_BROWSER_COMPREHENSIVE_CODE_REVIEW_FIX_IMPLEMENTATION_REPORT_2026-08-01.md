@@ -79,9 +79,10 @@ Still open within BBCR-003 and BBCR-006:
 **Merged PR:** `#3`  
 **Squash merge commit:** `28a6c390ce8492bc49784b3896d0d37a64b5e55e`  
 **Temporary harness cleanup commit:** `dafa65a4c9b9f701beacff8b0f25eb5512ce1678`  
-**Post-merge evidence commit:** recorded by the commit containing the prior report update  
-**Post-merge CI:** `30718904314`, job `91419258267` — success  
-**Result:** implementation, bounded validation, PR validation, merge, harness cleanup, and permanent post-merge CI complete
+**Post-merge evidence commit:** `c80ead4ef8f0e4df68f9a69b68bd3ce186328aec`<br>
+**Post-merge CI run:** `30718904314`<br>
+**Post-merge CI job:** `91419258267`<br>
+**Result:** core implementation merged and fully validated; grounding-dependent follow-up remains open
 
 Implemented:
 
@@ -99,11 +100,12 @@ Implemented:
 - Added regression coverage for misleading planner wording, changed arguments, changed transitions, action reordering, stale page/origin, expiry, wrong ID/digest, rejection, and secret serialization.
 - Removed all branch-only finalizers and all temporary master-side BBCR-002 worker and trigger files before merge.
 
-Validation completed before merge:
+Validation evidence:
 
 - The bounded worker passed the silent-fallback scan, Rust formatting, default Rust compilation, Clippy with warnings denied, all Rust tests, frontend lint, UI tests, production frontend build, whitespace validation, harness cleanup, and final branch commit/push.
 - The owner-authored PR head passed the permanent repository CI workflow with the same Rust and frontend gates.
 - The temporary-harness cleanup base commit passed permanent `master` CI run `30718530934` before PR #3 was merged.
+- The exact post-merge evidence tree passed permanent `master` CI run `30718904314`, including formatting, compilation, Clippy, all Rust tests, frontend lint, UI tests, and the production frontend build.
 
 Still open within BBCR-002 or its grounding dependencies:
 
@@ -171,7 +173,7 @@ git diff --check
 ## TODO status summary
 
 - **BBCR-001:** Partially implemented; core actual-tool policy and executor guard complete, deterministic click authorization still open.
-- **BBCR-002:** Core immutable confirmation-manifest implementation merged; DOM-generation and element revalidation dependencies remain open.
+- **BBCR-002:** Core immutable confirmation-manifest implementation merged and fully validated; DOM-generation and element revalidation dependencies remain open.
 - **BBCR-003:** Partially implemented; strong extraction and serialization redaction exists, but distinct remote-only types and consent policy remain open.
 - **BBCR-004:** Implementation and bounded validation complete on draft PR #4; permanent exact-head PR CI and human merge decision remain open.
 - **BBCR-005:** Open.
