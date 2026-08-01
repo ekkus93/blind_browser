@@ -34,7 +34,7 @@ jobs:
       - name: Refuse unexpected branch revision
         id: branch_gate
         env:
-          EXPECTED_SHA: fe984b427d393707815f264d5a822f56bc003cec
+          EXPECTED_SHA: 36546b1fc212ea679fe00924b160990e7979234b
         run: test "$(git rev-parse HEAD)" = "${EXPECTED_SHA}"
 
       - name: Publish worker start
@@ -45,7 +45,7 @@ jobs:
             echo '# BBCR-002 worker v5'
             echo
             echo '- Status: in_progress'
-            echo '- Input branch SHA: `fe984b427d393707815f264d5a822f56bc003cec`'
+            echo '- Input branch SHA: `36546b1fc212ea679fe00924b160990e7979234b`'
             echo "- Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           } >"${RUNNER_TEMP}/status.md"
           gh issue edit 2 --repo "${GITHUB_REPOSITORY}" --body-file "${RUNNER_TEMP}/status.md"
@@ -176,7 +176,7 @@ jobs:
             echo '# BBCR-002 worker v5'
             echo
             echo "- Status: ${JOB_STATUS}"
-            echo '- Input branch SHA: `fe984b427d393707815f264d5a822f56bc003cec`'
+            echo '- Input branch SHA: `36546b1fc212ea679fe00924b160990e7979234b`'
             echo "- Implementation SHA: \`${IMPLEMENTATION_SHA:-not-created}\`"
             echo "- Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             echo
