@@ -109,19 +109,24 @@ jobs:
             echo '```text'
             python3 - <<'PY'
           from pathlib import Path
+          import os
           import re
 
-          text = Path(__import__('os').environ['RUNNER_TEMP'], 'bbcr004-clippy.log').read_text(errors='replace')
-          lines = text.splitlines()
-          indexes = [i for i, line in enumerate(lines) if re.search(r'(^|\x1b\[[0-9;]*m)error(\x1b\[[0-9;]*m)?:', line)]
-          if indexes:
-              start = max(0, indexes[0] - 3)
-              end = min(len(lines), indexes[-1] + 18)
-              selected = lines[start:end]
-          else:
-              selected = lines[-220:]
+          text = Path(os.environ['RUNNER_TEMP'], 'bbcr004-clippy.log').read_text(errors='replace')
           ansi = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
-          print('\n'.join(ansi.sub('', line) for line in selected))
+          lines = [ansi.sub('', line) for line in text.splitlines()]
+          indexes = [
+              index
+              for index, line in enumerate(lines)
+              if re.search(r'^error(?:\[[A-Z0-9]+\])?:', line)
+          ]
+          if indexes:
+              start = max(0, indexes[0] - 5)
+              end = min(len(lines), indexes[-1] + 35)
+              output = '\n'.join(lines[start:end])
+          else:
+              output = '\n'.join(lines[-700:])
+          print(output[-48_000:])
           PY
             echo '```'
             echo
