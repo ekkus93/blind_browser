@@ -34,6 +34,9 @@ jobs:
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
           test "${GITHUB_HEAD_REF}" = "agent/bbcr-004-origin-bound-credentials"
 
+          git config user.name "ekkus93"
+          git config user.email "1386709+ekkus93@users.noreply.github.com"
+
           git fetch origin master
           test "$(git rev-parse origin/master)" = "7c3c4e49ee9a6c99fbf958ef17c92e4b1f9f5369"
 
@@ -94,8 +97,5 @@ jobs:
           rm .github/workflows/bbcr-004-sync-master.yml
           git add -A
           git diff --cached --check
-
-          git config user.name "ekkus93"
-          git config user.email "1386709+ekkus93@users.noreply.github.com"
           git commit -m "merge: sync BBCR-004 with validated master evidence"
           git push origin HEAD:agent/bbcr-004-origin-bound-credentials
