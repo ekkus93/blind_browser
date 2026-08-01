@@ -50,3 +50,35 @@ replace_exact(
     "fetch_openai_compatible_models(\n        &ProviderEndpointScope::parse(&base_url)\n            .expect(\"test server URL should be a valid provider endpoint\"),",
     2,
 )
+
+replace_exact(
+    "src-tauri/src/provider_endpoint.rs",
+    '''fn is_loopback_host(host: &str) -> bool {
+    if host.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+    host.parse::<IpAddr>()
+        .map(|address| address.is_loopback())
+        .unwrap_or(false)
+}''',
+    '''fn is_loopback_host(host: &str) -> bool {
+    let host = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(host);
+    if host.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+    host.parse::<IpAddr>()
+        .map(|address| address.is_loopback())
+        .unwrap_or(false)
+}''',
+    1,
+)
+
+replace_exact(
+    "src-tauri/src/config/tests/persistence_tests.rs",
+    'message.contains("valid absolute URL")',
+    'message.contains("absolute URL")',
+    1,
+)
