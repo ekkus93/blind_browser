@@ -68,7 +68,10 @@ pub fn normalize_browser_navigation_url(raw: &str) -> Result<String, UrlPolicyEr
 
     // Reject embedded whitespace or control characters before handing to the parser,
     // because some parsers silently strip or reinterpret such characters.
-    if trimmed.chars().any(|ch| ch.is_control() || ch.is_whitespace()) {
+    if trimmed
+        .chars()
+        .any(|ch| ch.is_control() || ch.is_whitespace())
+    {
         return Err(UrlPolicyError::InvalidUrl {
             url: trimmed.to_string(),
             reason: String::from("URL contains whitespace or control characters"),
@@ -92,8 +95,7 @@ pub fn normalize_browser_navigation_url(raw: &str) -> Result<String, UrlPolicyEr
     // check alone cannot reliably catch.
     {
         let after_sep = &trimmed[trimmed.find("://").unwrap() + 3..];
-        let authority =
-            &after_sep[..after_sep.find(['/', '?', '#']).unwrap_or(after_sep.len())];
+        let authority = &after_sep[..after_sep.find(['/', '?', '#']).unwrap_or(after_sep.len())];
         // Strip userinfo ("user:pass@") and port (":N") to isolate the raw host.
         let host_part = authority.rsplit('@').next().unwrap_or(authority);
         let host_only = host_part.split(':').next().unwrap_or(host_part);

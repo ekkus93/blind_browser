@@ -600,7 +600,10 @@ mod tests {
         write_config_atomic(&path, "a = 1\n").unwrap();
 
         let tmp = dir.path().join("config.toml.tmp");
-        assert!(!tmp.exists(), "temp file must not remain after successful write");
+        assert!(
+            !tmp.exists(),
+            "temp file must not remain after successful write"
+        );
     }
 
     #[test]

@@ -26,9 +26,7 @@ fn remote_provider_label(provider: &RemoteProviderKind) -> RemoteProviderLabel {
 /// - `(Some(masked), None)` — secret resolved and masked.
 /// - `(None, None)` — secret resolved but was empty (key intentionally absent).
 /// - `(None, Some(err))` — secret configured but could not be read; surface as a warning.
-fn masked_secret_status(
-    secret_ref: &crate::config::SecretRef,
-) -> (Option<String>, Option<String>) {
+fn masked_secret_status(secret_ref: &crate::config::SecretRef) -> (Option<String>, Option<String>) {
     match crate::config::resolve_secret_ref(secret_ref) {
         Ok(secret) => {
             let trimmed = secret.trim();

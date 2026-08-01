@@ -177,8 +177,12 @@ fn download_response_to_file_atomically(
         )
     })?;
 
-    fs::create_dir_all(parent)
-        .map_err(|error| format!("failed to create model directory {}: {error}", parent.display()))?;
+    fs::create_dir_all(parent).map_err(|error| {
+        format!(
+            "failed to create model directory {}: {error}",
+            parent.display()
+        )
+    })?;
 
     let file_name = target_path
         .file_name()
@@ -352,9 +356,9 @@ mod tests {
     ) -> Result<(), String> {
         use std::io::Write;
 
-        let parent = target_path.parent().ok_or_else(|| {
-            format!("target {} has no parent directory", target_path.display())
-        })?;
+        let parent = target_path
+            .parent()
+            .ok_or_else(|| format!("target {} has no parent directory", target_path.display()))?;
 
         fs::create_dir_all(parent)
             .map_err(|e| format!("failed to create directory {}: {e}", parent.display()))?;
@@ -362,9 +366,7 @@ mod tests {
         let file_name = target_path
             .file_name()
             .and_then(|n| n.to_str())
-            .ok_or_else(|| {
-                format!("target {} has no valid file name", target_path.display())
-            })?;
+            .ok_or_else(|| format!("target {} has no valid file name", target_path.display()))?;
 
         let tmp_path = target_path.with_file_name(format!("{file_name}.part"));
 
@@ -375,7 +377,10 @@ mod tests {
 
             {
                 let mut output = fs::File::create(&tmp_path).map_err(|e| {
-                    format!("failed to create temporary file {}: {e}", tmp_path.display())
+                    format!(
+                        "failed to create temporary file {}: {e}",
+                        tmp_path.display()
+                    )
                 })?;
                 output.write_all(bytes).map_err(|e| {
                     format!("failed to write temporary file {}: {e}", tmp_path.display())
@@ -385,8 +390,13 @@ mod tests {
                 })?;
             }
 
-            if matches!(failure_point, AtomicFileFailurePoint::AfterTempWriteBeforeRename) {
-                return Err(String::from("simulated failure after temp write before rename"));
+            if matches!(
+                failure_point,
+                AtomicFileFailurePoint::AfterTempWriteBeforeRename
+            ) {
+                return Err(String::from(
+                    "simulated failure after temp write before rename",
+                ));
             }
 
             crate::atomic_file::replace_file_atomically(&tmp_path, target_path)?;
@@ -440,7 +450,10 @@ mod tests {
             error.contains("simulated failure"),
             "unexpected error: {error}"
         );
-        assert!(!target_path.exists(), "failed write must not create final target");
+        assert!(
+            !target_path.exists(),
+            "failed write must not create final target"
+        );
         assert!(
             !target_path.with_file_name("model.gguf.part").exists(),
             "failed write must remove partial file"

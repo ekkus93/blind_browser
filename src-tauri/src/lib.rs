@@ -2,8 +2,8 @@ use std::error::Error;
 use std::sync::{Arc, Mutex};
 
 pub mod app_core;
-pub mod atomic_file;
 pub mod asr;
+pub mod atomic_file;
 pub mod audio_io;
 pub mod browser;
 pub mod commands;

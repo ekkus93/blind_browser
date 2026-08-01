@@ -159,8 +159,8 @@ mod tests {
     fn parse_remote_transcription_text_requires_text_field() {
         let parsed = serde_json::json!({ "duration": 1.0 });
 
-        let error = parse_remote_transcription_text(&parsed)
-            .expect_err("missing text must be an error");
+        let error =
+            parse_remote_transcription_text(&parsed).expect_err("missing text must be an error");
 
         assert!(
             error.to_string().contains("text"),
