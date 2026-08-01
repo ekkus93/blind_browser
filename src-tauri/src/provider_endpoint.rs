@@ -7,7 +7,6 @@ use url::Url;
 pub struct ProviderEndpointScope {
     normalized_base_url: String,
     origin: String,
-    path_prefix: String,
     scope_id: String,
 }
 
@@ -79,7 +78,6 @@ impl ProviderEndpointScope {
         Ok(Self {
             normalized_base_url,
             origin,
-            path_prefix,
             scope_id,
         })
     }
@@ -90,10 +88,6 @@ impl ProviderEndpointScope {
 
     pub fn origin(&self) -> &str {
         &self.origin
-    }
-
-    pub fn path_prefix(&self) -> &str {
-        &self.path_prefix
     }
 
     pub fn scope_id(&self) -> &str {
@@ -137,7 +131,6 @@ mod tests {
             .expect("endpoint should normalize");
         assert_eq!(scope.normalized_base_url(), "https://api.example.com/v1");
         assert_eq!(scope.origin(), "https://api.example.com");
-        assert_eq!(scope.path_prefix(), "/v1");
         assert_eq!(scope.models_url(), "https://api.example.com/v1/models");
     }
 
