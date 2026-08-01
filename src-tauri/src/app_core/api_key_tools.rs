@@ -1,9 +1,9 @@
 use std::time::Duration;
 
-#[cfg(feature = "remote-openai")]
-use crate::config::resolve_secret_ref;
-use crate::config::RemoteProviderKind;
+use crate::config::{resolve_secret_ref_for_endpoint, RemoteProviderKind};
+use crate::provider_endpoint::ProviderEndpointScope;
 use reqwest::blocking::Client;
+use reqwest::redirect::Policy;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RemoteApiKeyTarget {
@@ -18,6 +18,14 @@ impl RemoteApiKeyTarget {
             Self::Planner => "planner",
             Self::Tts => "TTS",
             Self::Asr => "ASR",
+        }
+    }
+
+    pub(crate) fn provider_kind(self) -> &'static str {
+        match self {
+            Self::Planner => "planner",
+            Self::Tts => "tts",
+            Self::Asr => "asr",
         }
     }
 }
@@ -45,9 +53,25 @@ pub(crate) fn test_remote_openai_profile_api_key(
         ));
     }
 
-    let api_key = match api_key_override.map(str::trim) {
-        Some(override_value) if !override_value.is_empty() => override_value.to_string(),
-        _ => resolve_secret_ref(profile.configured_api_key).map_err(|reason| {
+    let endpoint_scope = ProviderEndpointScope::parse(profile.base_url).map_err(|reason| {
+        format!(
+            "Remote {} profile '{}' has an invalid endpoint: {reason}",
+            target.label(),
+            profile.profile_name
+        )
+    })?;
+    let entered_key = api_key_override
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let api_key = match entered_key {
+        Some(value) => value.to_string(),
+        None => resolve_secret_ref_for_endpoint(
+            profile.configured_api_key,
+            target.provider_kind(),
+            profile.profile_name,
+            &endpoint_scope,
+        )
+        .map_err(|reason| {
             format!(
                 "Remote {} API key test could not read the configured secret: {reason}",
                 target.label()
@@ -56,7 +80,14 @@ pub(crate) fn test_remote_openai_profile_api_key(
     };
     let organization = profile
         .organization
-        .map(resolve_secret_ref)
+        .map(|secret| {
+            resolve_secret_ref_for_endpoint(
+                secret,
+                target.provider_kind(),
+                profile.profile_name,
+                &endpoint_scope,
+            )
+        })
         .transpose()
         .map_err(|reason| {
             format!(
@@ -66,35 +97,36 @@ pub(crate) fn test_remote_openai_profile_api_key(
         })?;
 
     test_openai_api_key_connectivity(
-        profile.base_url,
+        &endpoint_scope,
         &api_key,
         organization.as_deref(),
         profile.project,
         profile.timeout_ms,
     )?;
 
-    Ok(match api_key_override.map(str::trim) {
-        Some(override_value) if !override_value.is_empty() => {
-            String::from("OpenAI accepted the entered API key.")
-        }
-        _ => String::from("OpenAI accepted the configured API key."),
+    Ok(match entered_key {
+        Some(_) => format!(
+            "OpenAI accepted the entered API key for {}.",
+            endpoint_scope.normalized_base_url()
+        ),
+        None => format!(
+            "OpenAI accepted the configured API key for {}.",
+            endpoint_scope.normalized_base_url()
+        ),
     })
 }
 
 pub(crate) fn test_openai_api_key_connectivity(
-    base_url: &str,
+    endpoint_scope: &ProviderEndpointScope,
     api_key: &str,
     organization: Option<&str>,
     project: Option<&str>,
     timeout_ms: u64,
 ) -> Result<(), String> {
-    let endpoint = format!("{}/models", base_url.trim_end_matches('/'));
-    let client = Client::builder()
-        .timeout(Duration::from_millis(timeout_ms.max(1)))
-        .build()
-        .map_err(|error| format!("failed to build the OpenAI API key test client: {error}"))?;
-
-    let mut request = client.get(endpoint).bearer_auth(api_key);
+    let client = credential_client(timeout_ms, "OpenAI API key test")?;
+    let mut request = client
+        .get(endpoint_scope.models_url())
+        .bearer_auth(api_key);
     if let Some(organization) = organization {
         request = request.header("OpenAI-Organization", organization);
     }
@@ -110,8 +142,7 @@ pub(crate) fn test_openai_api_key_connectivity(
         return Ok(());
     }
 
-    let status = response.status();
-    Err(openai_api_key_test_failure_message(status))
+    Err(openai_api_key_test_failure_message(response.status()))
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -125,19 +156,15 @@ struct OpenAiCompatibleModelEntry {
 }
 
 pub(crate) fn fetch_openai_compatible_models(
-    base_url: &str,
+    endpoint_scope: &ProviderEndpointScope,
     api_key: Option<&str>,
     organization: Option<&str>,
     project: Option<&str>,
     timeout_ms: u64,
 ) -> Result<Vec<String>, String> {
-    let endpoint = format!("{}/models", base_url.trim().trim_end_matches('/'));
-    let client = Client::builder()
-        .timeout(Duration::from_millis(timeout_ms.max(1)))
-        .build()
-        .map_err(|error| format!("failed to build the remote model list client: {error}"))?;
+    let client = credential_client(timeout_ms, "remote model list")?;
 
-    let mut request = client.get(endpoint);
+    let mut request = client.get(endpoint_scope.models_url());
     if let Some(api_key) = api_key.filter(|value| !value.trim().is_empty()) {
         request = request.bearer_auth(api_key.trim());
     }
@@ -160,6 +187,13 @@ pub(crate) fn fetch_openai_compatible_models(
             ),
             reqwest::StatusCode::FORBIDDEN => String::from(
                 "The endpoint refused this model list request. Check that the current API key has access.",
+            ),
+            reqwest::StatusCode::MOVED_PERMANENTLY
+            | reqwest::StatusCode::FOUND
+            | reqwest::StatusCode::SEE_OTHER
+            | reqwest::StatusCode::TEMPORARY_REDIRECT
+            | reqwest::StatusCode::PERMANENT_REDIRECT => String::from(
+                "The endpoint attempted to redirect a credential-bearing model request. Redirects are not allowed.",
             ),
             _ => format!("The endpoint returned {} while loading models.", status),
         });
@@ -185,6 +219,22 @@ pub(crate) fn fetch_openai_compatible_models(
     Ok(models)
 }
 
+pub(crate) fn credential_async_client(timeout_ms: u64) -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .timeout(Duration::from_millis(timeout_ms.max(1)))
+        .redirect(Policy::none())
+        .build()
+        .map_err(|error| format!("failed to build credential-bearing HTTP client: {error}"))
+}
+
+fn credential_client(timeout_ms: u64, purpose: &str) -> Result<Client, String> {
+    Client::builder()
+        .timeout(Duration::from_millis(timeout_ms.max(1)))
+        .redirect(Policy::none())
+        .build()
+        .map_err(|error| format!("failed to build the {purpose} client: {error}"))
+}
+
 fn openai_api_key_test_failure_message(status: reqwest::StatusCode) -> String {
     match status {
         reqwest::StatusCode::UNAUTHORIZED => String::from(
@@ -196,6 +246,13 @@ fn openai_api_key_test_failure_message(status: reqwest::StatusCode) -> String {
         reqwest::StatusCode::TOO_MANY_REQUESTS => {
             String::from("OpenAI rate-limited the API key test. Wait a moment and try again.")
         }
+        reqwest::StatusCode::MOVED_PERMANENTLY
+        | reqwest::StatusCode::FOUND
+        | reqwest::StatusCode::SEE_OTHER
+        | reqwest::StatusCode::TEMPORARY_REDIRECT
+        | reqwest::StatusCode::PERMANENT_REDIRECT => String::from(
+            "OpenAI attempted to redirect the credential-bearing API key test. Redirects are not allowed.",
+        ),
         reqwest::StatusCode::REQUEST_TIMEOUT
         | reqwest::StatusCode::GATEWAY_TIMEOUT
         | reqwest::StatusCode::BAD_GATEWAY
@@ -206,5 +263,64 @@ fn openai_api_key_test_failure_message(status: reqwest::StatusCode) -> String {
             "OpenAI could not verify the API key right now (HTTP {}).",
             status.as_u16()
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    use super::*;
+
+    #[test]
+    fn credential_bearing_requests_do_not_follow_redirects() {
+        let destination = TcpListener::bind("127.0.0.1:0").unwrap();
+        destination.set_nonblocking(true).unwrap();
+        let destination_address = destination.local_addr().unwrap();
+        let (destination_tx, destination_rx) = mpsc::channel();
+        let destination_thread = thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_millis(750);
+            while Instant::now() < deadline {
+                match destination.accept() {
+                    Ok((_stream, _)) => {
+                        let _ = destination_tx.send(true);
+                        return;
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(_) => return,
+                }
+            }
+        });
+
+        let redirect = TcpListener::bind("127.0.0.1:0").unwrap();
+        let redirect_address = redirect.local_addr().unwrap();
+        let redirect_thread = thread::spawn(move || {
+            let (mut stream, _) = redirect.accept().unwrap();
+            let mut buffer = [0_u8; 2048];
+            let _ = stream.read(&mut buffer);
+            write!(
+                stream,
+                "HTTP/1.1 302 Found\r\nLocation: http://{destination_address}/models\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            )
+            .unwrap();
+        });
+
+        let scope = ProviderEndpointScope::parse(&format!(
+            "http://{redirect_address}/v1"
+        ))
+        .unwrap();
+        let error = test_openai_api_key_connectivity(&scope, "secret", None, None, 2_000)
+            .expect_err("redirect must be rejected");
+        assert!(error.contains("Redirects are not allowed"));
+        assert!(destination_rx.recv_timeout(Duration::from_millis(900)).is_err());
+
+        redirect_thread.join().unwrap();
+        destination_thread.join().unwrap();
     }
 }
