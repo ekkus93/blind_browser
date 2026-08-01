@@ -47,6 +47,7 @@ pub async fn resolve_command(
 #[tauri::command]
 pub async fn submit_confirmation_response(
     confirmation_id: String,
+    confirmation_digest: String,
     confirmed: bool,
     timed_out: bool,
     app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
@@ -54,7 +55,12 @@ pub async fn submit_confirmation_response(
     let core = Arc::clone(&app_core);
     tauri::async_runtime::spawn_blocking(move || {
         let mut guard = lock_app_core(&core)?;
-        Ok(guard.submit_confirmation_response(&confirmation_id, confirmed, timed_out))
+        Ok(guard.submit_confirmation_response(
+            &confirmation_id,
+            &confirmation_digest,
+            confirmed,
+            timed_out,
+        ))
     })
     .await
     .map_err(join_error_to_tool_error)?

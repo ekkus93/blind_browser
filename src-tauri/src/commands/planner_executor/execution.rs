@@ -1,11 +1,11 @@
 use super::super::{
-    evaluate_action_policy, ConfirmationRequirement, ExecutionOutcome, ExecutionTrace,
+    build_confirmation_manifest, evaluate_action_policy, validate_pending_confirmation_manifest,
+    ConfirmationRequirement, ConfirmationRuntimeContext, ExecutionOutcome, ExecutionTrace,
     PendingPlanExecutionState, PlannedStep, PlannerOutput, PlannerSafetySettings, PlannerStatus,
     SerializedToolResult, StepTransition, ToolError,
 };
 use super::step_helpers::{
-    build_step_positions, extract_confirmation_id, extract_confirmation_prompt_text,
-    queued_step_ids_after, queued_steps_after,
+    build_step_positions, extract_confirmation_id, queued_step_ids_after, queued_steps_after,
 };
 use super::tool_dispatch::is_side_effecting_tool;
 use super::StepExecutionContext;
@@ -60,9 +60,23 @@ fn resumed_execution_policy_error(steps: &[PlannedStep]) -> Option<ToolError> {
     None
 }
 
+#[cfg(test)]
 pub(crate) fn execute_planner_output_with_runner<Runner>(
     request_id: String,
     planner_output: &PlannerOutput,
+    run_step: Runner,
+) -> ExecutionOutcome
+where
+    Runner: FnMut(&PlannedStep) -> SerializedToolResult,
+{
+    let context = ConfirmationRuntimeContext::detached();
+    execute_planner_output_with_runner_and_context(request_id, planner_output, &context, run_step)
+}
+
+pub(crate) fn execute_planner_output_with_runner_and_context<Runner>(
+    request_id: String,
+    planner_output: &PlannerOutput,
+    confirmation_context: &ConfirmationRuntimeContext,
     mut run_step: Runner,
 ) -> ExecutionOutcome
 where
@@ -126,16 +140,19 @@ where
             initial_step_id: current_step_id,
             block_side_effects_until_confirmation: planner_output.status
                 == PlannerStatus::NeedsConfirmation,
+            confirmation_context,
         },
         &mut run_step,
         trace,
     )
 }
 
-pub(super) fn resume_after_confirmation_with_runner<Runner>(
+pub(super) fn resume_after_confirmation_with_runner_and_context<Runner>(
     pending_plan_execution: &PendingPlanExecutionState,
     confirmation_id: &str,
+    confirmation_digest: &str,
     confirmed: bool,
+    confirmation_context: &ConfirmationRuntimeContext,
     mut run_step: Runner,
 ) -> ExecutionOutcome
 where
@@ -145,10 +162,6 @@ where
         executed_step_ids: Vec::new(),
         tool_results: Vec::new(),
     };
-
-    if let Some(error) = resumed_execution_policy_error(&pending_plan_execution.queued_steps) {
-        return ExecutionOutcome::Aborted { trace, error };
-    }
 
     if pending_plan_execution.confirmation_id != confirmation_id {
         return ExecutionOutcome::Aborted {
@@ -167,6 +180,18 @@ where
         };
     }
 
+    if let Err(error) = validate_pending_confirmation_manifest(
+        pending_plan_execution,
+        confirmation_digest,
+        confirmation_context,
+    ) {
+        return ExecutionOutcome::Aborted { trace, error };
+    }
+
+    if let Some(error) = resumed_execution_policy_error(&pending_plan_execution.queued_steps) {
+        return ExecutionOutcome::Aborted { trace, error };
+    }
+
     if !confirmed {
         return ExecutionOutcome::NeedsReplan { trace };
     }
@@ -183,6 +208,7 @@ where
             steps: &pending_plan_execution.queued_steps,
             initial_step_id: next_step_id,
             block_side_effects_until_confirmation: false,
+            confirmation_context,
         },
         &mut run_step,
         trace,
@@ -204,6 +230,7 @@ where
         steps,
         initial_step_id,
         block_side_effects_until_confirmation,
+        confirmation_context,
     } = context;
 
     let step_positions = match build_step_positions(steps) {
@@ -280,15 +307,67 @@ where
             };
         }
 
-        let result = run_step(step);
-        trace.executed_step_ids.push(step.step_id.clone());
-        trace.tool_results.push(result.clone());
-
+        let mut result = run_step(step);
         let transition = if result.ok {
-            &step.on_success
+            step.on_success.clone()
         } else {
-            &step.on_failure
+            step.on_failure.clone()
         };
+
+        if transition == StepTransition::RequestConfirmation {
+            let confirmation_id = match extract_confirmation_id(&result) {
+                Ok(confirmation_id) => confirmation_id,
+                Err(error) => {
+                    return ExecutionOutcome::Aborted { trace, error };
+                }
+            };
+            let queued_step_ids = queued_step_ids_after(steps, step, &step_positions);
+            let queued_steps = queued_steps_after(steps, step, &step_positions);
+            let built_manifest =
+                match build_confirmation_manifest(&request_id, &queued_steps, confirmation_context)
+                {
+                    Ok(manifest) => manifest,
+                    Err(error) => {
+                        return ExecutionOutcome::Aborted { trace, error };
+                    }
+                };
+
+            if let Some(serde_json::Value::Object(data)) = result.data.as_mut() {
+                data.insert(
+                    String::from("prompt_text"),
+                    serde_json::Value::String(built_manifest.prompt_text.clone()),
+                );
+                data.insert(
+                    String::from("manifest_digest"),
+                    serde_json::Value::String(built_manifest.digest.clone()),
+                );
+            }
+
+            trace.executed_step_ids.push(step.step_id.clone());
+            trace.tool_results.push(result);
+
+            let pending_plan_execution = PendingPlanExecutionState {
+                request_id,
+                intent_name: intent_name.clone(),
+                selected_skills: selected_skills.clone(),
+                confirmation_id: confirmation_id.clone(),
+                manifest_digest: built_manifest.digest,
+                manifest: built_manifest.manifest,
+                prompt_text: built_manifest.prompt_text,
+                next_step_id: queued_step_ids.first().cloned(),
+                queued_step_ids,
+                queued_steps,
+            };
+
+            return ExecutionOutcome::AwaitingConfirmation {
+                trace,
+                pending_confirmation_id: confirmation_id,
+                pending_plan_execution: Box::new(pending_plan_execution),
+            };
+        }
+
+        trace.executed_step_ids.push(step.step_id.clone());
+        trace.tool_results.push(result);
 
         match transition {
             StepTransition::NextStep { step_id } => {
@@ -306,44 +385,12 @@ where
                         },
                     };
                 }
-                current_step_id = step_id.clone();
+                current_step_id = step_id;
             }
             StepTransition::Complete => {
                 return ExecutionOutcome::Complete { trace };
             }
-            StepTransition::RequestConfirmation => {
-                let confirmation_id = match extract_confirmation_id(&result) {
-                    Ok(confirmation_id) => confirmation_id,
-                    Err(error) => {
-                        return ExecutionOutcome::Aborted { trace, error };
-                    }
-                };
-                let prompt_text = match extract_confirmation_prompt_text(&result) {
-                    Ok(prompt_text) => prompt_text,
-                    Err(error) => {
-                        return ExecutionOutcome::Aborted { trace, error };
-                    }
-                };
-
-                let queued_step_ids = queued_step_ids_after(steps, step, &step_positions);
-                let queued_steps = queued_steps_after(steps, step, &step_positions);
-                let pending_plan_execution = PendingPlanExecutionState {
-                    request_id,
-                    intent_name: intent_name.clone(),
-                    selected_skills: selected_skills.clone(),
-                    confirmation_id: confirmation_id.clone(),
-                    prompt_text,
-                    next_step_id: queued_step_ids.first().cloned(),
-                    queued_step_ids,
-                    queued_steps,
-                };
-
-                return ExecutionOutcome::AwaitingConfirmation {
-                    trace,
-                    pending_confirmation_id: confirmation_id,
-                    pending_plan_execution,
-                };
-            }
+            StepTransition::RequestConfirmation => unreachable!("handled before trace commit"),
             StepTransition::Replan => {
                 return ExecutionOutcome::NeedsReplan { trace };
             }

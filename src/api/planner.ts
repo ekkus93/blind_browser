@@ -34,6 +34,7 @@ export async function submitConfirmationResponse(
 ): Promise<ConfirmActionResolution> {
   return invokeCommand<ConfirmActionResolution>("submit_confirmation_response", {
     confirmationId: input.confirmationId,
+    confirmationDigest: input.confirmationDigest,
     confirmed: input.confirmed,
     timedOut: input.timedOut,
   });

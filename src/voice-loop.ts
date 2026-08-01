@@ -286,6 +286,7 @@ export function submitConfirmationAction(action: "approve" | "reject", confirmat
   void resolveConfirmationResponse(
     {
       confirmationId,
+      confirmationDigest: confirmationState.confirmationDigest,
       confirmed,
       timedOut: false,
     },

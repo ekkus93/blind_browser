@@ -35,6 +35,7 @@ export type ConfirmationUiState =
       isSubmitting: boolean;
       submissionError: ConfirmationSubmissionFailure | null;
       confirmationId: string;
+      confirmationDigest: string;
       promptText: string;
       requestId: string;
       selectedSkills: string[];
@@ -191,6 +192,7 @@ export function applyExecutionOutcomeToUiState(
       isSubmitting: false,
       submissionError: null,
       confirmationId: outcome.AwaitingConfirmation.pending_confirmation_id,
+      confirmationDigest: pending.manifest_digest,
       promptText: pending.prompt_text,
       requestId: pending.request_id,
       selectedSkills: pending.selected_skills,

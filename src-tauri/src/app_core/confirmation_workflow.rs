@@ -1,53 +1,66 @@
 use crate::commands::{
-    resume_after_confirmation, ConfirmActionData, ConfirmActionInput, ConfirmActionResolution,
-    ExecutionOutcome, ExecutionTrace, ToolError, ToolName, ToolResult,
+    resume_after_confirmation_with_context, ConfirmActionData, ConfirmActionInput,
+    ConfirmActionResolution, ConfirmationRuntimeContext, ExecutionOutcome, ExecutionTrace,
+    ToolError, ToolName, ToolResult,
 };
 
 impl super::AppCore {
     pub fn resume_after_confirmation(
         &mut self,
         confirmation_id: &str,
+        confirmation_digest: &str,
         confirmed: bool,
     ) -> ExecutionOutcome {
         let Some(pending_plan_execution) = self.state.pending_plan_execution.clone() else {
-            return ExecutionOutcome::Aborted {
-                trace: ExecutionTrace {
-                    executed_step_ids: Vec::new(),
-                    tool_results: Vec::new(),
-                },
-                error: ToolError {
-                    code: String::from("missing_pending_execution"),
-                    message: String::from(
-                        "there is no pending plan execution to resume for confirmation",
-                    ),
-                    retryable: false,
-                    details: None,
-                },
-            };
+            return confirmation_abort(
+                "missing_pending_execution",
+                "there is no pending plan execution to resume for confirmation",
+                None,
+            );
         };
 
-        if self.state.pending_confirmation_id.as_deref() != Some(confirmation_id) {
-            return ExecutionOutcome::Aborted {
-                trace: ExecutionTrace {
-                    executed_step_ids: Vec::new(),
-                    tool_results: Vec::new(),
-                },
-                error: ToolError {
-                    code: String::from("confirmation_id_mismatch"),
-                    message: String::from(
-                        "confirmation response did not match the stored pending confirmation id",
-                    ),
-                    retryable: false,
-                    details: Some(serde_json::json!({
-                        "expected_confirmation_id": self.state.pending_confirmation_id,
-                        "received_confirmation_id": confirmation_id,
-                    })),
-                },
-            };
+        if self.state.pending_confirmation_id.as_deref() != Some(confirmation_id)
+            || pending_plan_execution.confirmation_id != confirmation_id
+        {
+            return confirmation_abort(
+                "confirmation_id_mismatch",
+                "confirmation response did not match the stored pending confirmation id",
+                Some(serde_json::json!({
+                    "expected_confirmation_id": self.state.pending_confirmation_id,
+                    "received_confirmation_id": confirmation_id,
+                })),
+            );
         }
 
-        let outcome =
-            resume_after_confirmation(self, &pending_plan_execution, confirmation_id, confirmed);
+        if pending_plan_execution.manifest_digest != confirmation_digest {
+            return confirmation_abort(
+                "confirmation_digest_mismatch",
+                "confirmation response did not match the stored pending action manifest",
+                Some(serde_json::json!({
+                    "received_digest_present": !confirmation_digest.trim().is_empty(),
+                })),
+            );
+        }
+
+        let confirmation_context = ConfirmationRuntimeContext::current(
+            self.state.current_page_id.clone(),
+            self.state
+                .current_page
+                .as_ref()
+                .and_then(|page| page.url.clone()),
+        );
+
+        // Matching challenges are consumed before dispatch so duplicate responses,
+        // re-entrant UI events, and retries cannot execute the protected action twice.
+        self.state.clear_pending_execution();
+        let outcome = resume_after_confirmation_with_context(
+            self,
+            &pending_plan_execution,
+            confirmation_id,
+            confirmation_digest,
+            confirmed,
+            &confirmation_context,
+        );
         self.state.apply_execution_outcome(&outcome);
         outcome
     }
@@ -55,6 +68,7 @@ impl super::AppCore {
     pub fn submit_confirmation_response(
         &mut self,
         confirmation_id: &str,
+        confirmation_digest: &str,
         confirmed: bool,
         timed_out: bool,
     ) -> ConfirmActionResolution {
@@ -62,12 +76,16 @@ impl super::AppCore {
             .state
             .pending_plan_execution
             .as_ref()
-            .filter(|pending| pending.confirmation_id == confirmation_id)
+            .filter(|pending| {
+                pending.confirmation_id == confirmation_id
+                    && pending.manifest_digest == confirmation_digest
+            })
             .map(|pending| pending.prompt_text.clone())
             .unwrap_or_default();
 
         let should_resume = confirmed && !timed_out;
-        let resume_outcome = self.resume_after_confirmation(confirmation_id, should_resume);
+        let resume_outcome =
+            self.resume_after_confirmation(confirmation_id, confirmation_digest, should_resume);
         let tool_result = match &resume_outcome {
             ExecutionOutcome::Aborted { error, .. } => ToolResult::failure(
                 ToolName::ConfirmAction,
@@ -102,8 +120,7 @@ impl super::AppCore {
         &mut self,
         input: ConfirmActionInput,
     ) -> ToolResult<ConfirmActionData> {
-        let prompt_text = input.prompt_text.trim().to_string();
-        if prompt_text.is_empty() {
+        if input.prompt_text.trim().is_empty() {
             return ToolResult::failure(
                 ToolName::ConfirmAction,
                 input.request_id,
@@ -119,22 +136,40 @@ impl super::AppCore {
             );
         }
 
-        let mut observations = vec![String::from("Prepared a confirmation prompt for the user.")];
-        let reason = input.reason.trim();
-        if !reason.is_empty() {
-            observations.push(reason.to_string());
-        }
-
         ToolResult::success(
             ToolName::ConfirmAction,
             input.request_id.clone(),
             ConfirmActionData {
                 confirmation_id: self.next_confirmation_id(&input.request_id),
-                prompt_text,
+                // Planner-authored wording is deliberately not surfaced. The
+                // executor replaces this placeholder with its deterministic
+                // action-manifest summary before returning the challenge.
+                prompt_text: String::from("Protected action confirmation pending."),
                 confirmed: None,
                 timed_out: false,
             },
-            observations,
+            vec![String::from(
+                "Prepared a deterministic confirmation challenge for protected actions.",
+            )],
         )
+    }
+}
+
+fn confirmation_abort(
+    code: &str,
+    message: &str,
+    details: Option<serde_json::Value>,
+) -> ExecutionOutcome {
+    ExecutionOutcome::Aborted {
+        trace: ExecutionTrace {
+            executed_step_ids: Vec::new(),
+            tool_results: Vec::new(),
+        },
+        error: ToolError {
+            code: code.to_string(),
+            message: message.to_string(),
+            retryable: false,
+            details,
+        },
     }
 }

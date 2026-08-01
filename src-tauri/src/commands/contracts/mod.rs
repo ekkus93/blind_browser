@@ -114,6 +114,10 @@ impl<T> ToolResult<T> {
 }
 
 pub trait DeterministicToolExecutor {
+    fn confirmation_runtime_context(&self) -> ConfirmationRuntimeContext {
+        ConfirmationRuntimeContext::detached()
+    }
+
     fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData>;
     fn execute_go_back(&mut self, input: GoBackInput) -> ToolResult<GoBackData>;
     fn execute_go_forward(&mut self, input: GoForwardInput) -> ToolResult<GoForwardData>;

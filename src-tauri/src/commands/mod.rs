@@ -17,6 +17,7 @@ use crate::page_model::{ExtractionSource, InteractiveElement, PageModel, Rect};
 use crate::state::{BrowserHistoryState, ListeningState};
 
 mod action_policy;
+mod confirmation_manifest;
 mod contracts;
 mod planner_executor;
 mod registry;
@@ -27,6 +28,7 @@ mod skill_parser;
 mod validators;
 
 pub use action_policy::*;
+pub use confirmation_manifest::*;
 pub use contracts::*;
 pub use planner_executor::*;
 pub use registry::*;
@@ -65,7 +67,7 @@ const LARGE_SPEED_STEP: f32 = 0.50;
 /// (which would collapse to duplicate, non-informative ids).
 static FALLBACK_TIMESTAMP_COUNTER: AtomicU64 = AtomicU64::new(1);
 
-fn current_timestamp_ms() -> u64 {
+pub(crate) fn current_timestamp_ms() -> u64 {
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()

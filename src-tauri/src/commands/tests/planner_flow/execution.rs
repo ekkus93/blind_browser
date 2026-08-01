@@ -259,7 +259,13 @@ fn returns_awaiting_confirmation_when_transition_requests_it() {
             assert_eq!(pending_confirmation_id, "confirm-1");
             assert_eq!(pending_plan_execution.request_id, "req-confirm");
             assert_eq!(pending_plan_execution.intent_name, IntentName::ClickElement);
-            assert_eq!(pending_plan_execution.prompt_text, "Proceed?");
+            assert_eq!(
+                pending_plan_execution.prompt_text,
+                "Approve this action: Change browser visibility."
+            );
+            assert_ne!(pending_plan_execution.prompt_text, "Proceed?");
+            assert_eq!(pending_plan_execution.manifest.actions.len(), 1);
+            assert!(!pending_plan_execution.manifest_digest.is_empty());
             assert_eq!(
                 pending_plan_execution.next_step_id,
                 Some(String::from("step-2"))

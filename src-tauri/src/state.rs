@@ -128,7 +128,7 @@ impl AppState {
                 ..
             } => {
                 self.pending_confirmation_id = Some(pending_confirmation_id.clone());
-                self.pending_plan_execution = Some(pending_plan_execution.clone());
+                self.pending_plan_execution = Some(pending_plan_execution.as_ref().clone());
             }
             ExecutionOutcome::Complete { .. }
             | ExecutionOutcome::NeedsReplan { .. }
@@ -179,8 +179,8 @@ mod tests {
     use super::*;
 
     use crate::commands::{
-        ExecutionTrace, IntentName, PendingPlanExecutionState, SerializedToolResult, ToolError,
-        ToolName,
+        ConfirmationManifest, ExecutionTrace, IntentName, PendingPlanExecutionState,
+        SerializedToolResult, ToolError, ToolName,
     };
     use crate::config::{AppConfig, AudioSettings};
 
@@ -200,16 +200,25 @@ mod tests {
                 )],
             },
             pending_confirmation_id: String::from("confirm-1"),
-            pending_plan_execution: PendingPlanExecutionState {
+            pending_plan_execution: Box::new(PendingPlanExecutionState {
                 request_id: String::from("req-1"),
                 intent_name: IntentName::ClickElement,
                 selected_skills: vec![String::from("confirm_action")],
                 confirmation_id: String::from("confirm-1"),
+                manifest_digest: String::from("digest-1"),
+                manifest: ConfirmationManifest {
+                    request_id: String::from("req-1"),
+                    page_id: None,
+                    origin: None,
+                    issued_at_ms: 1,
+                    expires_at_ms: 2,
+                    actions: Vec::new(),
+                },
                 prompt_text: String::from("Proceed?"),
                 next_step_id: Some(String::from("step-2")),
                 queued_step_ids: vec![String::from("step-2")],
                 queued_steps: Vec::new(),
-            },
+            }),
         };
 
         state.apply_execution_outcome(&outcome);
@@ -241,6 +250,15 @@ mod tests {
                 intent_name: IntentName::ClickElement,
                 selected_skills: vec![String::from("confirm_action")],
                 confirmation_id: String::from("confirm-1"),
+                manifest_digest: String::from("digest-1"),
+                manifest: ConfirmationManifest {
+                    request_id: String::from("req-1"),
+                    page_id: None,
+                    origin: None,
+                    issued_at_ms: 1,
+                    expires_at_ms: 2,
+                    actions: Vec::new(),
+                },
                 prompt_text: String::from("Proceed?"),
                 next_step_id: Some(String::from("step-2")),
                 queued_step_ids: vec![String::from("step-2")],
