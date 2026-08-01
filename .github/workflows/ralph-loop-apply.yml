@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: ralph-loop-apply-master
@@ -26,6 +27,7 @@ jobs:
           fetch-depth: 0
 
       - name: Refuse moved branch
+        id: branch_gate
         shell: bash
         env:
           TRIGGER_SHA: ${{ github.sha }}
@@ -34,12 +36,35 @@ jobs:
           current_sha="$(git rev-parse HEAD)"
           test "${current_sha}" = "${TRIGGER_SHA}"
 
+      - name: Publish batch start
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          body_file="${RUNNER_TEMP}/ralph-loop-status.md"
+          cat >"${body_file}" <<EOF
+          <!-- maintained by the temporary Ralph Loop apply workflow -->
+          # Ralph Loop batch status
+
+          - **Status:** \`in_progress\`
+          - **Trigger SHA:** \`${GITHUB_SHA}\`
+          - **Run:** [${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+          - **Batch commit message:** \`$(cat .github/ralph-loop/commit_message.txt)\`
+          - **Patch file:** \`.github/ralph-loop/current_patch.py\`
+
+          The issue is overwritten by each bounded implementation batch.
+          EOF
+          gh issue edit 2 --repo "${GITHUB_REPOSITORY}" --body-file "${body_file}"
+
       - name: Set up Rust
+        id: rust_setup
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
 
       - name: Install native dependencies
+        id: native_dependencies
         shell: bash
         run: |
           set -euo pipefail
@@ -62,12 +87,14 @@ jobs:
             tesseract-ocr
 
       - name: Apply current bounded patch
+        id: apply_patch
         shell: bash
         run: |
           set -euo pipefail
           python3 .github/ralph-loop/current_patch.py
 
       - name: Refuse changes outside current allowlist
+        id: allowlist
         shell: bash
         run: |
           set -euo pipefail
@@ -84,6 +111,7 @@ jobs:
           done
 
       - name: Validate Rust batch
+        id: validate
         shell: bash
         run: |
           set -euo pipefail
@@ -94,6 +122,7 @@ jobs:
           git diff --check
 
       - name: Commit validated batch
+        id: commit
         shell: bash
         run: |
           set -euo pipefail
@@ -102,3 +131,46 @@ jobs:
           git add -- $(cat .github/ralph-loop/allowed_paths.txt)
           git commit -m "$(cat .github/ralph-loop/commit_message.txt)"
           git push origin HEAD:master
+          echo "implementation_sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish batch result
+        if: ${{ always() }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_GATE_OUTCOME: ${{ steps.branch_gate.outcome }}
+          RUST_SETUP_OUTCOME: ${{ steps.rust_setup.outcome }}
+          NATIVE_DEPENDENCIES_OUTCOME: ${{ steps.native_dependencies.outcome }}
+          APPLY_PATCH_OUTCOME: ${{ steps.apply_patch.outcome }}
+          ALLOWLIST_OUTCOME: ${{ steps.allowlist.outcome }}
+          VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
+          COMMIT_OUTCOME: ${{ steps.commit.outcome }}
+          IMPLEMENTATION_SHA: ${{ steps.commit.outputs.implementation_sha }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          body_file="${RUNNER_TEMP}/ralph-loop-status-final.md"
+          observed_sha="${IMPLEMENTATION_SHA:-${GITHUB_SHA}}"
+          cat >"${body_file}" <<EOF
+          <!-- maintained by the temporary Ralph Loop apply workflow -->
+          # Ralph Loop batch status
+
+          - **Status:** \`${JOB_STATUS}\`
+          - **Trigger SHA:** \`${GITHUB_SHA}\`
+          - **Observed implementation SHA:** \`${observed_sha}\`
+          - **Run:** [${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+          - **Batch commit message:** \`$(cat .github/ralph-loop/commit_message.txt)\`
+
+          ## Step outcomes
+
+          - Branch gate: \`${BRANCH_GATE_OUTCOME}\`
+          - Rust setup: \`${RUST_SETUP_OUTCOME}\`
+          - Native dependencies: \`${NATIVE_DEPENDENCIES_OUTCOME}\`
+          - Apply patch: \`${APPLY_PATCH_OUTCOME}\`
+          - Allowlist: \`${ALLOWLIST_OUTCOME}\`
+          - Validation: \`${VALIDATE_OUTCOME}\`
+          - Commit/push: \`${COMMIT_OUTCOME}\`
+
+          This issue is overwritten by each bounded implementation batch and will be closed at final signoff.
+          EOF
+          gh issue edit 2 --repo "${GITHUB_REPOSITORY}" --body-file "${body_file}"
