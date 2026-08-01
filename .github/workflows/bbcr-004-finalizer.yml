@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
   pull-requests: write
 
 concurrency:
@@ -83,7 +84,50 @@ jobs:
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
       - name: Run Rust clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+        id: clippy
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings 2>&1 | tee "${RUNNER_TEMP}/bbcr004-clippy.log"
+
+      - name: Publish exact Clippy diagnostic
+        if: failure() && steps.clippy.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          {
+            echo '# BBCR-004 validation evidence'
+            echo
+            echo '- **Status:** `clippy_failure`'
+            echo "- **Evaluated head:** \`${{ github.event.pull_request.head.sha }}\`"
+            echo "- **Run:** \`${GITHUB_RUN_ID}\`"
+            echo "- **Job:** \`${GITHUB_JOB}\`"
+            echo
+            echo '## Exact Clippy diagnostic'
+            echo
+            echo '```text'
+            python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path(__import__('os').environ['RUNNER_TEMP'], 'bbcr004-clippy.log').read_text(errors='replace')
+          lines = text.splitlines()
+          indexes = [i for i, line in enumerate(lines) if re.search(r'(^|\x1b\[[0-9;]*m)error(\x1b\[[0-9;]*m)?:', line)]
+          if indexes:
+              start = max(0, indexes[0] - 3)
+              end = min(len(lines), indexes[-1] + 18)
+              selected = lines[start:end]
+          else:
+              selected = lines[-220:]
+          ansi = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
+          print('\n'.join(ansi.sub('', line) for line in selected))
+          PY
+            echo '```'
+            echo
+            echo 'No completion or merge-readiness claim is made.'
+          } >"${RUNNER_TEMP}/bbcr004-issue.md"
+          gh issue edit 5 --repo "${GITHUB_REPOSITORY}" --body-file "${RUNNER_TEMP}/bbcr004-issue.md"
 
       - name: Run Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
