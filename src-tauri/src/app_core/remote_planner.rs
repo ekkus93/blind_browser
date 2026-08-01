@@ -6,6 +6,8 @@ use super::planner_prompt::planner_interpretation_unavailable_error;
 use super::planner_prompt::planner_system_prompt;
 #[cfg(feature = "remote-openai")]
 use super::planner_prompt::PlannerPromptPayload;
+#[cfg(feature = "remote-openai")]
+use super::planner_redaction::sanitize_remote_planner_input;
 use super::AppCore;
 #[cfg(feature = "remote-openai")]
 use crate::commands::{
@@ -116,7 +118,8 @@ fn resolve_with_openai_planner(
     }
 
     let client = Client::with_config(openai_config);
-    let prompt_payload = planner_prompt_payload(planner_input);
+    let planner_safe_input = sanitize_remote_planner_input(planner_input);
+    let prompt_payload = planner_prompt_payload(&planner_safe_input);
     let user_content =
         serde_json::to_string_pretty(&prompt_payload).expect("planner prompt should serialize");
     let request = CreateChatCompletionRequestArgs::default()
@@ -248,7 +251,8 @@ fn resolve_with_ollama_planner(
             .with_api_base(profile.base_url.clone())
             .with_api_key(api_key),
     );
-    let prompt_payload = planner_prompt_payload(planner_input);
+    let planner_safe_input = sanitize_remote_planner_input(planner_input);
+    let prompt_payload = planner_prompt_payload(&planner_safe_input);
     let user_content =
         serde_json::to_string_pretty(&prompt_payload).expect("planner prompt should serialize");
     let request = CreateChatCompletionRequestArgs::default()

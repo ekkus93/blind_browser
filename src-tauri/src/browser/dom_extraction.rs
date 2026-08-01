@@ -222,7 +222,8 @@ async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError>
             const text = normalizeText(node.innerText || node.textContent);
             const placeholder = normalizeText(node.getAttribute('placeholder'));
             const href = 'href' in node ? normalizeText(node.href) : normalizeText(node.getAttribute('href'));
-            const value = 'value' in node ? normalizeText(node.value) : null;
+            // Form-control values remain local private state and are never extracted.
+            const value = null;
             return {
                 element_id: `element-${index + 1}`,
                 dom_locator: uniqueSelector(node),
@@ -241,7 +242,15 @@ async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError>
                 } : null,
                 visible: isVisible(node),
                 enabled: isEnabled(node),
-                attributes: Object.fromEntries(Array.from(node.attributes).map((attribute) => [attribute.name, attribute.value]))
+                attributes: Object.fromEntries(
+                    Array.from(node.attributes)
+                        .filter((attribute) => [
+                            'type', 'role', 'aria-label', 'aria-labelledby',
+                            'placeholder', 'checked', 'selected', 'disabled',
+                            'name', 'autocomplete'
+                        ].includes(attribute.name.toLowerCase()))
+                        .map((attribute) => [attribute.name.toLowerCase(), attribute.value])
+                )
             };
         });
 

@@ -88,6 +88,7 @@ mod content_tools;
 mod extraction_tools;
 mod ocr_merge;
 mod page_model_builder;
+mod planner_redaction;
 
 mod fill_correction;
 use fill_correction::{PendingRecentFieldContext, RecentFieldContext};
