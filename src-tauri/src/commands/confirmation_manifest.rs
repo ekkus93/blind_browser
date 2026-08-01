@@ -147,7 +147,7 @@ pub fn validate_pending_confirmation_manifest(
         ));
     }
 
-    if context.now_ms > pending.manifest.expires_at_ms {
+    if context.now_ms >= pending.manifest.expires_at_ms {
         return Err(confirmation_error(
             "confirmation_expired",
             "the pending confirmation expired before it was approved",
@@ -216,22 +216,11 @@ pub fn validate_pending_confirmation_manifest(
 }
 
 pub fn normalized_origin(value: Option<&str>) -> Option<String> {
-    let value = value?.trim();
-    let parsed = Url::parse(value).ok()?;
-    if !matches!(parsed.scheme(), "http" | "https") {
+    let parsed = Url::parse(value?.trim()).ok()?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host().is_none() {
         return None;
     }
-    let host = parsed.host_str()?;
-    let mut origin = format!("{}://{}", parsed.scheme(), host);
-    if let Some(port) = parsed.port() {
-        let is_default = (parsed.scheme() == "http" && port == 80)
-            || (parsed.scheme() == "https" && port == 443);
-        if !is_default {
-            origin.push(':');
-            origin.push_str(&port.to_string());
-        }
-    }
-    Some(origin)
+    Some(parsed.origin().ascii_serialization())
 }
 
 fn deterministic_prompt(manifest: &ConfirmationManifest) -> String {
@@ -260,7 +249,7 @@ fn deterministic_prompt(manifest: &ConfirmationManifest) -> String {
 }
 
 fn safe_action_summary(step: &PlannedStep) -> String {
-    match step.tool_name {
+    match &step.tool_name {
         ToolName::SubmitActiveForm => String::from("Submit the active form."),
         ToolName::ClickElement => string_argument(step, "element_id")
             .map(|value| format!("Click element '{}'.", safe_label(value)))
