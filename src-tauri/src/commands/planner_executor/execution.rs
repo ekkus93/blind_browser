@@ -1,6 +1,7 @@
 use super::super::{
-    ExecutionOutcome, ExecutionTrace, PendingPlanExecutionState, PlannedStep, PlannerOutput,
-    PlannerStatus, SerializedToolResult, StepTransition, ToolError,
+    evaluate_action_policy, ConfirmationRequirement, ExecutionOutcome, ExecutionTrace,
+    PendingPlanExecutionState, PlannedStep, PlannerOutput, PlannerSafetySettings, PlannerStatus,
+    SerializedToolResult, StepTransition, ToolError,
 };
 use super::step_helpers::{
     build_step_positions, extract_confirmation_id, extract_confirmation_prompt_text,
@@ -9,6 +10,55 @@ use super::step_helpers::{
 use super::tool_dispatch::is_side_effecting_tool;
 use super::StepExecutionContext;
 use std::collections::HashSet;
+
+fn executor_minimum_safety() -> PlannerSafetySettings {
+    PlannerSafetySettings {
+        confirmation_confidence_threshold: 1.0,
+        allow_click_without_confirmation: false,
+        always_confirm_submit: true,
+    }
+}
+
+fn initial_execution_policy_error(planner_output: &PlannerOutput) -> Option<ToolError> {
+    let decision = evaluate_action_policy(&planner_output.steps, &executor_minimum_safety());
+    match decision.requirement {
+        ConfirmationRequirement::Prohibited => Some(ToolError {
+            code: String::from("prohibited_action_at_execution"),
+            message: String::from(
+                "executor refused an action prohibited by deterministic runtime policy",
+            ),
+            retryable: false,
+            details: serde_json::to_value(decision).ok(),
+        }),
+        ConfirmationRequirement::ConfirmationRequired
+            if planner_output.status != PlannerStatus::NeedsConfirmation =>
+        {
+            Some(ToolError {
+                code: String::from("unconfirmed_side_effect_at_execution"),
+                message: String::from(
+                    "executor refused a protected action that reached dispatch without confirmation",
+                ),
+                retryable: false,
+                details: serde_json::to_value(decision).ok(),
+            })
+        }
+        ConfirmationRequirement::NoConfirmation
+        | ConfirmationRequirement::ConfirmationRequired => None,
+    }
+}
+
+fn resumed_execution_policy_error(steps: &[PlannedStep]) -> Option<ToolError> {
+    let decision = evaluate_action_policy(steps, &executor_minimum_safety());
+    if decision.requirement == ConfirmationRequirement::Prohibited {
+        return Some(ToolError {
+            code: String::from("prohibited_action_at_execution"),
+            message: String::from("executor refused a prohibited action even after confirmation"),
+            retryable: false,
+            details: serde_json::to_value(decision).ok(),
+        });
+    }
+    None
+}
 
 pub(crate) fn execute_planner_output_with_runner<Runner>(
     request_id: String,
@@ -22,6 +72,10 @@ where
         executed_step_ids: Vec::new(),
         tool_results: Vec::new(),
     };
+
+    if let Some(error) = initial_execution_policy_error(planner_output) {
+        return ExecutionOutcome::Aborted { trace, error };
+    }
 
     match planner_output.status {
         PlannerStatus::Complete => {
@@ -91,6 +145,10 @@ where
         executed_step_ids: Vec::new(),
         tool_results: Vec::new(),
     };
+
+    if let Some(error) = resumed_execution_policy_error(&pending_plan_execution.queued_steps) {
+        return ExecutionOutcome::Aborted { trace, error };
+    }
 
     if pending_plan_execution.confirmation_id != confirmation_id {
         return ExecutionOutcome::Aborted {

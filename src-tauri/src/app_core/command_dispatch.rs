@@ -11,8 +11,9 @@ use crate::commands::{
     resolve_direct_navigation_readback_command, resolve_direct_open_url_command,
     resolve_direct_read_page_command, resolve_direct_read_title_command,
     resolve_direct_repeat_command, resolve_direct_status_query_command,
-    resolve_direct_voice_input_command, validate_planner_output, AvailableTool, ExecutionOutcome,
-    PlannerInput, PlannerOutput, PlannerToolHistoryEntry, ToolError,
+    resolve_direct_voice_input_command, validate_planner_output_with_safety, AvailableTool,
+    ExecutionOutcome, PlannerInput, PlannerOutput, PlannerSafetySettings, PlannerToolHistoryEntry,
+    ToolError,
 };
 use crate::config::RemotePlannerProfile;
 
@@ -65,6 +66,7 @@ impl super::AppCore {
         }
 
         let available_tools = planner_available_tools();
+        let planner_safety = PlannerSafetySettings::from(&self.config.safety);
         let current_dir = std::env::current_dir().ok();
         let user_skill_root = self
             .app_handle
@@ -85,10 +87,11 @@ impl super::AppCore {
             self.state.browser_visibility,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -100,10 +103,11 @@ impl super::AppCore {
             &request_id,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -113,10 +117,11 @@ impl super::AppCore {
             &request_id,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -126,10 +131,11 @@ impl super::AppCore {
             &request_id,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -141,10 +147,11 @@ impl super::AppCore {
             &current_agent_state,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -160,10 +167,11 @@ impl super::AppCore {
             )
         {
             self.recent_field_context = next_recent_field_context;
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -179,10 +187,11 @@ impl super::AppCore {
         ) {
             self.store_recent_field_context(resolved.recent_field_context);
             let planner_output = resolved.planner_output;
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -198,10 +207,11 @@ impl super::AppCore {
         ) {
             self.store_recent_field_context(resolved.recent_field_context);
             let planner_output = resolved.planner_output;
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -212,10 +222,11 @@ impl super::AppCore {
             self.state.current_page.as_ref(),
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -227,10 +238,11 @@ impl super::AppCore {
             &skill_selection.active_skill_names,
             self.config.safety.confirmation_confidence_threshold,
         ) {
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -241,10 +253,11 @@ impl super::AppCore {
             &current_agent_state,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -255,10 +268,11 @@ impl super::AppCore {
             &current_agent_state,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -272,10 +286,11 @@ impl super::AppCore {
             &current_runtime_status,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }
@@ -287,10 +302,11 @@ impl super::AppCore {
             self.state.audio.playback_speed,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output(
+            validate_planner_output_with_safety(
                 &planner_output,
                 &available_tools,
                 &skill_selection.active_skill_names,
+                &planner_safety,
             )?;
             return Ok(PlannerResolution::Direct(planner_output));
         }

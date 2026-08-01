@@ -5,7 +5,7 @@ use super::remote_planner::resolve_remote_planner;
 use super::replanning::{execute_bounded_replanning_loop, ReplanningRuntime};
 use super::AppCore;
 use crate::commands::{
-    validate_planner_output, ExecutionOutcome, ExecutionTrace, PlannerOutput,
+    validate_planner_output_with_safety, ExecutionOutcome, ExecutionTrace, PlannerOutput,
     PlannerToolHistoryEntry, ToolError,
 };
 use crate::lock_app_core;
@@ -57,7 +57,12 @@ impl<'a> LockScopedReplanningRuntime<'a> {
                 // with `await`; each resolve→execute cycle keeps its own snapshot
                 // self-consistent and the replan bound is unchanged.
                 let planner_output = resolve_remote_planner(&profile, &planner_input)?;
-                validate_planner_output(&planner_output, &available_tools, &active_skill_names)?;
+                validate_planner_output_with_safety(
+                    &planner_output,
+                    &available_tools,
+                    &active_skill_names,
+                    &planner_input.safety,
+                )?;
                 Ok(planner_output)
             }
         }

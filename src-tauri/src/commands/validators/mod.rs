@@ -143,6 +143,166 @@ pub fn validate_planner_output(
     Ok(())
 }
 
+pub fn validate_planner_output_with_safety(
+    planner_output: &PlannerOutput,
+    available_tools: &[AvailableTool],
+    active_skill_names: &[String],
+    safety: &PlannerSafetySettings,
+) -> Result<(), ToolError> {
+    // Prohibited actions are security policy violations, not ordinary schema
+    // mistakes. Reject them before less-specific structural validation so the
+    // caller and audit trail retain the authoritative reason code.
+    let preliminary_decision = evaluate_action_policy(&planner_output.steps, safety);
+    if preliminary_decision.requirement == ConfirmationRequirement::Prohibited {
+        return Err(ToolError {
+            code: String::from("prohibited_planner_action"),
+            message: String::from(
+                "planner output contains an action prohibited by deterministic runtime policy",
+            ),
+            retryable: false,
+            details: serde_json::to_value(preliminary_decision).ok(),
+        });
+    }
+
+    // Preserve all schema, transition, availability, and legacy metadata checks,
+    // then apply the authoritative runtime policy derived from actual tools.
+    validate_planner_output(planner_output, available_tools, active_skill_names)?;
+    validate_protected_intent_consistency(planner_output)?;
+
+    let decision = evaluate_action_policy(&planner_output.steps, safety);
+    match decision.requirement {
+        ConfirmationRequirement::Prohibited => Err(ToolError {
+            code: String::from("prohibited_planner_action"),
+            message: String::from(
+                "planner output contains an action prohibited by deterministic runtime policy",
+            ),
+            retryable: false,
+            details: serde_json::to_value(&decision).ok(),
+        }),
+        ConfirmationRequirement::ConfirmationRequired => {
+            validate_runtime_confirmation_gate(planner_output, &decision)
+        }
+        ConfirmationRequirement::NoConfirmation => {
+            if planner_output.status == PlannerStatus::NeedsConfirmation {
+                return Err(invalid_planner_output(
+                    "planner requested confirmation for a plan with no runtime-protected action",
+                    serde_json::to_value(&decision).ok(),
+                ));
+            }
+            Ok(())
+        }
+    }
+}
+
+fn validate_runtime_confirmation_gate(
+    planner_output: &PlannerOutput,
+    decision: &ActionPolicyDecision,
+) -> Result<(), ToolError> {
+    if planner_output.status != PlannerStatus::NeedsConfirmation {
+        return Err(ToolError {
+            code: String::from("confirmation_required_by_runtime_policy"),
+            message: String::from(
+                "planner marked a runtime-protected action ready without confirmation",
+            ),
+            retryable: false,
+            details: serde_json::to_value(decision).ok(),
+        });
+    }
+
+    if !planner_output.requires_confirmation {
+        return Err(invalid_planner_output(
+            "runtime-protected plan must set requires_confirmation",
+            serde_json::to_value(decision).ok(),
+        ));
+    }
+
+    let confirm_steps = planner_output
+        .steps
+        .iter()
+        .filter(|step| step.tool_name == ToolName::ConfirmAction)
+        .collect::<Vec<_>>();
+    if confirm_steps.len() != 1 {
+        return Err(invalid_planner_output(
+            "runtime-protected plan must contain exactly one confirm_action step",
+            serde_json::to_value(decision).ok(),
+        ));
+    }
+
+    let first_step = planner_output.steps.first().ok_or_else(|| {
+        invalid_planner_output(
+            "runtime-protected plan has no confirmation gate",
+            serde_json::to_value(decision).ok(),
+        )
+    })?;
+    if first_step.tool_name != ToolName::ConfirmAction {
+        return Err(invalid_planner_output(
+            "confirm_action must be the first step of every runtime-protected plan",
+            serde_json::to_value(decision).ok(),
+        ));
+    }
+    if !matches!(&first_step.on_success, StepTransition::RequestConfirmation) {
+        return Err(invalid_planner_output(
+            "confirm_action success must transition to RequestConfirmation",
+            serde_json::to_value(decision).ok(),
+        ));
+    }
+    if !matches!(&first_step.on_failure, StepTransition::Replan) {
+        return Err(invalid_planner_output(
+            "confirm_action failure must replan and may not route to a protected action",
+            serde_json::to_value(decision).ok(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_protected_intent_consistency(planner_output: &PlannerOutput) -> Result<(), ToolError> {
+    let has_explicit_submit = planner_output
+        .steps
+        .iter()
+        .any(|step| step.tool_name == ToolName::SubmitActiveForm);
+    let has_submit_via_text_entry = planner_output.steps.iter().any(|step| {
+        if step.tool_name != ToolName::TypeIntoElement {
+            return false;
+        }
+        serde_json::from_value::<TypeIntoElementInput>(step.arguments.clone())
+            .map(|input| input.submit_mode.submits_after_entry())
+            .unwrap_or(true)
+    });
+
+    if (has_explicit_submit || has_submit_via_text_entry)
+        && planner_output.intent.name != IntentName::SubmitForm
+    {
+        return Err(invalid_planner_output(
+            "planner intent is inconsistent with an actual form-submission action",
+            Some(serde_json::json!({
+                "intent": planner_output.intent.name,
+                "has_submit_active_form": has_explicit_submit,
+                "has_submit_via_text_entry": has_submit_via_text_entry,
+            })),
+        ));
+    }
+
+    let has_click = planner_output
+        .steps
+        .iter()
+        .any(|step| step.tool_name == ToolName::ClickElement);
+    if has_click
+        && !has_explicit_submit
+        && !has_submit_via_text_entry
+        && planner_output.intent.name != IntentName::ClickElement
+    {
+        return Err(invalid_planner_output(
+            "planner intent is inconsistent with an actual click action",
+            Some(serde_json::json!({
+                "intent": planner_output.intent.name,
+            })),
+        ));
+    }
+
+    Ok(())
+}
+
 fn validate_submit_confirmation_policy(planner_output: &PlannerOutput) -> Result<(), ToolError> {
     if planner_output.intent.name != IntentName::SubmitForm {
         return Ok(());

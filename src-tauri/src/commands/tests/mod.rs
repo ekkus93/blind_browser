@@ -13,5 +13,6 @@ mod planner_flow;
 mod playback_controls;
 mod routing;
 mod runtime_status;
+mod security_policy;
 mod skill_selection;
 mod tool_dispatch;

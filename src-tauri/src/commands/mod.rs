@@ -16,6 +16,7 @@ use crate::narration::NarrationCursor;
 use crate::page_model::{ExtractionSource, InteractiveElement, PageModel, Rect};
 use crate::state::{BrowserHistoryState, ListeningState};
 
+mod action_policy;
 mod contracts;
 mod planner_executor;
 mod registry;
@@ -25,6 +26,7 @@ mod skill_loader;
 mod skill_parser;
 mod validators;
 
+pub use action_policy::*;
 pub use contracts::*;
 pub use planner_executor::*;
 pub use registry::*;
