@@ -6,7 +6,7 @@
 
 ## Scope completed in this session
 
-This Ralph Loop has implemented and validated three bounded security batches. The comprehensive TODO remains open because deterministic click-grounding authorization, the remaining confirmation-grounding dependencies, credential-origin binding, opaque image handles, model-download integrity, and the P1/P2/P3 program are not yet complete.
+This Ralph Loop has implemented and validated four bounded security batches. The comprehensive TODO remains open because deterministic click-grounding authorization, the remaining confirmation-grounding dependencies, distinct remote-only planner payloads and consent controls, opaque image handles, model-download integrity, the remaining hostile-content corpus and telemetry work, and the P1/P2/P3 program are not yet complete.
 
 ## Batch 1 — Deterministic planner action policy
 
@@ -79,9 +79,9 @@ Still open within BBCR-003 and BBCR-006:
 **Merged PR:** `#3`  
 **Squash merge commit:** `28a6c390ce8492bc49784b3896d0d37a64b5e55e`  
 **Temporary harness cleanup commit:** `dafa65a4c9b9f701beacff8b0f25eb5512ce1678`  
-**Post-merge evidence commit:** recorded by the commit containing this report update  
-**Post-merge CI:** pending on this exact report/evidence commit  
-**Result:** implementation, bounded validation, PR validation, merge, and harness cleanup complete; exact post-merge CI still required
+**Post-merge evidence commit:** recorded by the commit containing the prior report update  
+**Post-merge CI:** `30718904314`, job `91419258267` — success  
+**Result:** implementation, bounded validation, PR validation, merge, harness cleanup, and permanent post-merge CI complete
 
 Implemented:
 
@@ -112,6 +112,46 @@ Still open within BBCR-002 or its grounding dependencies:
 - Expand submit summaries to include deterministic form identity, destination, and a safe field-name inventory once form-grounding metadata exists.
 - Add a direct `AppCore` regression that submits the same consumed confirmation response twice, in addition to the single-use state-clearing implementation and lower-level mismatch tests.
 
+## Batch 4 — Origin-bound remote credentials and redirect refusal
+
+**Cleaned implementation commit:** `4d38b71363a83dc343dfd555a9e3a353ed6801b1`  
+**Bounded finalizer run:** `30722003167`  
+**Bounded finalizer job:** `91427197740`  
+**Finalizer result:** success  
+**Owner-authored evidence head:** recorded by the commit containing this report update  
+**Permanent PR CI:** required on that exact owner-authored evidence head before merge  
+**Draft PR:** `#4`  
+**Result:** implementation and bounded validation complete; permanent exact-head PR CI and human merge decision still required
+
+Implemented:
+
+- Added `ProviderEndpointScope` as the normalized credential-destination contract, covering scheme, normalized host, effective port, and path prefix.
+- Restricted provider endpoints to HTTPS except for explicit loopback HTTP development endpoints, including IPv4, `localhost`, and bracketed IPv6 loopback.
+- Rejected embedded URL credentials, query strings, fragments, control characters, encoded path separators, literal backslashes, malformed relative endpoints, and non-web schemes.
+- Derived stable SHA-256 endpoint scope identifiers and embedded provider kind, profile name, and endpoint scope in keyring account identities.
+- Rejected legacy unbound keyring accounts and endpoint-mismatched accounts before reading the secret, with an explicit re-entry requirement.
+- Applied the same endpoint-scope decision to API-key persistence, planner requests, model discovery, API-key tests, TTS, ASR, organization headers, and project headers.
+- Made changed-endpoint model discovery fail closed when the override key is empty, before resolving the configured secret.
+- Allowed a temporary entered key for the displayed changed endpoint without attaching the configured organization or project headers from the saved destination.
+- Removed model discovery as a side effect of endpoint-field blur so editing an endpoint does not silently send credentials.
+- Disabled HTTP redirect following for every credential-bearing API-key test, model-list, planner, TTS, and ASR client.
+- Added regression tests for equivalent endpoint normalization, host/port/path scope changes, unsafe URL forms, IPv4/IPv6 loopback policy, legacy key migration behavior, mismatched key rejection, changed-endpoint empty overrides, temporary-key header isolation, endpoint path containment, and redirect refusal.
+
+Ralph-loop diagnostics and corrections:
+
+- The first integrated Clippy pass exposed six test-build errors after the production API moved from raw base-URL strings to `ProviderEndpointScope`; all six were corrected at the deterministic transformation source.
+- The next all-feature Rust test run passed 397 tests and exposed two runtime failures: an obsolete validation-message assertion and bracketed IPv6 loopback parsing.
+- The assertion now checks the stable absolute-URL contract, and loopback detection unwraps IPv6 brackets before `IpAddr` parsing.
+- The successful finalizer passed exact-head checkout and branch refusal, deterministic transformations, dependency installation, Rust formatting, silent-fallback scanning, default Rust compilation, all-target/all-feature Clippy with warnings denied, all 399 Rust tests, frontend lint, UI tests, production frontend build, formatting and whitespace verification, removal of branch-only machinery, and validated product commit/push.
+- The final cleaned commit contains none of the temporary finalizer workflow, transformation scripts, or trigger files.
+- GitHub recorded the workflow-authored cleaned commit's automatic CI as `action_required` with zero jobs; this is not test evidence. The owner-authored report/evidence commit exists to obtain an executed permanent CI run on the exact cleaned product tree plus this report.
+
+Still open after BBCR-004:
+
+- The draft PR must pass the permanent repository CI workflow on the exact owner-authored head.
+- PR #4 must remain unmerged until that exact-head CI succeeds and the human merge decision is made.
+- Credential-origin binding does not replace the still-open remote-data consent and high-risk-origin controls in BBCR-003.
+
 ## Validation gate
 
 The bounded and permanent workflows run the applicable portions of this gate set:
@@ -131,11 +171,11 @@ git diff --check
 ## TODO status summary
 
 - **BBCR-001:** Partially implemented; core actual-tool policy and executor guard complete, deterministic click authorization still open.
-- **BBCR-002:** Core immutable confirmation-manifest implementation merged; DOM-generation and element revalidation dependencies remain open, and exact post-merge CI for this evidence commit is pending.
+- **BBCR-002:** Core immutable confirmation-manifest implementation merged; DOM-generation and element revalidation dependencies remain open.
 - **BBCR-003:** Partially implemented; strong extraction and serialization redaction exists, but distinct remote-only types and consent policy remain open.
-- **BBCR-004:** Open.
+- **BBCR-004:** Implementation and bounded validation complete on draft PR #4; permanent exact-head PR CI and human merge decision remain open.
 - **BBCR-005:** Open.
 - **BBCR-006:** Partially implemented; explicit hostile-content boundaries exist, but full corpus and telemetry work remain open.
 - **BBCR-007 through BBCR-023:** Open except for pre-existing repository behavior documented separately.
 
-No release-readiness, comprehensive-TODO completion, or full security-signoff claim is made by this report.
+No release-readiness, comprehensive-TODO completion, BBCR-004 merge-readiness, or full security-signoff claim is made by this report.
