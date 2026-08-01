@@ -65,9 +65,9 @@ jobs:
                   "**Post-merge evidence commit:** recorded by the commit containing the prior report update  \n"
                   "**Post-merge CI:** `30718904314`, job `91419258267` — success  \n"
                   "**Result:** implementation, bounded validation, PR validation, merge, harness cleanup, and permanent post-merge CI complete",
-                  "**Post-merge evidence commit:** `c80ead4ef8f0e4df68f9a69b68bd3ce186328aec`  \n"
-                  "**Post-merge CI run:** `30718904314`  \n"
-                  "**Post-merge CI job:** `91419258267`  \n"
+                  "**Post-merge evidence commit:** `c80ead4ef8f0e4df68f9a69b68bd3ce186328aec`<br>\n"
+                  "**Post-merge CI run:** `30718904314`<br>\n"
+                  "**Post-merge CI job:** `91419258267`<br>\n"
                   "**Result:** core implementation merged and fully validated; grounding-dependent follow-up remains open",
               ),
               (
