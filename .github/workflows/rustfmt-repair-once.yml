@@ -31,24 +31,29 @@ jobs:
           fetch-depth: 0
 
       - name: Refuse a moved branch
+        id: freshness
         shell: bash
         env:
           FAILED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
+          printf 'repair=false\n' >> "${GITHUB_OUTPUT}"
           current_sha="$(git rev-parse HEAD)"
           if [[ "${current_sha}" != "${FAILED_SHA}" ]]; then
             printf 'Master moved from failed SHA %s to %s; refusing stale repair.\n' \
               "${FAILED_SHA}" "${current_sha}"
             exit 0
           fi
+          printf 'repair=true\n' >> "${GITHUB_OUTPUT}"
 
       - name: Set up Rust formatter
+        if: steps.freshness.outputs.repair == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
 
       - name: Apply and constrain formatter output
+        if: steps.freshness.outputs.repair == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -60,27 +65,27 @@ jobs:
             exit 0
           fi
 
-          allowed="$(cat <<'EOF'
-src-tauri/src/app_core/model_management.rs
-src-tauri/src/app_core/settings_adapters.rs
-src-tauri/src/asr/remote.rs
-src-tauri/src/config/persistence.rs
-src-tauri/src/lib.rs
-src-tauri/src/url_policy.rs
-EOF
-          )"
-
           for path in "${changed[@]}"; do
-            if ! grep -Fxq -- "${path}" <<< "${allowed}"; then
-              printf 'Refusing unexpected rustfmt change: %s\n' "${path}" >&2
-              exit 1
-            fi
+            case "${path}" in
+              src-tauri/src/app_core/model_management.rs|\
+              src-tauri/src/app_core/settings_adapters.rs|\
+              src-tauri/src/asr/remote.rs|\
+              src-tauri/src/config/persistence.rs|\
+              src-tauri/src/lib.rs|\
+              src-tauri/src/url_policy.rs)
+                ;;
+              *)
+                printf 'Refusing unexpected rustfmt change: %s\n' "${path}" >&2
+                exit 1
+                ;;
+            esac
           done
 
           cargo fmt --manifest-path src-tauri/Cargo.toml --check
           git diff --check
 
       - name: Commit exact formatter output
+        if: steps.freshness.outputs.repair == 'true'
         shell: bash
         run: |
           set -euo pipefail
