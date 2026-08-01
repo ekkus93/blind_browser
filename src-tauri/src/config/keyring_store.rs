@@ -4,16 +4,72 @@ use std::sync::{Mutex, OnceLock};
 use zeroize::Zeroizing;
 
 use super::*;
+use crate::provider_endpoint::ProviderEndpointScope;
+
+const KEYRING_SERVICE: &str = "blind_browser";
 
 /// Session cache of resolved keyring secrets, keyed by `(service, account)`.
 /// Values are `Zeroizing` so they are scrubbed on replacement and on drop.
 type SessionKeyringStore = BTreeMap<(String, String), Zeroizing<String>>;
 
-pub fn keyring_ref_for_remote_api_key(provider_kind: &str, profile_name: &str) -> KeyringRef {
-    KeyringRef {
-        service: String::from("blind_browser"),
-        account: format!("remote_{provider_kind}:{profile_name}:api_key"),
+pub fn keyring_ref_for_remote_api_key(
+    provider_kind: &str,
+    profile_name: &str,
+    endpoint: &ProviderEndpointScope,
+) -> Result<KeyringRef, String> {
+    let provider_kind = normalized_identity_component("provider kind", provider_kind)?;
+    let profile_name = normalized_identity_component("profile name", profile_name)?;
+    Ok(KeyringRef {
+        service: String::from(KEYRING_SERVICE),
+        account: format!(
+            "remote_{provider_kind}:{profile_name}:scope:{}:api_key",
+            endpoint.scope_id()
+        ),
+    })
+}
+
+pub fn resolve_secret_ref_for_endpoint(
+    secret_ref: &SecretRef,
+    provider_kind: &str,
+    profile_name: &str,
+    endpoint: &ProviderEndpointScope,
+) -> Result<String, String> {
+    if let SecretRef::FromKeyring { from_keyring } = secret_ref {
+        let expected = keyring_ref_for_remote_api_key(provider_kind, profile_name, endpoint)?;
+        if *from_keyring != expected {
+            let legacy_account = format!(
+                "remote_{}:{}:api_key",
+                provider_kind.trim(),
+                profile_name.trim()
+            );
+            if from_keyring.service == KEYRING_SERVICE && from_keyring.account == legacy_account {
+                return Err(format!(
+                    "the configured credential is a legacy unbound keyring entry; re-enter it to bind it to {}",
+                    endpoint.normalized_base_url()
+                ));
+            }
+            return Err(format!(
+                "the configured credential is not authorized for provider profile '{}' at {}",
+                profile_name.trim(),
+                endpoint.normalized_base_url()
+            ));
+        }
     }
+
+    resolve_secret_ref(secret_ref)
+}
+
+fn normalized_identity_component(label: &str, value: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(format!("keyring {label} must not be empty"));
+    }
+    if value.contains(':') || value.chars().any(char::is_control) {
+        return Err(format!(
+            "keyring {label} must not contain colons or control characters"
+        ));
+    }
+    Ok(value.to_string())
 }
 
 pub fn secret_ref_reference(secret_ref: &SecretRef) -> String {
