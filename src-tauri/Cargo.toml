@@ -19,6 +19,7 @@ url = "2"
 schemars = { version = "1.0.4", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sha2 = "0.10"
 tauri = { version = "2.10.3", features = ["tracing"] }
 thiserror = "2.0"
 # Time driver only, for bounding browser navigation futures via tokio::time::timeout
