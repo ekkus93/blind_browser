@@ -79,45 +79,35 @@ pub fn run() {
             get_agent_state,
             set_playback_volume,
             set_playback_speed,
-            set_default_tts_voice,
-            set_active_tts_profile,
-            set_tts_provider_mode,
-            set_asr_provider_mode,
             set_browser_visibility,
-            set_confirmation_confidence_threshold,
+            set_tts_voice,
+            set_confirmation_threshold,
             set_allow_click_without_confirmation,
             set_ocr_thresholds,
-            test_remote_planner_api_key,
-            test_remote_tts_api_key,
-            test_remote_asr_api_key,
+            set_remote_planner_connection_settings,
+            reset_remote_planner_connection_settings,
+            list_remote_planner_models,
             set_remote_planner_api_key,
             set_remote_tts_api_key,
             set_remote_asr_api_key,
-            get_remote_planner_connection_settings,
-            set_remote_planner_connection_settings,
-            reset_remote_planner_connection_settings_to_defaults,
-            list_remote_planner_models,
+            test_remote_planner_api_key,
+            test_remote_tts_api_key,
+            test_remote_asr_api_key,
             get_model_management_settings,
             set_model_management_settings,
             download_active_local_tts_model,
             download_active_local_asr_model,
+            set_tts_provider_selection,
+            set_asr_provider_selection,
+            set_tts_model_selection
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();
-            let app_core = AppCore::new(app_handle)?;
+            let app_core = app_core::AppCore::new(app_handle)
+                .map_err(|error| -> Box<dyn Error> { Box::new(error) })?;
             app.manage(Arc::new(Mutex::new(app_core)));
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running blind_browser");
-}
-
-pub fn error_chain(error: &(dyn Error + 'static)) -> Vec<String> {
-    let mut chain = vec![error.to_string()];
-    let mut source = error.source();
-    while let Some(current) = source {
-        chain.push(current.to_string());
-        source = current.source();
-    }
-    chain
+        .expect("failed to run blind_browser application");
 }
