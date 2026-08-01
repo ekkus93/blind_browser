@@ -146,8 +146,12 @@ pub struct PendingPlanExecutionState {
     pub intent_name: IntentName,
     pub selected_skills: Vec<String>,
     pub confirmation_id: String,
+    pub manifest_digest: String,
+    pub manifest: ConfirmationManifest,
     pub prompt_text: String,
     pub next_step_id: Option<String>,
     pub queued_step_ids: Vec<String>,
+    #[serde(skip_serializing, default)]
+    #[schemars(skip)]
     pub queued_steps: Vec<PlannedStep>,
 }
