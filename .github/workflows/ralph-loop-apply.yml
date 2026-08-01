@@ -91,6 +91,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/ralph-loop/current_patch.py
+          python3 .github/ralph-loop/fix_patch.py
 
       - name: Refuse changes outside current allowlist
         id: allowlist
