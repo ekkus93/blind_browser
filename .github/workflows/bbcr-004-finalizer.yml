@@ -70,6 +70,7 @@ jobs:
         run: |
           python3 scripts/bbcr004_finalize.py
           python3 scripts/bbcr004_remote_clients.py
+          python3 scripts/bbcr004_test_compile_fixes.py
 
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
@@ -155,6 +156,7 @@ jobs:
         run: |
           rm scripts/bbcr004_finalize.py
           rm scripts/bbcr004_remote_clients.py
+          rm scripts/bbcr004_test_compile_fixes.py
           rm .github/workflows/bbcr-004-finalizer.yml
           rm .github/bbcr004-trigger.txt
           rm .github/bbcr004-trigger-2.txt
