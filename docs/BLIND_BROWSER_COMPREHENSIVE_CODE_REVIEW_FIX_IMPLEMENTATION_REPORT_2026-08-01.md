@@ -6,7 +6,7 @@
 
 ## Scope completed in this session
 
-This session implemented and validated two bounded security batches. The authoritative TODO remains open because several required invariants, including click-grounding authorization, immutable confirmation manifests, credential-origin binding, opaque image handles, model-download integrity, and the P1/P2/P3 program, are not yet complete.
+This session implemented and validated three bounded security batches. The authoritative TODO remains open because several required invariants, including deterministic click-grounding authorization, credential-origin binding, opaque image handles, model-download integrity, and the remaining P1/P2/P3 program, are not yet complete.
 
 ## Batch 1 — Deterministic planner action policy
 
@@ -68,24 +68,59 @@ Still open within BBCR-003 and BBCR-006:
 - Add injection-warning telemetry that can only increase caution and never authorize action.
 - Complete the tracing, diagnostics, UI-error, and remote-response-body leak audit.
 
+## Batch 3 — Immutable, expiring, state-bound confirmation manifests
+
+**Validated implementation commit:** `8c59e42a089a0ee1d5f73e232ef1127e9e8f2781`  
+**Bounded validation run:** `30718085690`  
+**Bounded validation job:** `91417084669`  
+**Result:** success  
+**Normal PR CI:** pending on the owner-authored report/evidence commit; no merge-complete claim yet.
+
+Implemented:
+
+- Added a typed `ConfirmationManifest` and ordered `ConfirmationActionManifest` representation.
+- Generate the user-visible confirmation summary in deterministic Rust code rather than trusting planner-provided wording.
+- Bind the challenge to the request ID, current page ID, normalized HTTP(S) origin, issue time, expiry time, ordered step IDs, actual tool names, canonical argument digests, and success/failure transition digests.
+- Compute a stable SHA-256 digest over canonical serialized manifest data.
+- Require the frontend to echo the exact manifest digest with the confirmation ID.
+- Rebuild and compare the manifest immediately before resume so tool, argument, order, or control-flow mutation fails closed.
+- Reject mismatched IDs, mismatched digests, expired challenges, page changes, origin changes, queue mismatches, and prohibited actions after confirmation.
+- Consume matching pending state before dispatch so duplicate or re-entrant confirmation responses cannot execute a protected action twice.
+- Exclude raw queued steps from serialized pending state while retaining them in private runtime memory.
+- Redact typed values in deterministic summaries; tests verify that secret text does not appear in serialized pending state or prompt text.
+- Box the substantial pending state inside `ExecutionOutcome` without changing its Serde wire shape.
+- Added regression coverage for misleading planner wording, changed arguments, changed transitions, action reordering, stale page/origin, expiry, wrong ID/digest, rejection, and secret serialization.
+- The bounded worker passed the silent-fallback scan, Rust formatting, default Rust compilation, Clippy with warnings denied, all Rust tests, frontend lint, UI tests, production frontend build, whitespace validation, harness cleanup, and final branch commit/push.
+
+Still open within BBCR-002 or its dependent grounding work:
+
+- Add a DOM/page-model generation identifier, not only page ID and origin, so same-page DOM replacement invalidates approval deterministically.
+- Re-resolve and compare referenced elements/locators immediately before resume; this depends on the BBCR-001 click-grounding authorization contract.
+- Expand submit summaries to include deterministic form identity, destination, and a safe field-name inventory once form-grounding metadata exists.
+- Add a direct `AppCore` replay regression that submits the same consumed response twice, in addition to the single-use state-clearing implementation and lower-level mismatch tests.
+
 ## Validation evidence
 
-Both implementation batches passed the temporary bounded gate:
+The three bounded implementation batches ran the applicable portions of this gate set:
 
 ```text
+bash scripts/check-silent-fallbacks.sh
 cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml --all-features
+pnpm lint
+pnpm test:ui
+pnpm build
 git diff --check
 ```
 
-The repository's authoritative `CI` workflow additionally runs the silent-fallback scan, frontend lint, UI tests, and production frontend build. Final cleaned-state CI evidence is recorded after removal of the temporary Ralph Loop application machinery.
+The cleaned pre-BBCR-002 `master` baseline passed authoritative CI run `30715482995`. The BBCR-002 branch worker passed every gate listed above in run `30718085690`. Exact owner-authored PR CI and post-merge `master` CI remain required before this batch is recorded as merged.
 
 ## TODO status summary
 
 - **BBCR-001:** Partially implemented; core actual-tool policy and executor guard complete, deterministic click authorization still open.
-- **BBCR-002:** Open.
+- **BBCR-002:** Substantially implemented and branch-validated; DOM-generation/element revalidation and final PR/merge evidence remain open.
 - **BBCR-003:** Partially implemented; strong extraction/serialization redaction exists, distinct remote-only types and consent policy remain open.
 - **BBCR-004:** Open.
 - **BBCR-005:** Open.
