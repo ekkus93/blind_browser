@@ -17,6 +17,8 @@
 
 The master-synchronization commit retained the validated BBCR-004 product tree, incorporated the complete BBCR-002 post-merge evidence from `master`, removed the one-shot synchronization workflow, and left the branch ahead of `master` with no missing base commits.
 
+The final closure audit additionally requires independent same-origin redirect-refusal coverage and explicit legacy-keyring cleanup guidance; both are integrated by the self-cleaning BBCR-004 closure step before the final exact-head validation.
+
 ## Exact-head validation contract
 
 The commit containing this document is the owner-authored PR head that must pass the permanent `.github/workflows/ci.yml` workflow before any merge-readiness claim. The resulting run and job identifiers are recorded in PR #4 and issue #5 rather than by mutating this exact validated head.
