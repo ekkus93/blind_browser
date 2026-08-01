@@ -5,9 +5,7 @@ mod step_helpers;
 mod tool_dispatch;
 
 #[cfg(test)]
-pub(crate) use execution::{
-    execute_planner_output_with_runner, execute_planner_output_with_runner_and_context,
-};
+pub(crate) use execution::execute_planner_output_with_runner;
 pub use tool_dispatch::execute_planned_step;
 
 struct StepExecutionContext<'a> {
