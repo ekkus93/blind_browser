@@ -107,6 +107,8 @@ jobs:
           rm scripts/bbcr004_finalize.py
           rm scripts/bbcr004_remote_clients.py
           rm .github/workflows/bbcr-004-finalizer.yml
+          rm .github/bbcr004-trigger.txt
+          rm .github/bbcr004-trigger-2.txt
 
       - name: Commit validated implementation
         run: |
