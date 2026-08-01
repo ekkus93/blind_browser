@@ -1,4 +1,5 @@
 use super::*;
+use crate::provider_endpoint::ProviderEndpointScope;
 
 #[test]
 fn secret_ref_reference_formats_sources_without_secret_values() {
@@ -119,7 +120,10 @@ fn persists_remote_planner_api_key_to_keyring_reference_and_reloads_it() {
     .expect("remote planner API key should persist successfully");
     let reloaded = AppConfig::load_from_path(&path).expect("persisted config should reload");
 
-    let expected_keyring_ref = keyring_ref_for_remote_api_key("planner", "openai-default");
+    let endpoint = ProviderEndpointScope::parse("https://api.openai.com/v1").unwrap();
+    let expected_keyring_ref =
+        keyring_ref_for_remote_api_key("planner", "openai-default", &endpoint)
+            .expect("bound keyring reference should build");
 
     let expected_secret_ref = SecretRef::FromKeyring {
         from_keyring: KeyringRef {
@@ -168,4 +172,52 @@ fn rejects_empty_remote_api_key_persistence_input() {
         }
         other => panic!("expected validation error, got {other}"),
     }
+}
+
+#[test]
+fn keyring_reference_changes_with_destination_scope() {
+    let first = ProviderEndpointScope::parse("https://api.example.com/v1").unwrap();
+    for changed in [
+        "https://other.example.com/v1",
+        "https://api.example.com:8443/v1",
+        "https://api.example.com/v2",
+    ] {
+        let changed = ProviderEndpointScope::parse(changed).unwrap();
+        let first_ref = keyring_ref_for_remote_api_key("planner", "profile", &first).unwrap();
+        let changed_ref = keyring_ref_for_remote_api_key("planner", "profile", &changed).unwrap();
+        assert_ne!(first_ref.account, changed_ref.account);
+    }
+}
+
+#[test]
+fn legacy_unbound_keyring_reference_requires_explicit_rebinding() {
+    let endpoint = ProviderEndpointScope::parse("https://api.example.com/v1").unwrap();
+    let legacy = SecretRef::FromKeyring {
+        from_keyring: KeyringRef {
+            service: String::from("blind_browser"),
+            account: String::from("remote_planner:profile:api_key"),
+        },
+    };
+    let error =
+        crate::config::resolve_secret_ref_for_endpoint(&legacy, "planner", "profile", &endpoint)
+            .expect_err("legacy entry must not be guessed or reused");
+    assert!(error.contains("legacy unbound"));
+    assert!(error.contains("re-enter"));
+}
+
+#[test]
+fn credential_bound_to_another_endpoint_is_rejected_before_read() {
+    let first = ProviderEndpointScope::parse("https://api.example.com/v1").unwrap();
+    let second = ProviderEndpointScope::parse("https://other.example.com/v1").unwrap();
+    let reference = keyring_ref_for_remote_api_key("planner", "profile", &first).unwrap();
+    set_keyring_secret(&reference.service, &reference.account, "secret").unwrap();
+    let secret_ref = SecretRef::FromKeyring {
+        from_keyring: reference,
+    };
+
+    let error =
+        crate::config::resolve_secret_ref_for_endpoint(&secret_ref, "planner", "profile", &second)
+            .expect_err("scope mismatch must fail closed");
+    assert!(error.contains("not authorized"));
+    assert!(!error.contains("secret"));
 }

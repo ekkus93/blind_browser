@@ -155,11 +155,8 @@ export function BlindBrowserApp() {
             setRemotePlannerPanelState({ baseUrl: value, availableModels: [], loadedModelsEndpoint: null, error: null });
           },
           onEndpointBlur: () => {
-            const s = panelStates.remotePlannerPanelState;
-            const url = s.baseUrl?.trim() ?? "";
-            if (url.length > 0 && url !== s.loadedModelsEndpoint) {
-              void loadRemotePlannerModels();
-            }
+            // Endpoint editing is intentionally side-effect free. Credential-bearing
+            // model discovery requires the explicit Load models action.
           },
           onModelSelect: (value) => { setRemotePlannerPanelState({ model: value, error: null }); },
           onModelInput: (value) => { setRemotePlannerPanelState({ model: value, error: null }); },

@@ -1,4 +1,5 @@
 use super::*;
+use crate::provider_endpoint::ProviderEndpointScope;
 
 pub(in crate::config) fn validate_audio_settings(audio: &AudioSettings, issues: &mut Vec<String>) {
     if !(MIN_PLAYBACK_VOLUME..=MAX_PLAYBACK_VOLUME).contains(&audio.playback_volume) {
@@ -53,18 +54,7 @@ pub(in crate::config) fn validate_model_settings(
 }
 
 pub(in crate::config) fn normalize_remote_endpoint(base_url: &str) -> Result<String, ConfigError> {
-    let normalized_base_url = base_url.trim().trim_end_matches('/').to_string();
-    if normalized_base_url.is_empty() {
-        return Err(ConfigError::Validation(String::from(
-            "remote planner settings persistence requires a non-empty endpoint",
-        )));
-    }
-
-    reqwest::Url::parse(&normalized_base_url).map_err(|error| {
-        ConfigError::Validation(format!(
-            "remote planner endpoint must be a valid absolute URL: {error}"
-        ))
-    })?;
-
-    Ok(normalized_base_url)
+    ProviderEndpointScope::parse(base_url)
+        .map(|scope| scope.normalized_base_url().to_string())
+        .map_err(ConfigError::Validation)
 }

@@ -1,4 +1,5 @@
 use super::*;
+use crate::provider_endpoint::ProviderEndpointScope;
 
 #[test]
 fn planner_interpretation_unavailable_error_wraps_reason_for_voice_feedback() {
@@ -321,7 +322,8 @@ fn test_openai_api_key_connectivity_accepts_valid_response() {
         spawn_openai_models_test_server("200 OK", r#"{"object":"list","data":[]}"#);
 
     let result = test_openai_api_key_connectivity(
-        &base_url,
+        &ProviderEndpointScope::parse(&base_url)
+            .expect("test server URL should be a valid provider endpoint"),
         "blind-browser-test-key",
         Some("org_test"),
         Some("proj_test"),
@@ -340,7 +342,8 @@ fn test_openai_api_key_connectivity_reports_http_failures() {
     );
 
     let error = test_openai_api_key_connectivity(
-        &base_url,
+        &ProviderEndpointScope::parse(&base_url)
+            .expect("test server URL should be a valid provider endpoint"),
         "blind-browser-test-key",
         Some("org_test"),
         Some("proj_test"),
@@ -364,7 +367,8 @@ fn fetch_openai_compatible_models_returns_sorted_model_ids() {
     );
 
     let models = fetch_openai_compatible_models(
-        &base_url,
+        &ProviderEndpointScope::parse(&base_url)
+            .expect("test server URL should be a valid provider endpoint"),
         Some("blind-browser-test-key"),
         Some("org_test"),
         Some("proj_test"),
@@ -385,7 +389,8 @@ fn fetch_openai_compatible_models_rejects_empty_lists() {
         spawn_openai_models_test_server("200 OK", r#"{"object":"list","data":[]}"#);
 
     let error = fetch_openai_compatible_models(
-        &base_url,
+        &ProviderEndpointScope::parse(&base_url)
+            .expect("test server URL should be a valid provider endpoint"),
         Some("blind-browser-test-key"),
         Some("org_test"),
         Some("proj_test"),

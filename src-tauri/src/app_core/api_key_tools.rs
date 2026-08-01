@@ -124,9 +124,7 @@ pub(crate) fn test_openai_api_key_connectivity(
     timeout_ms: u64,
 ) -> Result<(), String> {
     let client = credential_client(timeout_ms, "OpenAI API key test")?;
-    let mut request = client
-        .get(endpoint_scope.models_url())
-        .bearer_auth(api_key);
+    let mut request = client.get(endpoint_scope.models_url()).bearer_auth(api_key);
     if let Some(organization) = organization {
         request = request.header("OpenAI-Organization", organization);
     }
@@ -311,14 +309,13 @@ mod tests {
             .unwrap();
         });
 
-        let scope = ProviderEndpointScope::parse(&format!(
-            "http://{redirect_address}/v1"
-        ))
-        .unwrap();
+        let scope = ProviderEndpointScope::parse(&format!("http://{redirect_address}/v1")).unwrap();
         let error = test_openai_api_key_connectivity(&scope, "secret", None, None, 2_000)
             .expect_err("redirect must be rejected");
         assert!(error.contains("Redirects are not allowed"));
-        assert!(destination_rx.recv_timeout(Duration::from_millis(900)).is_err());
+        assert!(destination_rx
+            .recv_timeout(Duration::from_millis(900))
+            .is_err());
 
         redirect_thread.join().unwrap();
         destination_thread.join().unwrap();

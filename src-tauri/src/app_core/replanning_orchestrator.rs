@@ -43,6 +43,7 @@ impl<'a> LockScopedReplanningRuntime<'a> {
             PlannerResolution::Direct(planner_output) => Ok(planner_output),
             PlannerResolution::Remote {
                 planner_input,
+                profile_name,
                 profile,
                 available_tools,
                 active_skill_names,
@@ -56,7 +57,8 @@ impl<'a> LockScopedReplanningRuntime<'a> {
                 // single-user app whose frontend serializes dependent voice commands
                 // with `await`; each resolve→execute cycle keeps its own snapshot
                 // self-consistent and the replan bound is unchanged.
-                let planner_output = resolve_remote_planner(&profile, &planner_input)?;
+                let planner_output =
+                    resolve_remote_planner(&profile_name, &profile, &planner_input)?;
                 validate_planner_output_with_safety(
                     &planner_output,
                     &available_tools,

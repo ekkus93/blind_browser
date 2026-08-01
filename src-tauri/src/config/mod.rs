@@ -20,7 +20,10 @@ mod loading;
 mod persistence;
 mod types;
 mod validation;
-pub use keyring_store::{keyring_ref_for_remote_api_key, resolve_secret_ref, secret_ref_reference};
+pub use keyring_store::{
+    keyring_ref_for_remote_api_key, resolve_secret_ref, resolve_secret_ref_for_endpoint,
+    secret_ref_reference,
+};
 use loading::{load_planner_profiles, load_provider_profiles};
 pub use types::*;
 use validation::{

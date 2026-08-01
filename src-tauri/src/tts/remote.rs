@@ -6,8 +6,10 @@ use crate::config::AppConfig;
 
 #[cfg(feature = "remote-openai")]
 use crate::config::{
-    resolve_secret_ref, RemoteProviderKind, RemoteTtsAudioFormat, RemoteTtsProfile,
+    resolve_secret_ref_for_endpoint, RemoteProviderKind, RemoteTtsAudioFormat, RemoteTtsProfile,
 };
+#[cfg(feature = "remote-openai")]
+use crate::provider_endpoint::ProviderEndpointScope;
 
 #[cfg(feature = "remote-openai")]
 use super::wav::decode_wav_samples;
@@ -41,7 +43,7 @@ impl TtsController {
 
             match &profile.provider {
                 RemoteProviderKind::OpenAi => {
-                    self.synthesize_with_openai_remote(profile, runtime_audio, text)
+                    self.synthesize_with_openai_remote(profile_name, profile, runtime_audio, text)
                 }
                 other => Err(TtsRuntimeError::UnsupportedRemoteProvider {
                     profile_name: profile_name.clone(),
@@ -62,19 +64,24 @@ impl TtsController {
     #[cfg(feature = "remote-openai")]
     fn synthesize_with_openai_remote(
         &mut self,
+        profile_name: &str,
         profile: &RemoteTtsProfile,
         runtime_audio: &RuntimeAudioState,
         text: &str,
     ) -> Result<SynthesizedSpeech, TtsRuntimeError> {
+        let endpoint_scope = ProviderEndpointScope::parse(&profile.base_url)
+            .map_err(|reason| TtsRuntimeError::RemoteRequestBuildFailed { reason })?;
         let client = reqwest::blocking::Client::builder()
             .timeout(Duration::from_millis(profile.timeout_ms.max(1)))
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|error| TtsRuntimeError::RemoteRequestBuildFailed {
                 reason: error.to_string(),
             })?;
 
-        let api_key = resolve_secret_ref(&profile.api_key)
-            .map_err(|reason| TtsRuntimeError::RemoteSecretUnavailable { reason })?;
+        let api_key =
+            resolve_secret_ref_for_endpoint(&profile.api_key, "tts", profile_name, &endpoint_scope)
+                .map_err(|reason| TtsRuntimeError::RemoteSecretUnavailable { reason })?;
 
         let voice = resolved_remote_voice(runtime_audio, profile)?;
         let cache_key = CachedSpeechKey {
@@ -91,7 +98,9 @@ impl TtsController {
             return Ok(cached);
         }
         let response_format = openai_speech_response_format_value(profile.audio_format.clone());
-        let endpoint = format!("{}/audio/speech", profile.base_url.trim_end_matches('/'));
+        let endpoint = endpoint_scope
+            .endpoint_url("audio/speech")
+            .map_err(|reason| TtsRuntimeError::RemoteRequestBuildFailed { reason })?;
         let mut request = client
             .post(endpoint)
             .bearer_auth(api_key)
@@ -107,7 +116,7 @@ impl TtsController {
         if let Some(organization) = profile.organization.as_ref() {
             request = request.header(
                 "OpenAI-Organization",
-                resolve_secret_ref(organization)
+                resolve_secret_ref_for_endpoint(organization, "tts", profile_name, &endpoint_scope)
                     .map_err(|reason| TtsRuntimeError::RemoteSecretUnavailable { reason })?,
             );
         }

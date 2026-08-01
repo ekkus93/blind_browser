@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::app_core::{AppCore, RemotePlannerModelListData};
 use crate::commands::ToolError;
+use crate::provider_endpoint::ProviderEndpointScope;
 use crate::{join_error_to_tool_error, lock_app_core};
 
 #[derive(serde::Serialize)]
@@ -153,10 +154,18 @@ pub async fn list_remote_planner_models(
             });
         }
 
+        let endpoint_scope =
+            ProviderEndpointScope::parse(&base_url).map_err(|reason| ToolError {
+                code: String::from("invalid_remote_planner_endpoint"),
+                message: format!("Remote planner model endpoint is invalid: {reason}"),
+                retryable: false,
+                details: None,
+            })?;
+        let normalized_base_url = endpoint_scope.normalized_base_url().to_string();
         let models = app_core
             .list_remote_planner_models(
                 &profile_name,
-                Some(&base_url),
+                Some(&normalized_base_url),
                 (!api_key.trim().is_empty()).then_some(api_key.as_str()),
                 timeout_ms,
             )
@@ -169,7 +178,7 @@ pub async fn list_remote_planner_models(
 
         Ok(RemotePlannerModelListData {
             profile_name,
-            base_url,
+            base_url: normalized_base_url,
             models,
         })
     })

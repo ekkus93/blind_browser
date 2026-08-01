@@ -4,7 +4,9 @@ use std::time::Duration;
 use crate::config::{AppConfig, RemoteAsrProfile, RemoteProviderKind};
 
 #[cfg(feature = "remote-openai")]
-use crate::config::resolve_secret_ref;
+use crate::config::resolve_secret_ref_for_endpoint;
+#[cfg(feature = "remote-openai")]
+use crate::provider_endpoint::ProviderEndpointScope;
 
 use super::processing::CapturedAudio;
 use super::AsrRuntimeError;
@@ -29,7 +31,9 @@ pub(super) fn transcribe_remote(
         })?;
 
     match &profile.provider {
-        RemoteProviderKind::OpenAi => transcribe_with_openai_remote(profile, captured_audio),
+        RemoteProviderKind::OpenAi => {
+            transcribe_with_openai_remote(profile_name, profile, captured_audio)
+        }
         other => Err(AsrRuntimeError::UnsupportedRemoteProvider {
             profile_name: profile_name.clone(),
             provider: format!("{other:?}"),
@@ -44,19 +48,24 @@ pub(super) fn transcribe_remote(
 // request and surfaces `RemoteRequestTimedOut` via `error.is_timeout()`.
 #[cfg(feature = "remote-openai")]
 fn transcribe_with_openai_remote(
+    profile_name: &str,
     profile: &RemoteAsrProfile,
     captured_audio: &CapturedAudio,
 ) -> Result<String, AsrRuntimeError> {
     let timeout_ms = profile.timeout_ms.max(1);
+    let endpoint_scope = ProviderEndpointScope::parse(&profile.base_url)
+        .map_err(|reason| AsrRuntimeError::RemoteRequestBuildFailed { reason })?;
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_millis(timeout_ms))
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|error| AsrRuntimeError::RemoteRequestBuildFailed {
             reason: error.to_string(),
         })?;
 
-    let api_key = resolve_secret_ref(&profile.api_key)
-        .map_err(|reason| AsrRuntimeError::RemoteSecretUnavailable { reason })?;
+    let api_key =
+        resolve_secret_ref_for_endpoint(&profile.api_key, "asr", profile_name, &endpoint_scope)
+            .map_err(|reason| AsrRuntimeError::RemoteSecretUnavailable { reason })?;
     let audio_bytes = captured_audio.to_remote_wav_bytes()?;
 
     let part = reqwest::blocking::multipart::Part::bytes(audio_bytes)
@@ -78,15 +87,14 @@ fn transcribe_with_openai_remote(
         form = form.text("language", language);
     }
 
-    let endpoint = format!(
-        "{}/audio/transcriptions",
-        profile.base_url.trim_end_matches('/')
-    );
+    let endpoint = endpoint_scope
+        .endpoint_url("audio/transcriptions")
+        .map_err(|reason| AsrRuntimeError::RemoteRequestBuildFailed { reason })?;
     let mut request = client.post(endpoint).bearer_auth(api_key).multipart(form);
     if let Some(organization) = profile.organization.as_ref() {
         request = request.header(
             "OpenAI-Organization",
-            resolve_secret_ref(organization)
+            resolve_secret_ref_for_endpoint(organization, "asr", profile_name, &endpoint_scope)
                 .map_err(|reason| AsrRuntimeError::RemoteSecretUnavailable { reason })?,
         );
     }
@@ -122,6 +130,7 @@ fn transcribe_with_openai_remote(
 
 #[cfg(not(feature = "remote-openai"))]
 fn transcribe_with_openai_remote(
+    _profile_name: &str,
     _profile: &RemoteAsrProfile,
     _captured_audio: &CapturedAudio,
 ) -> Result<String, AsrRuntimeError> {

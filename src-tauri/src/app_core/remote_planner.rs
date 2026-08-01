@@ -1,6 +1,8 @@
 #[cfg(feature = "remote-openai")]
 use std::collections::BTreeMap;
 
+#[cfg(feature = "remote-openai")]
+use super::api_key_tools::credential_async_client;
 use super::planner_prompt::planner_interpretation_unavailable_error;
 #[cfg(any(feature = "remote-openai", test))]
 use super::planner_prompt::planner_system_prompt;
@@ -15,8 +17,10 @@ use crate::commands::{
 };
 use crate::commands::{PlannerInput, PlannerOutput, ToolError};
 #[cfg(feature = "remote-openai")]
-use crate::config::resolve_secret_ref;
+use crate::config::resolve_secret_ref_for_endpoint;
 use crate::config::{RemotePlannerProfile, RemoteProviderKind};
+#[cfg(feature = "remote-openai")]
+use crate::provider_endpoint::ProviderEndpointScope;
 
 impl AppCore {
     /// Snapshot the configured remote planner profile under the `AppCore` lock so
@@ -24,7 +28,7 @@ impl AppCore {
     /// same "profile unavailable" errors the inline path used to.
     pub(crate) fn remote_planner_profile_snapshot(
         &self,
-    ) -> Result<RemotePlannerProfile, ToolError> {
+    ) -> Result<(String, RemotePlannerProfile), ToolError> {
         let Some(profile_name) = self.config.providers.planner.remote_profile.as_deref() else {
             return Err(planner_interpretation_unavailable_error(
                 "planner_profile_unavailable",
@@ -41,7 +45,7 @@ impl AppCore {
                 None,
             ));
         };
-        Ok(profile.clone())
+        Ok((profile_name.to_string(), profile.clone()))
     }
 }
 
@@ -51,12 +55,17 @@ impl AppCore {
 /// released — the lock-scoped replanning orchestrator calls it after dropping the
 /// guard, while the synchronous trait path calls it under the held guard.
 pub(crate) fn resolve_remote_planner(
+    profile_name: &str,
     profile: &RemotePlannerProfile,
     planner_input: &PlannerInput,
 ) -> Result<PlannerOutput, ToolError> {
     match profile.provider {
-        RemoteProviderKind::OpenAi => resolve_with_openai_planner(profile, planner_input),
-        RemoteProviderKind::Ollama => resolve_with_ollama_planner(profile, planner_input),
+        RemoteProviderKind::OpenAi => {
+            resolve_with_openai_planner(profile_name, profile, planner_input)
+        }
+        RemoteProviderKind::Ollama => {
+            resolve_with_ollama_planner(profile_name, profile, planner_input)
+        }
     }
 }
 
@@ -80,6 +89,7 @@ fn planner_prompt_payload(planner_input: &PlannerInput) -> PlannerPromptPayload<
 
 #[cfg(feature = "remote-openai")]
 fn resolve_with_openai_planner(
+    profile_name: &str,
     profile: &RemotePlannerProfile,
     planner_input: &PlannerInput,
 ) -> Result<PlannerOutput, ToolError> {
@@ -90,34 +100,54 @@ fn resolve_with_openai_planner(
     use async_openai::types::chat::{ResponseFormat, ResponseFormatJsonSchema};
     use async_openai::{config::OpenAIConfig, Client};
 
-    let api_key = resolve_secret_ref(&profile.api_key).map_err(|reason| {
+    let endpoint_scope = ProviderEndpointScope::parse(&profile.base_url).map_err(|reason| {
         planner_interpretation_unavailable_error(
-            "planner_secret_unavailable",
-            "remote planner API key could not be resolved",
+            "planner_endpoint_invalid",
+            "remote planner endpoint is invalid",
+            false,
+            Some(serde_json::json!({ "reason": reason })),
+        )
+    })?;
+    let api_key =
+        resolve_secret_ref_for_endpoint(&profile.api_key, "planner", profile_name, &endpoint_scope)
+            .map_err(|reason| {
+                planner_interpretation_unavailable_error(
+                    "planner_secret_unavailable",
+                    "remote planner API key could not be resolved for the configured endpoint",
+                    false,
+                    Some(serde_json::json!({ "reason": reason })),
+                )
+            })?;
+    let http_client = credential_async_client(profile.timeout_ms).map_err(|reason| {
+        planner_interpretation_unavailable_error(
+            "planner_request_build_failed",
+            "failed to build the credential-bearing planner client",
             false,
             Some(serde_json::json!({ "reason": reason })),
         )
     })?;
 
     let mut openai_config = OpenAIConfig::new()
-        .with_api_base(profile.base_url.clone())
+        .with_api_base(endpoint_scope.normalized_base_url().to_string())
         .with_api_key(api_key);
     if let Some(organization) = profile.organization.as_ref() {
-        openai_config =
-            openai_config.with_org_id(resolve_secret_ref(organization).map_err(|reason| {
-                planner_interpretation_unavailable_error(
-                    "planner_secret_unavailable",
-                    "remote planner organization secret could not be resolved",
-                    false,
-                    Some(serde_json::json!({ "reason": reason })),
-                )
-            })?);
+        openai_config = openai_config.with_org_id(
+            resolve_secret_ref_for_endpoint(organization, "planner", profile_name, &endpoint_scope)
+                .map_err(|reason| {
+                    planner_interpretation_unavailable_error(
+                        "planner_secret_unavailable",
+                        "remote planner organization secret could not be resolved",
+                        false,
+                        Some(serde_json::json!({ "reason": reason })),
+                    )
+                })?,
+        );
     }
     if let Some(project) = profile.project.as_ref() {
         openai_config = openai_config.with_project_id(project.clone());
     }
 
-    let client = Client::with_config(openai_config);
+    let client = Client::with_config(openai_config).with_http_client(http_client);
     let planner_safe_input = sanitize_remote_planner_input(planner_input);
     let prompt_payload = planner_prompt_payload(&planner_safe_input);
     let user_content =
@@ -214,6 +244,7 @@ fn resolve_with_openai_planner(
 
 #[cfg(not(feature = "remote-openai"))]
 fn resolve_with_openai_planner(
+    _profile_name: &str,
     _profile: &RemotePlannerProfile,
     _planner_input: &PlannerInput,
 ) -> Result<PlannerOutput, ToolError> {
@@ -227,6 +258,7 @@ fn resolve_with_openai_planner(
 
 #[cfg(feature = "remote-openai")]
 fn resolve_with_ollama_planner(
+    profile_name: &str,
     profile: &RemotePlannerProfile,
     planner_input: &PlannerInput,
 ) -> Result<PlannerOutput, ToolError> {
@@ -237,10 +269,28 @@ fn resolve_with_ollama_planner(
     };
     use async_openai::{config::OpenAIConfig, Client};
 
-    let api_key = resolve_secret_ref(&profile.api_key).map_err(|reason| {
+    let endpoint_scope = ProviderEndpointScope::parse(&profile.base_url).map_err(|reason| {
         planner_interpretation_unavailable_error(
+            "planner_endpoint_invalid",
+            "Ollama planner endpoint is invalid",
+            false,
+            Some(serde_json::json!({ "reason": reason })),
+        )
+    })?;
+    let api_key =
+        resolve_secret_ref_for_endpoint(&profile.api_key, "planner", profile_name, &endpoint_scope)
+            .map_err(|reason| {
+                planner_interpretation_unavailable_error(
             "planner_secret_unavailable",
-            "Ollama planner API key placeholder could not be resolved",
+            "Ollama planner API key placeholder could not be resolved for the configured endpoint",
+            false,
+            Some(serde_json::json!({ "reason": reason })),
+        )
+            })?;
+    let http_client = credential_async_client(profile.timeout_ms).map_err(|reason| {
+        planner_interpretation_unavailable_error(
+            "planner_request_build_failed",
+            "failed to build the credential-bearing Ollama client",
             false,
             Some(serde_json::json!({ "reason": reason })),
         )
@@ -248,9 +298,10 @@ fn resolve_with_ollama_planner(
 
     let client = Client::with_config(
         OpenAIConfig::new()
-            .with_api_base(profile.base_url.clone())
+            .with_api_base(endpoint_scope.normalized_base_url().to_string())
             .with_api_key(api_key),
-    );
+    )
+    .with_http_client(http_client);
     let planner_safe_input = sanitize_remote_planner_input(planner_input);
     let prompt_payload = planner_prompt_payload(&planner_safe_input);
     let user_content =
@@ -338,6 +389,7 @@ fn resolve_with_ollama_planner(
 
 #[cfg(not(feature = "remote-openai"))]
 fn resolve_with_ollama_planner(
+    _profile_name: &str,
     _profile: &RemotePlannerProfile,
     _planner_input: &PlannerInput,
 ) -> Result<PlannerOutput, ToolError> {

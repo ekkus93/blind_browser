@@ -17,7 +17,9 @@ impl ProviderEndpointScope {
             return Err(String::from("provider endpoint must not be empty"));
         }
         if value.chars().any(char::is_control) {
-            return Err(String::from("provider endpoint must not contain control characters"));
+            return Err(String::from(
+                "provider endpoint must not contain control characters",
+            ));
         }
 
         let lower = value.to_ascii_lowercase();
@@ -113,6 +115,10 @@ impl ProviderEndpointScope {
 }
 
 fn is_loopback_host(host: &str) -> bool {
+    let host = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(host);
     if host.eq_ignore_ascii_case("localhost") {
         return true;
     }
@@ -166,7 +172,10 @@ mod tests {
             "https://api.example.com/v1%2fmodels",
             "https://api.example.com\\v1",
         ] {
-            assert!(ProviderEndpointScope::parse(endpoint).is_err(), "{endpoint}");
+            assert!(
+                ProviderEndpointScope::parse(endpoint).is_err(),
+                "{endpoint}"
+            );
         }
     }
 
