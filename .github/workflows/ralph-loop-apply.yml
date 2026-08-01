@@ -110,17 +110,35 @@ jobs:
             fi
           done
 
-      - name: Validate Rust batch
-        id: validate
+      - name: Format Rust batch
+        id: format
         shell: bash
-        run: |
-          set -euo pipefail
-          cargo fmt --manifest-path src-tauri/Cargo.toml --all
-          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
-          cargo check --manifest-path src-tauri/Cargo.toml
-          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
-          cargo test --manifest-path src-tauri/Cargo.toml --all-features
-          git diff --check
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all
+
+      - name: Verify Rust formatting
+        id: format_check
+        shell: bash
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Check default Rust configuration
+        id: cargo_check
+        shell: bash
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Run Rust clippy
+        id: clippy
+        shell: bash
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Run Rust tests
+        id: tests
+        shell: bash
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
+
+      - name: Check patch whitespace
+        id: diff_check
+        shell: bash
+        run: git diff --check
 
       - name: Commit validated batch
         id: commit
@@ -144,7 +162,12 @@ jobs:
           NATIVE_DEPENDENCIES_OUTCOME: ${{ steps.native_dependencies.outcome }}
           APPLY_PATCH_OUTCOME: ${{ steps.apply_patch.outcome }}
           ALLOWLIST_OUTCOME: ${{ steps.allowlist.outcome }}
-          VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
+          FORMAT_OUTCOME: ${{ steps.format.outcome }}
+          FORMAT_CHECK_OUTCOME: ${{ steps.format_check.outcome }}
+          CARGO_CHECK_OUTCOME: ${{ steps.cargo_check.outcome }}
+          CLIPPY_OUTCOME: ${{ steps.clippy.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          DIFF_CHECK_OUTCOME: ${{ steps.diff_check.outcome }}
           COMMIT_OUTCOME: ${{ steps.commit.outcome }}
           IMPLEMENTATION_SHA: ${{ steps.commit.outputs.implementation_sha }}
           JOB_STATUS: ${{ job.status }}
@@ -169,7 +192,12 @@ jobs:
           - Native dependencies: \`${NATIVE_DEPENDENCIES_OUTCOME}\`
           - Apply patch: \`${APPLY_PATCH_OUTCOME}\`
           - Allowlist: \`${ALLOWLIST_OUTCOME}\`
-          - Validation: \`${VALIDATE_OUTCOME}\`
+          - Format: \`${FORMAT_OUTCOME}\`
+          - Format check: \`${FORMAT_CHECK_OUTCOME}\`
+          - Cargo check: \`${CARGO_CHECK_OUTCOME}\`
+          - Clippy: \`${CLIPPY_OUTCOME}\`
+          - Tests: \`${TESTS_OUTCOME}\`
+          - Diff check: \`${DIFF_CHECK_OUTCOME}\`
           - Commit/push: \`${COMMIT_OUTCOME}\`
 
           This issue is overwritten by each bounded implementation batch and will be closed at final signoff.
