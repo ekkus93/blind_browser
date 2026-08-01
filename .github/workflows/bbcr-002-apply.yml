@@ -1,0 +1,113 @@
+name: BBCR-002 Finalize
+
+on:
+  push:
+    branches:
+      - agent/bbcr-002-confirmation-manifest
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bbcr-002-finalize
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: ${{ github.event.head_commit.message == 'ci: validate and finalize BBCR-002 branch' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out exact branch revision
+        uses: actions/checkout@v4
+        with:
+          ref: agent/bbcr-002-confirmation-manifest
+          fetch-depth: 0
+
+      - name: Refuse moved branch
+        env:
+          TRIGGER_SHA: ${{ github.sha }}
+        run: test "$(git rev-parse HEAD)" = "${TRIGGER_SHA}"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr
+
+      - name: Apply contract and regression updates
+        run: python3 .github/bbcr-002-finalize.py
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format Rust
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all
+
+      - name: Check silent-fallback policy
+        run: bash scripts/check-silent-fallbacks.sh
+
+      - name: Check default Rust configuration
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Run Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
+
+      - name: Run frontend lint
+        run: pnpm lint
+
+      - name: Run UI tests
+        run: pnpm test:ui
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Verify formatting and whitespace
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+          git diff --check
+
+      - name: Remove temporary finalizer
+        run: |
+          rm .github/bbcr-002-finalize.py
+          rm .github/workflows/bbcr-002-apply.yml
+
+      - name: Commit validated branch state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "security: bind confirmations to immutable action manifests"
+          git push origin HEAD:agent/bbcr-002-confirmation-manifest
