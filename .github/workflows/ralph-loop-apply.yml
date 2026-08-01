@@ -33,8 +33,7 @@ jobs:
           TRIGGER_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          current_sha="$(git rev-parse HEAD)"
-          test "${current_sha}" = "${TRIGGER_SHA}"
+          test "$(git rev-parse HEAD)" = "${TRIGGER_SHA}"
 
       - name: Publish batch start
         shell: bash
@@ -133,7 +132,10 @@ jobs:
       - name: Run Rust tests
         id: tests
         shell: bash
-        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
+        run: |
+          set -o pipefail
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features 2>&1 \
+            | tee "${RUNNER_TEMP}/rust-tests.log"
 
       - name: Check patch whitespace
         id: diff_check
@@ -175,6 +177,17 @@ jobs:
           set -euo pipefail
           body_file="${RUNNER_TEMP}/ralph-loop-status-final.md"
           observed_sha="${IMPLEMENTATION_SHA:-${GITHUB_SHA}}"
+          test_summary="    No Rust test failure output was captured."
+          if [[ -s "${RUNNER_TEMP}/rust-tests.log" && "${TESTS_OUTCOME}" == "failure" ]]; then
+            summary_file="${RUNNER_TEMP}/rust-test-summary.txt"
+            {
+              grep -E '^(test .* FAILED|failures:|---- .* stdout ----|thread .* panicked|test result:|error: test failed)' \
+                "${RUNNER_TEMP}/rust-tests.log" || true
+              tail -n 160 "${RUNNER_TEMP}/rust-tests.log"
+            } | tail -n 220 | sed 's/^/    /' >"${summary_file}"
+            test_summary="$(cat "${summary_file}")"
+          fi
+
           cat >"${body_file}" <<EOF
           <!-- maintained by the temporary Ralph Loop apply workflow -->
           # Ralph Loop batch status
@@ -199,6 +212,10 @@ jobs:
           - Tests: \`${TESTS_OUTCOME}\`
           - Diff check: \`${DIFF_CHECK_OUTCOME}\`
           - Commit/push: \`${COMMIT_OUTCOME}\`
+
+          ## Rust test failure summary
+
+          ${test_summary}
 
           This issue is overwritten by each bounded implementation batch and will be closed at final signoff.
           EOF
