@@ -1,23 +1,34 @@
 use crate::commands::{
     AgentStateData, CaptureScreenshotData, CaptureScreenshotInput, ClickElementData,
-    ClickElementInput, ConfirmActionData, ConfirmActionInput, DeterministicToolExecutor,
-    EvalJsData, EvalJsInput, ExtractPageModelData, ExtractPageModelInput, FindElementData,
-    FindElementInput, FocusElementData, FocusElementInput, GetAgentStateInput, GetHtmlData,
-    GetHtmlInput, GetPageSnapshotInput, GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData,
-    GoBackInput, GoForwardData, GoForwardInput, ListInteractiveElementsData,
-    ListInteractiveElementsInput, MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput,
-    OpenUrlData, OpenUrlInput, PageSnapshotData, ReadNextRegionData, ReadNextRegionInput,
-    ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData, ReadRegionInput,
-    ReloadPageData, ReloadPageInput, ReportResultData, ReportResultInput, RunOcrData, RunOcrInput,
-    ScrollPageData, ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput,
-    SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput,
-    SetTtsVoiceData, SetTtsVoiceInput, StartListeningData, StartListeningInput, StopListeningData,
+    ClickElementInput, ConfirmActionData, ConfirmActionInput, ConfirmationRuntimeContext,
+    DeterministicToolExecutor, EvalJsData, EvalJsInput, ExtractPageModelData,
+    ExtractPageModelInput, FindElementData, FindElementInput, FocusElementData,
+    FocusElementInput, GetAgentStateInput, GetHtmlData, GetHtmlInput, GetPageSnapshotInput,
+    GetRuntimeStatusData, GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData,
+    GoForwardInput, ListInteractiveElementsData, ListInteractiveElementsInput,
+    MergeOcrIntoPageModelData, MergeOcrIntoPageModelInput, OpenUrlData, OpenUrlInput,
+    PageSnapshotData, ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData,
+    ReadPreviousRegionInput, ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput,
+    ReportResultData, ReportResultInput, RunOcrData, RunOcrInput, ScrollPageData,
+    ScrollPageInput, SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
+    SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
+    SetTtsVoiceInput, StartListeningData, StartListeningInput, StopListeningData,
     StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
     SubmitActiveFormInput, ToolResult, TranscribeCommandData, TranscribeCommandInput,
     TypeIntoElementData, TypeIntoElementInput,
 };
 
 impl DeterministicToolExecutor for super::AppCore {
+    fn confirmation_runtime_context(&self) -> ConfirmationRuntimeContext {
+        ConfirmationRuntimeContext::current(
+            self.state.current_page_id.clone(),
+            self.state
+                .current_page
+                .as_ref()
+                .and_then(|page| page.url.clone()),
+        )
+    }
+
     fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData> {
         super::AppCore::execute_open_url(self, input)
     }
