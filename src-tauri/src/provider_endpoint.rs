@@ -17,6 +17,16 @@ impl ProviderEndpointScope {
         if value.is_empty() {
             return Err(String::from("provider endpoint must not be empty"));
         }
+        if value.chars().any(char::is_control) {
+            return Err(String::from("provider endpoint must not contain control characters"));
+        }
+
+        let lower = value.to_ascii_lowercase();
+        if lower.contains("%2f") || lower.contains("%5c") || value.contains('\\') {
+            return Err(String::from(
+                "provider endpoint path must not contain encoded or literal backslash separators",
+            ));
+        }
 
         let mut parsed = Url::parse(value)
             .map_err(|error| format!("provider endpoint must be an absolute URL: {error}"))?;
@@ -48,8 +58,6 @@ impl ProviderEndpointScope {
             }
         }
 
-        parsed.set_query(None);
-        parsed.set_fragment(None);
         let path = parsed.path().trim_end_matches('/');
         let path_prefix = if path.is_empty() {
             String::from("/")
@@ -57,6 +65,8 @@ impl ProviderEndpointScope {
             path.to_string()
         };
         parsed.set_path(&path_prefix);
+        parsed.set_query(None);
+        parsed.set_fragment(None);
 
         let origin = parsed.origin().ascii_serialization();
         let normalized_base_url = if path_prefix == "/" {
@@ -90,12 +100,21 @@ impl ProviderEndpointScope {
         &self.scope_id
     }
 
-    pub fn models_url(&self) -> String {
-        if self.path_prefix == "/" {
-            format!("{}/models", self.origin)
-        } else {
-            format!("{}/models", self.normalized_base_url)
+    pub fn endpoint_url(&self, relative_path: &str) -> Result<String, String> {
+        let relative_path = relative_path.trim_matches('/');
+        if relative_path.is_empty()
+            || relative_path.contains("..")
+            || relative_path.contains('\\')
+            || relative_path.chars().any(char::is_control)
+        {
+            return Err(String::from("provider endpoint relative path is invalid"));
         }
+        Ok(format!("{}/{relative_path}", self.normalized_base_url))
+    }
+
+    pub fn models_url(&self) -> String {
+        self.endpoint_url("models")
+            .expect("static models endpoint path should be valid")
     }
 }
 
@@ -129,10 +148,18 @@ mod tests {
             "https://other.example.com/v1",
             "https://api.example.com:8443/v1",
             "https://api.example.com/v2",
+            "http://localhost:443/v1",
         ] {
             let changed = ProviderEndpointScope::parse(changed).unwrap();
             assert_ne!(baseline.scope_id(), changed.scope_id());
         }
+    }
+
+    #[test]
+    fn equivalent_endpoints_have_the_same_scope() {
+        let first = ProviderEndpointScope::parse("https://API.EXAMPLE.COM:443/v1/").unwrap();
+        let second = ProviderEndpointScope::parse("https://api.example.com/v1").unwrap();
+        assert_eq!(first, second);
     }
 
     #[test]
@@ -143,6 +170,8 @@ mod tests {
             "https://api.example.com/v1#fragment",
             "http://api.example.com/v1",
             "file:///tmp/provider",
+            "https://api.example.com/v1%2fmodels",
+            "https://api.example.com\\v1",
         ] {
             assert!(ProviderEndpointScope::parse(endpoint).is_err(), "{endpoint}");
         }
@@ -153,5 +182,15 @@ mod tests {
         assert!(ProviderEndpointScope::parse("http://localhost:11434/v1").is_ok());
         assert!(ProviderEndpointScope::parse("http://127.0.0.1:11434/v1").is_ok());
         assert!(ProviderEndpointScope::parse("http://[::1]:11434/v1").is_ok());
+    }
+
+    #[test]
+    fn endpoint_url_keeps_requests_inside_the_approved_prefix() {
+        let scope = ProviderEndpointScope::parse("https://api.example.com/v1").unwrap();
+        assert_eq!(
+            scope.endpoint_url("audio/speech").unwrap(),
+            "https://api.example.com/v1/audio/speech"
+        );
+        assert!(scope.endpoint_url("../other").is_err());
     }
 }
