@@ -12,12 +12,22 @@ export type ToolName =
   | "GoBack"
   | "GoForward"
   | "ReloadPage"
+  | "GetHtml"
+  | "EvalJs"
   | "ScrollPage"
   | "CaptureScreenshot"
   | "SetBrowserVisibility"
   | "GetPageSnapshot"
   | "ExtractPageModel"
   | "ListInteractiveElements"
+  | "FindElement"
+  | "ClickElement"
+  | "FocusElement"
+  | "TypeIntoElement"
+  | "SubmitActiveForm"
+  | "ReadRegion"
+  | "ReadNextRegion"
+  | "ReadPreviousRegion"
   | "StopSpeaking"
   | "StartListening"
   | "StopListening"
@@ -363,15 +373,34 @@ export interface PlannedStep {
   on_failure: StepTransition;
 }
 
+export interface ConfirmationActionManifest {
+  sequence: number;
+  step_id: string;
+  tool_name: ToolName;
+  argument_digest: string;
+  transition_digest: string;
+  safe_summary: string;
+}
+
+export interface ConfirmationManifest {
+  request_id: string;
+  page_id: string | null;
+  origin: string | null;
+  issued_at_ms: number;
+  expires_at_ms: number;
+  actions: ConfirmationActionManifest[];
+}
+
 export interface PendingPlanExecutionState {
   request_id: string;
   intent_name: IntentName;
   selected_skills: string[];
   confirmation_id: string;
+  manifest_digest: string;
+  manifest: ConfirmationManifest;
   prompt_text: string;
   next_step_id: string | null;
   queued_step_ids: string[];
-  queued_steps: PlannedStep[];
 }
 
 export interface AgentStateData {
@@ -478,6 +507,7 @@ export interface ConfirmActionResolution {
 
 export interface ConfirmActionResponseInput {
   confirmationId: string;
+  confirmationDigest: string;
   confirmed: boolean;
   timedOut: boolean;
 }

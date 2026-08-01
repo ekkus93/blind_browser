@@ -16,6 +16,7 @@ function awaitingConfirmationState(confirmationId) {
       isSubmitting: false,
       submissionError: null,
       confirmationId,
+      confirmationDigest: "digest-active",
       promptText: "Submit this form?",
       requestId: "req-confirm",
       selectedSkills: [],

@@ -45,6 +45,7 @@ pub struct ConfirmationActionManifest {
     pub step_id: String,
     pub tool_name: ToolName,
     pub argument_digest: String,
+    pub transition_digest: String,
     pub safe_summary: String,
 }
 
@@ -110,6 +111,10 @@ fn build_confirmation_manifest_at(
             step_id: step.step_id.clone(),
             tool_name: step.tool_name.clone(),
             argument_digest: digest_json(&step.arguments),
+            transition_digest: digest_json(&serde_json::json!({
+                "on_success": &step.on_success,
+                "on_failure": &step.on_failure,
+            })),
             safe_summary: safe_action_summary(step),
         });
     }
@@ -329,11 +334,7 @@ fn canonical_json(value: &serde_json::Value) -> serde_json::Value {
     }
 }
 
-fn confirmation_error(
-    code: &str,
-    message: &str,
-    details: Option<serde_json::Value>,
-) -> ToolError {
+fn confirmation_error(code: &str, message: &str, details: Option<serde_json::Value>) -> ToolError {
     ToolError {
         code: code.to_string(),
         message: message.to_string(),

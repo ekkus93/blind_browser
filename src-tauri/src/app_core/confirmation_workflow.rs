@@ -84,11 +84,8 @@ impl super::AppCore {
             .unwrap_or_default();
 
         let should_resume = confirmed && !timed_out;
-        let resume_outcome = self.resume_after_confirmation(
-            confirmation_id,
-            confirmation_digest,
-            should_resume,
-        );
+        let resume_outcome =
+            self.resume_after_confirmation(confirmation_id, confirmation_digest, should_resume);
         let tool_result = match &resume_outcome {
             ExecutionOutcome::Aborted { error, .. } => ToolResult::failure(
                 ToolName::ConfirmAction,

@@ -107,7 +107,7 @@ pub enum ExecutionOutcome {
     AwaitingConfirmation {
         trace: ExecutionTrace,
         pending_confirmation_id: String,
-        pending_plan_execution: PendingPlanExecutionState,
+        pending_plan_execution: Box<PendingPlanExecutionState>,
     },
     NeedsReplan {
         trace: ExecutionTrace,

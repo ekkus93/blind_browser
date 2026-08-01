@@ -60,6 +60,7 @@ fn resumed_execution_policy_error(steps: &[PlannedStep]) -> Option<ToolError> {
     None
 }
 
+#[cfg(test)]
 pub(crate) fn execute_planner_output_with_runner<Runner>(
     request_id: String,
     planner_output: &PlannerOutput,
@@ -143,30 +144,6 @@ where
         },
         &mut run_step,
         trace,
-    )
-}
-
-pub(super) fn resume_after_confirmation_with_runner<Runner>(
-    pending_plan_execution: &PendingPlanExecutionState,
-    confirmation_id: &str,
-    confirmed: bool,
-    run_step: Runner,
-) -> ExecutionOutcome
-where
-    Runner: FnMut(&PlannedStep) -> SerializedToolResult,
-{
-    let context = ConfirmationRuntimeContext {
-        page_id: pending_plan_execution.manifest.page_id.clone(),
-        page_url: pending_plan_execution.manifest.origin.clone(),
-        now_ms: pending_plan_execution.manifest.issued_at_ms,
-    };
-    resume_after_confirmation_with_runner_and_context(
-        pending_plan_execution,
-        confirmation_id,
-        &pending_plan_execution.manifest_digest,
-        confirmed,
-        &context,
-        run_step,
     )
 }
 
@@ -346,16 +323,14 @@ where
             };
             let queued_step_ids = queued_step_ids_after(steps, step, &step_positions);
             let queued_steps = queued_steps_after(steps, step, &step_positions);
-            let built_manifest = match build_confirmation_manifest(
-                &request_id,
-                &queued_steps,
-                confirmation_context,
-            ) {
-                Ok(manifest) => manifest,
-                Err(error) => {
-                    return ExecutionOutcome::Aborted { trace, error };
-                }
-            };
+            let built_manifest =
+                match build_confirmation_manifest(&request_id, &queued_steps, confirmation_context)
+                {
+                    Ok(manifest) => manifest,
+                    Err(error) => {
+                        return ExecutionOutcome::Aborted { trace, error };
+                    }
+                };
 
             if let Some(serde_json::Value::Object(data)) = result.data.as_mut() {
                 data.insert(
@@ -387,7 +362,7 @@ where
             return ExecutionOutcome::AwaitingConfirmation {
                 trace,
                 pending_confirmation_id: confirmation_id,
-                pending_plan_execution,
+                pending_plan_execution: Box::new(pending_plan_execution),
             };
         }
 
