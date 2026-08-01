@@ -25,7 +25,7 @@ pub fn execute_planner_output<E: DeterministicToolExecutor>(
     request_id: String,
     planner_output: &PlannerOutput,
 ) -> ExecutionOutcome {
-    let context = ConfirmationRuntimeContext::detached();
+    let context = executor.confirmation_runtime_context();
     execute_planner_output_with_context(executor, request_id, planner_output, &context)
 }
 
@@ -49,11 +49,7 @@ pub fn resume_after_confirmation<E: DeterministicToolExecutor>(
     confirmation_id: &str,
     confirmed: bool,
 ) -> ExecutionOutcome {
-    let context = ConfirmationRuntimeContext {
-        page_id: pending_plan_execution.manifest.page_id.clone(),
-        page_url: pending_plan_execution.manifest.origin.clone(),
-        now_ms: pending_plan_execution.manifest.issued_at_ms,
-    };
+    let context = executor.confirmation_runtime_context();
     resume_after_confirmation_with_context(
         executor,
         pending_plan_execution,
