@@ -120,10 +120,11 @@ Still open within BBCR-002 or its grounding dependencies:
 **Bounded finalizer run:** `30722003167`  
 **Bounded finalizer job:** `91427197740`  
 **Finalizer result:** success  
-**Owner-authored evidence head:** recorded by the commit containing this report update  
-**Permanent PR CI:** required on that exact owner-authored evidence head before merge  
-**Draft PR:** `#4`  
-**Result:** implementation and bounded validation complete; permanent exact-head PR CI and human merge decision still required
+**Prior owner-authored evidence head:** `27dda7c43f2015cc33c051120dd1e721cc49c0b0`<br>
+**Prior permanent PR CI:** run `30723051745`, job `91429862875` — success<br>
+**Final TODO-closure evidence:** recorded in PR #4 and issue #5 without mutating the exact validated SHA<br>
+**Draft PR:** `#4`<br>
+**Result:** implementation and TODO closure complete; final exact-head CI and the human merge decision are the remaining PR gates
 
 Implemented:
 
@@ -137,6 +138,8 @@ Implemented:
 - Allowed a temporary entered key for the displayed changed endpoint without attaching the configured organization or project headers from the saved destination.
 - Removed model discovery as a side effect of endpoint-field blur so editing an endpoint does not silently send credentials.
 - Disabled HTTP redirect following for every credential-bearing API-key test, model-list, planner, TTS, and ASR client.
+- Added separate same-origin and cross-origin redirect-refusal regressions.
+- Documented fail-closed migration and manual cleanup for orphaned legacy keyring entries.
 - Added regression tests for equivalent endpoint normalization, host/port/path scope changes, unsafe URL forms, IPv4/IPv6 loopback policy, legacy key migration behavior, mismatched key rejection, changed-endpoint empty overrides, temporary-key header isolation, endpoint path containment, and redirect refusal.
 
 Ralph-loop diagnostics and corrections:
@@ -148,10 +151,10 @@ Ralph-loop diagnostics and corrections:
 - The final cleaned commit contains none of the temporary finalizer workflow, transformation scripts, or trigger files.
 - GitHub recorded the workflow-authored cleaned commit's automatic CI as `action_required` with zero jobs; this is not test evidence. The owner-authored report/evidence commit exists to obtain an executed permanent CI run on the exact cleaned product tree plus this report.
 
-Still open after BBCR-004:
+Boundary after BBCR-004:
 
-- The draft PR must pass the permanent repository CI workflow on the exact owner-authored head.
-- PR #4 must remain unmerged until that exact-head CI succeeds and the human merge decision is made.
+- The final TODO-closure head must pass the permanent repository CI workflow; its run and job are recorded in PR #4 and issue #5.
+- PR #4 remains draft and unmerged for the human merge decision.
 - Credential-origin binding does not replace the still-open remote-data consent and high-risk-origin controls in BBCR-003.
 
 ## Validation gate
@@ -175,7 +178,7 @@ git diff --check
 - **BBCR-001:** Partially implemented; core actual-tool policy and executor guard complete, deterministic click authorization still open.
 - **BBCR-002:** Core immutable confirmation-manifest implementation merged and fully validated; DOM-generation and element revalidation dependencies remain open.
 - **BBCR-003:** Partially implemented; strong extraction and serialization redaction exists, but distinct remote-only types and consent policy remain open.
-- **BBCR-004:** Implementation and bounded validation complete on draft PR #4; permanent exact-head PR CI and human merge decision remain open.
+- **BBCR-004:** Implementation and TODO closure complete on draft PR #4; final exact-head CI is recorded externally, and the human merge decision remains open.
 - **BBCR-005:** Open.
 - **BBCR-006:** Partially implemented; explicit hostile-content boundaries exist, but full corpus and telemetry work remain open.
 - **BBCR-007 through BBCR-023:** Open except for pre-existing repository behavior documented separately.
