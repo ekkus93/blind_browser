@@ -136,7 +136,50 @@ jobs:
           gh issue edit 5 --repo "${GITHUB_REPOSITORY}" --body-file "${RUNNER_TEMP}/bbcr004-issue.md"
 
       - name: Run Rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
+        id: rust_tests
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features -- --nocapture 2>&1 | tee "${RUNNER_TEMP}/bbcr004-tests.log"
+
+      - name: Publish exact Rust test diagnostic
+        if: failure() && steps.rust_tests.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          {
+            echo '# BBCR-004 validation evidence'
+            echo
+            echo '- **Status:** `rust_test_failure`'
+            echo "- **Evaluated head:** \`${{ github.event.pull_request.head.sha }}\`"
+            echo "- **Run:** \`${GITHUB_RUN_ID}\`"
+            echo "- **Job:** \`${GITHUB_JOB}\`"
+            echo
+            echo '## Exact Rust test diagnostic'
+            echo
+            echo '```text'
+            python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          text = Path(os.environ['RUNNER_TEMP'], 'bbcr004-tests.log').read_text(errors='replace')
+          ansi = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
+          clean = ansi.sub('', text)
+          marker_positions = [clean.rfind('\nfailures:\n'), clean.rfind("thread '")]
+          start = max(marker_positions)
+          if start < 0:
+              output = clean[-48_000:]
+          else:
+              output = clean[max(0, start - 8_000):]
+          print(output[-48_000:])
+          PY
+            echo '```'
+            echo
+            echo 'No completion or merge-readiness claim is made.'
+          } >"${RUNNER_TEMP}/bbcr004-issue.md"
+          gh issue edit 5 --repo "${GITHUB_REPOSITORY}" --body-file "${RUNNER_TEMP}/bbcr004-issue.md"
 
       - name: Run frontend lint
         run: pnpm lint
