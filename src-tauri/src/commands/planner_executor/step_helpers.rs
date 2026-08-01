@@ -74,31 +74,6 @@ pub(in crate::commands::planner_executor) fn extract_confirmation_id(
     })
 }
 
-pub(in crate::commands::planner_executor) fn extract_confirmation_prompt_text(
-    result: &SerializedToolResult,
-) -> Result<String, ToolError> {
-    let prompt_text = result
-        .data
-        .as_ref()
-        .and_then(|data| data.get("prompt_text"))
-        .and_then(serde_json::Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned);
-
-    prompt_text.ok_or_else(|| ToolError {
-        code: String::from("missing_confirmation_prompt"),
-        message: String::from(
-            "step requested confirmation but the tool result did not include prompt_text",
-        ),
-        retryable: false,
-        details: Some(serde_json::json!({
-            "tool_name": result.tool_name,
-            "request_id": result.request_id,
-        })),
-    })
-}
-
 pub(in crate::commands::planner_executor) fn serialize_tool_result<T>(
     result: ToolResult<T>,
 ) -> SerializedToolResult
