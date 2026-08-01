@@ -1,0 +1,118 @@
+name: BBCR-004 Finalizer
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: bbcr-004-finalizer-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  finalize:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'agent/bbcr-004-origin-bound-credentials'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact branch head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refuse unexpected branch
+        run: |
+          test "${GITHUB_HEAD_REF}" = "agent/bbcr-004-origin-bound-credentials"
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install Ubuntu native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr
+
+      - name: Apply deterministic BBCR-004 transformations
+        run: |
+          python3 scripts/bbcr004_finalize.py
+          python3 scripts/bbcr004_remote_clients.py
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format Rust
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all
+
+      - name: Check for reintroduced silent-fallback patterns
+        run: bash scripts/check-silent-fallbacks.sh
+
+      - name: Check default feature configuration
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Run Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
+
+      - name: Run frontend lint
+        run: pnpm lint
+
+      - name: Run UI tests
+        run: pnpm test:ui
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Verify formatting and whitespace
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+          git diff --check
+
+      - name: Remove branch-only finalizer
+        run: |
+          rm scripts/bbcr004_finalize.py
+          rm scripts/bbcr004_remote_clients.py
+          rm .github/workflows/bbcr-004-finalizer.yml
+
+      - name: Commit validated implementation
+        run: |
+          git config user.name "ekkus93"
+          git config user.email "1386709+ekkus93@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "security: bind remote credentials to approved endpoints"
+          git push origin HEAD:agent/bbcr-004-origin-bound-credentials
