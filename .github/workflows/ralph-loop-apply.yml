@@ -1,0 +1,104 @@
+name: Ralph Loop Apply
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ralph-loop-apply-master
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: ${{ startsWith(github.event.head_commit.message, 'ralph:') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out exact trigger revision
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Refuse moved branch
+        shell: bash
+        env:
+          TRIGGER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          current_sha="$(git rev-parse HEAD)"
+          test "${current_sha}" = "${TRIGGER_SHA}"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install native dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr
+
+      - name: Apply current bounded patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/ralph-loop/current_patch.py
+
+      - name: Refuse changes outside current allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only)
+          if (( ${#changed[@]} == 0 )); then
+            echo "Patch produced no changes." >&2
+            exit 1
+          fi
+          for path in "${changed[@]}"; do
+            if ! grep -Fxq -- "${path}" .github/ralph-loop/allowed_paths.txt; then
+              echo "Refusing unexpected changed path: ${path}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Validate Rust batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+          cargo check --manifest-path src-tauri/Cargo.toml
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features
+          git diff --check
+
+      - name: Commit validated batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- $(cat .github/ralph-loop/allowed_paths.txt)
+          git commit -m "$(cat .github/ralph-loop/commit_message.txt)"
+          git push origin HEAD:master
