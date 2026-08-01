@@ -3,6 +3,7 @@ name: BBCR-004 Close TODO
 on:
   pull_request:
     types:
+      - edited
       - synchronize
 
 permissions:
@@ -32,163 +33,13 @@ jobs:
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
           test "${GITHUB_HEAD_REF}" = "agent/bbcr-004-origin-bound-credentials"
 
-          python3 - <<'PY'
-          from pathlib import Path
-
-          def replace_exact(path: str, old: str, new: str, count: int = 1) -> None:
-              file = Path(path)
-              text = file.read_text()
-              actual = text.count(old)
-              if actual != count:
-                  raise SystemExit(f"{path}: expected {count} matches, found {actual}: {old[:100]!r}")
-              file.write_text(text.replace(old, new, count))
-
-          replace_exact(
-              "src-tauri/src/app_core/mod.rs",
-              "mod api_key_tools;\n",
-              "mod api_key_tools;\n#[cfg(test)]\nmod api_key_tools_redirect_tests;\n",
-          )
-
-          todo_path = Path("docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md")
-          todo = todo_path.read_text()
-          start = todo.index("## BBCR-004 — Bind Stored Credentials to Approved Origins")
-          end = todo.index("\n---\n\n## BBCR-005", start)
-          completed = '''## BBCR-004 — Bind Stored Credentials to Approved Origins
-
-### Problem
-
-Model listing accepts an endpoint override and may combine it with the configured API key and organization headers. An unsaved or malicious endpoint can therefore receive a stored credential.
-
-### Required invariant
-
-A stored credential may be sent only to the exact normalized origin for which it was explicitly stored or approved. Changing scheme, host, port, or approved path prefix requires explicit reauthorization and never silently reuses the existing secret.
-
-### Tasks
-
-- [x] Introduce a normalized provider-origin type.
-  - [x] Normalize scheme, hostname, effective port, and allowed path prefix.
-  - [x] Reject embedded username/password information.
-  - [x] Reject fragments.
-  - [x] Define path normalization rules.
-- [x] Bind each keyring entry to provider kind, profile, and normalized destination scope.
-  - [x] Include destination identity in the keyring account naming.
-  - [x] Prevent one profile's key from being reused by another destination without explicit rebinding.
-- [x] Change model listing and API-key testing behavior.
-  - [x] If the endpoint differs from the stored destination, do not resolve or attach the configured key.
-  - [x] Require a newly entered key, or save the endpoint and re-enter the key to bind it to that destination.
-  - [x] Display the exact endpoint in the editable destination field and normalized success/error messages before or after the explicit action.
-  - [x] Do not automatically load models on blur.
-- [x] Separate endpoint editing from credential-bearing network actions.
-  - [x] Validate the endpoint before transmission; stored-key rebinding requires saving the endpoint and re-entering the key. An unsaved endpoint can use only a newly entered temporary key.
-  - [x] Require explicit user action to test or list models.
-  - [x] Prohibit reuse of a stored key after a destination change rather than offering a weaker confirmation-only path.
-- [x] Restrict organization and project headers to the bound destination scope.
-- [x] Add redirect controls.
-  - [x] Prohibit redirects for credential-bearing requests.
-  - [x] Prevent authorization headers from being forwarded cross-origin.
-  - [x] Test same-origin and cross-origin redirect refusal.
-- [x] Ensure error messages never include the secret or authorization header.
-- [x] Provide migration behavior for existing keyring entries.
-  - [x] Detect legacy unbound entries.
-  - [x] Require explicit rebinding rather than guessing.
-  - [x] Document cleanup of orphaned legacy entries in `docs/BBCR-004_PR_VALIDATION_EVIDENCE_2026-08-01.md`.
-
-### Required regression tests
-
-- [x] A changed host cannot receive the stored key.
-- [x] A changed scheme cannot receive the stored key.
-- [x] A changed port cannot receive the stored key.
-- [x] A changed path is handled according to the documented path-prefix policy.
-- [x] Empty key override plus changed endpoint fails closed.
-- [x] Organization and project headers are not sent to a changed destination.
-- [x] Cross-origin redirects do not receive authorization headers.
-- [x] Same-origin redirects are also refused.
-- [x] Explicitly entered temporary credentials are scoped to the displayed approved destination.
-- [x] Existing same-destination API-key testing and model listing continue to work.
-
-### Acceptance criteria
-
-- [x] Stored credentials are destination-bound.
-- [x] Endpoint edits cannot silently exfiltrate stored credentials.
-
-### Evidence
-
-- Cleaned implementation commit: `4d38b71363a83dc343dfd555a9e3a353ed6801b1`.
-- Successful bounded finalizer: run `30722003167`, job `91427197740`.
-- Synchronized implementation commit: `3f91c2d716f83adfdc807ea3fa0eb7ad1da63296`.
-- Prior owner-authored exact-head validation: commit `27dda7c43f2015cc33c051120dd1e721cc49c0b0`, run `30723051745`, job `91429862875`.
-- The final TODO-closure head and its permanent CI identifiers are recorded in PR #4 and issue #5 so recording them does not mutate the exact validated SHA.
-'''
-          todo_path.write_text(todo[:start] + completed + todo[end:])
-
-          evidence_path = Path("docs/BBCR-004_PR_VALIDATION_EVIDENCE_2026-08-01.md")
-          evidence = evidence_path.read_text()
-          marker = "\n## Exact-head validation contract\n"
-          if evidence.count(marker) != 1:
-              raise SystemExit("evidence document exact-head marker mismatch")
-          migration = '''
-## Legacy keyring migration and cleanup policy
-
-Legacy unbound keyring accounts are detected before their secret is read. The application does not guess a destination, copy the old value, or automatically delete the legacy account. The user must re-enter the credential after reviewing and saving the destination; this writes a new account whose identity includes provider kind, profile name, and the normalized endpoint-scope digest.
-
-After the newly scoped credential has been saved and tested successfully, the obsolete legacy account may be removed manually through the operating system's credential manager. Automatic deletion is intentionally avoided because the application cannot prove that an old account is unused by another installed version, backup, or recovery workflow.
-
-## Redirect policy
-
-Every credential-bearing HTTP client uses `Policy::none()`. Redirects are rejected even when the target remains on the same origin, and a separate cross-origin regression verifies that the destination server receives no follow-up connection. This fail-closed rule is simpler and stronger than attempting to selectively preserve authorization across redirects.
-'''
-          evidence_path.write_text(evidence.replace(marker, migration + marker, 1))
-
-          report_path = Path("docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_IMPLEMENTATION_REPORT_2026-08-01.md")
-          report = report_path.read_text()
-          report_replacements = [
-              (
-                  "**Owner-authored evidence head:** recorded by the commit containing this report update  \n"
-                  "**Permanent PR CI:** required on that exact owner-authored evidence head before merge  \n"
-                  "**Draft PR:** `#4`  \n"
-                  "**Result:** implementation and bounded validation complete; permanent exact-head PR CI and human merge decision still required",
-                  "**Prior owner-authored evidence head:** `27dda7c43f2015cc33c051120dd1e721cc49c0b0`<br>\n"
-                  "**Prior permanent PR CI:** run `30723051745`, job `91429862875` — success<br>\n"
-                  "**Final TODO-closure evidence:** recorded in PR #4 and issue #5 without mutating the exact validated SHA<br>\n"
-                  "**Draft PR:** `#4`<br>\n"
-                  "**Result:** implementation and TODO closure complete; final exact-head CI and the human merge decision are the remaining PR gates",
-              ),
-              (
-                  "- Disabled HTTP redirect following for every credential-bearing API-key test, model-list, planner, TTS, and ASR client.\n"
-                  "- Added regression tests for equivalent endpoint normalization, host/port/path scope changes, unsafe URL forms, IPv4/IPv6 loopback policy, legacy key migration behavior, mismatched key rejection, changed-endpoint empty overrides, temporary-key header isolation, endpoint path containment, and redirect refusal.",
-                  "- Disabled HTTP redirect following for every credential-bearing API-key test, model-list, planner, TTS, and ASR client.\n"
-                  "- Added separate same-origin and cross-origin redirect-refusal regressions.\n"
-                  "- Documented fail-closed migration and manual cleanup for orphaned legacy keyring entries.\n"
-                  "- Added regression tests for equivalent endpoint normalization, host/port/path scope changes, unsafe URL forms, IPv4/IPv6 loopback policy, legacy key migration behavior, mismatched key rejection, changed-endpoint empty overrides, temporary-key header isolation, endpoint path containment, and redirect refusal.",
-              ),
-              (
-                  "Still open after BBCR-004:\n\n"
-                  "- The draft PR must pass the permanent repository CI workflow on the exact owner-authored head.\n"
-                  "- PR #4 must remain unmerged until that exact-head CI succeeds and the human merge decision is made.\n"
-                  "- Credential-origin binding does not replace the still-open remote-data consent and high-risk-origin controls in BBCR-003.",
-                  "Boundary after BBCR-004:\n\n"
-                  "- The final TODO-closure head must pass the permanent repository CI workflow; its run and job are recorded in PR #4 and issue #5.\n"
-                  "- PR #4 remains draft and unmerged for the human merge decision.\n"
-                  "- Credential-origin binding does not replace the still-open remote-data consent and high-risk-origin controls in BBCR-003.",
-              ),
-              (
-                  "- **BBCR-004:** Implementation and bounded validation complete on draft PR #4; permanent exact-head PR CI and human merge decision remain open.",
-                  "- **BBCR-004:** Implementation and TODO closure complete on draft PR #4; final exact-head CI is recorded externally, and the human merge decision remains open.",
-              ),
-          ]
-          for old, new in report_replacements:
-              count = report.count(old)
-              if count != 1:
-                  raise SystemExit(f"implementation report expected one match, found {count}: {old[:100]!r}")
-              report = report.replace(old, new, 1)
-          report_path.write_text(report)
-          PY
-
+          python3 scripts/bbcr004_close_todo.py
           cargo fmt --manifest-path src-tauri/Cargo.toml --all
+          rm scripts/bbcr004_close_todo.py
           rm .github/workflows/bbcr-004-close-todo.yml
+
           git add -A
           git diff --cached --check
-
           git config user.name "ekkus93"
           git config user.email "1386709+ekkus93@users.noreply.github.com"
           git commit -m "test: complete BBCR-004 redirect and migration evidence"
