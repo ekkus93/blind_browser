@@ -14,10 +14,13 @@
 - Successful bounded synchronization run: `30722995411`
 - Successful bounded synchronization job: `91429691369`
 - Synchronized master commit: `7c3c4e49ee9a6c99fbf958ef17c92e4b1f9f5369`
+- Prior owner-authored exact-head validation: commit `27dda7c43f2015cc33c051120dd1e721cc49c0b0`, run `30723051745`, job `91429862875` — success
+- Clean TODO-closure implementation commit: `3fa91ef970f5836318e72d9e54b0436ad120c245`
+- Successful self-cleaning closure run: `30723663277`
 
 The master-synchronization commit retained the validated BBCR-004 product tree, incorporated the complete BBCR-002 post-merge evidence from `master`, removed the one-shot synchronization workflow, and left the branch ahead of `master` with no missing base commits.
 
-The final closure audit additionally requires independent same-origin redirect-refusal coverage and explicit legacy-keyring cleanup guidance; both are integrated by the self-cleaning BBCR-004 closure step before the final exact-head validation.
+The TODO-closure commit registered independent same-origin redirect-refusal coverage, documented legacy-keyring cleanup, marked the authoritative BBCR-004 checklist from implementation evidence, and removed its temporary workflow and transformation script before pushing.
 
 ## Legacy keyring migration and cleanup policy
 
@@ -31,7 +34,7 @@ Every credential-bearing HTTP client uses `Policy::none()`. Redirects are reject
 
 ## Exact-head validation contract
 
-The commit containing this document is the owner-authored PR head that must pass the permanent `.github/workflows/ci.yml` workflow before any merge-readiness claim. The resulting run and job identifiers are recorded in PR #4 and issue #5 rather than by mutating this exact validated head.
+The commit containing this document is the final owner-authored PR head that must pass the permanent `.github/workflows/ci.yml` workflow before any merge-readiness claim. The resulting run and job identifiers are recorded in PR #4 and issue #5 rather than by mutating this exact validated head.
 
 The permanent gate must pass:
 
