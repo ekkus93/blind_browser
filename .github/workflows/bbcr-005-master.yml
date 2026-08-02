@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   apply-and-validate:
-    if: github.event.issue.number == 5 && github.repository == 'ekkus93/blind_browser'
+    if: github.event.issue.number == 5 && github.repository == 'ekkus93/blind_browser' && github.actor == 'ekkus93' && contains(github.event.issue.body, '<!-- bbcr-005-trigger: run-1 -->')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
