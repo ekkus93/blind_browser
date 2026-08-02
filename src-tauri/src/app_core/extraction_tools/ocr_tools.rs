@@ -10,12 +10,7 @@ use crate::page_model::PageModel;
 
 impl super::super::AppCore {
     pub fn execute_run_ocr(&mut self, input: RunOcrInput) -> ToolResult<RunOcrData> {
-        let image_id = input
-            .image_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|image_id| !image_id.is_empty())
-            .map(ToOwned::to_owned);
+        let image_id = input.image_id;
         let region_id = input
             .region_id
             .as_deref()
@@ -114,7 +109,7 @@ impl super::super::AppCore {
             );
         };
 
-        let image_path = match self.cached_image_path(&image_id) {
+        let image_path = match self.resolve_screenshot_image(&image_id) {
             Ok(path) => path,
             Err(error) => {
                 return ToolResult::failure(
@@ -122,32 +117,11 @@ impl super::super::AppCore {
                     input.request_id,
                     error,
                     vec![String::from(
-                        "OCR could not resolve the cached screenshot path.",
+                        "OCR could not resolve the opaque screenshot handle for the current page state.",
                     )],
                 )
             }
         };
-
-        if !image_path.is_file() {
-            return ToolResult::failure(
-                ToolName::RunOcr,
-                input.request_id,
-                ToolError {
-                    code: String::from("ocr_image_not_found"),
-                    message: String::from(
-                        "run_ocr could not find the cached screenshot for the requested image_id",
-                    ),
-                    retryable: false,
-                    details: Some(serde_json::json!({
-                        "image_id": image_id,
-                        "path": image_path.display().to_string(),
-                    })),
-                },
-                vec![String::from(
-                    "OCR could not start because the requested cached screenshot does not exist.",
-                )],
-            );
-        }
 
         let ocr_result = match self.ocr.run_ocr(&image_path, ocr_bbox.as_ref()) {
             Ok(result) => result,

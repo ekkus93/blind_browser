@@ -9,8 +9,7 @@ pub(super) fn execute_capture_screenshot(
         ToolName::CaptureScreenshot,
         input.request_id,
         CaptureScreenshotData {
-            image_id: String::from("image-1"),
-            path: String::from("/tmp/image-1.png"),
+            image_id: String::from("img_00000000000040008000000000000001"),
             bbox: input.bbox,
             width: 640,
             height: 480,

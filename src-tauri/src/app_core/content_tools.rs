@@ -1,8 +1,6 @@
-use std::fs;
-
 use crate::commands::{
-    CaptureScreenshotData, CaptureScreenshotInput, EvalJsData, EvalJsInput, GetHtmlData,
-    GetHtmlInput, ScrollPageData, ScrollPageInput, ToolError, ToolName, ToolResult,
+    normalized_origin, CaptureScreenshotData, CaptureScreenshotInput, EvalJsData, EvalJsInput,
+    GetHtmlData, GetHtmlInput, ScrollPageData, ScrollPageInput, ToolError, ToolName, ToolResult,
 };
 
 impl super::AppCore {
@@ -289,43 +287,33 @@ impl super::AppCore {
         }
         self.state.browser_history = browser_screenshot.history.clone();
 
-        let image_id = self.next_image_id(&input.request_id);
-        let screenshot_path = match self.screenshot_output_path(&image_id) {
-            Ok(path) => path,
+        let page_id = self
+            .state
+            .current_page_id
+            .clone()
+            .expect("capture_screenshot checked that an active page exists");
+        let origin = normalized_origin(Some(browser_screenshot.url.as_str()));
+        let image_id = match self.persist_screenshot_image(
+            page_id,
+            origin,
+            self.state.page_generation,
+            &browser_screenshot.image_bytes,
+        ) {
+            Ok(handle) => handle,
             Err(error) => {
                 return ToolResult::failure(
                     ToolName::CaptureScreenshot,
                     input.request_id,
                     error,
                     vec![String::from(
-                        "Screenshot capture completed, but the image could not be persisted to app storage.",
+                        "Screenshot capture completed, but the image could not be registered in private app storage.",
                     )],
                 )
             }
         };
-        if let Err(error) = fs::write(&screenshot_path, &browser_screenshot.image_bytes) {
-            return ToolResult::failure(
-                ToolName::CaptureScreenshot,
-                input.request_id,
-                ToolError {
-                    code: String::from("screenshot_write_failed"),
-                    message: String::from(
-                        "capture_screenshot could not write the PNG file to app storage",
-                    ),
-                    retryable: true,
-                    details: Some(serde_json::json!({
-                        "path": screenshot_path.display().to_string(),
-                        "reason": error.to_string(),
-                    })),
-                },
-                vec![String::from(
-                    "Screenshot capture completed, but writing the PNG file to disk failed.",
-                )],
-            );
-        }
 
-        let mut observations = vec![format!(
-            "Captured a deterministic browser screenshot and persisted it as {image_id}.png."
+        let mut observations = vec![String::from(
+            "Captured a deterministic browser screenshot and persisted it behind an opaque application-owned image handle.",
         )];
         if input.scope.captures_full_page() {
             observations.push(String::from(
@@ -350,7 +338,6 @@ impl super::AppCore {
             input.request_id,
             CaptureScreenshotData {
                 image_id,
-                path: screenshot_path.display().to_string(),
                 bbox: browser_screenshot.bbox,
                 width: browser_screenshot.width,
                 height: browser_screenshot.height,

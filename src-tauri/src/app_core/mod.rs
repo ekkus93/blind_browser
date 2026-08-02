@@ -1,5 +1,3 @@
-use std::fs;
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -16,7 +14,7 @@ use crate::ocr::OcrController;
 use crate::state::AppState;
 use crate::tts::TtsController;
 use serde::Serialize;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 const DEFAULT_FIND_ELEMENT_MAX_CANDIDATES: usize =
     crate::commands::DEFAULT_FIND_ELEMENT_MAX_CANDIDATES;
@@ -75,6 +73,7 @@ pub struct AppCore {
     pub state: AppState,
     pub browser: BrowserController,
     recent_field_context: Option<RecentFieldContext>,
+    image_cache: ImageCache,
     ocr: OcrController,
     tts: TtsController,
     playback: AudioPlaybackController,
@@ -86,6 +85,9 @@ mod api_key_tools;
 mod api_key_tools_redirect_tests;
 
 mod content_tools;
+
+mod image_cache;
+use image_cache::ImageCache;
 
 mod extraction_tools;
 mod ocr_merge;
@@ -150,6 +152,7 @@ impl AppCore {
             state,
             browser,
             recent_field_context: None,
+            image_cache: ImageCache::default(),
             ocr: OcrController::new(),
             tts: TtsController::new(),
             playback: AudioPlaybackController::new(),
@@ -280,48 +283,8 @@ impl AppCore {
         self.next_id("page", request_id)
     }
 
-    fn next_image_id(&self, request_id: &str) -> String {
-        self.next_id("image", request_id)
-    }
-
     fn next_ocr_region_id(&self, request_id: &str) -> String {
         self.next_id("ocr-region", request_id)
-    }
-
-    fn cached_image_dir(&self) -> Result<PathBuf, ToolError> {
-        let cache_dir = self
-            .app_handle
-            .path()
-            .app_cache_dir()
-            .map_err(|error| ToolError {
-                code: String::from("resolve_app_cache_dir_failed"),
-                message: String::from(
-                    "capture_screenshot could not resolve the app cache directory",
-                ),
-                retryable: true,
-                details: Some(serde_json::json!({ "reason": error.to_string() })),
-            })?;
-        let image_dir = cache_dir.join("screenshots");
-        fs::create_dir_all(&image_dir).map_err(|error| ToolError {
-            code: String::from("create_screenshot_dir_failed"),
-            message: String::from(
-                "capture_screenshot could not create the screenshot cache directory",
-            ),
-            retryable: true,
-            details: Some(serde_json::json!({
-                "path": image_dir.display().to_string(),
-                "reason": error.to_string(),
-            })),
-        })?;
-        Ok(image_dir)
-    }
-
-    fn screenshot_output_path(&self, image_id: &str) -> Result<PathBuf, ToolError> {
-        Ok(self.cached_image_dir()?.join(format!("{image_id}.png")))
-    }
-
-    fn cached_image_path(&self, image_id: &str) -> Result<PathBuf, ToolError> {
-        Ok(self.cached_image_dir()?.join(format!("{image_id}.png")))
     }
 }
 

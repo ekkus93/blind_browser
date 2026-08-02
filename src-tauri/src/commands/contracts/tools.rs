@@ -130,7 +130,6 @@ pub struct CaptureScreenshotInput {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct CaptureScreenshotData {
     pub image_id: String,
-    pub path: String,
     pub bbox: Option<Rect>,
     pub width: u32,
     pub height: u32,

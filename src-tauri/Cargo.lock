@@ -362,6 +362,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
+ "uuid",
  "whisper-rs",
  "zeroize",
 ]
