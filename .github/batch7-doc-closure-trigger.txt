@@ -1,2 +1,0 @@
-Trigger the bounded Batch 7 BBCR-003/BBCR-006 documentation closure from the exact staged head.
-Attempt 2: normalize generated Markdown trailing whitespace.

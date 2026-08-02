@@ -1,3 +1,12 @@
+## 2026-08-02T14:47:00Z — Batch 7 remote-planner privacy boundary validated
+
+- Implemented the typed BBCR-003/BBCR-006 remote-planner boundary in `fbec02a5b697720c88a3f46054110cd8e7c5c1a6`.
+- Bounded validation run `30746879137`, job `91493868153`, passed formatting, default compilation, strict all-target/all-feature Clippy, 427 Rust tests, frontend lint, UI tests, production build, bounded-change verification, and one-shot cleanup.
+- Remote payloads now separate trusted policy/schema from user request and untrusted page/OCR/skill/tool data; raw form values, DOM locators, unrestricted attributes, sensitive URLs, credential metadata, pending execution state, and raw remote error bodies cannot cross the remote boundary.
+- Prompt-injection indicators remain caution telemetry only; deterministic runtime policy owns confirmation and execution safety.
+- Residual consent/UI, high-risk-origin, relevance-selection, diagnostic-audit, and complete hidden/OCR-image corpus work remains explicitly open.
+- Exact final documentation SHA and Permanent CI evidence are recorded in issue #5.
+
 ## 2026-06-30T01:07:36Z - Claude Sonnet 4.6 - HARDENING3: all tasks complete
 
 - P0-2 (first): `tempfile = "3"` promoted from `[dev-dependencies]` to `[dependencies]`. New `src-tauri/src/atomic_file.rs` module with `replace_file_atomically` (uses `fs::rename`, which on Windows calls `MoveFileExW` with `MOVEFILE_REPLACE_EXISTING`). `model_management.rs` and `config/persistence.rs` now call `crate::atomic_file::replace_file_atomically` instead of `fs::rename` directly. 2 unit tests in `atomic_file.rs`.

@@ -1,9 +1,9 @@
 # Blind Browser Comprehensive Code Review Fix TODO
 
-**Created:** 2026-08-01  
-**Repository:** `ekkus93/blind_browser`  
-**Reviewed baseline:** `3f5ce6f04524753855e3b3c33c0eab4410720764` (`master`)  
-**Status:** Open  
+**Created:** 2026-08-01
+**Repository:** `ekkus93/blind_browser`
+**Reviewed baseline:** `3f5ce6f04524753855e3b3c33c0eab4410720764` (`master`)
+**Status:** Open
 **Scope:** Security, privacy, deterministic safety enforcement, credential handling, filesystem containment, remote-provider hardening, persistence durability, resource limits, frontend secret handling, CI, dependency security, and secret scanning.
 
 ---
@@ -193,64 +193,75 @@ Only the minimum necessary, explicitly allowlisted page data may cross the remot
 
 ### Tasks
 
-- [ ] Create a dedicated redaction/sanitization module between browser extraction and planner serialization.
-  - [ ] Keep the raw local page model separate from the planner-safe page view.
-  - [ ] Make the planner payload type incapable of carrying unrestricted raw attributes or values.
-  - [ ] Avoid a generic `BTreeMap<String, String>` for planner-visible attributes.
-- [ ] Remove or redact sensitive input values at extraction time.
-  - [ ] Never collect values from `input[type=password]`.
-  - [ ] Never collect values from hidden inputs.
-  - [ ] Never collect one-time-password, authentication, API-key, secret, token, payment, or security-answer fields.
-  - [ ] Treat autocomplete hints such as `current-password`, `new-password`, `one-time-code`, and credit-card fields as sensitive.
-  - [ ] Treat suspicious names/IDs such as `token`, `secret`, `password`, `passwd`, `csrf`, `authorization`, `api_key`, `credit_card`, `ssn`, and equivalents as sensitive.
-  - [ ] Default unknown form-control values to omitted unless a specific local workflow needs them.
-- [ ] Replace full attribute collection with an allowlist.
-  - [ ] Consider allowing only role, type category, safe name/label metadata, placeholder, checked/selected state, disabled state, and a redacted navigation destination.
-  - [ ] Exclude inline event handlers, `data-*` payloads, style text, hidden values, nonce/integrity data, and authentication-related attributes.
-  - [ ] Limit attribute string lengths.
-- [ ] Redact URLs and links where necessary.
-  - [ ] Remove embedded credentials.
-  - [ ] Consider removing or hashing sensitive query parameters and fragments.
-  - [ ] Define an allowlist/denylist for common secret-bearing parameters.
-- [ ] Bound planner-visible page content.
-  - [ ] Limit number of regions and interactive elements.
-  - [ ] Limit text per region and total payload size.
+- [x] Create a dedicated redaction/sanitization module between browser extraction and planner serialization.
+  - [x] Keep the raw local page model separate from the planner-safe page view.
+  - [x] Make the planner payload type incapable of carrying unrestricted raw attributes or values.
+  - [x] Avoid a generic `BTreeMap<String, String>` for planner-visible attributes.
+- [x] Remove or redact sensitive input values at extraction time.
+  - [x] Never collect values from `input[type=password]`.
+  - [x] Never collect values from hidden inputs.
+  - [x] Never collect one-time-password, authentication, API-key, secret, token, payment, or security-answer fields.
+  - [x] Treat autocomplete hints such as `current-password`, `new-password`, `one-time-code`, and credit-card fields as sensitive.
+  - [x] Treat suspicious names/IDs such as `token`, `secret`, `password`, `passwd`, `csrf`, `authorization`, `api_key`, `credit_card`, `ssn`, and equivalents as sensitive.
+  - [x] Default unknown form-control values to omitted unless a specific local workflow needs them.
+- [x] Replace full attribute collection with an allowlist.
+  - [x] Allow only role/type and bounded safe label, placeholder, state, name, and navigation metadata needed for grounding.
+  - [x] Exclude inline event handlers, `data-*` payloads, style text, hidden values, nonce/integrity data, authentication-related attributes, and DOM locators.
+  - [x] Limit planner-visible attribute and label string lengths.
+- [x] Redact URLs and links where necessary.
+  - [x] Remove embedded credentials.
+  - [x] Remove query parameters and fragments from planner-visible destinations.
+  - [x] Detect common secret-bearing URL and text markers before serialization.
+- [x] Bound planner-visible page content.
+  - [x] Limit number of regions and interactive elements.
+  - [x] Limit text per region and total serialized payload size.
   - [ ] Prefer relevance selection performed locally before remote transmission.
-  - [ ] Record truncation metadata without leaking omitted content.
+  - [x] Record truncation metadata without leaking omitted content.
 - [ ] Add explicit remote-data consent and mode behavior.
   - [ ] Clearly indicate when page content will be sent to a remote provider.
   - [ ] Consider a local-only mode or per-origin opt-out.
   - [ ] Define handling for high-risk origins such as banking, healthcare, identity, password managers, and administrative consoles.
-- [ ] Sanitize every planner input source.
-  - [ ] Page snapshot.
-  - [ ] Page model.
-  - [ ] OCR output.
-  - [ ] Recent tool results and observations.
-  - [ ] Skill summaries or other untrusted text.
-  - [ ] Error details that may contain remote response bodies or page content.
+- [x] Sanitize every planner input source.
+  - [x] Page snapshot.
+  - [x] Page model.
+  - [x] OCR output.
+  - [x] Recent tool results and observations.
+  - [x] Skill summaries or other untrusted text.
+  - [x] Error details that may contain remote response bodies or page content.
 - [ ] Prevent sensitive data from entering logs and diagnostics.
   - [ ] Audit `tracing` calls involving page models, planner payloads, HTTP errors, form data, and tool arguments.
   - [ ] Add structured redaction wrappers where appropriate.
+  - Batch 7 removed raw remote response bodies from planner errors and keeps serialized remote payloads typed and redacted, but the broader repository-wide tracing/UI/Redux diagnostic audit remains open.
 
 ### Required regression tests
 
-- [ ] Password input values never appear in raw planner JSON.
-- [ ] Hidden input values never appear in planner JSON.
-- [ ] CSRF tokens and one-time codes never appear.
-- [ ] Credit-card and identity fields are redacted.
-- [ ] `data-*`, inline handlers, and arbitrary attributes are omitted.
-- [ ] Safe accessible labels and roles remain available for grounding.
-- [ ] Long pages are deterministically truncated within configured limits.
-- [ ] Sensitive URL query parameters are removed or redacted.
-- [ ] OCR text passes through the same redaction policy.
-- [ ] Recent tool history cannot reintroduce a secret that was removed from the page model.
+- [x] Password input values never appear in raw planner JSON.
+- [x] Hidden input values never appear in planner JSON.
+- [x] CSRF tokens and one-time codes never appear.
+- [x] Credit-card and identity fields are redacted.
+- [x] `data-*`, inline handlers, and arbitrary attributes are omitted.
+- [x] Safe accessible labels and roles remain available for grounding.
+- [x] Long pages are deterministically truncated within configured limits.
+- [x] Sensitive URL query parameters are removed or redacted.
+- [x] OCR text passes through the same redaction policy.
+- [x] Recent tool history cannot reintroduce a secret that was removed from the page model.
 - [ ] No secret appears in debug formatting or error details used by the UI.
 
 ### Acceptance criteria
 
-- [ ] A typed planner-safe page representation exists.
-- [ ] Remote planner requests contain no raw form values or unrestricted attributes.
+- [x] A typed planner-safe page representation exists.
+- [x] Remote planner requests contain no raw form values or unrestricted attributes.
 - [ ] Privacy behavior is documented and tested.
+  - The implemented serialization/redaction boundary is documented and tested by Batch 7 evidence. Explicit remote-transmission consent, per-origin controls, and the wider diagnostics audit remain open before this broader acceptance criterion can be closed.
+
+### Batch 7 evidence
+
+- Validated source commit: `fbec02a5b697720c88a3f46054110cd8e7c5c1a6`.
+- Successful bounded validation: run `30746879137`, job `91493868153`.
+- Complete all-feature Rust suite: 427 passed.
+- Strict all-target/all-feature Clippy with warnings denied, frontend lint, UI tests, and production build all passed.
+- Detailed evidence: `docs/BBCR-003_BBCR-006_BATCH7_FINAL_VALIDATION_EVIDENCE_2026-08-02.md`.
+- The exact final documentation SHA and `ci/permanent` result are recorded in issue #5 to avoid mutating the validated final SHA.
 
 ---
 
@@ -406,42 +417,53 @@ Untrusted content may inform grounding but may never alter trusted policy, autho
 
 ### Tasks
 
-- [ ] Separate trusted and untrusted planner payload sections.
-  - [ ] Place runtime policy, tool schemas, and safety constraints in a trusted system/developer section.
-  - [ ] Place page text, OCR text, attributes, and tool observations in clearly labeled untrusted-data fields.
-  - [ ] Avoid concatenating untrusted content into instruction text.
-- [ ] Strengthen the planner system prompt.
-  - [ ] State that webpage, OCR, document, and tool-output text may contain malicious instructions.
-  - [ ] State that such instructions are data, not authority.
-  - [ ] Prohibit disclosure of hidden, redacted, credential, or system data.
-  - [ ] Prohibit using page instructions to bypass confirmation or policy.
-- [ ] Keep deterministic enforcement authoritative.
-  - [ ] Do not rely on prompt wording for confirmation, credential origin binding, redaction, or filesystem safety.
-- [ ] Add local prompt-injection indicators for telemetry or warnings without treating them as a complete defense.
-  - [ ] Detect common override and secret-exfiltration phrases.
-  - [ ] Use detection only to raise caution or require confirmation, never to permit action.
+- [x] Separate trusted and untrusted planner payload sections.
+  - [x] Place runtime policy, tool schemas, output schema, and safety constraints in a trusted contract section.
+  - [x] Place page text, OCR text, attributes, skills, and tool observations in clearly labeled untrusted-data fields.
+  - [x] Avoid concatenating untrusted content into trusted instruction text.
+- [x] Strengthen the planner system prompt.
+  - [x] State that webpage, OCR, document, skill, and tool-output text may contain malicious instructions.
+  - [x] State that such instructions are evidence/data, not authority.
+  - [x] Prohibit disclosure of hidden, redacted, credential, or system data.
+  - [x] Prohibit using page instructions to bypass confirmation or policy.
+- [x] Keep deterministic enforcement authoritative.
+  - [x] Do not rely on prompt wording for confirmation, credential origin binding, redaction, filesystem safety, prohibited tools, or action authorization.
+- [x] Add local prompt-injection indicators for telemetry or warnings without treating them as a complete defense.
+  - [x] Detect common override, fake-authority, and secret-exfiltration phrases.
+  - [x] Use detection only as caution telemetry; it cannot authorize or weaken an action.
 - [ ] Add hostile-page fixtures to the agentic corpus.
   - [ ] Hidden text instructing the model to submit a form.
-  - [ ] Visible text instructing the model to ignore confirmation.
-  - [ ] Fake system-message content.
-  - [ ] Instructions to reveal passwords or tokens.
-  - [ ] Instructions embedded in `aria-label`, placeholder, attributes, and OCR images.
-  - [ ] Instructions that disguise a destructive action as a harmless one.
-- [ ] Verify tool observations and errors cannot inject trusted planner instructions during replanning.
+  - [x] Visible text instructing the model to ignore confirmation.
+  - [x] Fake system/developer-message content.
+  - [x] Instructions to reveal passwords or tokens.
+  - [x] Instructions embedded in safe-label/placeholder/attribute and tool-observation inputs.
+  - [ ] Instructions embedded in a real OCR image fixture.
+  - [x] Instructions that disguise a destructive action as a harmless one.
+- [x] Verify tool observations and errors cannot inject trusted planner instructions during replanning.
 
 ### Required regression tests
 
-- [ ] Malicious page text cannot cause unconfirmed submission.
-- [ ] Hidden or OCR-injected instructions cannot change safety policy.
-- [ ] A page cannot cause the planner to request protected secrets.
-- [ ] A page cannot cause execution of unavailable or prohibited tools.
-- [ ] Replanning remains safe when the previous tool observation contains injection text.
-- [ ] Benign pages continue to produce useful plans.
+- [x] Malicious page text cannot cause unconfirmed submission.
+- [ ] Hidden or real-image OCR-injected instructions cannot change safety policy.
+  - Typed OCR/untrusted-text sanitization and deterministic policy are tested, but the complete hidden-DOM plus real OCR-image corpus remains open.
+- [x] A page cannot cause the planner to request protected secrets.
+- [x] A page cannot cause execution of unavailable or prohibited tools.
+- [x] Replanning remains safe when the previous tool observation contains injection text.
+- [x] Benign pages continue to produce useful planner payloads and plans.
 
 ### Acceptance criteria
 
-- [ ] Untrusted-data boundaries are explicit in types and prompts.
-- [ ] Hostile-page regression tests demonstrate deterministic safety even when the planner proposes unsafe actions.
+- [x] Untrusted-data boundaries are explicit in types and prompts.
+- [x] Hostile-page regression tests demonstrate deterministic safety even when the planner proposes unsafe actions.
+
+### Batch 7 evidence
+
+- Validated source commit: `fbec02a5b697720c88a3f46054110cd8e7c5c1a6`.
+- Successful bounded validation: run `30746879137`, job `91493868153`.
+- The remote payload is structurally separated into `trusted_contract`, `user_request`, and `untrusted_data`.
+- Prompt-injection indicators are non-authoritative caution telemetry; deterministic runtime policy remains the final authority.
+- Detailed evidence: `docs/BBCR-003_BBCR-006_BATCH7_FINAL_VALIDATION_EVIDENCE_2026-08-02.md`.
+- The exact final documentation SHA and `ci/permanent` result are recorded in issue #5 to avoid mutating the validated final SHA.
 
 ---
 
@@ -1150,7 +1172,7 @@ Fill this section during implementation. Do not use approximate claims.
 
 - P0 safety policy commit(s):
 - Confirmation binding commit(s):
-- Page redaction/prompt-injection commit(s):
+- Page redaction/prompt-injection commit(s): `fbec02a5b697720c88a3f46054110cd8e7c5c1a6` (Batch 7)
 - Credential/endpoint hardening commit(s):
 - Filesystem/model/persistence hardening commit(s):
 - Resource/CSP/frontend-secret commit(s):

@@ -1,8 +1,8 @@
 # Blind Browser Comprehensive Code Review Fix — Ralph Loop Implementation Report
 
-**Date:** 2026-08-01  
-**Authoritative TODO:** `docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md`  
-**Status:** In progress — no release-complete claim  
+**Date:** 2026-08-01
+**Authoritative TODO:** `docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md`
+**Status:** In progress — no release-complete claim
 
 ## Scope completed in this session
 
@@ -10,9 +10,9 @@ This Ralph Loop has implemented and validated five bounded security batches. Bat
 
 ## Batch 1 — Deterministic planner action policy
 
-**Implementation commit:** `9481ab71ab3a71331cf1e0cf001724e9e260fbe4`  
-**Bounded validation run:** `30714649841`  
-**Bounded validation job:** `91408071735`  
+**Implementation commit:** `9481ab71ab3a71331cf1e0cf001724e9e260fbe4`
+**Bounded validation run:** `30714649841`
+**Bounded validation job:** `91408071735`
 **Result:** success
 
 Implemented:
@@ -39,9 +39,9 @@ Still open within BBCR-001:
 
 ## Batch 2 — Remote-planner redaction and hostile-content boundary
 
-**Implementation commit:** `7963c705b55d23f2ba61726cf9e1bf6ae2ef733a`  
-**Bounded validation run:** `30715142209`  
-**Bounded validation job:** `91409348721`  
+**Implementation commit:** `7963c705b55d23f2ba61726cf9e1bf6ae2ef733a`
+**Bounded validation run:** `30715142209`
+**Bounded validation job:** `91409348721`
 **Result:** success
 
 Implemented:
@@ -70,15 +70,15 @@ Still open within BBCR-003 and BBCR-006:
 
 ## Batch 3 — Immutable, expiring, state-bound confirmation manifests
 
-**Validated implementation commit:** `8c59e42a089a0ee1d5f73e232ef1127e9e8f2781`  
-**Bounded validation run:** `30718085690`  
-**Bounded validation job:** `91417084669`  
-**Owner-authored PR head:** `3bd6a0abcb950b65bbc87cd592a85cdef6b34b40`  
-**Normal PR CI run:** `30718424290`  
-**Normal PR CI job:** `91417968227`  
-**Merged PR:** `#3`  
-**Squash merge commit:** `28a6c390ce8492bc49784b3896d0d37a64b5e55e`  
-**Temporary harness cleanup commit:** `dafa65a4c9b9f701beacff8b0f25eb5512ce1678`  
+**Validated implementation commit:** `8c59e42a089a0ee1d5f73e232ef1127e9e8f2781`
+**Bounded validation run:** `30718085690`
+**Bounded validation job:** `91417084669`
+**Owner-authored PR head:** `3bd6a0abcb950b65bbc87cd592a85cdef6b34b40`
+**Normal PR CI run:** `30718424290`
+**Normal PR CI job:** `91417968227`
+**Merged PR:** `#3`
+**Squash merge commit:** `28a6c390ce8492bc49784b3896d0d37a64b5e55e`
+**Temporary harness cleanup commit:** `dafa65a4c9b9f701beacff8b0f25eb5512ce1678`
 **Post-merge evidence commit:** `c80ead4ef8f0e4df68f9a69b68bd3ce186328aec`<br>
 **Post-merge CI run:** `30718904314`<br>
 **Post-merge CI job:** `91419258267`<br>
@@ -116,10 +116,10 @@ Still open within BBCR-002 or its grounding dependencies:
 
 ## Batch 4 — Origin-bound remote credentials and redirect refusal
 
-**Cleaned implementation commit:** `4d38b71363a83dc343dfd555a9e3a353ed6801b1`  
-**Bounded finalizer run:** `30722003167`  
-**Bounded finalizer job:** `91427197740`  
-**Finalizer result:** success  
+**Cleaned implementation commit:** `4d38b71363a83dc343dfd555a9e3a353ed6801b1`
+**Bounded finalizer run:** `30722003167`
+**Bounded finalizer job:** `91427197740`
+**Finalizer result:** success
 **Prior owner-authored evidence head:** `27dda7c43f2015cc33c051120dd1e721cc49c0b0`<br>
 **Prior permanent PR CI:** run `30723051745`, job `91429862875` — success<br>
 **Final TODO-closure evidence:** recorded in PR #4 and issue #5 without mutating the exact validated SHA<br>
@@ -220,3 +220,48 @@ git diff --check
 - **BBCR-007 through BBCR-023:** Open except for pre-existing repository behavior documented separately.
 
 No release-readiness, comprehensive-TODO completion, or full security-signoff claim is made by this report.
+
+
+---
+
+## Batch 7 — BBCR-003/BBCR-006 Remote Planner Privacy and Hostile-Input Boundary
+
+**Status:** Core typed boundary implemented and validated; explicitly listed residual privacy/UI work remains open.
+**Validated source commit:** `fbec02a5b697720c88a3f46054110cd8e7c5c1a6`
+**Bounded validation run:** `30746879137`
+**Bounded validation job:** `91493868153`
+
+### Implemented
+
+- Added a dedicated typed remote-planner payload with `trusted_contract`, `user_request`, and `untrusted_data` sections.
+- Added planner-safe page, element, observation, skill, history, and runtime-state representations that cannot serialize raw form values, DOM locators, unrestricted attributes, local model paths, pending execution state, or credential metadata.
+- Changed DOM extraction to omit live form-control values and retain only a narrow, bounded grounding allowlist.
+- Sanitized page models, page snapshots, OCR-derived text, transcript/history, tool observations, skill descriptions, URLs, and error-derived text before remote serialization.
+- Removed credentials, queries, and fragments from planner-visible URLs and bounded all major collection/string/payload dimensions.
+- Added fail-closed handling for authentication, password, OTP/PIN, payment, identity, token, passkey, and similar sensitive contexts.
+- Strengthened the system prompt so page/OCR/skill/tool text is untrusted evidence and cannot override deterministic runtime policy.
+- Added non-authoritative prompt-injection caution indicators and adversarial tests for fake authority, confirmation bypass, credential requests, hostile skills/tool observations, unsafe action proposals, URL leakage, truncation, and safe-label preservation.
+- Removed raw remote response bodies from planner-facing error details.
+
+### Validation
+
+- Silent-fallback scan: passed.
+- Rust formatting: passed.
+- Default Rust compilation: passed.
+- Strict all-target/all-feature Clippy with warnings denied: passed.
+- Complete all-feature Rust test suite under Xvfb: 427 passed.
+- Frontend lint: passed.
+- UI tests: passed.
+- Production frontend build: passed.
+- Bounded change-set and one-shot workflow cleanup verification: passed.
+
+### Residual work intentionally left open
+
+- Explicit user indication/consent when page content is transmitted remotely.
+- Local-only mode and per-origin remote-planning opt-out.
+- Explicit high-risk-origin policy for banking, healthcare, identity, password-manager, and administrative sites.
+- Local relevance selection before transmission.
+- Repository-wide tracing, Redux-state, UI-error, invocation-instrumentation, and diagnostic secret-leak audit.
+- Complete hidden-DOM and real OCR-image prompt-injection corpus.
+
+Detailed evidence is recorded in `docs/BBCR-003_BBCR-006_BATCH7_FINAL_VALIDATION_EVIDENCE_2026-08-02.md`. The exact final documentation SHA and permanent-CI result are recorded in issue #5 so the validated SHA is not mutated afterward.
