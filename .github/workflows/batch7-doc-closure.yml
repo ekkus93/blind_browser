@@ -1,0 +1,144 @@
+name: Batch 7 Documentation Closure
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/batch7-doc-closure-trigger.txt
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  SOURCE_SHA: fbec02a5b697720c88a3f46054110cd8e7c5c1a6
+
+jobs:
+  close-batch7:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact trigger head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Refuse unexpected repository state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$SOURCE_SHA" HEAD
+          python3 - <<'PY'
+          import subprocess
+
+          expected = {
+              '.github/workflows/batch7-doc-closure.yml',
+              '.github/batch7-doc-closure.py',
+              '.github/batch7-doc-closure-trigger.txt',
+          }
+          changed = set(
+              subprocess.check_output(
+                  ['git', 'diff', '--name-only', 'fbec02a5b697720c88a3f46054110cd8e7c5c1a6..HEAD'],
+                  text=True,
+              ).splitlines()
+          )
+          if changed != expected:
+              raise SystemExit(f'unexpected staging inventory: {sorted(changed)}')
+          PY
+
+      - name: Record closure start
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh issue comment 5 --body "Batch 7 documentation closure started: trigger head \`${GITHUB_SHA}\`, source \`${SOURCE_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`close-batch7\`."
+
+      - name: Apply bounded documentation closure
+        run: python3 .github/batch7-doc-closure.py
+
+      - name: Verify documentation diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python3 - <<'PY'
+          import subprocess
+
+          allowed = {
+              'docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md',
+              'docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_IMPLEMENTATION_REPORT_2026-08-01.md',
+              'docs/BBCR-003_BBCR-006_BATCH7_FINAL_VALIDATION_EVIDENCE_2026-08-02.md',
+              'memory.md',
+              '.github/workflows/batch7-doc-closure.yml',
+              '.github/batch7-doc-closure.py',
+              '.github/batch7-doc-closure-trigger.txt',
+          }
+          paths = {
+              line[3:]
+              for line in subprocess.check_output(['git', 'status', '--short'], text=True).splitlines()
+          }
+          if not paths or not paths.issubset(allowed):
+              raise SystemExit(f'unexpected changed paths: {sorted(paths)}')
+          PY
+
+      - name: Remove one-shot machinery
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f \
+            .github/workflows/batch7-doc-closure.yml \
+            .github/batch7-doc-closure.py \
+            .github/batch7-doc-closure-trigger.txt
+
+      - name: Verify final bounded change set
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python3 - <<'PY'
+          import subprocess
+
+          expected = {
+              'docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md',
+              'docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_IMPLEMENTATION_REPORT_2026-08-01.md',
+              'docs/BBCR-003_BBCR-006_BATCH7_FINAL_VALIDATION_EVIDENCE_2026-08-02.md',
+              'memory.md',
+              '.github/workflows/batch7-doc-closure.yml',
+              '.github/batch7-doc-closure.py',
+              '.github/batch7-doc-closure-trigger.txt',
+          }
+          paths = {
+              line[3:]
+              for line in subprocess.check_output(['git', 'status', '--short'], text=True).splitlines()
+          }
+          if paths != expected:
+              raise SystemExit(f'final bounded inventory mismatch: {sorted(paths)}')
+          PY
+          grep -q 'fbec02a5b697720c88a3f46054110cd8e7c5c1a6' docs/BBCR-003_BBCR-006_BATCH7_FINAL_VALIDATION_EVIDENCE_2026-08-02.md
+          grep -q '30746879137' docs/BBCR-003_BBCR-006_BATCH7_FINAL_VALIDATION_EVIDENCE_2026-08-02.md
+          grep -q '91493868153' docs/BBCR-003_BBCR-006_BATCH7_FINAL_VALIDATION_EVIDENCE_2026-08-02.md
+
+      - name: Commit validated documentation closure
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'docs: close Batch 7 privacy boundary evidence'
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git push origin HEAD:master
+
+      - name: Record closure commit
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOSURE_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -euo pipefail
+          gh issue comment 5 --body "Batch 7 documentation closure committed: source \`${SOURCE_SHA}\`, documentation closure \`${CLOSURE_SHA}\`, bounded source validation run \`30746879137\`, job \`91493868153\`, result \`success\`. A separate owner-authored documentation touch must receive \`ci/permanent = success\` before exact-final-SHA closure is claimed."
