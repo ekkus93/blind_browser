@@ -14,6 +14,7 @@ pub mod logging;
 pub mod narration;
 pub mod ocr;
 pub mod page_model;
+pub mod provider_endpoint;
 pub mod state;
 pub mod tts;
 pub mod url_policy;

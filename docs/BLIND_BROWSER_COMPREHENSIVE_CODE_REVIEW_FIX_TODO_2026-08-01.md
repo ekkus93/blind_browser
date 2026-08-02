@@ -262,54 +262,63 @@ Model listing accepts an endpoint override and may combine it with the configure
 
 ### Required invariant
 
-A stored credential may be sent only to the exact normalized origin for which it was explicitly stored or approved. Changing scheme, host, or port must require explicit reauthorization and must never silently reuse the existing secret.
+A stored credential may be sent only to the exact normalized origin for which it was explicitly stored or approved. Changing scheme, host, port, or approved path prefix requires explicit reauthorization and never silently reuses the existing secret.
 
 ### Tasks
 
-- [ ] Introduce a normalized provider-origin type.
-  - [ ] Normalize scheme, hostname, effective port, and allowed path prefix.
-  - [ ] Reject embedded username/password information.
-  - [ ] Reject fragments.
-  - [ ] Define path normalization rules.
-- [ ] Bind each keyring entry to provider kind, profile, and normalized origin.
-  - [ ] Include origin identity in the keyring account naming or associated metadata.
-  - [ ] Prevent one profile's key from being reused by another origin without explicit migration.
-- [ ] Change model listing and API-key testing behavior.
-  - [ ] If the endpoint differs from the stored origin, do not resolve or attach the configured key.
-  - [ ] Require a newly entered key or an explicit, destination-specific approval flow.
-  - [ ] Display the exact destination origin before transmitting a credential.
-  - [ ] Do not automatically load models on blur when doing so could transmit a stored key to a changed endpoint.
-- [ ] Separate endpoint editing from credential-bearing network actions.
-  - [ ] Validate and save the endpoint first.
-  - [ ] Require explicit user action to test or list models.
-  - [ ] Require confirmation when reusing a stored key after a destination change.
-- [ ] Restrict organization and project headers to the bound origin.
-- [ ] Add redirect controls.
-  - [ ] Decide whether redirects are prohibited for credential-bearing requests.
-  - [ ] At minimum, prevent authorization headers from being forwarded cross-origin.
-  - [ ] Test same-origin and cross-origin redirect behavior.
-- [ ] Ensure error messages never include the secret or authorization header.
-- [ ] Provide migration behavior for existing keyring entries.
-  - [ ] Detect legacy unbound entries.
-  - [ ] Require explicit rebinding rather than guessing.
-  - [ ] Document cleanup of orphaned legacy entries.
+- [x] Introduce a normalized provider-origin type.
+  - [x] Normalize scheme, hostname, effective port, and allowed path prefix.
+  - [x] Reject embedded username/password information.
+  - [x] Reject fragments.
+  - [x] Define path normalization rules.
+- [x] Bind each keyring entry to provider kind, profile, and normalized destination scope.
+  - [x] Include destination identity in the keyring account naming.
+  - [x] Prevent one profile's key from being reused by another destination without explicit rebinding.
+- [x] Change model listing and API-key testing behavior.
+  - [x] If the endpoint differs from the stored destination, do not resolve or attach the configured key.
+  - [x] Require a newly entered key, or save the endpoint and re-enter the key to bind it to that destination.
+  - [x] Display the exact endpoint in the editable destination field and normalized success/error messages before or after the explicit action.
+  - [x] Do not automatically load models on blur.
+- [x] Separate endpoint editing from credential-bearing network actions.
+  - [x] Validate the endpoint before transmission; stored-key rebinding requires saving the endpoint and re-entering the key. An unsaved endpoint can use only a newly entered temporary key.
+  - [x] Require explicit user action to test or list models.
+  - [x] Prohibit reuse of a stored key after a destination change rather than offering a weaker confirmation-only path.
+- [x] Restrict organization and project headers to the bound destination scope.
+- [x] Add redirect controls.
+  - [x] Prohibit redirects for credential-bearing requests.
+  - [x] Prevent authorization headers from being forwarded cross-origin.
+  - [x] Test same-origin and cross-origin redirect refusal.
+- [x] Ensure error messages never include the secret or authorization header.
+- [x] Provide migration behavior for existing keyring entries.
+  - [x] Detect legacy unbound entries.
+  - [x] Require explicit rebinding rather than guessing.
+  - [x] Document cleanup of orphaned legacy entries in `docs/BBCR-004_PR_VALIDATION_EVIDENCE_2026-08-01.md`.
 
 ### Required regression tests
 
-- [ ] A changed host cannot receive the stored key.
-- [ ] A changed scheme cannot receive the stored key.
-- [ ] A changed port cannot receive the stored key.
-- [ ] A changed path is handled according to the documented path-prefix policy.
-- [ ] Empty key override plus changed endpoint fails closed.
-- [ ] Organization and project headers are not sent cross-origin.
-- [ ] Cross-origin redirects do not receive authorization headers.
-- [ ] Explicitly entered temporary credentials are sent only to the displayed approved destination.
-- [ ] Existing same-origin model listing continues to work.
+- [x] A changed host cannot receive the stored key.
+- [x] A changed scheme cannot receive the stored key.
+- [x] A changed port cannot receive the stored key.
+- [x] A changed path is handled according to the documented path-prefix policy.
+- [x] Empty key override plus changed endpoint fails closed.
+- [x] Organization and project headers are not sent to a changed destination.
+- [x] Cross-origin redirects do not receive authorization headers.
+- [x] Same-origin redirects are also refused.
+- [x] Explicitly entered temporary credentials are scoped to the displayed approved destination.
+- [x] Existing same-destination API-key testing and model listing continue to work.
 
 ### Acceptance criteria
 
-- [ ] Stored credentials are origin-bound.
-- [ ] Endpoint edits cannot silently exfiltrate stored credentials.
+- [x] Stored credentials are destination-bound.
+- [x] Endpoint edits cannot silently exfiltrate stored credentials.
+
+### Evidence
+
+- Cleaned implementation commit: `4d38b71363a83dc343dfd555a9e3a353ed6801b1`.
+- Successful bounded finalizer: run `30722003167`, job `91427197740`.
+- Synchronized implementation commit: `3f91c2d716f83adfdc807ea3fa0eb7ad1da63296`.
+- Prior owner-authored exact-head validation: commit `27dda7c43f2015cc33c051120dd1e721cc49c0b0`, run `30723051745`, job `91429862875`.
+- The final TODO-closure head and its permanent CI identifiers are recorded in PR #4 and issue #5 so recording them does not mutate the exact validated SHA.
 
 ---
 

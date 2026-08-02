@@ -82,6 +82,8 @@ pub struct AppCore {
 }
 
 mod api_key_tools;
+#[cfg(test)]
+mod api_key_tools_redirect_tests;
 
 mod content_tools;
 

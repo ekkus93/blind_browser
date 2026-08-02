@@ -12,25 +12,105 @@ use super::settings_adapters::{
 use super::{AppCore, DownloadedLocalModelData, ModelManagementSettingsData};
 use crate::browser::BrowserVisibilityMode;
 #[cfg(feature = "remote-openai")]
-use crate::config::resolve_secret_ref;
+use crate::config::resolve_secret_ref_for_endpoint;
 use crate::config::{AppConfig, ConfigError, ModelManagementSettings};
+#[cfg(feature = "remote-openai")]
+use crate::provider_endpoint::ProviderEndpointScope;
 
 #[cfg(feature = "remote-openai")]
-fn resolve_optional_remote_planner_api_key(
+#[derive(Debug, PartialEq, Eq)]
+struct RemotePlannerModelCredentials {
+    api_key: Option<String>,
+    organization: Option<String>,
+    project: Option<String>,
+}
+
+#[cfg(feature = "remote-openai")]
+fn resolve_remote_planner_model_credentials(
+    profile_name: &str,
     profile: &crate::config::RemotePlannerProfile,
+    requested_scope: &ProviderEndpointScope,
     api_key_override: Option<&str>,
-) -> Result<Option<String>, String> {
-    if let Some(override_value) = api_key_override.map(str::trim) {
-        if !override_value.is_empty() {
-            return Ok(Some(override_value.to_string()));
-        }
+) -> Result<RemotePlannerModelCredentials, String> {
+    let configured_scope = ProviderEndpointScope::parse(&profile.base_url).map_err(|reason| {
+        format!(
+            "Remote planner profile '{profile_name}' has an invalid configured endpoint: {reason}"
+        )
+    })?;
+    let entered_key = api_key_override
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    if let Some(entered_key) = entered_key {
+        let same_scope = requested_scope == &configured_scope;
+        let organization = if same_scope {
+            profile
+                .organization
+                .as_ref()
+                .map(|secret| {
+                    resolve_secret_ref_for_endpoint(
+                        secret,
+                        "planner",
+                        profile_name,
+                        &configured_scope,
+                    )
+                })
+                .transpose()
+                .map_err(|reason| {
+                    format!(
+                        "Remote planner model list could not read the configured organization secret: {reason}"
+                    )
+                })?
+        } else {
+            None
+        };
+        return Ok(RemotePlannerModelCredentials {
+            api_key: Some(entered_key.to_string()),
+            organization,
+            project: same_scope.then(|| profile.project.clone()).flatten(),
+        });
     }
-    match resolve_secret_ref(&profile.api_key) {
-        Ok(value) => Ok(Some(value)),
-        Err(reason) => Err(format!(
-            "Remote planner model list could not read the configured API key: {reason}"
-        )),
+
+    if requested_scope != &configured_scope {
+        return Err(format!(
+            "The requested endpoint {} differs from the saved credential destination {}. Enter a temporary key for the displayed endpoint, or save the endpoint and re-enter the key to authorize it.",
+            requested_scope.normalized_base_url(),
+            configured_scope.normalized_base_url()
+        ));
     }
+
+    let api_key = resolve_secret_ref_for_endpoint(
+        &profile.api_key,
+        "planner",
+        profile_name,
+        &configured_scope,
+    )
+    .map_err(|reason| {
+        format!("Remote planner model list could not read the configured API key: {reason}")
+    })?;
+    let organization = profile
+        .organization
+        .as_ref()
+        .map(|secret| {
+            resolve_secret_ref_for_endpoint(
+                secret,
+                "planner",
+                profile_name,
+                &configured_scope,
+            )
+        })
+        .transpose()
+        .map_err(|reason| {
+            format!(
+                "Remote planner model list could not read the configured organization secret: {reason}"
+            )
+        })?;
+
+    Ok(RemotePlannerModelCredentials {
+        api_key: Some(api_key),
+        organization,
+        project: profile.project.clone(),
+    })
 }
 
 impl AppCore {
@@ -200,23 +280,21 @@ impl AppCore {
             .get(profile_name)
             .ok_or_else(|| format!("unknown remote planner profile '{profile_name}'"))?;
 
-        let api_key = resolve_optional_remote_planner_api_key(profile, api_key_override)?;
-        let organization = profile
-            .organization
-            .as_ref()
-            .map(resolve_secret_ref)
-            .transpose()
-            .map_err(|reason| {
-                format!(
-                    "Remote planner model list could not read the configured organization secret: {reason}"
-                )
-            })?;
+        let requested_scope =
+            ProviderEndpointScope::parse(base_url_override.unwrap_or(&profile.base_url))
+                .map_err(|reason| format!("Remote planner model endpoint is invalid: {reason}"))?;
+        let credentials = resolve_remote_planner_model_credentials(
+            profile_name,
+            profile,
+            &requested_scope,
+            api_key_override,
+        )?;
 
         fetch_openai_compatible_models(
-            base_url_override.unwrap_or(&profile.base_url),
-            api_key.as_deref(),
-            organization.as_deref(),
-            profile.project.as_deref(),
+            &requested_scope,
+            credentials.api_key.as_deref(),
+            credentials.organization.as_deref(),
+            credentials.project.as_deref(),
             timeout_ms_override.unwrap_or(profile.timeout_ms),
         )
     }
@@ -406,19 +484,18 @@ impl AppCore {
 
 #[cfg(all(test, feature = "remote-openai"))]
 mod tests {
-    use super::resolve_optional_remote_planner_api_key;
-    use crate::config::{RemotePlannerProfile, RemoteProviderKind, SecretRef};
+    use super::{resolve_remote_planner_model_credentials, RemotePlannerModelCredentials};
+    use crate::config::{KeyringRef, RemotePlannerProfile, RemoteProviderKind, SecretRef};
+    use crate::provider_endpoint::ProviderEndpointScope;
 
-    fn planner_profile_with_env_key(env_var: &str) -> RemotePlannerProfile {
+    fn planner_profile(secret: SecretRef) -> RemotePlannerProfile {
         RemotePlannerProfile {
             provider: RemoteProviderKind::OpenAi,
-            base_url: String::from("https://api.openai.com/v1"),
+            base_url: String::from("https://api.example.com/v1"),
             model: String::from("gpt-4"),
-            api_key: SecretRef::FromEnv {
-                from_env: env_var.to_string(),
-            },
+            api_key: secret,
             organization: None,
-            project: None,
+            project: Some(String::from("project-a")),
             temperature_milli: 200,
             max_output_tokens: 1024,
             timeout_ms: 30_000,
@@ -426,50 +503,52 @@ mod tests {
     }
 
     #[test]
-    fn override_key_wins_without_inspecting_configured_secret() {
-        // Configured secret is definitely unresolvable; override must win regardless.
-        let profile = planner_profile_with_env_key("BLIND_BROWSER_NONEXISTENT_KEY_XYZ99");
-
-        let result = resolve_optional_remote_planner_api_key(&profile, Some("my-override-key"));
-
-        assert_eq!(result, Ok(Some(String::from("my-override-key"))));
+    fn changed_endpoint_with_empty_override_fails_before_resolving_secret() {
+        let profile = planner_profile(SecretRef::FromEnv {
+            from_env: String::from("BLIND_BROWSER_NONEXISTENT_KEY_XYZ99"),
+        });
+        for endpoint in [
+            "https://other.example.com/v1",
+            "https://api.example.com:8443/v1",
+            "https://api.example.com/v2",
+        ] {
+            let requested = ProviderEndpointScope::parse(endpoint).unwrap();
+            let error = resolve_remote_planner_model_credentials(
+                "openai-default",
+                &profile,
+                &requested,
+                Some("  "),
+            )
+            .expect_err("changed endpoint must fail closed");
+            assert!(error.contains("differs from the saved credential destination"));
+            assert!(!error.contains("environment variable"));
+        }
     }
 
     #[test]
-    fn empty_override_falls_through_to_configured_secret() {
-        let profile = planner_profile_with_env_key("BLIND_BROWSER_NONEXISTENT_KEY_XYZ99");
+    fn temporary_key_for_changed_endpoint_does_not_attach_profile_headers() {
+        let profile = planner_profile(SecretRef::FromKeyring {
+            from_keyring: KeyringRef {
+                service: String::from("blind_browser"),
+                account: String::from("legacy-unbound"),
+            },
+        });
+        let requested = ProviderEndpointScope::parse("https://other.example.com/v1").unwrap();
+        let credentials = resolve_remote_planner_model_credentials(
+            "openai-default",
+            &profile,
+            &requested,
+            Some("temporary-key"),
+        )
+        .expect("entered key should be scoped to the displayed endpoint");
 
-        // Empty override must not win; it falls through to secret resolution which fails.
-        let result = resolve_optional_remote_planner_api_key(&profile, Some("  "));
-        assert!(
-            result.is_err(),
-            "whitespace-only override must fall through to secret resolution"
-        );
-    }
-
-    #[test]
-    fn configured_secret_resolution_failure_is_err_not_none() {
-        let profile = planner_profile_with_env_key("BLIND_BROWSER_NONEXISTENT_KEY_XYZ99");
-
-        let error = resolve_optional_remote_planner_api_key(&profile, None)
-            .expect_err("configured secret resolution failure must surface as Err");
-
-        assert!(
-            error.contains("could not read the configured API key"),
-            "error message should identify the API key: {error}"
-        );
-        // Crucially: the error is not Ok(None).
-    }
-
-    #[test]
-    fn configured_secret_resolution_failure_is_not_converted_to_none() {
-        let profile = planner_profile_with_env_key("BLIND_BROWSER_NONEXISTENT_KEY_XYZ99");
-
-        let result = resolve_optional_remote_planner_api_key(&profile, None);
-
-        assert!(
-            !matches!(result, Ok(None)),
-            "configured secret resolution failure must not be silently folded into Ok(None)"
+        assert_eq!(
+            credentials,
+            RemotePlannerModelCredentials {
+                api_key: Some(String::from("temporary-key")),
+                organization: None,
+                project: None,
+            }
         );
     }
 }

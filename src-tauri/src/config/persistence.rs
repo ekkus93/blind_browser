@@ -14,6 +14,7 @@ use super::{
     SafetySettings, SecretRef,
 };
 use crate::ocr::OcrSettings;
+use crate::provider_endpoint::ProviderEndpointScope;
 
 fn write_config_atomic(path: &Path, serialized: &str) -> Result<(), ConfigError> {
     let parent = path.parent().ok_or_else(|| {
@@ -295,14 +296,6 @@ impl AppConfig {
             )));
         }
 
-        let keyring_ref = keyring_ref_for_remote_api_key(provider_kind, normalized_profile_name);
-        set_keyring_secret(
-            &keyring_ref.service,
-            &keyring_ref.account,
-            normalized_api_key,
-        )
-        .map_err(ConfigError::Keyring)?;
-
         let mut document = if path.exists() {
             load_document_table_from_path(path)?
         } else {
@@ -328,6 +321,27 @@ impl AppConfig {
                 "remote_profiles.{normalized_profile_name} must remain a TOML table"
             )));
         };
+        let base_url = profile_table
+            .get("base_url")
+            .and_then(toml::Value::as_str)
+            .ok_or_else(|| {
+                ConfigError::Validation(format!(
+                    "remote_profiles.{normalized_profile_name}.base_url must be configured before storing a credential"
+                ))
+            })?;
+        let endpoint_scope =
+            ProviderEndpointScope::parse(base_url).map_err(ConfigError::Validation)?;
+        let keyring_ref =
+            keyring_ref_for_remote_api_key(provider_kind, normalized_profile_name, &endpoint_scope)
+                .map_err(ConfigError::Keyring)?;
+
+        set_keyring_secret(
+            &keyring_ref.service,
+            &keyring_ref.account,
+            normalized_api_key,
+        )
+        .map_err(ConfigError::Keyring)?;
+
         profile_table.insert(
             String::from("api_key"),
             toml::Value::try_from(SecretRef::FromKeyring {

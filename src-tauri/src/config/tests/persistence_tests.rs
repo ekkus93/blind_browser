@@ -125,7 +125,7 @@ fn persist_remote_planner_connection_settings_rejects_invalid_url() {
     match error {
         ConfigError::Validation(message) => {
             assert!(
-                message.contains("valid absolute URL"),
+                message.contains("absolute URL"),
                 "unexpected error: {message}"
             );
         }

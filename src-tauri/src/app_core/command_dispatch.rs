@@ -27,6 +27,7 @@ pub(crate) enum PlannerResolution {
         // Boxed: `PlannerInput` is large, so an unboxed variant bloats every
         // `PlannerResolution` (clippy `large_enum_variant`).
         planner_input: Box<PlannerInput>,
+        profile_name: String,
         profile: RemotePlannerProfile,
         available_tools: Vec<AvailableTool>,
         active_skill_names: Vec<String>,
@@ -313,7 +314,7 @@ impl super::AppCore {
 
         // No direct command matched: snapshot the remote planner profile under the
         // lock so the LLM round-trip can run with the guard released.
-        let profile = self.remote_planner_profile_snapshot()?;
+        let (profile_name, profile) = self.remote_planner_profile_snapshot()?;
 
         let planner_input = PlannerInput {
             request_id: request_id.clone(),
@@ -331,6 +332,7 @@ impl super::AppCore {
         Ok(PlannerResolution::Remote {
             active_skill_names: planner_input.active_skill_names.clone(),
             planner_input: Box::new(planner_input),
+            profile_name,
             profile,
             available_tools,
         })
