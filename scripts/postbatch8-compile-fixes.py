@@ -101,32 +101,27 @@ def repair_model_downloads() -> None:
         raise SystemExit(f"{path}: no accepted non-moving temporary-path error shape found")
 
     source = read(path)
-    stale_content_length = re.compile(
-        r"^(?P<indent>[ \t]*)if let Some\(content_length\) = response\.content_length\(\) \{\n"
-        r"(?P=indent)    if content_length > file\.max_bytes \{\n"
-        r"(?P<body>.*?)"
-        r"^(?P=indent)    \}\n"
-        r"^(?P=indent)\}",
-        re.MULTILINE | re.DOTALL,
+    stale_streaming_limit = (
+        "            if let Some(maximum) = file.max_bytes {\n"
+        "                if total > maximum {\n"
+        "                    return Err(ModelDownloadError::TooLarge {\n"
+        "                        file_name: file.file_name.to_string(),\n"
+        "                        maximum,\n"
+        "                    });\n"
+        "                }\n"
+        "            }"
     )
-    matches = list(stale_content_length.finditer(source))
-    if matches:
-        if len(matches) != 1:
-            raise SystemExit(f"{path}: expected one nested content-length check, found {len(matches)}")
-        match = matches[0]
-        indent = match.group("indent")
-        body = match.group("body")
-        replacement = (
-            f"{indent}if let Some(content_length) = response.content_length()\n"
-            f"{indent}    && content_length > file.max_bytes\n"
-            f"{indent}{{\n"
-            f"{body}"
-            f"{indent}}}"
-        )
-        source = source[: match.start()] + replacement + source[match.end() :]
-        write(path, source)
-    elif "&& content_length > file.max_bytes" not in source:
-        raise SystemExit(f"{path}: neither stale nor corrected content-length check was found")
+    corrected_streaming_limit = (
+        "            if let Some(maximum) = file.max_bytes\n"
+        "                && total > maximum\n"
+        "            {\n"
+        "                return Err(ModelDownloadError::TooLarge {\n"
+        "                    file_name: file.file_name.to_string(),\n"
+        "                    maximum,\n"
+        "                });\n"
+        "            }"
+    )
+    replace_or_verify(path, stale_streaming_limit, corrected_streaming_limit)
 
 
 def repair_planner_metadata_move() -> None:
