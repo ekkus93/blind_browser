@@ -4,6 +4,7 @@ use crate::page_model::RegionRole;
 mod fixtures;
 use fixtures::*;
 
+mod batch5_safety;
 mod browser_state;
 mod confirmation;
 mod contracts;
