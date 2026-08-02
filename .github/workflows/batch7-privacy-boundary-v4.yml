@@ -1,0 +1,241 @@
+name: Batch 7 Remote Planner Privacy Boundary V4
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/batch7-v4-trigger.txt
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: batch7-remote-planner-privacy-v4
+  cancel-in-progress: true
+
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact trigger head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Publish observable run marker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh issue comment 5 --body "Batch 7 BBCR-003/006 V4 started: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`apply-and-validate\`."
+
+      - name: Refuse unexpected repository state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          git merge-base --is-ancestor 6398cb600304ceaa21027af1ba7d8a81a55476bc HEAD
+          test -z "$(git status --porcelain)"
+          test -z "$(git branch --show-current)"
+          test -f scripts/batch7-privacy-boundary.py
+          test -f scripts/batch7-v3-apply.py
+          test -f scripts/batch7-v4-verify.py
+          test -f .github/workflows/batch7-privacy-boundary-v4.yml
+          test -f .github/batch7-v4-trigger.txt
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install Ubuntu native dependencies
+        shell: bash
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Install JavaScript dependencies
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile
+
+      - name: Apply typed privacy and hostile-input boundary
+        shell: bash
+        run: |
+          python3 scripts/batch7-v3-apply.py
+
+      - name: Format and verify transformed source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all
+          python3 scripts/batch7-v4-verify.py
+          git diff --check
+
+      - name: Check for reintroduced silent-fallback patterns
+        shell: bash
+        run: |
+          set -o pipefail
+          bash scripts/check-silent-fallbacks.sh 2>&1 | tee -a /tmp/batch7-v4-gates.log
+
+      - name: Check Rust formatting
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check 2>&1 | tee -a /tmp/batch7-v4-gates.log
+
+      - name: Check default feature configuration
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo check --manifest-path src-tauri/Cargo.toml 2>&1 | tee -a /tmp/batch7-v4-gates.log
+
+      - name: Run Rust clippy
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings 2>&1 | tee -a /tmp/batch7-v4-gates.log
+
+      - name: Run Rust tests
+        shell: bash
+        run: |
+          set -o pipefail
+          xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features 2>&1 | tee -a /tmp/batch7-v4-gates.log
+
+      - name: Run frontend lint
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm lint 2>&1 | tee -a /tmp/batch7-v4-gates.log
+
+      - name: Run UI tests
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm test:ui 2>&1 | tee -a /tmp/batch7-v4-gates.log
+
+      - name: Build frontend
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm build 2>&1 | tee -a /tmp/batch7-v4-gates.log
+
+      - name: Remove all one-shot Batch 7 machinery
+        shell: bash
+        run: |
+          rm -f \
+            scripts/batch7-privacy-boundary.py \
+            scripts/batch7-v3-apply.py \
+            scripts/batch7-v4-verify.py \
+            scripts/patch-batch7-v2-worker.py \
+            .github/workflows/batch7-privacy-boundary.yml \
+            .github/batch7-privacy-trigger.txt \
+            .github/workflows/batch7-cargo-diagnostic.yml \
+            .github/batch7-cargo-diagnostic-trigger.txt \
+            .github/workflows/batch7-privacy-boundary-v2.yml \
+            .github/batch7-v2-trigger.txt \
+            .github/workflows/batch7-v2-worker-fix.yml \
+            .github/batch7-v2-worker-fix-trigger.txt \
+            .github/workflows/batch7-privacy-boundary-v3.yml \
+            .github/batch7-v3-trigger.txt \
+            .github/workflows/batch7-privacy-boundary-v4.yml \
+            .github/batch7-v4-trigger.txt
+          git diff --check
+
+      - name: Verify bounded change set
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import subprocess
+
+          changed = set(subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines())
+          required = {
+              'src-tauri/src/app_core/planner_redaction.rs',
+              'src-tauri/src/app_core/planner_prompt.rs',
+              'src-tauri/src/app_core/remote_planner.rs',
+          }
+          allowed = required | {
+              'scripts/batch7-privacy-boundary.py',
+              'scripts/batch7-v3-apply.py',
+              'scripts/batch7-v4-verify.py',
+              'scripts/patch-batch7-v2-worker.py',
+              '.github/workflows/batch7-privacy-boundary.yml',
+              '.github/batch7-privacy-trigger.txt',
+              '.github/workflows/batch7-cargo-diagnostic.yml',
+              '.github/batch7-cargo-diagnostic-trigger.txt',
+              '.github/workflows/batch7-privacy-boundary-v2.yml',
+              '.github/batch7-v2-trigger.txt',
+              '.github/workflows/batch7-v2-worker-fix.yml',
+              '.github/batch7-v2-worker-fix-trigger.txt',
+              '.github/workflows/batch7-privacy-boundary-v3.yml',
+              '.github/batch7-v3-trigger.txt',
+              '.github/workflows/batch7-privacy-boundary-v4.yml',
+              '.github/batch7-v4-trigger.txt',
+          }
+          if not required.issubset(changed):
+              raise SystemExit(f'missing required production changes: {sorted(required - changed)}')
+          if not changed.issubset(allowed):
+              raise SystemExit(f'unexpected changed paths: {sorted(changed - allowed)}')
+          print(f'Bounded Batch 7 changes: {sorted(changed)}')
+          PY
+
+      - name: Commit validated source to master
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "security: type remote planner privacy boundary"
+          source_sha="$(git rev-parse HEAD)"
+          git push origin HEAD:master
+          git push origin --delete agent/tmp-do-not-use || true
+          gh issue comment 5 --body "Batch 7 BBCR-003/006 V4 passed and was committed to master: trigger head \`${GITHUB_SHA}\`, source commit \`${source_sha}\`, run \`${GITHUB_RUN_ID}\`, job \`apply-and-validate\`."
+
+      - name: Publish failure marker
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          {
+            echo "Batch 7 BBCR-003/006 V4 failed: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`apply-and-validate\`. No production source commit was published."
+            echo
+            echo '```text'
+            tail -c 7000 /tmp/batch7-v4-gates.log 2>/dev/null || true
+            echo
+            echo '```'
+          } > /tmp/batch7-v4-failure.md
+          gh issue comment 5 --body-file /tmp/batch7-v4-failure.md
