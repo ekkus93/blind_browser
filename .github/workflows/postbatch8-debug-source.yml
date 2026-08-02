@@ -27,24 +27,19 @@ jobs:
           git apply /tmp/postbatch8.patch
           python3 scripts/postbatch8-compile-fixes.py
 
-      - name: Print bounded source excerpts
+      - name: Print exact source matches
         shell: bash
         run: |
           set -uo pipefail
-          echo '=== MODEL DOWNLOAD HTTP PATHS ==='
-          grep -n -B 35 -A 150 'partial-\|fn download_\|download_verified\|VerifiedDownload' src-tauri/src/app_core/model_management.rs || true
-          echo '=== MODEL DOWNLOAD FAILING TESTS ==='
-          for name in \
-            truncated_payload_is_rejected \
-            checksum_mismatch_keeps_existing_file_and_removes_partial \
-            declared_size_mismatch_rejects_download \
-            redirect_to_unapproved_origin_is_rejected \
-            successful_verified_download_replaces_existing_file_atomically; do
-            grep -n -B 25 -A 55 "fn $name" src-tauri/src/app_core/model_management.rs || true
-          done
-          echo '=== HELPER COMMAND DEFINITIONS ==='
-          grep -R -n -B 20 -A 60 'fn read_data_url_text\|fn resolve_external_url' src-tauri/src || true
-          echo '=== DIRECT COMMAND POLICY ==='
-          sed -n '1,320p' src-tauri/src/direct_command_policy.rs || true
-          echo '=== DIAGNOSTICS SANITIZER AND TEST ==='
-          grep -n -B 40 -A 120 'sanitize_message_redacts_sensitive_values\|fn sanitize_message' src-tauri/src/diagnostics.rs || true
+          echo '=== FILE INVENTORY ==='
+          find src-tauri/src -maxdepth 4 -type f | sort | grep -E 'model|download|diagnostic|command|external|data_url' || true
+          echo '=== FAILING MODEL TEST SOURCES ==='
+          grep -R -n -B 35 -A 65 \
+            -E 'truncated_payload_is_rejected|checksum_mismatch_keeps_existing_file_and_removes_partial|declared_size_mismatch_rejects_download|redirect_to_unapproved_origin_is_rejected|successful_verified_download_replaces_existing_file_atomically' \
+            src-tauri/src || true
+          echo '=== RANDOM PARTIAL IMPLEMENTATION ==='
+          grep -R -n -B 45 -A 140 -E 'partial-|IntegrityMismatch|RedirectBlocked' src-tauri/src || true
+          echo '=== HELPER COMMAND SOURCES ==='
+          grep -R -n -B 30 -A 80 -E 'read_data_url_text|resolve_external_url' src-tauri/src || true
+          echo '=== DIAGNOSTICS SOURCES ==='
+          grep -R -n -B 45 -A 130 -E 'sanitize_message_redacts_sensitive_values|fn sanitize_message|api_key=\[REDACTED\]' src-tauri/src || true
