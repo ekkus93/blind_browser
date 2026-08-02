@@ -52,6 +52,15 @@ replace_once(
 )
 
 replace_once(
+    "src-tauri/src/app_core/planner_redaction.rs",
+    '''        let mut input = fixture_planner_input();
+        input.transcript = String::from("find the zirconium warranty button");''',
+    '''        let mut input = fixture_planner_input();
+        input.page_snapshot = None;
+        input.transcript = String::from("find the zirconium warranty button");''',
+)
+
+replace_once(
     "src-tauri/src/commands/tests/contracts/planner_contracts.rs",
     "assert_eq!(round_tripped, planner_input);",
     'assert!(\n        round_tripped == planner_input,\n        "planner input round trip changed"\n    );',
