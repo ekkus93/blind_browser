@@ -1,0 +1,103 @@
+name: Patch Batch 7 V2 Worker
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/batch7-v2-worker-fix-trigger.txt
+
+permissions:
+  contents: write
+
+concurrency:
+  group: batch7-v2-worker-fix
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact trigger head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Refuse unexpected repository state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test -z "$(git status --porcelain)"
+          test -z "$(git branch --show-current)"
+          test -f .github/workflows/batch7-privacy-boundary-v2.yml
+          test -f .github/workflows/batch7-v2-worker-fix.yml
+          test -f .github/batch7-v2-worker-fix-trigger.txt
+
+      - name: Patch generated import matcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/batch7-privacy-boundary-v2.yml')
+          text = path.read_text()
+          old = '''          old_remote_import = '''use crate::commands::{canonical_planner_output_examples, tool_input_schema};'''
+          new_remote_import = '''use crate::commands::{
+              canonical_planner_output_examples, planner_output_schema, tool_input_schema,
+          };'''
+          if remote.count(old_remote_import) != 1:
+              raise SystemExit("generated remote planner schema import baseline did not match exactly once")
+          remote_path.write_text(remote.replace(old_remote_import, new_remote_import, 1))
+'''
+          new = '''          import re
+
+          remote_import_pattern = re.compile(
+              r'(#\\[cfg\\(feature = "remote-openai"\\)\\]\\s*use crate::commands::\\{)'
+              r'(?P<body>[^}]*canonical_planner_output_examples[^}]*tool_input_schema[^}]*)'
+              r'(\\};)',
+              re.S,
+          )
+          matches = list(remote_import_pattern.finditer(remote))
+          if len(matches) != 1:
+              raise SystemExit(
+                  f"generated remote planner schema import block count={len(matches)}"
+              )
+          match = matches[0]
+          body = match.group("body")
+          if "planner_output_schema" in body:
+              raise SystemExit("generated remote planner schema import unexpectedly already contains planner_output_schema")
+          if body.count("canonical_planner_output_examples") != 1:
+              raise SystemExit("generated remote planner canonical example import count was not one")
+          body = body.replace(
+              "canonical_planner_output_examples",
+              "canonical_planner_output_examples, planner_output_schema",
+              1,
+          )
+          remote = remote[: match.start("body")] + body + remote[match.end("body") :]
+          remote_path.write_text(remote)
+'''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one brittle matcher block, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          git diff --check
+          grep -F 'remote_import_pattern = re.compile(' .github/workflows/batch7-privacy-boundary-v2.yml
+          ! grep -F 'old_remote_import =' .github/workflows/batch7-privacy-boundary-v2.yml
+
+      - name: Remove patch machinery and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/batch7-v2-worker-fix.yml
+          rm .github/batch7-v2-worker-fix-trigger.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/batch7-privacy-boundary-v2.yml \
+            .github/workflows/batch7-v2-worker-fix.yml \
+            .github/batch7-v2-worker-fix-trigger.txt
+          git diff --cached --check
+          git commit -m "ci: harden Batch 7 generated import matcher"
+          git push origin HEAD:master
