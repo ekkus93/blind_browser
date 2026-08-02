@@ -49,6 +49,24 @@ jobs:
         run: |
           set -o pipefail
           python3 scripts/bbcr005_docs_close.py 2>&1 | tee "${RUNNER_TEMP}/bbcr005-docs.log"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_IMPLEMENTATION_REPORT_2026-08-01.md")
+          text = path.read_text()
+          labels = (
+              "**Validated source commit:** `1a6c2b213777766d9e1de056127cafcf0ca45bfa`",
+              "**Exact worker trigger head:** `e035ab3757911853ee7f015b35dd13dc5df795a0`",
+              "**Bounded closure run:** `30734369368`",
+              "**Bounded closure job:** `91460289871`",
+          )
+          for label in labels:
+              old = label + "  \n"
+              if text.count(old) != 1:
+                  raise SystemExit(f"expected one Markdown hard break for {label!r}")
+              text = text.replace(old, label + "<br>\n", 1)
+          path.write_text(text)
+          PY
 
       - name: Verify documentation transformation
         shell: bash
@@ -70,8 +88,9 @@ jobs:
           fi
           gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-005 documentation closure failed: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`. Diagnostic:\n\n\`\`\`text\n${diagnostic}\n\`\`\`"
 
-      - name: Remove one-shot documentation closure files
+      - name: Restore permanent CI and remove one-shot closure files
         run: |
+          git show e9e9e5644e7874ab72bb16483b5ad3ccedc0ccfd:.github/workflows/ci.yml > .github/workflows/ci.yml
           rm scripts/bbcr005_docs_close.py
           rm .github/workflows/bbcr005-docs-close.yml
           rm .github/bbcr005-docs-trigger.txt
