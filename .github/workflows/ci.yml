@@ -75,6 +75,9 @@ jobs:
       - name: Check for reintroduced silent-fallback patterns
         run: bash scripts/check-silent-fallbacks.sh
 
+      - name: Check for sensitive diagnostics
+        run: python3 scripts/check-sensitive-diagnostics.py
+
       - name: Check Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
 
