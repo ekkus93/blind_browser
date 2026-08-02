@@ -1,0 +1,43 @@
+# Reviewed production fallback expressions. Each entry must be justified in the accepted-fallbacks document.
+src-tauri/src/app_core/click_authorization.rs|&& record.page_id == self.state.current_page_id.as_deref().unwrap_or_default()
+src-tauri/src/app_core/click_authorization.rs|.unwrap_or_default(),
+src-tauri/src/app_core/click_authorization.rs|Some(action) if !action.is_empty() => Url::parse(page_url).ok()?.join(action).ok()?,
+src-tauri/src/app_core/click_authorization.rs|_ => Url::parse(page_url).ok()?,
+src-tauri/src/app_core/click_authorization.rs|element.accessible_name.as_deref().unwrap_or_default(),
+src-tauri/src/app_core/click_authorization.rs|element.href.as_deref().unwrap_or_default(),
+src-tauri/src/app_core/click_authorization.rs|element.placeholder.as_deref().unwrap_or_default(),
+src-tauri/src/app_core/click_authorization.rs|element.text.as_deref().unwrap_or_default(),
+src-tauri/src/app_core/command_dispatch.rs|.ok()
+src-tauri/src/app_core/command_dispatch.rs|let current_dir = std::env::current_dir().ok();
+src-tauri/src/app_core/confirmation_workflow.rs|.unwrap_or_default();
+src-tauri/src/app_core/element_scoring.rs|element.accessible_name.as_deref().unwrap_or_default(),
+src-tauri/src/app_core/element_scoring.rs|element.href.as_deref().unwrap_or_default(),
+src-tauri/src/app_core/element_scoring.rs|element.placeholder.as_deref().unwrap_or_default(),
+src-tauri/src/app_core/element_scoring.rs|element.text.as_deref().unwrap_or_default(),
+src-tauri/src/app_core/element_scoring.rs|element.value.as_deref().unwrap_or_default(),
+src-tauri/src/app_core/fill_correction.rs|.ok()
+src-tauri/src/app_core/form_fill/field_focus.rs|let search_query = build_find_element_query(&query).ok()?;
+src-tauri/src/app_core/image_cache.rs|let _ = fs::remove_file(&path);
+src-tauri/src/app_core/planner_redaction.rs|.ok()
+src-tauri/src/app_core/planner_redaction.rs|let _ = parsed.set_password(None);
+src-tauri/src/app_core/planner_redaction.rs|let _ = parsed.set_username("");
+src-tauri/src/app_core/settings_adapters.rs|.and_then(|configured_profile| ProviderEndpointScope::parse(&configured_profile.base_url).ok())
+src-tauri/src/app_core/settings_adapters.rs|.and_then(|profile| kitten_download_plan_for_model_id(&profile.model_id).ok())
+src-tauri/src/app_core/settings_adapters.rs|.and_then(|profile| whisper_download_plan_for_model_id(&profile.model_id).ok())
+src-tauri/src/app_core/settings_adapters.rs|.unwrap_or_default(),
+src-tauri/src/asr/wav.rs|.and_then(|size| u32::try_from(size).ok())
+src-tauri/src/commands/action_policy.rs|.and_then(|value| u16::try_from(value).ok());
+src-tauri/src/commands/planner_executor/execution.rs|details: serde_json::to_value(decision).ok(),
+src-tauri/src/commands/routing/audio_commands.rs|.and_then(|value| value.parse::<f32>().ok())
+src-tauri/src/commands/skill_loader.rs|.unwrap_or_default();
+src-tauri/src/commands/skill_loader.rs|for entry in entries.filter_map(Result::ok) {
+src-tauri/src/commands/skill_parser.rs|.unwrap_or_default()
+src-tauri/src/commands/validators/mod.rs|details: serde_json::to_value(&decision).ok(),
+src-tauri/src/commands/validators/mod.rs|details: serde_json::to_value(decision).ok(),
+src-tauri/src/commands/validators/mod.rs|details: serde_json::to_value(preliminary_decision).ok(),
+src-tauri/src/commands/validators/mod.rs|serde_json::to_value(&decision).ok(),
+src-tauri/src/commands/validators/mod.rs|serde_json::to_value(decision).ok(),
+src-tauri/src/config/persistence.rs|let _ = fs::remove_file(&tmp_path);
+src-tauri/src/tts/remote.rs|let _ = config;
+src-tauri/src/tts/remote.rs|let _ = runtime_audio;
+src-tauri/src/tts/remote.rs|let _ = text;
