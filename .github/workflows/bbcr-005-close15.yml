@@ -33,6 +33,7 @@ jobs:
         run: |
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           test -f scripts/bbcr005_close15.py
+          test -f scripts/bbcr005_close15_patch1.py
           test -f .github/workflows/bbcr-005-close15.yml
           test -f .github/bbcr005-close15-trigger.txt
 
@@ -75,7 +76,10 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python3 scripts/bbcr005_close15.py 2>&1 | tee "${RUNNER_TEMP}/bbcr015-transform.log"
+          {
+            python3 scripts/bbcr005_close15.py
+            python3 scripts/bbcr005_close15_patch1.py
+          } 2>&1 | tee "${RUNNER_TEMP}/bbcr015-transform.log"
 
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
@@ -161,6 +165,7 @@ jobs:
       - name: Remove one-shot closure files
         run: |
           rm scripts/bbcr005_close15.py
+          rm scripts/bbcr005_close15_patch1.py
           rm .github/workflows/bbcr-005-close15.yml
           rm .github/bbcr005-close15-trigger.txt
 
