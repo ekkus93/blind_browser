@@ -1,1 +1,1 @@
-Batch 8 transformation diagnostic trigger v6.
+Batch 8 privacy audit diagnostic trigger v7.
