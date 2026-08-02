@@ -166,6 +166,8 @@ jobs:
             .github/batch7-v2-worker-fix-trigger.txt \
             .github/workflows/batch7-privacy-boundary-v3.yml \
             .github/batch7-v3-trigger.txt \
+            .github/workflows/batch7-generated-source-diagnostic.yml \
+            .github/batch7-generated-source-diagnostic-trigger.txt \
             .github/workflows/batch7-privacy-boundary-v4.yml \
             .github/batch7-v4-trigger.txt
           git diff --check
@@ -198,6 +200,8 @@ jobs:
               '.github/batch7-v2-worker-fix-trigger.txt',
               '.github/workflows/batch7-privacy-boundary-v3.yml',
               '.github/batch7-v3-trigger.txt',
+              '.github/workflows/batch7-generated-source-diagnostic.yml',
+              '.github/batch7-generated-source-diagnostic-trigger.txt',
               '.github/workflows/batch7-privacy-boundary-v4.yml',
               '.github/batch7-v4-trigger.txt',
           }
