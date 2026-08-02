@@ -44,6 +44,15 @@ new_replace_once = '''def replace_once(path: str, old: str, new: str) -> None:
             raise SystemExit(f"{path}: expected one planner-panel occurrence, found {count}")
         write(path, content[:start] + section.replace(old, new, 1) + content[end:])
         return
+    if path == "src/panel-state.ts" and old.startswith("      timeoutMs: null;"):
+        start = content.index("    remotePlannerPanelState:")
+        end = content.index("    providerFailoverPanelState:", start)
+        section = content[start:end]
+        count = section.count(old)
+        if count != 1:
+            raise SystemExit(f"{path}: expected one remote-planner-state occurrence, found {count}")
+        write(path, content[:start] + section.replace(old, new, 1) + content[end:])
+        return
     count = content.count(old)
     if count != 1:
         raise SystemExit(f"{path}: expected one occurrence, found {count}: {old[:120]!r}")
