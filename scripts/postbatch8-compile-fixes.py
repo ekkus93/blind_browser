@@ -135,6 +135,43 @@ def repair_planner_metadata_move() -> None:
         raise SystemExit(f"{path}: sanitization metadata field was not found")
 
 
+def repair_planner_high_risk_text_iterator() -> None:
+    path = "src-tauri/src/app_core/planner_redaction.rs"
+    source = read(path)
+    stale = re.compile(
+        r"(?P<indent>[ \t]*)\.flat_map\(\|region\|\s*\[\s*"
+        r"region\.heading\.as_deref\(\),\s*"
+        r"region\.text\.as_deref\(\),?\s*\]\s*\)",
+        re.MULTILINE,
+    )
+    matches = list(stale.finditer(source))
+    if matches:
+        if len(matches) != 1:
+            raise SystemExit(f"{path}: expected one stale region text iterator, found {len(matches)}")
+        match = matches[0]
+        indent = match.group("indent")
+        corrected = (
+            f"{indent}.flat_map(|region| {{\n"
+            f"{indent}    [region.heading.as_deref(), region.text.as_deref()]\n"
+            f"{indent}        .into_iter()\n"
+            f"{indent}        .flatten()\n"
+            f"{indent}}})"
+        )
+        write(path, source[: match.start()] + corrected + source[match.end() :])
+        return
+
+    corrected = re.compile(
+        r"\.flat_map\(\|region\|\s*\{\s*"
+        r"\[\s*region\.heading\.as_deref\(\),\s*"
+        r"region\.text\.as_deref\(\),?\s*\]\s*"
+        r"\.into_iter\(\)\s*\.flatten\(\)\s*\}\)",
+        re.MULTILINE,
+    )
+    if len(list(corrected.finditer(source))) == 1:
+        return
+    raise SystemExit(f"{path}: neither stale nor corrected high-risk text iterator was found")
+
+
 def repair_direct_command_policy_clippy() -> None:
     path = "src-tauri/src/direct_command_policy.rs"
     old = "\nconst fn policy(\n"
@@ -151,6 +188,7 @@ def main() -> None:
     repair_confirmation_summary()
     repair_model_downloads()
     repair_planner_metadata_move()
+    repair_planner_high_risk_text_iterator()
     repair_direct_command_policy_clippy()
     print("Deterministic post-Batch-8 compile and Clippy repairs applied or verified")
 
