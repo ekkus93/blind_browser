@@ -51,14 +51,13 @@ fn app_core_confirmation_response_is_single_use() {
         queued_steps,
     });
 
-    let first = core.submit_confirmation_response(
-        &confirmation_id,
-        &confirmation_digest,
-        true,
-        false,
-    );
+    let first =
+        core.submit_confirmation_response(&confirmation_id, &confirmation_digest, true, false);
     assert!(first.tool_result.ok);
-    assert!(matches!(first.resume_outcome, ExecutionOutcome::Complete { .. }));
+    assert!(matches!(
+        first.resume_outcome,
+        ExecutionOutcome::Complete { .. }
+    ));
     assert_eq!(
         core.state.browser_visibility,
         BrowserVisibilityMode::Headless
@@ -66,12 +65,8 @@ fn app_core_confirmation_response_is_single_use() {
     assert_eq!(core.state.pending_confirmation_id, None);
     assert!(core.state.pending_plan_execution.is_none());
 
-    let second = core.submit_confirmation_response(
-        &confirmation_id,
-        &confirmation_digest,
-        true,
-        false,
-    );
+    let second =
+        core.submit_confirmation_response(&confirmation_id, &confirmation_digest, true, false);
     assert!(!second.tool_result.ok);
     assert!(matches!(
         second.resume_outcome,
@@ -79,7 +74,11 @@ fn app_core_confirmation_response_is_single_use() {
             if error.code == "missing_pending_execution"
     ));
     assert_eq!(
-        second.tool_result.error.as_ref().map(|error| error.code.as_str()),
+        second
+            .tool_result
+            .error
+            .as_ref()
+            .map(|error| error.code.as_str()),
         Some("missing_pending_execution")
     );
 }
