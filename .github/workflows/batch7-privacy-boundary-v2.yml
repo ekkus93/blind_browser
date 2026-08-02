@@ -1,0 +1,329 @@
+name: Batch 7 Remote Planner Privacy Boundary V2
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/batch7-v2-trigger.txt
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: batch7-remote-planner-privacy-v2
+  cancel-in-progress: true
+
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact trigger head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Publish observable run marker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh issue comment 5 --body "Batch 7 BBCR-003/006 source closure V2 started: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`apply-and-validate\`."
+
+      - name: Refuse unexpected repository state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          git merge-base --is-ancestor 6398cb600304ceaa21027af1ba7d8a81a55476bc HEAD
+          test -z "$(git status --porcelain)"
+          test -f scripts/batch7-privacy-boundary.py
+          test -f .github/workflows/batch7-privacy-boundary.yml
+          test -f .github/batch7-privacy-trigger.txt
+          test -f .github/workflows/batch7-cargo-diagnostic.yml
+          test -f .github/batch7-cargo-diagnostic-trigger.txt
+          test -f .github/workflows/batch7-privacy-boundary-v2.yml
+          test -f .github/batch7-v2-trigger.txt
+          test -z "$(git branch --show-current)"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install Ubuntu native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply typed privacy and hostile-input boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/batch7-privacy-boundary.py")
+          text = path.read_text()
+          old = '''def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
+          '''
+          new = '''def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              expected = 2 if label == "redact OpenAI invalid response" else 1
+              if count != expected:
+                  raise SystemExit(f"{label}: expected exactly {expected} match(es), found {count}")
+              return text.replace(old, new, 1)
+          '''
+          if text.count(old) != 1:
+              raise SystemExit("Batch 7 transformer correction baseline did not match exactly once")
+          text = text.replace(old, new, 1)
+
+          derive_old = '#[derive(Debug, Clone, Serialize, PartialEq, Eq)]\\npub(crate) struct RemoteToolObservation {'
+          derive_new = '#[derive(Debug, Clone, Serialize, PartialEq)]\\npub(crate) struct RemoteToolObservation {'
+          if text.count(derive_old) != 1:
+              raise SystemExit("RemoteToolObservation derive correction did not match exactly once")
+          text = text.replace(derive_old, derive_new, 1)
+          path.write_text(text)
+          PY
+
+          python3 scripts/batch7-privacy-boundary.py
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          redaction_path = Path("src-tauri/src/app_core/planner_redaction.rs")
+          redaction = redaction_path.read_text()
+          old_imports = '''use crate::commands::{
+              AvailableTool, BrowserHistoryState, BrowserVisibilityMode, ListeningState, NarrationCursor,
+              PlannerInput, PlannerSafetySettings, PlannerToolHistoryEntry, RuntimeAudioState, SkillSummary,
+              ToolError, ToolName,
+          };'''
+          new_imports = '''use crate::browser::BrowserVisibilityMode;
+          use crate::commands::{
+              AvailableTool, PlannerInput, PlannerSafetySettings, PlannerToolHistoryEntry, SkillSummary,
+              ToolError, ToolName,
+          };
+          use crate::narration::NarrationCursor;
+          use crate::state::{BrowserHistoryState, ListeningState, RuntimeAudioState};'''
+          if redaction.count(old_imports) != 1:
+              raise SystemExit("generated planner redaction import baseline did not match exactly once")
+          redaction_path.write_text(redaction.replace(old_imports, new_imports, 1))
+
+          remote_path = Path("src-tauri/src/app_core/remote_planner.rs")
+          remote = remote_path.read_text()
+          old_remote_import = '''use crate::commands::{canonical_planner_output_examples, tool_input_schema};'''
+          new_remote_import = '''use crate::commands::{
+              canonical_planner_output_examples, planner_output_schema, tool_input_schema,
+          };'''
+          if remote.count(old_remote_import) != 1:
+              raise SystemExit("generated remote planner schema import baseline did not match exactly once")
+          remote_path.write_text(remote.replace(old_remote_import, new_remote_import, 1))
+          PY
+
+      - name: Format transformed Rust
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all
+
+      - name: Verify transformed invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          redaction = Path("src-tauri/src/app_core/planner_redaction.rs").read_text()
+          prompt = Path("src-tauri/src/app_core/planner_prompt.rs").read_text()
+          remote = Path("src-tauri/src/app_core/remote_planner.rs").read_text()
+
+          required_redaction = [
+              "pub(crate) struct RemotePlannerInput",
+              "pub(crate) struct PlannerSafeElementAttributes",
+              "remote_planner_high_risk_context_blocked",
+              "use crate::browser::BrowserVisibilityMode;",
+              "use crate::narration::NarrationCursor;",
+              "use crate::state::{BrowserHistoryState, ListeningState, RuntimeAudioState};",
+          ]
+          required_prompt = [
+              "trusted_contract",
+              "user_request",
+              "untrusted_data",
+              "caution-only telemetry",
+          ]
+          required_remote = [
+              "canonical_planner_output_examples, planner_output_schema, tool_input_schema",
+          ]
+          for value in required_redaction:
+              if value not in redaction:
+                  raise SystemExit(f"missing transformed redaction invariant: {value}")
+          for value in required_prompt:
+              if value not in prompt:
+                  raise SystemExit(f"missing transformed prompt invariant: {value}")
+          for value in required_remote:
+              if value not in remote:
+                  raise SystemExit(f"missing transformed remote invariant: {value}")
+
+          counts = {
+              "sanitize_remote_planner_input": remote.count(
+                  "sanitize_remote_planner_input(planner_input)?"
+              ),
+              "serialize_remote_planner_prompt": remote.count(
+                  "serialize_remote_planner_prompt(&planner_safe_input)?"
+              ),
+              "content_length_redaction": remote.count(
+                  '"content_length": content.len()'
+              ),
+          }
+          print(f"Batch 7 invariant counts: {counts}")
+          expected = {
+              "sanitize_remote_planner_input": 2,
+              "serialize_remote_planner_prompt": 2,
+              "content_length_redaction": 2,
+          }
+          if counts != expected:
+              raise SystemExit(f"unexpected Batch 7 invariant counts: {counts}")
+
+          forbidden = {
+              "legacy raw planner payload": "pub(crate) planner_input:",
+              "raw remote response body": '"content": content',
+              "private command-state import": "AvailableTool, BrowserHistoryState",
+          }
+          for label, value in forbidden.items():
+              if value in prompt or value in redaction or value in remote:
+                  raise SystemExit(f"forbidden {label} remains: {value}")
+          PY
+          git diff --check
+
+      - name: Check for reintroduced silent-fallback patterns
+        shell: bash
+        run: |
+          set -o pipefail
+          bash scripts/check-silent-fallbacks.sh 2>&1 | tee -a /tmp/batch7-gates.log
+
+      - name: Check Rust formatting
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check 2>&1 | tee -a /tmp/batch7-gates.log
+
+      - name: Check default feature configuration
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo check --manifest-path src-tauri/Cargo.toml 2>&1 | tee -a /tmp/batch7-gates.log
+
+      - name: Run Rust clippy
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings 2>&1 | tee -a /tmp/batch7-gates.log
+
+      - name: Run Rust tests
+        shell: bash
+        run: |
+          set -o pipefail
+          xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features 2>&1 | tee -a /tmp/batch7-gates.log
+
+      - name: Run frontend lint
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm lint 2>&1 | tee -a /tmp/batch7-gates.log
+
+      - name: Run UI tests
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm test:ui 2>&1 | tee -a /tmp/batch7-gates.log
+
+      - name: Build frontend
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm build 2>&1 | tee -a /tmp/batch7-gates.log
+
+      - name: Remove one-shot Batch 7 machinery
+        shell: bash
+        run: |
+          rm scripts/batch7-privacy-boundary.py
+          rm .github/workflows/batch7-privacy-boundary.yml
+          rm .github/batch7-privacy-trigger.txt
+          rm .github/workflows/batch7-cargo-diagnostic.yml
+          rm .github/batch7-cargo-diagnostic-trigger.txt
+          rm .github/workflows/batch7-privacy-boundary-v2.yml
+          rm .github/batch7-v2-trigger.txt
+          git diff --check
+
+      - name: Commit validated source to master
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src-tauri/src/app_core/planner_redaction.rs \
+            src-tauri/src/app_core/planner_prompt.rs \
+            src-tauri/src/app_core/remote_planner.rs \
+            scripts/batch7-privacy-boundary.py \
+            .github/workflows/batch7-privacy-boundary.yml \
+            .github/batch7-privacy-trigger.txt \
+            .github/workflows/batch7-cargo-diagnostic.yml \
+            .github/batch7-cargo-diagnostic-trigger.txt \
+            .github/workflows/batch7-privacy-boundary-v2.yml \
+            .github/batch7-v2-trigger.txt
+          git diff --cached --check
+          git commit -m "security: type remote planner privacy boundary"
+          source_sha="$(git rev-parse HEAD)"
+          git push origin HEAD:master
+          git push origin --delete agent/tmp-do-not-use || true
+          gh issue comment 5 --body "Batch 7 BBCR-003/006 source closure V2 passed and was committed to master: trigger head \`${GITHUB_SHA}\`, source commit \`${source_sha}\`, run \`${GITHUB_RUN_ID}\`, job \`apply-and-validate\`."
+
+      - name: Publish failure marker
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          {
+            echo "Batch 7 BBCR-003/006 source closure V2 failed: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`apply-and-validate\`. No production source commit was published."
+            echo
+            echo '```text'
+            tail -c 7000 /tmp/batch7-gates.log 2>/dev/null || true
+            echo
+            echo '```'
+          } > /tmp/batch7-v2-failure.md
+          gh issue comment 5 --body-file /tmp/batch7-v2-failure.md
