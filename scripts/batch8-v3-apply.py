@@ -55,4 +55,18 @@ if import_prefix_count != 1:
     )
 redaction_path.write_text(redaction)
 
-print("Batch 8 generated Rust import compatibility applied")
+safety_path = root / "src-tauri/src/command_handlers/safety_handlers.rs"
+safety = safety_path.read_text()
+old_ownership = '''        blocked_origins: current.blocked_origins,
+        high_risk_origin_policy: String::from("block"),
+        changed: current != previous,'''
+new_ownership = '''        blocked_origins: current.blocked_origins.clone(),
+        high_risk_origin_policy: String::from("block"),
+        changed: current != previous,'''
+if safety.count(old_ownership) != 1:
+    raise SystemExit(
+        "safety_handlers generated ownership shape changed or is ambiguous"
+    )
+safety_path.write_text(safety.replace(old_ownership, new_ownership, 1))
+
+print("Batch 8 generated Rust compatibility applied")
