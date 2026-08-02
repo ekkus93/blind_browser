@@ -1,0 +1,125 @@
+name: Batch 7 Cargo Diagnostic
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/batch7-cargo-diagnostic-trigger.txt
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: batch7-cargo-diagnostic
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact trigger head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Refuse unexpected repository state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test -z "$(git status --porcelain)"
+          test -f scripts/batch7-privacy-boundary.py
+          test -f .github/workflows/batch7-privacy-boundary.yml
+          test -f .github/workflows/batch7-cargo-diagnostic.yml
+          test -f .github/batch7-cargo-diagnostic-trigger.txt
+          test -z "$(git branch --show-current)"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Install Ubuntu native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr
+
+      - name: Apply exact Batch 7 transformation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/batch7-privacy-boundary.py")
+          text = path.read_text()
+          old = '''def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
+          '''
+          new = '''def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              expected = 2 if label == "redact OpenAI invalid response" else 1
+              if count != expected:
+                  raise SystemExit(f"{label}: expected exactly {expected} match(es), found {count}")
+              return text.replace(old, new, 1)
+          '''
+          if text.count(old) != 1:
+              raise SystemExit("Batch 7 transformer correction baseline did not match exactly once")
+          text = text.replace(old, new, 1)
+
+          derive_old = '#[derive(Debug, Clone, Serialize, PartialEq, Eq)]\\npub(crate) struct RemoteToolObservation {'
+          derive_new = '#[derive(Debug, Clone, Serialize, PartialEq)]\\npub(crate) struct RemoteToolObservation {'
+          if text.count(derive_old) != 1:
+              raise SystemExit("RemoteToolObservation derive correction did not match exactly once")
+          text = text.replace(derive_old, derive_new, 1)
+          path.write_text(text)
+          PY
+          python3 scripts/batch7-privacy-boundary.py
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all
+
+      - name: Capture cargo check diagnostic
+        id: cargo_check
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo check --manifest-path src-tauri/Cargo.toml 2>&1 | tee /tmp/batch7-cargo-check.log
+
+      - name: Publish bounded diagnostic
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECK_OUTCOME: ${{ steps.cargo_check.outcome }}
+        shell: bash
+        run: |
+          {
+            echo "Batch 7 cargo diagnostic: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, outcome \`${CHECK_OUTCOME}\`."
+            echo
+            echo '```text'
+            tail -c 7000 /tmp/batch7-cargo-check.log 2>/dev/null || true
+            echo
+            echo '```'
+          } > /tmp/batch7-diagnostic.md
+          gh issue comment 5 --body-file /tmp/batch7-diagnostic.md
+          test "${CHECK_OUTCOME}" = "success"
