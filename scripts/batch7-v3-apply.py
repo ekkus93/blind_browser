@@ -46,7 +46,30 @@ use crate::narration::NarrationCursor;
 use crate::state::{BrowserHistoryState, ListeningState};'''
 if redaction.count(old_imports) != 1:
     raise SystemExit('generated planner redaction import baseline did not match exactly once')
-redaction_path.write_text(redaction.replace(old_imports, new_imports, 1))
+redaction = redaction.replace(old_imports, new_imports, 1)
+
+old_credential_closure = '.any(|token| is_credential_shaped_token(token))'
+new_credential_closure = '.any(is_credential_shaped_token)'
+if redaction.count(old_credential_closure) != 1:
+    raise SystemExit(
+        f'generated credential closure count={redaction.count(old_credential_closure)}'
+    )
+redaction = redaction.replace(old_credential_closure, new_credential_closure, 1)
+
+old_test_imports = '''mod tests {
+    use super::*;
+    use crate::commands::*;
+    use crate::page_model::{RegionRole, RegionSource};'''
+new_test_imports = '''mod tests {
+    use super::*;
+    use crate::commands::*;
+    use crate::config::ProviderMode;
+    use crate::page_model::{RegionRole, RegionSource};'''
+if redaction.count(old_test_imports) != 1:
+    raise SystemExit(
+        f'generated planner-redaction test import count={redaction.count(old_test_imports)}'
+    )
+redaction_path.write_text(redaction.replace(old_test_imports, new_test_imports, 1))
 
 remote_path = Path('src-tauri/src/app_core/remote_planner.rs')
 remote = remote_path.read_text()
