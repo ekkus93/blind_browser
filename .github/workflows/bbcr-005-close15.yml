@@ -80,7 +80,8 @@ jobs:
             libasound2-dev \
             libleptonica-dev \
             libtesseract-dev \
-            tesseract-ocr
+            tesseract-ocr \
+            xvfb
 
       - name: Apply deterministic BBCR-015 closure
         id: transform
@@ -124,7 +125,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          cargo test --manifest-path src-tauri/Cargo.toml --all-features -- --nocapture 2>&1 | tee "${RUNNER_TEMP}/bbcr015-tests.log"
+          xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features -- --nocapture 2>&1 | tee "${RUNNER_TEMP}/bbcr015-tests.log"
 
       - name: Run frontend lint
         run: pnpm lint
