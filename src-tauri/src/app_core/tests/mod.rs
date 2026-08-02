@@ -51,6 +51,7 @@ mod helpers;
 use helpers::*;
 
 mod browser_tests;
+mod confirmation_replay_tests;
 mod element_scoring_tests;
 mod extraction_tests;
 mod fill_correction_tests;
