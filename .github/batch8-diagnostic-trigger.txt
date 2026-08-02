@@ -1,1 +1,1 @@
-Batch 8 privacy shape diagnostic trigger v10.
+Batch 8 default cargo diagnostic trigger v11.
