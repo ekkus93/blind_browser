@@ -1,4 +1,4 @@
-name: Batch 8 Transform Diagnostic
+name: Batch 8 Default Cargo Diagnostic
 
 on:
   push:
@@ -14,49 +14,61 @@ permissions:
 jobs:
   diagnose:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
-      - name: Run transformation and privacy-shape diagnostic
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Install native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr
+
+      - name: Transform and capture exact default cargo check
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set +e
-          log="${RUNNER_TEMP}/batch8-diagnostic.log"
-          python3 scripts/batch8-v2-apply.py >"${log}" 2>&1
-          status=$?
-
-          check() {
-            label="$1"
-            shift
-            if "$@" >>"${log}" 2>&1; then
-              printf 'PASS: %s\n' "${label}" >>"${log}"
-            else
-              printf 'FAIL: %s\n' "${label}" >>"${log}"
-              status=1
-            fi
-          }
-
-          if test "${status}" -eq 0; then
-            check 'sensitive diagnostics audit' python3 scripts/check-sensitive-diagnostics.py
-            check 'network consent reason' grep -q 'remote_planner_network_consent_required' src-tauri/src/app_core/planner_redaction.rs
-            check 'local-only reason' grep -q 'remote_planner_local_only_blocked' src-tauri/src/app_core/planner_redaction.rs
-            check 'origin opt-out reason' grep -q 'remote_planner_origin_blocked' src-tauri/src/app_core/planner_redaction.rs
-            check 'region relevance selector' grep -q 'select_relevant_regions' src-tauri/src/app_core/planner_redaction.rs
-            check 'hidden element accounting' grep -q 'omitted_hidden_elements' src-tauri/src/app_core/planner_redaction.rs
-            check 'OCR fixture reference' grep -q 'hostile_prompt_injection.png' src-tauri/src/app_core/planner_redaction.rs
-            check 'consent UI marker' grep -q 'data-remote-planner-consent' src/settings-panels/planner.tsx
-            check 'default deny config' grep -q 'consent_to_remote_page_data = false' config.example.toml
-            check 'generated diff whitespace' git diff --check
-          fi
+          log="${RUNNER_TEMP}/batch8-default-cargo.log"
+          status=0
 
           {
-            printf 'Batch 8 privacy-shape diagnostic. Head: %s. Run: %s. Exit: %s.\n\n```text\n' "${GITHUB_SHA}" "${GITHUB_RUN_ID}" "${status}"
-            tail -c 50000 "${log}"
+            python3 scripts/batch8-v2-apply.py
+            transform_status=$?
+            if test "${transform_status}" -ne 0; then
+              exit "${transform_status}"
+            fi
+            cargo fmt --manifest-path src-tauri/Cargo.toml --all
+            cargo check --manifest-path src-tauri/Cargo.toml --locked
+          } >"${log}" 2>&1 || status=$?
+
+          {
+            printf 'Batch 8 default cargo diagnostic. Head: %s. Run: %s. Exit: %s.\n\n```text\n' "${GITHUB_SHA}" "${GITHUB_RUN_ID}" "${status}"
+            tail -c 60000 "${log}"
             printf '\n```\n'
           } >"${RUNNER_TEMP}/batch8-comment.md"
+
           gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body-file "${RUNNER_TEMP}/batch8-comment.md"
           exit "${status}"
