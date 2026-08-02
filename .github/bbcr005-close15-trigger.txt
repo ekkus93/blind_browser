@@ -1,4 +1,5 @@
 BBCR-015 direct-master closure trigger
-Run: 4
-Corrected final safety patch: a5586e7e3e3e520c099520983c142fc1aad2e8f2
-Workflow wiring: 2a43ac67baa96b385c4a360f12a97d051aeedb32
+Run: 5
+Server-only confirmation binding: b8f8f38f45cd4c09b092ba8a98c3b4a64ba5d651
+Corrected safety patch: a5586e7e3e3e520c099520983c142fc1aad2e8f2
+Workflow wiring: b6f53bf81dc6371953faf4493096fc04a8f8ea09
