@@ -45,7 +45,7 @@ jobs:
           test -f scripts/batch7-privacy-boundary.py
           test -f .github/workflows/batch7-privacy-boundary.yml
           test -f .github/batch7-privacy-trigger.txt
-          test "$(git branch --show-current)" = master
+          test -z "$(git branch --show-current)"
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
