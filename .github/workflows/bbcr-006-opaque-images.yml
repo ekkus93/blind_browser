@@ -1,0 +1,160 @@
+name: BBCR-006 Opaque Image Handles
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/bbcr006-trigger.txt
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: bbcr-006-opaque-images
+  cancel-in-progress: true
+
+jobs:
+  apply-and-validate:
+    if: github.repository == 'ekkus93/blind_browser'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out exact trigger head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish observable run marker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-006 opaque-image closure started: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`."
+
+      - name: Refuse unexpected repository state
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test -f scripts/bbcr006_apply.py
+          test -f .github/workflows/bbcr-006-opaque-images.yml
+          test -f .github/bbcr006-trigger.txt
+          test ! -e src-tauri/src/app_core/image_cache.rs
+          test "$(git status --porcelain)" = ""
+
+      - name: Install native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Apply deterministic Batch 6 transformation
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 scripts/bbcr006_apply.py 2>&1 | tee "${RUNNER_TEMP}/bbcr006.log"
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all
+          grep -Fq 'struct ImageCache' src-tauri/src/app_core/image_cache.rs
+          grep -Fq 'invalid_image_handle' src-tauri/src/app_core/image_cache.rs
+          grep -Fq 'image_cache_containment_violation' src-tauri/src/app_core/image_cache.rs
+          grep -Fq 'cross_page_image_handle' src-tauri/src/app_core/image_cache.rs
+          grep -Fq 'stale_image_handle' src-tauri/src/app_core/image_cache.rs
+          ! grep -Fq 'pub path: String' src-tauri/src/commands/contracts/tools.rs
+          ! grep -Fq 'cached_image_path' src-tauri/src/app_core/mod.rs
+          ! grep -Fq 'screenshot_output_path' src-tauri/src/app_core/mod.rs
+          git diff --check
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for silent fallback patterns
+        run: bash scripts/check-silent-fallbacks.sh
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Check default Rust configuration
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Run strict Rust Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Run complete Rust suite under Xvfb
+        run: xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features
+
+      - name: Run frontend lint
+        run: pnpm lint
+
+      - name: Run UI tests
+        run: pnpm test:ui
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Publish exact failure diagnostic
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          diagnostic='BBCR-006 validation failed before source commit.'
+          if test -s "${RUNNER_TEMP}/bbcr006.log"; then
+            diagnostic="$(tail -n 100 "${RUNNER_TEMP}/bbcr006.log")"
+          fi
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-006 opaque-image closure failed: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`. Diagnostic:\n\n\`\`\`text\n${diagnostic}\n\`\`\`"
+
+      - name: Remove one-shot machinery
+        run: |
+          rm scripts/bbcr006_apply.py
+          rm .github/workflows/bbcr-006-opaque-images.yml
+          rm .github/bbcr006-trigger.txt
+
+      - name: Commit validated source to master
+        id: publish
+        shell: bash
+        run: |
+          git config user.name "ekkus93"
+          git config user.email "1386709+ekkus93@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "security: replace screenshot paths with opaque handles"
+          git push origin HEAD:master
+          echo "commit_sha=$(git rev-parse HEAD)" >>"${GITHUB_OUTPUT}"
+
+      - name: Publish source closure marker
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.publish.outputs.commit_sha }}
+        run: |
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-006 opaque-image source closure passed and was committed to master: trigger head \`${GITHUB_SHA}\`, source commit \`${SOURCE_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`."
