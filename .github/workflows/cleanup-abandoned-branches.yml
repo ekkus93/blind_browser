@@ -1,0 +1,55 @@
+name: One-shot stale branch cleanup
+
+on:
+  issues:
+    types:
+      - edited
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-stale-branch-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: >-
+      github.repository == 'ekkus93/blind_browser' &&
+      github.event.issue.number == 5 &&
+      contains(github.event.issue.body, 'branch-cleanup-trigger: 2026-08-01T17:59-07:00')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete stale branches and remove this workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/master" || true
+
+          git config user.name "ekkus93"
+          git config user.email "1386709+ekkus93@users.noreply.github.com"
+          git fetch origin --prune
+
+          for branch in \
+            agent/bbcr-002-confirmation-manifest \
+            agent/bbcr-004-origin-bound-credentials \
+            agent/bbcr-004-sync-base
+          do
+            if git ls-remote --exit-code --heads origin "refs/heads/${branch}" >/dev/null 2>&1; then
+              git push origin --delete "${branch}"
+            fi
+          done
+
+          rm .github/workflows/cleanup-abandoned-branches.yml
+          git add -A
+          git diff --cached --check
+          git commit -m "ci: remove one-shot stale branch cleanup"
+          git push origin HEAD:master
