@@ -1,0 +1,29 @@
+name: Post-Batch-8 source export
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Package repository source
+        run: |
+          tar --exclude=.git --exclude=node_modules --exclude=src-tauri/target -czf /tmp/blind-browser-source.tar.gz .
+
+      - name: Upload repository source
+        uses: actions/upload-artifact@v4
+        with:
+          name: blind-browser-source-${{ github.event.pull_request.head.sha }}
+          path: /tmp/blind-browser-source.tar.gz
+          if-no-files-found: error
+          retention-days: 1
