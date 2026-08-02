@@ -100,6 +100,33 @@ def repair_model_downloads() -> None:
     elif new_path not in source and "reason: error.to_string()," not in source:
         raise SystemExit(f"{path}: no accepted non-moving temporary-path error shape found")
 
+    source = read(path)
+    stale_content_length = re.compile(
+        r"(?P<indent>\s*)if let Some\(content_length\) = response\.content_length\(\) \{\n"
+        r"(?P=indent)    if content_length > file\.max_bytes \{\n"
+        r"(?P<body>(?:(?P=indent)        .*\n)+?)"
+        r"(?P=indent)    \}\n"
+        r"(?P=indent)\}",
+    )
+    matches = list(stale_content_length.finditer(source))
+    if matches:
+        if len(matches) != 1:
+            raise SystemExit(f"{path}: expected one nested content-length check, found {len(matches)}")
+        match = matches[0]
+        indent = match.group("indent")
+        body = match.group("body")
+        replacement = (
+            f"{indent}if let Some(content_length) = response.content_length()\n"
+            f"{indent}    && content_length > file.max_bytes\n"
+            f"{indent}{{\n"
+            f"{body}"
+            f"{indent}}}"
+        )
+        source = source[: match.start()] + replacement + source[match.end() :]
+        write(path, source)
+    elif "&& content_length > file.max_bytes" not in source:
+        raise SystemExit(f"{path}: neither stale nor corrected content-length check was found")
+
 
 def repair_planner_metadata_move() -> None:
     path = "src-tauri/src/app_core/planner_redaction.rs"
@@ -114,11 +141,24 @@ def repair_planner_metadata_move() -> None:
         raise SystemExit(f"{path}: sanitization metadata field was not found")
 
 
+def repair_direct_command_policy_clippy() -> None:
+    path = "src-tauri/src/direct_command_policy.rs"
+    old = "\nconst fn policy(\n"
+    new = (
+        "\n// The constructor mirrors every security field so each registry entry must make\n"
+        "// every authority and side-effect property explicit at the call site.\n"
+        "#[allow(clippy::too_many_arguments)]\n"
+        "const fn policy(\n"
+    )
+    replace_or_verify(path, old, new)
+
+
 def main() -> None:
     repair_confirmation_summary()
     repair_model_downloads()
     repair_planner_metadata_move()
-    print("Deterministic post-Batch-8 compile repairs applied or verified")
+    repair_direct_command_policy_clippy()
+    print("Deterministic post-Batch-8 compile and Clippy repairs applied or verified")
 
 
 if __name__ == "__main__":
