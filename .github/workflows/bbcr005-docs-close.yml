@@ -1,0 +1,76 @@
+name: BBCR-005 Documentation Closure
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/bbcr005-docs-trigger.txt
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: bbcr-005-documentation-closure
+  cancel-in-progress: true
+
+jobs:
+  close-documentation:
+    if: github.repository == 'ekkus93/blind_browser'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact trigger head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refuse unexpected state
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test -f scripts/bbcr005_docs_close.py
+          test -f .github/workflows/bbcr005-docs-close.yml
+          test -f .github/bbcr005-docs-trigger.txt
+          test -f docs/BBCR-005_RUNTIME_STATE_BINDING_2026-08-01.md
+          test "$(git status --porcelain)" = ""
+
+      - name: Apply conservative checklist and report closure
+        run: python3 scripts/bbcr005_docs_close.py
+
+      - name: Verify documentation transformation
+        shell: bash
+        run: |
+          grep -Fq '**Validated source commit:** `1a6c2b213777766d9e1de056127cafcf0ca45bfa`' docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md
+          grep -Fq '## Batch 5 — Runtime-bound planning, click authorization, and confirmation replay defense' docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_IMPLEMENTATION_REPORT_2026-08-01.md
+          grep -Fq 'A complete audit of direct non-planner side-effect entry points remains open.' docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_IMPLEMENTATION_REPORT_2026-08-01.md
+          git diff --check
+
+      - name: Remove one-shot documentation closure files
+        run: |
+          rm scripts/bbcr005_docs_close.py
+          rm .github/workflows/bbcr005-docs-close.yml
+          rm .github/bbcr005-docs-trigger.txt
+
+      - name: Commit documentation closure to master
+        id: publish
+        shell: bash
+        run: |
+          git config user.name "ekkus93"
+          git config user.email "1386709+ekkus93@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "docs: record Batch 5 bounded validation"
+          git push origin HEAD:master
+          echo "commit_sha=$(git rev-parse HEAD)" >>"${GITHUB_OUTPUT}"
+
+      - name: Publish documentation closure marker
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DOCS_SHA: ${{ steps.publish.outputs.commit_sha }}
+        shell: bash
+        run: |
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-005 documentation closure committed to master: trigger head \`${GITHUB_SHA}\`, documentation commit \`${DOCS_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`. Final Batch 5 declaration still requires permanent CI on an owner-authored exact final SHA."
