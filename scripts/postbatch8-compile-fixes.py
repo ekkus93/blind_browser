@@ -65,7 +65,7 @@ def repair_confirmation_summary() -> None:
         )
         write(path, source)
         return
-n    corrected_markers = [
+    corrected_markers = [
         "summary = append_confirmation_warnings(",
         "let warnings = string_array_argument(step, RUNTIME_CONFIRMATION_WARNINGS_ARG);",
         "with_confirmation_warnings(",
