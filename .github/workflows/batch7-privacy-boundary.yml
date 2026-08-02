@@ -109,7 +109,14 @@ jobs:
           '''
           if text.count(old) != 1:
               raise SystemExit("Batch 7 transformer correction baseline did not match exactly once")
-          path.write_text(text.replace(old, new, 1))
+          text = text.replace(old, new, 1)
+
+          derive_old = '#[derive(Debug, Clone, Serialize, PartialEq, Eq)]\\npub(crate) struct RemoteToolObservation {'
+          derive_new = '#[derive(Debug, Clone, Serialize, PartialEq)]\\npub(crate) struct RemoteToolObservation {'
+          if text.count(derive_old) != 1:
+              raise SystemExit("RemoteToolObservation derive correction did not match exactly once")
+          text = text.replace(derive_old, derive_new, 1)
+          path.write_text(text)
           PY
           python3 scripts/batch7-privacy-boundary.py
 
@@ -131,6 +138,7 @@ jobs:
               "pub(crate) struct RemotePlannerInput",
               "pub(crate) struct PlannerSafeElementAttributes",
               "remote_planner_high_risk_context_blocked",
+              "#[derive(Debug, Clone, Serialize, PartialEq)]\npub(crate) struct RemoteToolObservation",
           ]
           required_prompt = [
               "trusted_contract",
@@ -168,9 +176,10 @@ jobs:
           forbidden = {
               "legacy raw planner payload": "pub(crate) planner_input:",
               "raw remote response body": '"content": content',
+              "unnecessary ToolName Eq requirement": "#[derive(Debug, Clone, Serialize, PartialEq, Eq)]\npub(crate) struct RemoteToolObservation",
           }
           for label, value in forbidden.items():
-              if value in prompt or value in remote:
+              if value in prompt or value in redaction or value in remote:
                   raise SystemExit(f"forbidden {label} remains: {value}")
           PY
           git diff --check
