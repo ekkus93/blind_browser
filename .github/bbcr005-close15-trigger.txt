@@ -1,0 +1,2 @@
+BBCR-015 direct-master closure trigger
+Staged transformation commit: a542877be1f160cbac447e4be75882b334ef3c00
