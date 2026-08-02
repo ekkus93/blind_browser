@@ -111,10 +111,9 @@ hook = root / ".git/hooks/pre-commit"
 hook.write_text(
     "#!/usr/bin/env bash\n"
     "set -euo pipefail\n"
-    "git restore --staged -- \\\n"
-    "  .github/workflows/ci.yml \\\n"
-    "  .github/workflows/batch8-privacy-controls.yml \\\n"
-    "  .github/workflows/batch8-transform-diagnostic.yml\n"
+    "git restore --staged -- .github/workflows/ci.yml "
+    ".github/workflows/batch8-privacy-controls.yml "
+    ".github/workflows/batch8-transform-diagnostic.yml\n"
 )
 hook.chmod(0o755)
 
