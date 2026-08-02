@@ -57,69 +57,69 @@ The required confirmation level must be derived from the normalized action graph
 
 ### Tasks
 
-- [ ] Inventory every `ToolName` and classify it in one centralized policy table.
-  - [ ] Classify tools as read-only, reversible local state change, browser navigation, page interaction, data entry, form submission, arbitrary script execution, credential operation, model download, or other side effect.
-  - [ ] Define the minimum confirmation requirement for each class.
+- [x] Inventory every `ToolName` and classify it in one centralized policy table.
+  - [x] Classify tools as read-only, reversible local state change, browser navigation, page interaction, data entry, form submission, arbitrary script execution, credential operation, model download, or other side effect.
+  - [x] Define the minimum confirmation requirement for each class.
   - [ ] Document why each tool is classified as it is.
-  - [ ] Make the classification exhaustive so adding a new `ToolName` causes a compile failure until its risk policy is specified.
-- [ ] Introduce a deterministic action-policy type, such as `ActionRisk`, `ConfirmationRequirement`, or an equivalent strongly typed representation.
-  - [ ] Include at least `NoConfirmation`, `ConfirmationRequired`, and `Prohibited` outcomes.
-  - [ ] Include a machine-readable reason code.
-  - [ ] Include the specific step IDs and normalized actions that caused the requirement.
-- [ ] Change planner-output validation to inspect the actual step list.
-  - [ ] Require confirmation for every plan containing `SubmitActiveForm`, regardless of `intent.name`.
-  - [ ] Reject any `Ready` plan containing an action that deterministic policy says requires confirmation.
-  - [ ] Reject any `Complete` or `Blocked` output that contains executable steps.
-  - [ ] Reject inconsistent planner metadata rather than trusting or repairing it silently.
-- [ ] Pass current safety settings into deterministic validation.
-  - [ ] Apply `always_confirm_submit` in deterministic code.
-  - [ ] Apply `allow_click_without_confirmation` in deterministic code.
-  - [ ] Apply `confirmation_confidence_threshold` using deterministic grounding evidence rather than a planner assertion.
-  - [ ] Define and test behavior when confidence is unavailable: fail closed or require confirmation.
-- [ ] Design a deterministic click-safety contract.
-  - [ ] Ensure `ClickElement` can be authorized only against a current, validated element resolution.
-  - [ ] Carry a deterministic grounding record or opaque authorization token from `FindElement`/resolution to `ClickElement`, rather than accepting an unverified element ID alone.
-  - [ ] Bind the grounding record to page identity, element identity, locator, confidence, visibility, enabled state, and a bounded age/version.
-  - [ ] Require confirmation when configured, when confidence is below threshold, when confidence is missing, or when the target is ambiguous or potentially destructive.
-  - [ ] Reject stale grounding after navigation, DOM replacement, page identity change, or relevant runtime-state change.
-- [ ] Treat `EvalJs` as a high-risk capability.
-  - [ ] Decide whether planner-generated arbitrary JavaScript should be prohibited entirely.
+  - [x] Make the classification exhaustive so adding a new `ToolName` causes a compile failure until its risk policy is specified.
+- [x] Introduce a deterministic action-policy type, such as `ActionRisk`, `ConfirmationRequirement`, or an equivalent strongly typed representation.
+  - [x] Include at least `NoConfirmation`, `ConfirmationRequired`, and `Prohibited` outcomes.
+  - [x] Include a machine-readable reason code.
+  - [x] Include the specific step IDs and normalized actions that caused the requirement.
+- [x] Change planner-output validation to inspect the actual step list.
+  - [x] Require confirmation for every plan containing `SubmitActiveForm`, regardless of `intent.name`.
+  - [x] Reject any `Ready` plan containing an action that deterministic policy says requires confirmation.
+  - [x] Reject any `Complete` or `Blocked` output that contains executable steps.
+  - [x] Reject inconsistent planner metadata rather than trusting or repairing it silently.
+- [x] Pass current safety settings into deterministic validation.
+  - [x] Apply `always_confirm_submit` in deterministic code.
+  - [x] Apply `allow_click_without_confirmation` in deterministic code.
+  - [x] Apply `confirmation_confidence_threshold` using deterministic grounding evidence rather than a planner assertion.
+  - [x] Define and test behavior when confidence is unavailable: fail closed or require confirmation.
+- [x] Design a deterministic click-safety contract.
+  - [x] Ensure `ClickElement` can be authorized only against a current, validated element resolution.
+  - [x] Carry a deterministic grounding record or opaque authorization token from `FindElement`/resolution to `ClickElement`, rather than accepting an unverified element ID alone.
+  - [x] Bind the grounding record to page identity, element identity, locator, confidence, visibility, enabled state, and a bounded age/version.
+  - [x] Require confirmation when configured, when confidence is below threshold, when confidence is missing, or when the target is ambiguous or potentially destructive.
+  - [x] Reject stale grounding after navigation, DOM replacement, page identity change, or relevant runtime-state change.
+- [x] Treat `EvalJs` as a high-risk capability.
+  - [x] Decide whether planner-generated arbitrary JavaScript should be prohibited entirely.
   - [ ] If retained, require explicit confirmation and a narrowly defined allowlist or constrained expression language.
-  - [ ] Prevent planner text from directly becoming unrestricted JavaScript without a deterministic policy decision.
-- [ ] Add executor-level defense in depth.
-  - [ ] Recompute or verify the required confirmation immediately before executing each side effect.
-  - [ ] Do not rely only on pre-execution planner validation.
-  - [ ] Return a stable fail-closed error code when an unconfirmed side effect reaches dispatch.
+  - [x] Prevent planner text from directly becoming unrestricted JavaScript without a deterministic policy decision.
+- [x] Add executor-level defense in depth.
+  - [x] Recompute or verify the required confirmation immediately before executing each side effect.
+  - [x] Do not rely only on pre-execution planner validation.
+  - [x] Return a stable fail-closed error code when an unconfirmed side effect reaches dispatch.
   - [ ] Ensure direct command entry points cannot bypass the same policy.
-- [ ] Validate plan/action consistency.
-  - [ ] Verify that `intent.name` is compatible with the actual tools, but never use the intent to weaken policy.
-  - [ ] Reject plans that disguise submit, data entry, scripting, or destructive clicks under unrelated intents.
-  - [ ] Reject planner-provided `requires_confirmation = false` when deterministic policy requires it.
-- [ ] Verify safety after replanning.
-  - [ ] Apply the same policy to every replanned output.
-  - [ ] Prevent a failed confirmed plan from replanning into an unconfirmed equivalent side effect.
-  - [ ] Ensure accumulated tool history cannot be used to bypass confirmation.
+- [x] Validate plan/action consistency.
+  - [x] Verify that `intent.name` is compatible with the actual tools, but never use the intent to weaken policy.
+  - [x] Reject plans that disguise submit, data entry, scripting, or destructive clicks under unrelated intents.
+  - [x] Reject planner-provided `requires_confirmation = false` when deterministic policy requires it.
+- [x] Verify safety after replanning.
+  - [x] Apply the same policy to every replanned output.
+  - [x] Prevent a failed confirmed plan from replanning into an unconfirmed equivalent side effect.
+  - [x] Ensure accumulated tool history cannot be used to bypass confirmation.
 
 ### Required regression tests
 
-- [ ] A `Ready` plan with `intent.name = ReadPage` and a `SubmitActiveForm` step is rejected.
-- [ ] A `Ready` plan with any tool classified as confirmation-required is rejected.
-- [ ] A plan cannot bypass submit confirmation by placing submit after a non-submit step.
-- [ ] A plan cannot bypass confirmation through `on_failure`, `NextStep`, `Replan`, or a cycle.
-- [ ] A replanned output containing a protected side effect still requires confirmation.
-- [ ] `allow_click_without_confirmation = false` forces confirmation for ordinary clicks.
-- [ ] `allow_click_without_confirmation = true` does not bypass confirmation for ambiguous, low-confidence, stale, or risky clicks.
-- [ ] Missing click confidence fails closed.
-- [ ] A click authorization becomes invalid after navigation or page-model replacement.
-- [ ] `EvalJs` follows the selected prohibit-or-confirm policy.
-- [ ] Executor defense-in-depth rejects a side effect even if validation is accidentally skipped in a test harness.
-- [ ] Existing intended safe, read-only plans continue to execute without unnecessary confirmation.
+- [x] A `Ready` plan with `intent.name = ReadPage` and a `SubmitActiveForm` step is rejected.
+- [x] A `Ready` plan with any tool classified as confirmation-required is rejected.
+- [x] A plan cannot bypass submit confirmation by placing submit after a non-submit step.
+- [x] A plan cannot bypass confirmation through `on_failure`, `NextStep`, `Replan`, or a cycle.
+- [x] A replanned output containing a protected side effect still requires confirmation.
+- [x] `allow_click_without_confirmation = false` forces confirmation for ordinary clicks.
+- [x] `allow_click_without_confirmation = true` does not bypass confirmation for ambiguous, low-confidence, stale, or risky clicks.
+- [x] Missing click confidence fails closed.
+- [x] A click authorization becomes invalid after navigation or page-model replacement.
+- [x] `EvalJs` follows the selected prohibit-or-confirm policy.
+- [x] Executor defense-in-depth rejects a side effect even if validation is accidentally skipped in a test harness.
+- [x] Existing intended safe, read-only plans continue to execute without unnecessary confirmation.
 
 ### Acceptance criteria
 
-- [ ] No planner-controlled field can reduce a deterministically calculated confirmation requirement.
-- [ ] Submit confirmation is enforced by actual tool presence.
-- [ ] Click confirmation follows current settings and deterministic grounding evidence.
+- [x] No planner-controlled field can reduce a deterministically calculated confirmation requirement.
+- [x] Submit confirmation is enforced by actual tool presence.
+- [x] Click confirmation follows current settings and deterministic grounding evidence.
 - [ ] All side-effect entry points share the same policy.
 
 ---
@@ -136,48 +136,48 @@ The confirmation prompt and approval token must be generated from, and cryptogra
 
 ### Tasks
 
-- [ ] Stop treating planner-provided `prompt_text` as authoritative confirmation copy.
-  - [ ] Planner text may be retained only as untrusted explanatory context.
-  - [ ] Generate the primary confirmation message in deterministic Rust code.
-- [ ] Define a normalized confirmation manifest.
-  - [ ] Include request ID, page ID, current origin, action sequence, tool names, normalized arguments, target descriptions, and relevant safety reasons.
-  - [ ] Redact sensitive values while preserving enough information for meaningful approval.
-  - [ ] Represent typed text by category and safe summary; do not speak or display passwords or full secrets.
-- [ ] Compute a stable digest or equivalent immutable identifier over the normalized manifest.
-  - [ ] Store the digest in pending execution state.
-  - [ ] Return it with the confirmation challenge.
-  - [ ] Require the same digest when applying the confirmation response.
-- [ ] Revalidate immediately before resume.
-  - [ ] Confirm the current page identity and origin still match.
+- [x] Stop treating planner-provided `prompt_text` as authoritative confirmation copy.
+  - [x] Planner text may be retained only as untrusted explanatory context.
+  - [x] Generate the primary confirmation message in deterministic Rust code.
+- [x] Define a normalized confirmation manifest.
+  - [x] Include request ID, page ID, current origin, action sequence, tool names, normalized arguments, target descriptions, and relevant safety reasons.
+  - [x] Redact sensitive values while preserving enough information for meaningful approval.
+  - [x] Represent typed text by category and safe summary; do not speak or display passwords or full secrets.
+- [x] Compute a stable digest or equivalent immutable identifier over the normalized manifest.
+  - [x] Store the digest in pending execution state.
+  - [x] Return it with the confirmation challenge.
+  - [x] Require the same digest when applying the confirmation response.
+- [x] Revalidate immediately before resume.
+  - [x] Confirm the current page identity and origin still match.
   - [ ] Confirm all referenced elements and locators still resolve as expected.
-  - [ ] Confirm queued steps and arguments still hash to the approved manifest.
-  - [ ] Abort and replan if any relevant state changed.
+  - [x] Confirm queued steps and arguments still hash to the approved manifest.
+  - [x] Abort and replan if any relevant state changed.
 - [ ] Define user-facing confirmation summaries for each protected action.
   - [ ] Submit: form identity, destination origin, and a safe list of fields being submitted.
-  - [ ] Click: target role/name and whether navigation or another consequential action is expected.
+  - [x] Click: target role/name and whether navigation or another consequential action is expected.
   - [ ] Data entry: target field and redacted value summary.
   - [ ] JavaScript: prohibit or clearly identify the exact constrained operation.
   - [ ] Multi-step flows: summarize the whole protected sequence, not only the first step.
-- [ ] Ensure confirmation cannot be reused.
-  - [ ] Mark confirmation IDs/digests consumed after one response.
-  - [ ] Reject replay, duplicate submission, mismatched ID, mismatched digest, and expired confirmation.
-  - [ ] Add a bounded expiration time.
+- [x] Ensure confirmation cannot be reused.
+  - [x] Mark confirmation IDs/digests consumed after one response.
+  - [x] Reject replay, duplicate submission, mismatched ID, mismatched digest, and expired confirmation.
+  - [x] Add a bounded expiration time.
 
 ### Required regression tests
 
-- [ ] Planner-supplied misleading prompt text cannot replace the deterministic summary.
-- [ ] Changing any queued tool or argument after prompt generation invalidates approval.
-- [ ] Reordering queued actions invalidates approval.
-- [ ] Navigation or origin change invalidates approval.
-- [ ] DOM/page identity change invalidates stale approval.
-- [ ] A confirmation response cannot be replayed.
-- [ ] Timeout and rejection clear all pending protected actions.
-- [ ] Sensitive field values are redacted in confirmation text and serialized pending state.
+- [x] Planner-supplied misleading prompt text cannot replace the deterministic summary.
+- [x] Changing any queued tool or argument after prompt generation invalidates approval.
+- [x] Reordering queued actions invalidates approval.
+- [x] Navigation or origin change invalidates approval.
+- [x] DOM/page identity change invalidates stale approval.
+- [x] A confirmation response cannot be replayed.
+- [x] Timeout and rejection clear all pending protected actions.
+- [x] Sensitive field values are redacted in confirmation text and serialized pending state.
 
 ### Acceptance criteria
 
-- [ ] The user approves exactly the actions that execute.
-- [ ] Confirmation state is immutable, expiring, single-use, and state-bound.
+- [x] The user approves exactly the actions that execute.
+- [x] Confirmation state is immutable, expiring, single-use, and state-bound.
 
 ---
 
@@ -771,31 +771,45 @@ The CSP permits frontend connections to any HTTPS origin. If frontend script exe
 
 ### Problem
 
-The application intentionally releases the `AppCore` lock during remote planning. State may change between snapshot and execution. The current comments accept this for a single-user flow, but side-effecting plans require deterministic stale-state detection.
+The application intentionally releases the `AppCore` lock during remote planning. Side-effecting plans must therefore be rejected and boundedly replanned whenever the authoritative runtime state differs from the snapshot used for planning or confirmation.
 
 ### Tasks
 
-- [ ] Add a runtime state/version token to `PlannerInput`.
-  - [ ] Include page ID, navigation/document version, relevant config version, and element-model version.
-- [ ] Include the token in planner output context or preserve it server-side with the request.
-- [ ] Revalidate before execution.
-  - [ ] Reject side-effecting plans if relevant state changed.
-  - [ ] Permit safe read-only plans only when their semantics remain valid.
-  - [ ] Trigger bounded replanning when stale.
-- [ ] Revalidate again after confirmation using BBCR-002 manifest binding.
-- [ ] Ensure concurrent frontend commands cannot interleave dependent actions unexpectedly.
-- [ ] Document which state changes invalidate which tools.
+- [x] Add an opaque runtime state token to `PlannerInput` while retaining the authoritative snapshot server-side.
+  - [x] Bind page ID, page/document generation, normalized origin, browser-history position, deterministic safety settings, relevant configuration, and pending-confirmation identity.
+- [x] Bind the server-side snapshot to the exact serialized planner-output digest; planner output cannot replace or weaken it.
+- [x] Revalidate before execution.
+  - [x] Reject side-effecting plans when relevant state changed.
+  - [x] Permit status-only/read-only operations without unnecessary snapshot failure.
+  - [x] Trigger bounded replanning when stale.
+- [x] Revalidate again after confirmation using the immutable BBCR-002 manifest and runtime-state binding.
+- [x] Serialize `AppCore` mutations while safely detecting relevant commands interleaved during remote planning.
+- [x] Document the state/tool invalidation matrix in `docs/BBCR-005_RUNTIME_STATE_BINDING_2026-08-01.md`.
 
 ### Required regression tests
 
-- [ ] Navigation during planner request invalidates a click/submit plan.
-- [ ] Page-model refresh invalidates stale element references.
-- [ ] Safety-setting changes invalidate a plan resolved under weaker settings.
-- [ ] Unrelated read-only state changes do not cause unnecessary failure.
+- [x] Navigation during planner request invalidates a click/submit plan.
+- [x] Page-model refresh invalidates stale element references.
+- [x] Safety-setting changes invalidate a plan resolved under weaker settings.
+- [x] Unrelated read-only state changes do not cause unnecessary failure.
+- [x] A real `AppCore` confirmation executes once and rejects replay.
+- [x] A real `AppCore` confirmation aborts when relevant runtime state changes after approval.
+- [x] A protected click hidden in a cyclic plan is rejected before execution.
+- [x] Legacy serialized `AppState` without `page_generation` remains readable.
 
 ### Acceptance criteria
 
-- [ ] Side effects execute only against the state they were validated and approved for.
+- [x] Side effects execute only against the state they were validated and approved for.
+- [x] Stale planning and confirmation state fails closed with stable error/replan outcomes.
+
+### Validation evidence
+
+- **Validated source commit:** `1a6c2b213777766d9e1de056127cafcf0ca45bfa`
+- **Exact worker trigger head:** `e035ab3757911853ee7f015b35dd13dc5df795a0`
+- **Bounded closure run:** `30734369368`
+- **Bounded closure job:** `91460289871`
+- **Worker result:** success across transformation, silent-fallback scan, formatting, default compilation, all-target/all-feature Clippy with warnings denied, the complete Xvfb-backed Rust suite, frontend lint, UI tests, production build, and whitespace verification.
+- **Permanent CI requirement:** the final documentation/evidence commit must receive a successful `ci/permanent` status before Batch 5 is declared complete.
 
 ---
 

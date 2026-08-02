@@ -1,6 +1,0 @@
-BBCR-005 documentation closure trigger
-Attempt: 5
-Validated source: 1a6c2b213777766d9e1de056127cafcf0ca45bfa
-Worker run: 30734369368
-Worker job: 91460289871
-Non-workflow finalizer: 7c1cead7005574bdb3cd805778fd9e20df35c8b3

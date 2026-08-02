@@ -6,7 +6,7 @@
 
 ## Scope completed in this session
 
-This Ralph Loop has implemented and validated four bounded security batches. The comprehensive TODO remains open because deterministic click-grounding authorization, the remaining confirmation-grounding dependencies, distinct remote-only planner payloads and consent controls, opaque image handles, model-download integrity, the remaining hostile-content corpus and telemetry work, and the P1/P2/P3 program are not yet complete.
+This Ralph Loop has implemented and validated five bounded security batches. Batch 5 completes runtime-bound click authorization, stale-planning detection, bounded replanning, and post-confirmation runtime revalidation. The comprehensive TODO remains open because a complete audit of every direct side-effect command entry point, broader non-click locator re-resolution, richer form/data-entry confirmation summaries, distinct remote-only planner payloads and consent controls, opaque image handles, model-download integrity, the remaining hostile-content corpus and telemetry work, and the P1/P2/P3 program are not yet complete.
 
 ## Batch 1 — Deterministic planner action policy
 
@@ -158,6 +158,41 @@ Boundary after BBCR-004:
 - All non-master working branches were deleted after merge.
 - Credential-origin binding does not replace the still-open remote-data consent and high-risk-origin controls in BBCR-003.
 
+
+## Batch 5 — Runtime-bound planning, click authorization, and confirmation replay defense
+
+**Validated source commit:** `1a6c2b213777766d9e1de056127cafcf0ca45bfa`<br>
+**Exact worker trigger head:** `e035ab3757911853ee7f015b35dd13dc5df795a0`<br>
+**Bounded closure run:** `30734369368`<br>
+**Bounded closure job:** `91460289871`<br>
+**Result:** source implementation and bounded validation complete; final exact-SHA permanent CI remains the Batch 5 declaration gate
+
+Implemented:
+
+- Added an opaque `runtime_state_token` to planner input while preserving the authoritative `PlanningStateSnapshot` exclusively in Rust.
+- Bound snapshots to page ID, page/document generation, normalized origin, browser-history position, deterministic safety settings, relevant configuration, pending-confirmation identity, and the exact serialized planner-output digest.
+- Converted stale side-effect snapshots into bounded `NeedsReplan` outcomes while allowing semantically independent read-only status operations.
+- Added runtime-owned click authorizations bound to page identity/generation, origin, element ID, locator, live element fingerprint, confidence, ambiguity, destructive classification, issue time, and expiry.
+- Re-extract and re-resolve click targets against the live DOM immediately before dispatch.
+- Invalidated click authorizations and pending confirmations after navigation, page-model replacement, generation changes, relevant configuration changes, expiry, or live target drift.
+- Added a final post-confirmation runtime-state comparison after live click revalidation and before resuming protected execution.
+- Kept pending runtime tokens server-only through Serde and preserved legacy `AppState` deserialization with a default page generation.
+- Rejected cycles across both success and failure transitions before protected steps can hide inside a graph loop.
+- Added real `AppCore` replay and stale-runtime confirmation regressions and ran them under Xvfb so Wry/GTK initializes on headless Linux CI.
+- Documented the runtime invalidation matrix in `docs/BBCR-005_RUNTIME_STATE_BINDING_2026-08-01.md`.
+- Removed the one-shot transformation workflow, trigger, and scripts from the validated source commit.
+
+Validation evidence:
+
+- Run `30734369368`, job `91460289871`, passed exact-head checkout, deterministic transformations, dependency installation, Rust formatting, silent-fallback scanning, default Rust compilation, all-target/all-feature Clippy with warnings denied, the complete Xvfb-backed Rust test suite, frontend lint, UI tests, production frontend build, formatting/whitespace verification, cleanup, and source commit/push.
+- The final evidence commit is not considered Batch 5 complete until the permanent repository workflow publishes a successful `ci/permanent` status on that exact SHA.
+
+Remaining boundary after Batch 5:
+
+- Audit every direct non-planner side-effect command entry point against the centralized action policy.
+- Generalize immediate locator re-resolution beyond click actions where future protected tools carry element/form grounding.
+- Add richer deterministic form identity, destination, and safe field-name summaries when form-grounding metadata is available.
+
 ## Validation gate
 
 The bounded and permanent workflows run the applicable portions of this gate set:
@@ -176,12 +211,12 @@ git diff --check
 
 ## TODO status summary
 
-- **BBCR-001:** Partially implemented; core actual-tool policy and executor guard complete, deterministic click authorization still open.
-- **BBCR-002:** Core immutable confirmation-manifest implementation merged and fully validated; DOM-generation and element revalidation dependencies remain open.
+- **BBCR-001:** Partially implemented; core actual-tool policy, executor guard, and runtime-owned live-DOM click authorization are complete. A complete audit of direct non-planner side-effect entry points remains open.
+- **BBCR-002:** Core immutable confirmation manifests, generation-qualified page binding, click live-revalidation, expiry, and real `AppCore` replay defense are complete. Broader non-click locator re-resolution and richer form/data-entry summaries remain open.
 - **BBCR-003:** Partially implemented; strong extraction and serialization redaction exists, but distinct remote-only types and consent policy remain open.
 - **BBCR-004:** Complete, validated, merged to `master`, and branch cleanup complete.
-- **BBCR-005:** Open.
+- **BBCR-005 / BBCR-015 Batch 5:** Source implementation and bounded validation complete; final declaration depends on successful `ci/permanent` status for the exact final evidence SHA.
 - **BBCR-006:** Partially implemented; explicit hostile-content boundaries exist, but full corpus and telemetry work remain open.
 - **BBCR-007 through BBCR-023:** Open except for pre-existing repository behavior documented separately.
 
-No release-readiness, comprehensive-TODO completion, BBCR-004 merge-readiness, or full security-signoff claim is made by this report.
+No release-readiness, comprehensive-TODO completion, or full security-signoff claim is made by this report.
