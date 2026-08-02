@@ -1,1 +1,1 @@
-Batch 7 V4 typed remote-planner privacy closure trigger, actionable compiler diagnostics and generated-source cleanup enabled.
+Batch 7 V4 typed remote-planner privacy closure trigger, public runtime-audio import corrected and full gates required.
