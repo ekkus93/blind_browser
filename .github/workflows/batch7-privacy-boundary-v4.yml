@@ -238,7 +238,14 @@ jobs:
             echo "Batch 7 BBCR-003/006 V4 failed: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`apply-and-validate\`. No production source commit was published."
             echo
             echo '```text'
-            tail -c 7000 /tmp/batch7-v4-gates.log 2>/dev/null || true
+            if test -f /tmp/batch7-v4-gates.log; then
+              grep -n -E -B 4 -A 14 '(^|[[:space:]])error(\[[A-Z0-9]+\])?:|could not compile|test result: FAILED|ELIFECYCLE|ERR_' /tmp/batch7-v4-gates.log | tail -c 14000 || true
+              echo
+              echo '--- final gate tail ---'
+              tail -c 3500 /tmp/batch7-v4-gates.log || true
+            else
+              echo 'No gate log was produced; inspect the failed pre-gate step.'
+            fi
             echo
             echo '```'
           } > /tmp/batch7-v4-failure.md
