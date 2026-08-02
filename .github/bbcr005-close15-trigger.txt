@@ -1,5 +1,4 @@
 BBCR-015 direct-master closure trigger
-Run: 8
-Legacy AppState compatibility: b57e635bda9cfb987b40190c2711ae0ed759c880
-Workflow wiring: 399e89b2fc72dcb09ad42dab9803d33371d5e2bd
+Run: 9
+Compatibility transform: 02999edd45f760b0dc59f7614c202c809ba53522
 Regression fixes: c5f3efff7a42c01c995150002b0d5f7bbbef0dff
