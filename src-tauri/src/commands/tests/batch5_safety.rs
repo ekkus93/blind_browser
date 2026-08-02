@@ -144,10 +144,12 @@ fn protected_click_cannot_hide_inside_a_cycle() {
 
 #[test]
 fn page_model_change_invalidates_click_authorizations_and_pending_confirmation() {
-    let mut state = AppState::default();
-    state.current_page_id = Some(String::from("page-1"));
-    state.page_generation = 7;
-    state.pending_confirmation_id = Some(String::from("confirm-1"));
+    let mut state = AppState {
+        current_page_id: Some(String::from("page-1")),
+        page_generation: 7,
+        pending_confirmation_id: Some(String::from("confirm-1")),
+        ..AppState::default()
+    };
     state.click_authorizations.insert(
         String::from("token-1"),
         ClickAuthorizationRecord {

@@ -365,6 +365,7 @@ where
                 manifest_digest: built_manifest.digest,
                 manifest: built_manifest.manifest,
                 prompt_text: built_manifest.prompt_text,
+                runtime_state_token: String::new(),
                 next_step_id: queued_step_ids.first().cloned(),
                 queued_step_ids,
                 queued_steps,

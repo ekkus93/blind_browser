@@ -20,6 +20,8 @@ impl From<&crate::config::SafetySettings> for PlannerSafetySettings {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct PlannerInput {
     pub request_id: String,
+    #[serde(default)]
+    pub runtime_state_token: String,
     pub transcript: String,
     pub agent_state: AgentStateData,
     pub safety: PlannerSafetySettings,
@@ -149,6 +151,9 @@ pub struct PendingPlanExecutionState {
     pub manifest_digest: String,
     pub manifest: ConfirmationManifest,
     pub prompt_text: String,
+    #[serde(skip, default)]
+    #[schemars(skip)]
+    pub runtime_state_token: String,
     pub next_step_id: Option<String>,
     pub queued_step_ids: Vec<String>,
     #[serde(skip_serializing, default)]

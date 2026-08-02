@@ -13,7 +13,8 @@ use crate::commands::{
     resolve_direct_read_title_command, resolve_direct_repeat_command,
     resolve_direct_status_query_command, resolve_direct_voice_input_command,
     validate_planner_output_with_safety, AvailableTool, ExecutionOutcome, PlannerInput,
-    PlannerOutput, PlannerSafetySettings, PlannerToolHistoryEntry, ToolError,
+    PlannerOutput, PlannerSafetySettings, PlannerToolHistoryEntry, SerializedToolResult, ToolError,
+    ToolName,
 };
 use crate::config::RemotePlannerProfile;
 
@@ -41,7 +42,7 @@ impl super::AppCore {
         planner_output: &PlannerOutput,
     ) -> ExecutionOutcome {
         if let Err(error) = self.validate_and_consume_planning_snapshot(planner_output) {
-            let outcome = planner_execution_abort(error);
+            let outcome = planner_snapshot_validation_outcome(error);
             self.state.apply_execution_outcome(&outcome);
             return outcome;
         }
@@ -54,9 +55,20 @@ impl super::AppCore {
             }
         };
         let safety = PlannerSafetySettings::from(&self.config.safety);
-        let outcome =
+        let mut outcome =
             execute_planner_output_with_runtime_safety(self, request_id, &prepared, &safety);
         self.state.apply_execution_outcome(&outcome);
+        if let ExecutionOutcome::AwaitingConfirmation {
+            pending_plan_execution,
+            ..
+        } = &mut outcome
+        {
+            let runtime_state_token = self.current_runtime_state_token();
+            pending_plan_execution.runtime_state_token = runtime_state_token.clone();
+            if let Some(stored_pending) = self.state.pending_plan_execution.as_mut() {
+                stored_pending.runtime_state_token = runtime_state_token;
+            }
+        }
         outcome
     }
 
@@ -333,6 +345,7 @@ impl super::AppCore {
 
         let planner_input = PlannerInput {
             request_id: request_id.clone(),
+            runtime_state_token: self.current_runtime_state_token(),
             transcript: transcript.to_string(),
             agent_state: current_agent_state,
             safety: (&self.config.safety).into(),
@@ -354,6 +367,28 @@ impl super::AppCore {
     }
 }
 
+fn planner_snapshot_validation_outcome(error: ToolError) -> ExecutionOutcome {
+    if matches!(
+        error.code.as_str(),
+        "missing_planning_snapshot" | "planning_snapshot_expired" | "stale_planning_snapshot"
+    ) {
+        return ExecutionOutcome::NeedsReplan {
+            trace: crate::commands::ExecutionTrace {
+                executed_step_ids: Vec::new(),
+                tool_results: vec![SerializedToolResult::failure(
+                    ToolName::GetAgentState,
+                    String::from("runtime-state-revalidation"),
+                    error,
+                    vec![String::from(
+                        "Runtime state changed after planning; bounded replanning is required.",
+                    )],
+                )],
+            },
+        };
+    }
+    planner_execution_abort(error)
+}
+
 fn planner_execution_abort(error: ToolError) -> ExecutionOutcome {
     ExecutionOutcome::Aborted {
         trace: crate::commands::ExecutionTrace {
@@ -361,5 +396,41 @@ fn planner_execution_abort(error: ToolError) -> ExecutionOutcome {
             tool_results: Vec::new(),
         },
         error,
+    }
+}
+
+#[cfg(test)]
+mod planning_snapshot_outcome_tests {
+    use super::*;
+
+    fn snapshot_error(code: &str) -> ToolError {
+        ToolError {
+            code: code.to_string(),
+            message: String::from("runtime planning snapshot rejected"),
+            retryable: false,
+            details: None,
+        }
+    }
+
+    #[test]
+    fn stale_snapshot_failures_request_bounded_replanning() {
+        for code in [
+            "missing_planning_snapshot",
+            "planning_snapshot_expired",
+            "stale_planning_snapshot",
+        ] {
+            assert!(matches!(
+                planner_snapshot_validation_outcome(snapshot_error(code)),
+                ExecutionOutcome::NeedsReplan { .. }
+            ));
+        }
+    }
+
+    #[test]
+    fn non_snapshot_validation_failures_remain_terminal() {
+        assert!(matches!(
+            planner_snapshot_validation_outcome(snapshot_error("invalid_planner_output")),
+            ExecutionOutcome::Aborted { .. }
+        ));
     }
 }

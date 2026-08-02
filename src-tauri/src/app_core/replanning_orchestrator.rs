@@ -53,13 +53,12 @@ impl<'a> LockScopedReplanningRuntime<'a> {
             } => {
                 // Phase 2 (unlocked): the LLM round-trip runs with the guard dropped.
                 //
-                // ATOMICITY TRADEOFF: resolve and execute are no longer one locked
-                // transaction. The plan is resolved against the state snapshot taken
-                // in phase 1, which a peer command could in principle change before
-                // `execute_plan` re-acquires the lock. This is acceptable for this
-                // single-user app whose frontend serializes dependent voice commands
-                // with `await`; each resolve→execute cycle keeps its own snapshot
-                // self-consistent and the replan bound is unchanged.
+                // Resolve and execute are intentionally separate lock scopes. The
+                // server preserves a state snapshot for the exact planner output, and
+                // execution revalidates its opaque token, page generation, history,
+                // safety settings, and relevant-config fingerprint. A concurrent
+                // command therefore causes a bounded replan rather than allowing a
+                // dependent side effect to execute against changed state.
                 let planner_output =
                     resolve_remote_planner(&profile_name, &profile, &planner_input)?;
                 validate_planner_output_with_safety(

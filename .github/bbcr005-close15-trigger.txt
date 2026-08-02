@@ -1,5 +1,0 @@
-BBCR-015 direct-master closure trigger
-Run: 10
-Compatibility transform: 02999edd45f760b0dc59f7614c202c809ba53522
-Virtual display worker: 9a411c6112c1ffd2370b85cff0bc81fe4cb21382
-Permanent CI display support: dd1ffc91139d53d1083fa28ef2d3d091ecbbd284

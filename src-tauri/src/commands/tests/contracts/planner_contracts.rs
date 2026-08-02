@@ -161,6 +161,7 @@ fn planner_input_round_trips_with_nested_runtime_context_and_matches_schema() {
 
     let planner_input = PlannerInput {
         request_id: String::from("req-planner-roundtrip"),
+        runtime_state_token: String::from("test-runtime-state-token"),
         transcript: String::from("click the help link"),
         agent_state: fixture_agent_state(),
         safety: PlannerSafetySettings {
@@ -233,6 +234,7 @@ fn planner_input_round_trips_with_nested_runtime_context_and_matches_schema() {
 fn planner_input_serializes_safety_settings_for_click_policy() {
     let planner_input = PlannerInput {
         request_id: String::from("req-planner"),
+        runtime_state_token: String::from("test-runtime-state-token"),
         transcript: String::from("click the help link"),
         agent_state: AgentStateData {
             page_id: Some(String::from("page-1")),

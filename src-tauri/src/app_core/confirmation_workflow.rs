@@ -62,6 +62,23 @@ impl super::AppCore {
                     error,
                 };
             }
+
+            let observed_runtime_state_token = self.current_runtime_state_token();
+            if pending_plan_execution.runtime_state_token.is_empty()
+                || pending_plan_execution.runtime_state_token != observed_runtime_state_token
+            {
+                let expected_runtime_state_token =
+                    pending_plan_execution.runtime_state_token.clone();
+                self.state.clear_pending_execution();
+                return confirmation_abort(
+                    "stale_confirmation_runtime_state",
+                    "runtime or relevant configuration state changed while confirmation was pending",
+                    Some(serde_json::json!({
+                        "expected_runtime_state_token": expected_runtime_state_token,
+                        "observed_runtime_state_token": observed_runtime_state_token,
+                    })),
+                );
+            }
         }
 
         // Matching challenges are consumed before dispatch so duplicate responses,

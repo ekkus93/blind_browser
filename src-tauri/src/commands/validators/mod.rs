@@ -130,6 +130,7 @@ pub fn validate_planner_output(
         validate_step_transition(&step.on_success, &seen_step_ids, &step.step_id)?;
         validate_step_transition(&step.on_failure, &seen_step_ids, &step.step_id)?;
     }
+    validate_acyclic_step_graph(&planner_output.steps)?;
 
     for skill_name in &planner_output.selected_skills {
         if !active_skill_name_set.contains(skill_name) {
@@ -140,6 +141,52 @@ pub fn validate_planner_output(
         }
     }
 
+    Ok(())
+}
+
+fn validate_acyclic_step_graph(steps: &[PlannedStep]) -> Result<(), ToolError> {
+    fn visit_step(
+        step_index: usize,
+        steps: &[PlannedStep],
+        visit_state: &mut [u8],
+    ) -> Result<(), ToolError> {
+        visit_state[step_index] = 1;
+        let step = &steps[step_index];
+        for transition in [&step.on_success, &step.on_failure] {
+            let StepTransition::NextStep { step_id } = transition else {
+                continue;
+            };
+            let next_index = steps
+                .iter()
+                .position(|candidate| candidate.step_id == *step_id)
+                .expect("transition targets were validated before cycle detection");
+            match visit_state[next_index] {
+                1 => {
+                    return Err(invalid_planner_output(
+                        format!(
+                            "planner transition graph contains a cycle through '{}' and '{}'",
+                            step.step_id, step_id
+                        ),
+                        Some(serde_json::json!({
+                            "step_id": step.step_id,
+                            "next_step_id": step_id,
+                        })),
+                    ));
+                }
+                0 => visit_step(next_index, steps, visit_state)?,
+                _ => {}
+            }
+        }
+        visit_state[step_index] = 2;
+        Ok(())
+    }
+
+    let mut visit_state = vec![0_u8; steps.len()];
+    for step_index in 0..steps.len() {
+        if visit_state[step_index] == 0 {
+            visit_step(step_index, steps, &mut visit_state)?;
+        }
+    }
     Ok(())
 }
 
