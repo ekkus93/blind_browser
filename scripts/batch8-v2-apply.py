@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import runpy
-import subprocess
 
 root = Path(__file__).resolve().parents[1]
 transformer = root / "scripts/batch8-privacy-controls.py"
@@ -26,6 +25,15 @@ new = '''def insert_before_last_brace(path: str, addition: str) -> None:
 if old not in text:
     raise SystemExit("insert_before_last_brace helper shape changed")
 text = text.replace(old, new, 1)
+
+if text.count("import re\n") != 1:
+    raise SystemExit("transformer import shape changed")
+text = text.replace("import re\n", "import re\nimport subprocess\n", 1)
+
+if text.count("    minimum=4,\n") != 1:
+    raise SystemExit("remote planner signature cardinality assertion shape changed")
+text = text.replace("    minimum=4,\n", "    minimum=2,\n", 1)
+
 old_normalize = '''# Normalize generated files.
 for path in ROOT.rglob("*"):
     if path.is_file() and path.suffix in {".rs", ".ts", ".tsx", ".mjs", ".py", ".toml", ".yml", ".md"}:
