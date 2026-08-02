@@ -103,4 +103,19 @@ if initializer_count != 13:
         f"expected 13 RemotePlannerSettings test initializers, found {initializer_count}"
     )
 
-print("Batch 8 all-target compatibility applied")
+# The workflow's GitHub Actions token has contents write access but not the
+# separate workflows permission required to push workflow-file changes. Keep
+# those already-validated changes out of the runner-authored commit; the
+# GitHub connector publishes them after the source commit lands.
+hook = root / ".git/hooks/pre-commit"
+hook.write_text(
+    "#!/usr/bin/env bash\n"
+    "set -euo pipefail\n"
+    "git restore --staged -- \\\n"
+    "  .github/workflows/ci.yml \\\n"
+    "  .github/workflows/batch8-privacy-controls.yml \\\n"
+    "  .github/workflows/batch8-transform-diagnostic.yml\n"
+)
+hook.chmod(0o755)
+
+print("Batch 8 all-target and split-publication compatibility applied")
