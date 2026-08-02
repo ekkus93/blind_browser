@@ -36,13 +36,14 @@ old_imports = '''use crate::commands::{
     PlannerInput, PlannerSafetySettings, PlannerToolHistoryEntry, RuntimeAudioState, SkillSummary,
     ToolError, ToolName,
 };'''
-new_imports = '''use crate::browser::BrowserVisibilityMode;
+new_imports = '''use crate::audio_io::RuntimeAudioState;
+use crate::browser::BrowserVisibilityMode;
 use crate::commands::{
     AvailableTool, PlannerInput, PlannerSafetySettings, PlannerToolHistoryEntry, SkillSummary,
     ToolError, ToolName,
 };
 use crate::narration::NarrationCursor;
-use crate::state::{BrowserHistoryState, ListeningState, RuntimeAudioState};'''
+use crate::state::{BrowserHistoryState, ListeningState};'''
 if redaction.count(old_imports) != 1:
     raise SystemExit('generated planner redaction import baseline did not match exactly once')
 redaction_path.write_text(redaction.replace(old_imports, new_imports, 1))
