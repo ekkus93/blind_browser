@@ -50,7 +50,7 @@ if redaction.count(old_imports) != 1:
 redaction = redaction.replace(old_imports, new_imports, 1)
 
 observation_pattern = re.compile(
-    r'\.map\(\s*\|value\|\s*sanitize_tool_observation_value\(value\)\s*\)',
+    r'\.map\(\s*\|value\|\s*sanitize_tool_observation_value\(value\)\s*,?\s*\)',
     re.MULTILINE,
 )
 redaction, observation_count = observation_pattern.subn(
