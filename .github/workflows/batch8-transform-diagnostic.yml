@@ -19,17 +19,21 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
-      - name: Run transformation and publish exact diagnostic
+      - name: Run transformation and privacy audit diagnostic
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set +e
-          python3 scripts/batch8-v2-apply.py >"${RUNNER_TEMP}/batch8-transform.log" 2>&1
+          python3 scripts/batch8-v2-apply.py >"${RUNNER_TEMP}/batch8-diagnostic.log" 2>&1
           status=$?
+          if test "${status}" -eq 0; then
+            python3 scripts/check-sensitive-diagnostics.py >>"${RUNNER_TEMP}/batch8-diagnostic.log" 2>&1
+            status=$?
+          fi
           {
-            printf 'Batch 8 transform diagnostic. Head: %s. Run: %s. Exit: %s.\n\n```text\n' "${GITHUB_SHA}" "${GITHUB_RUN_ID}" "${status}"
-            tail -c 50000 "${RUNNER_TEMP}/batch8-transform.log"
+            printf 'Batch 8 privacy-audit diagnostic. Head: %s. Run: %s. Exit: %s.\n\n```text\n' "${GITHUB_SHA}" "${GITHUB_RUN_ID}" "${status}"
+            tail -c 50000 "${RUNNER_TEMP}/batch8-diagnostic.log"
             printf '\n```\n'
           } >"${RUNNER_TEMP}/batch8-comment.md"
           gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body-file "${RUNNER_TEMP}/batch8-comment.md"
