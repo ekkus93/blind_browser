@@ -61,3 +61,7 @@ The following remain open and are not part of this closure claim:
 ## Exact-final-SHA policy
 
 This file intentionally does not embed the final documentation commit SHA or its Permanent CI run, because doing so would mutate the SHA after validation. The exact final SHA, Permanent CI run/job, and `ci/permanent` conclusion are recorded in GitHub issue #5.
+
+## Permanent CI trigger
+
+The self-cleaning documentation closure commit was `624f210f1ce09440db6546509bf0fc501f31895d`. This owner-authored evidence touch exists only to trigger the repository's normal Permanent CI workflow on an exact final documentation SHA. Its resulting SHA and Permanent CI identifiers are recorded in issue #5.
