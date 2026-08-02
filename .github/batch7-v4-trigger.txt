@@ -1,1 +1,1 @@
-Batch 7 V4 typed remote-planner privacy closure trigger, emit exact generated observation closure context on mismatch; full Rust/frontend gates required.
+Batch 7 V4 typed remote-planner privacy closure trigger, invalid closure correction removed; full compact Rust/frontend gates required.
