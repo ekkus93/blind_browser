@@ -31,10 +31,7 @@ fn authorized_click_step(confidence_bps: Option<u16>) -> PlannedStep {
         CLICK_AUTH_DESTRUCTIVE_ARG.to_string(),
         serde_json::json!(false),
     );
-    object.insert(
-        CLICK_AUTH_GENERATION_ARG.to_string(),
-        serde_json::json!(7),
-    );
+    object.insert(CLICK_AUTH_GENERATION_ARG.to_string(), serde_json::json!(7));
     object.insert(
         CLICK_AUTH_CONFIDENCE_ARG.to_string(),
         confidence_bps
