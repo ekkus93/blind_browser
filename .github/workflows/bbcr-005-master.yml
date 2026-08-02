@@ -1,9 +1,11 @@
 name: BBCR-005 Direct Master Worker
 
 on:
-  issues:
-    types:
-      - edited
+  push:
+    branches:
+      - master
+    paths:
+      - .github/bbcr005-trigger.txt
 
 permissions:
   contents: write
@@ -15,23 +17,24 @@ concurrency:
 
 jobs:
   apply-and-validate:
-    if: github.event.issue.number == 5 && github.repository == 'ekkus93/blind_browser' && contains(github.event.issue.body, '<!-- bbcr-005-trigger: run-2 -->')
+    if: github.repository == 'ekkus93/blind_browser'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Check out current master
+      - name: Check out exact master trigger head
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: ${{ github.sha }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Refuse unexpected repository state
         shell: bash
         run: |
-          test "$(git branch --show-current)" = "master"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           test -f scripts/bbcr005_master.py
           test -f .github/workflows/bbcr-005-master.yml
+          test -f .github/bbcr005-trigger.txt
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -128,13 +131,6 @@ jobs:
         run: |
           issue_body="${RUNNER_TEMP}/issue-body.md"
           gh issue view 5 --repo "${GITHUB_REPOSITORY}" --json body --jq .body >"${issue_body}"
-          python3 - "${issue_body}" <<'PY'
-          from pathlib import Path
-          import sys
-
-          path = Path(sys.argv[1])
-          path.write_text(path.read_text().replace("<!-- bbcr-005-trigger: run-2 -->", "<!-- bbcr-005-trigger-consumed: run-2 -->"))
-          PY
           {
             echo
             echo '---'
@@ -142,7 +138,7 @@ jobs:
             echo '## BBCR-005 direct-master diagnostic'
             echo
             echo "- **Status:** \`validation_failure\`"
-            echo "- **Evaluated master head:** \`$(git rev-parse HEAD)\`"
+            echo "- **Evaluated master head:** \`${GITHUB_SHA}\`"
             echo "- **Run:** \`${GITHUB_RUN_ID}\`"
             echo "- **Job:** \`${GITHUB_JOB}\`"
             echo
@@ -168,6 +164,7 @@ jobs:
         run: |
           rm scripts/bbcr005_master.py
           rm .github/workflows/bbcr-005-master.yml
+          rm .github/bbcr005-trigger.txt
 
       - name: Commit validated Batch 5 implementation to master
         run: |
