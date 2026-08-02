@@ -85,7 +85,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Apply bounded Batch 8 transformation
-        run: python3 scripts/batch8-v3-apply.py
+        run: python3 scripts/batch8-v4-apply.py
 
       - name: Generate committed hostile OCR image fixture
         shell: bash
@@ -153,6 +153,7 @@ jobs:
             scripts/batch8-privacy-controls.py \
             scripts/batch8-v2-apply.py \
             scripts/batch8-v3-apply.py \
+            scripts/batch8-v4-apply.py \
             .github/workflows/batch8-privacy-controls.yml \
             .github/batch8-trigger.txt \
             .github/workflows/batch8-transform-diagnostic.yml \
@@ -179,6 +180,12 @@ jobs:
           src-tauri/src/commands/contracts/mod.rs
           src-tauri/src/commands/contracts/planner.rs
           src-tauri/src/commands/contracts/providers.rs
+          src-tauri/src/commands/tests/contracts/planner_contracts.rs
+          src-tauri/src/commands/tests/direct_commands/playback_commands.rs
+          src-tauri/src/commands/tests/direct_commands/reading_commands.rs
+          src-tauri/src/commands/tests/direct_commands/status_commands.rs
+          src-tauri/src/commands/tests/fixtures/mock_executor_impl/state.rs
+          src-tauri/src/commands/tests/fixtures/page_fixtures.rs
           src-tauri/src/config/mod.rs
           src-tauri/src/config/persistence.rs
           src-tauri/src/config/types.rs
@@ -214,6 +221,7 @@ jobs:
             scripts/batch8-privacy-controls.py \
             scripts/batch8-v2-apply.py \
             scripts/batch8-v3-apply.py \
+            scripts/batch8-v4-apply.py \
             .github/workflows/batch8-privacy-controls.yml \
             .github/batch8-trigger.txt \
             .github/workflows/batch8-transform-diagnostic.yml \
