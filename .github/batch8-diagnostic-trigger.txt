@@ -1,1 +1,1 @@
-Batch 8 transformation diagnostic trigger v3.
+Batch 8 transformation diagnostic trigger v4.
