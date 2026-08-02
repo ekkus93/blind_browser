@@ -28,6 +28,12 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Publish observable run marker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-005 documentation closure started: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`."
+
       - name: Refuse unexpected state
         shell: bash
         run: |
@@ -39,7 +45,10 @@ jobs:
           test "$(git status --porcelain)" = ""
 
       - name: Apply conservative checklist and report closure
-        run: python3 scripts/bbcr005_docs_close.py
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 scripts/bbcr005_docs_close.py 2>&1 | tee "${RUNNER_TEMP}/bbcr005-docs.log"
 
       - name: Verify documentation transformation
         shell: bash
@@ -48,6 +57,18 @@ jobs:
           grep -Fq '## Batch 5 — Runtime-bound planning, click authorization, and confirmation replay defense' docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_IMPLEMENTATION_REPORT_2026-08-01.md
           grep -Fq 'A complete audit of direct non-planner side-effect entry points remains open.' docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_IMPLEMENTATION_REPORT_2026-08-01.md
           git diff --check
+
+      - name: Publish exact failure diagnostic
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          diagnostic='BBCR-005 documentation closure failed before commit.'
+          if test -s "${RUNNER_TEMP}/bbcr005-docs.log"; then
+            diagnostic="$(tail -n 80 "${RUNNER_TEMP}/bbcr005-docs.log")"
+          fi
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-005 documentation closure failed: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`. Diagnostic:\n\n\`\`\`text\n${diagnostic}\n\`\`\`"
 
       - name: Remove one-shot documentation closure files
         run: |
