@@ -59,6 +59,19 @@ redaction, observation_count = observation_pattern.subn(
     count=1,
 )
 if observation_count != 1:
+    lines = redaction.splitlines()
+    matches = [
+        index
+        for index, line in enumerate(lines)
+        if 'sanitize_tool_observation_value' in line
+    ]
+    print(f'generated observation symbol occurrences={len(matches)}')
+    for index in matches:
+        start = max(0, index - 5)
+        end = min(len(lines), index + 6)
+        print(f'--- generated observation context lines {start + 1}-{end} ---')
+        for line_number in range(start, end):
+            print(f'{line_number + 1}: {lines[line_number]}')
     raise SystemExit(f'generated observation closure count={observation_count}')
 redaction_path.write_text(redaction)
 
