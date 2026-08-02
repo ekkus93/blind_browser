@@ -1,2 +1,3 @@
 BBCR-015 direct-master closure trigger
-Staged transformation commit: a542877be1f160cbac447e4be75882b334ef3c00
+Run: 2
+Named runtime-state components patch: ae39dc3643e3a6aaa2975b11ed97abf8bcc723ba
