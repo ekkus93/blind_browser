@@ -112,9 +112,7 @@ def repair_model_downloads() -> None:
         "            }"
     )
     corrected_streaming_limit = (
-        "            if let Some(maximum) = file.max_bytes\n"
-        "                && total > maximum\n"
-        "            {\n"
+        "            if let Some(maximum) = file.max_bytes.filter(|maximum| total > *maximum) {\n"
         "                return Err(ModelDownloadError::TooLarge {\n"
         "                    file_name: file.file_name.to_string(),\n"
         "                    maximum,\n"
