@@ -49,21 +49,28 @@ redaction_path.write_text(redaction.replace(old_imports, new_imports, 1))
 
 remote_path = Path('src-tauri/src/app_core/remote_planner.rs')
 remote = remote_path.read_text()
-start_marker = '#[cfg(feature = "remote-openai")]\nuse crate::commands::{'
-if remote.count(start_marker) != 1:
-    raise SystemExit(f'generated remote commands import start count={remote.count(start_marker)}')
-start = remote.index(start_marker)
-end = remote.index('};', start) + 2
+canonical = 'canonical_planner_output_examples'
+tool_schema = 'tool_input_schema'
+if remote.count(canonical) != 1:
+    raise SystemExit(f'generated remote canonical examples count={remote.count(canonical)}')
+anchor = remote.index(canonical)
+start = remote.rfind('use crate::commands::{', 0, anchor)
+if start < 0:
+    raise SystemExit('generated remote commands import was not found before canonical examples')
+end = remote.find('};', anchor)
+if end < 0:
+    raise SystemExit('generated remote commands import terminator was not found')
+end += 2
 block = remote[start:end]
-if block.count('canonical_planner_output_examples') != 1:
+if block.count(canonical) != 1:
     raise SystemExit('generated remote canonical examples import count was not one')
-if block.count('tool_input_schema') != 1:
+if block.count(tool_schema) != 1:
     raise SystemExit('generated remote tool schema import count was not one')
 if 'planner_output_schema' in block:
     raise SystemExit('generated remote import unexpectedly already contains planner_output_schema')
 patched_block = block.replace(
-    'canonical_planner_output_examples',
-    'canonical_planner_output_examples, planner_output_schema',
+    canonical,
+    f'{canonical}, planner_output_schema',
     1,
 )
 remote_path.write_text(remote[:start] + patched_block + remote[end:])
