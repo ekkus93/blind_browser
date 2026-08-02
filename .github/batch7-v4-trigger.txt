@@ -1,1 +1,1 @@
-Batch 7 V4 typed remote-planner privacy closure trigger, ProviderMode test import and credential closure Clippy fixes applied; full Rust/frontend gates required.
+Batch 7 V4 typed remote-planner privacy closure trigger, explicit untrusted-data safety wording restored; full Rust/frontend gates required.
