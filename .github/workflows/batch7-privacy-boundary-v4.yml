@@ -122,7 +122,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings 2>&1 | tee -a /tmp/batch7-v4-gates.log
+          CARGO_TERM_COLOR=never cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --message-format=short -- -D warnings 2>&1 | tee -a /tmp/batch7-v4-gates.log
 
       - name: Run Rust tests
         shell: bash
