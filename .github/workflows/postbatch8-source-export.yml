@@ -20,10 +20,46 @@ jobs:
         run: |
           tar --exclude=.git --exclude=node_modules --exclude=src-tauri/target -czf /tmp/blind-browser-source.tar.gz .
 
-      - name: Upload repository source
+      - name: Collect authoritative Hugging Face metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hf-metadata
+          repos=(
+            KittenML/kitten-tts-mini-0.8
+            KittenML/kitten-tts-micro-0.8
+            KittenML/kitten-tts-nano-0.8-fp32
+            KittenML/kitten-tts-nano-0.8-int8
+            ggerganov/whisper.cpp
+          )
+          for repo in "${repos[@]}"; do
+            safe_name="${repo//\//__}"
+            curl --fail --silent --show-error --location \
+              "https://huggingface.co/api/models/${repo}?blobs=true" \
+              --output "/tmp/hf-metadata/${safe_name}.json"
+          done
+          for repo in \
+            KittenML/kitten-tts-mini-0.8 \
+            KittenML/kitten-tts-micro-0.8 \
+            KittenML/kitten-tts-nano-0.8-fp32 \
+            KittenML/kitten-tts-nano-0.8-int8
+          do
+            safe_name="${repo//\//__}"
+            curl --fail --silent --show-error --location \
+              "https://huggingface.co/${repo}/raw/main/config.json" \
+              --output "/tmp/hf-metadata/${safe_name}__config.json"
+            sha256sum "/tmp/hf-metadata/${safe_name}__config.json" \
+              >> /tmp/hf-metadata/config-sha256.txt
+            wc -c "/tmp/hf-metadata/${safe_name}__config.json" \
+              >> /tmp/hf-metadata/config-sizes.txt
+          done
+
+      - name: Upload repository source and metadata
         uses: actions/upload-artifact@v4
         with:
           name: blind-browser-source-${{ github.event.pull_request.head.sha }}
-          path: /tmp/blind-browser-source.tar.gz
+          path: |
+            /tmp/blind-browser-source.tar.gz
+            /tmp/hf-metadata
           if-no-files-found: error
           retention-days: 1
