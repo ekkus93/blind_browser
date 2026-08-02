@@ -39,7 +39,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "Batch 8 implementation started from exact staging SHA `${GITHUB_SHA}` in run `${GITHUB_RUN_ID}`. No production source will be published unless every privacy, Rust, OCR, frontend, and cleanup gate passes."
+          set -euo pipefail
+          printf 'Batch 8 implementation started from exact staging SHA %s in run %s. No production source will be published unless every privacy, Rust, OCR, frontend, and cleanup gate passes.\n' \
+            "${GITHUB_SHA}" "${GITHUB_RUN_ID}" >"${RUNNER_TEMP}/batch8-start.md"
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body-file "${RUNNER_TEMP}/batch8-start.md"
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -143,22 +146,24 @@ jobs:
       - name: Build frontend
         run: pnpm build
 
-      - name: Remove one-shot Batch 8 machinery
+      - name: Remove all one-shot Batch 8 machinery
         shell: bash
         run: |
           rm -f \
             scripts/batch8-privacy-controls.py \
             scripts/batch8-v2-apply.py \
             .github/workflows/batch8-privacy-controls.yml \
-            .github/batch8-trigger.txt
+            .github/batch8-trigger.txt \
+            .github/workflows/batch8-transform-diagnostic.yml \
+            .github/batch8-diagnostic-trigger.txt
 
       - name: Verify bounded production change set
         shell: bash
         run: |
           set -euo pipefail
           base='a41e8daa701b4ec40231af6aa3ce46e5fa68cfc8'
-          allowed="$RUNNER_TEMP/batch8-allowed.txt"
-          actual="$RUNNER_TEMP/batch8-actual.txt"
+          allowed="${RUNNER_TEMP}/batch8-allowed.txt"
+          actual="${RUNNER_TEMP}/batch8-actual.txt"
           cat >"${allowed}" <<'EOF'
           .github/workflows/ci.yml
           config.example.toml
@@ -196,9 +201,8 @@ jobs:
           src/tauri-types.ts
           EOF
           sed -i 's/^          //' "${allowed}"
-          git diff --name-only "${base}"...HEAD | sort -u >"${actual}"
-          git diff --name-only | sort -u >>"${actual}"
-          sort -u -o "${actual}" "${actual}"
+          git add -A
+          git diff --cached --name-only "${base}" -- | sort -u >"${actual}"
           unexpected="$(comm -23 "${actual}" <(sort -u "${allowed}"))"
           if test -n "${unexpected}"; then
             echo 'Unexpected Batch 8 paths:' >&2
@@ -209,10 +213,13 @@ jobs:
             scripts/batch8-privacy-controls.py \
             scripts/batch8-v2-apply.py \
             .github/workflows/batch8-privacy-controls.yml \
-            .github/batch8-trigger.txt; do
+            .github/batch8-trigger.txt \
+            .github/workflows/batch8-transform-diagnostic.yml \
+            .github/batch8-diagnostic-trigger.txt; do
             test ! -e "${staging}"
           done
-          git diff --check
+          git diff --cached --check
+          test -n "$(git diff --cached --name-only "${base}" --)"
 
       - name: Commit validated Batch 8 source
         id: commit
@@ -221,7 +228,6 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
           git commit -m 'security: enforce remote planner privacy controls'
           source_sha="$(git rev-parse HEAD)"
           echo "source_sha=${source_sha}" >>"${GITHUB_OUTPUT}"
@@ -233,7 +239,10 @@ jobs:
           SOURCE_SHA: ${{ steps.commit.outputs.source_sha }}
         shell: bash
         run: |
-          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "Batch 8 source validation passed. Validated branch source SHA: `${SOURCE_SHA}`. Run: `${GITHUB_RUN_ID}`. Full Rust formatting/check/Clippy/tests, real OCR hostile-image coverage, frontend lint/UI tests/build, diagnostics audit, and self-cleanup all passed. The source remains isolated on `agent/batch8-privacy-controls` pending exact diff review and promotion."
+          set -euo pipefail
+          printf 'Batch 8 source validation passed. Validated branch source SHA: %s. Run: %s. Full Rust formatting/check/Clippy/tests, real OCR hostile-image coverage, frontend lint/UI tests/build, diagnostics audit, bounded inventory, and self-cleanup all passed. The source remains isolated pending exact diff review and direct promotion to master.\n' \
+            "${SOURCE_SHA}" "${GITHUB_RUN_ID}" >"${RUNNER_TEMP}/batch8-success.md"
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body-file "${RUNNER_TEMP}/batch8-success.md"
 
       - name: Record failure marker
         if: failure()
@@ -241,4 +250,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "Batch 8 staging run `${GITHUB_RUN_ID}` failed at exact trigger SHA `${GITHUB_SHA}`. No validated source commit was promoted to `master`."
+          set -euo pipefail
+          printf 'Batch 8 staging run %s failed at exact trigger SHA %s. No validated source commit was promoted to master.\n' \
+            "${GITHUB_RUN_ID}" "${GITHUB_SHA}" >"${RUNNER_TEMP}/batch8-failure.md"
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body-file "${RUNNER_TEMP}/batch8-failure.md"
