@@ -46,7 +46,15 @@ use crate::narration::NarrationCursor;
 use crate::state::{BrowserHistoryState, ListeningState};'''
 if redaction.count(old_imports) != 1:
     raise SystemExit('generated planner redaction import baseline did not match exactly once')
-redaction_path.write_text(redaction.replace(old_imports, new_imports, 1))
+redaction = redaction.replace(old_imports, new_imports, 1)
+
+old_observation_map = '.map(|value| sanitize_tool_observation_value(value))'
+new_observation_map = '.map(sanitize_tool_observation_value)'
+if redaction.count(old_observation_map) != 1:
+    raise SystemExit(
+        f'generated observation closure count={redaction.count(old_observation_map)}'
+    )
+redaction_path.write_text(redaction.replace(old_observation_map, new_observation_map, 1))
 
 remote_path = Path('src-tauri/src/app_core/remote_planner.rs')
 remote = remote_path.read_text()
