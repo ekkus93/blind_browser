@@ -1,1 +1,1 @@
-Batch 8 default cargo diagnostic trigger v11.
+Batch 8 generated import diagnostic trigger v12.
