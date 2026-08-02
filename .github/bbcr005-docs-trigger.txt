@@ -1,6 +1,6 @@
 BBCR-005 documentation closure trigger
-Attempt: 3 via permanent CI finalizer job
+Attempt: 4
 Validated source: 1a6c2b213777766d9e1de056127cafcf0ca45bfa
 Worker run: 30734369368
 Worker job: 91460289871
-Finalizer workflow staging: ee0992870475f54a5bc0a29594fb15b665f8fddb
+Normalized finalizer: 6b4c450d152e53d215fb15ed9402bbf93acb4056
