@@ -148,27 +148,36 @@ def repair_planner_high_risk_text_iterator() -> None:
     end += len(terminator)
     block = source[start:end]
 
-    stale = re.compile(
-        r"(?P<indent>^[ \t]*)\.flat_map\(\|region\|\s*"
-        r"(?P<array>\[(?:.|\n)*?\])\s*\)",
-        re.MULTILINE,
-    )
-    matches = list(stale.finditer(block))
+    patterns = [
+        re.compile(
+            r"(?P<indent>^[ \t]*)\.flat_map\(\|region\|\s*"
+            r"(?P<array>\[(?:.|\n)*?\])\s*\)",
+            re.MULTILINE,
+        ),
+        re.compile(
+            r"(?P<indent>^[ \t]*)\.flat_map\(\|region\|\s*\{\s*"
+            r"(?P<array>\[(?:.|\n)*?\])\s*\}\)",
+            re.MULTILINE,
+        ),
+    ]
+    matches = [(pattern, match) for pattern in patterns for match in pattern.finditer(block)]
     if matches:
         if len(matches) != 1:
             raise SystemExit(f"{path}: expected one stale region iterator, found {len(matches)}")
-        match = matches[0]
+        _, match = matches[0]
+        indent = match.group("indent")
         corrected = (
-            f"{match.group('indent')}.flat_map(|region| "
-            f"{match.group('array')}.into_iter().flatten())"
+            f"{indent}.flat_map(|region| {{\n"
+            f"{match.group('array')}.into_iter().flatten()\n"
+            f"{indent}}})"
         )
         repaired_block = block[: match.start()] + corrected + block[match.end() :]
         write(path, source[:start] + repaired_block + source[end:])
         return
 
     corrected = re.compile(
-        r"\.flat_map\(\|region\|\s*\[(?:.|\n)*?\]\s*"
-        r"\.into_iter\(\)\s*\.flatten\(\)\s*\)",
+        r"\.flat_map\(\|region\|\s*\{\s*\[(?:.|\n)*?\]\s*"
+        r"\.into_iter\(\)\s*\.flatten\(\)\s*\}\)",
         re.MULTILINE,
     )
     if len(list(corrected.finditer(block))) == 1:
