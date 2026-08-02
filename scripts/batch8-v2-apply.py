@@ -26,6 +26,33 @@ if old not in text:
     raise SystemExit("insert_before_last_brace helper shape changed")
 text = text.replace(old, new, 1)
 
+old_replace_once = '''def replace_once(path: str, old: str, new: str) -> None:
+    content = read(path)
+    count = content.count(old)
+    if count != 1:
+        raise SystemExit(f"{path}: expected one occurrence, found {count}: {old[:120]!r}")
+    write(path, content.replace(old, new, 1))
+'''
+new_replace_once = '''def replace_once(path: str, old: str, new: str) -> None:
+    content = read(path)
+    if path == "src/panel-types.ts" and old.startswith("  timeoutMs: number | null;"):
+        start = content.index("export interface RemotePlannerPanelState")
+        end = content.index("export interface RemoteTtsPanelState", start)
+        section = content[start:end]
+        count = section.count(old)
+        if count != 1:
+            raise SystemExit(f"{path}: expected one planner-panel occurrence, found {count}")
+        write(path, content[:start] + section.replace(old, new, 1) + content[end:])
+        return
+    count = content.count(old)
+    if count != 1:
+        raise SystemExit(f"{path}: expected one occurrence, found {count}: {old[:120]!r}")
+    write(path, content.replace(old, new, 1))
+'''
+if old_replace_once not in text:
+    raise SystemExit("replace_once helper shape changed")
+text = text.replace(old_replace_once, new_replace_once, 1)
+
 import_header = "from pathlib import Path\nimport re\n\nROOT ="
 if import_header not in text:
     raise SystemExit("transformer import header changed")
