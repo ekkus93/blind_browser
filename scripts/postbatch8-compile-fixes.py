@@ -102,11 +102,12 @@ def repair_model_downloads() -> None:
 
     source = read(path)
     stale_content_length = re.compile(
-        r"(?P<indent>\s*)if let Some\(content_length\) = response\.content_length\(\) \{\n"
+        r"^(?P<indent>[ \t]*)if let Some\(content_length\) = response\.content_length\(\) \{\n"
         r"(?P=indent)    if content_length > file\.max_bytes \{\n"
-        r"(?P<body>(?:(?P=indent)        .*\n)+?)"
-        r"(?P=indent)    \}\n"
-        r"(?P=indent)\}",
+        r"(?P<body>.*?)"
+        r"^(?P=indent)    \}\n"
+        r"^(?P=indent)\}",
+        re.MULTILINE | re.DOTALL,
     )
     matches = list(stale_content_length.finditer(source))
     if matches:
