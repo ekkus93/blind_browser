@@ -109,3 +109,66 @@ if old_normalize not in text:
 text = text.replace(old_normalize, new_normalize, 1)
 transformer.write_text(text)
 runpy.run_path(str(transformer), run_name="__main__")
+
+audit_path = root / "scripts/check-sensitive-diagnostics.py"
+audit = audit_path.read_text()
+old_audit = '''violations = []
+for directory, suffixes in [(ROOT / "src-tauri" / "src", {".rs"}), (ROOT / "src", {".ts", ".tsx", ".mjs"})]:
+    for path in directory.rglob("*"):
+        if path.suffix not in suffixes:
+            continue
+        lines = path.read_text(errors="replace").splitlines()
+        for index, line in enumerate(lines):
+            if LOG_START.search(line):
+                window = "\\n".join(lines[index:index + 12])
+                if SENSITIVE.search(window):
+                    violations.append(f"{path.relative_to(ROOT)}:{index + 1}: sensitive value referenced by diagnostic call")
+'''
+new_audit = '''def diagnostic_call_expression(lines: list[str], index: int) -> str:
+    source = "\\n".join(lines[index:])
+    match = LOG_START.search(source)
+    if match is None:
+        return lines[index]
+
+    start = match.start()
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    saw_open = False
+    for position in range(start, min(len(source), start + 16_384)):
+        character = source[position]
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif character == "\\\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            continue
+        if character in {"\\\"", "'"}:
+            quote = character
+        elif character == "(":
+            depth += 1
+            saw_open = True
+        elif character == ")" and saw_open:
+            depth -= 1
+            if depth == 0:
+                return source[start:position + 1]
+    return source[start:start + 16_384]
+
+
+violations = []
+for directory, suffixes in [(ROOT / "src-tauri" / "src", {".rs"}), (ROOT / "src", {".ts", ".tsx", ".mjs"})]:
+    for path in directory.rglob("*"):
+        if path.suffix not in suffixes:
+            continue
+        lines = path.read_text(errors="replace").splitlines()
+        for index, line in enumerate(lines):
+            if LOG_START.search(line):
+                expression = diagnostic_call_expression(lines, index)
+                if SENSITIVE.search(expression):
+                    violations.append(f"{path.relative_to(ROOT)}:{index + 1}: sensitive value referenced by diagnostic call")
+'''
+if old_audit not in audit:
+    raise SystemExit("generated diagnostics audit shape changed")
+audit_path.write_text(audit.replace(old_audit, new_audit, 1))
