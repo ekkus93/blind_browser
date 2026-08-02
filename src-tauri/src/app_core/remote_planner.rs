@@ -1,21 +1,14 @@
 #[cfg(feature = "remote-openai")]
-use std::collections::BTreeMap;
-
-#[cfg(feature = "remote-openai")]
 use super::api_key_tools::credential_async_client;
 use super::planner_prompt::planner_interpretation_unavailable_error;
 #[cfg(any(feature = "remote-openai", test))]
 use super::planner_prompt::planner_system_prompt;
 #[cfg(feature = "remote-openai")]
-use super::planner_prompt::PlannerPromptPayload;
+use super::planner_prompt::serialize_remote_planner_prompt;
 #[cfg(feature = "remote-openai")]
 use super::planner_redaction::sanitize_remote_planner_input;
 use super::AppCore;
-#[cfg(feature = "remote-openai")]
-use crate::commands::{
-    canonical_planner_output_examples, planner_output_schema, tool_input_schema,
-};
-use crate::commands::{PlannerInput, PlannerOutput, ToolError};
+use crate::commands::{planner_output_schema, PlannerInput, PlannerOutput, ToolError};
 #[cfg(feature = "remote-openai")]
 use crate::config::resolve_secret_ref_for_endpoint;
 use crate::config::{RemotePlannerProfile, RemoteProviderKind};
@@ -66,24 +59,6 @@ pub(crate) fn resolve_remote_planner(
         RemoteProviderKind::Ollama => {
             resolve_with_ollama_planner(profile_name, profile, planner_input)
         }
-    }
-}
-
-#[cfg(feature = "remote-openai")]
-fn planner_prompt_payload(planner_input: &PlannerInput) -> PlannerPromptPayload<'_> {
-    let tool_schemas = planner_input
-        .available_tools
-        .iter()
-        .filter_map(|tool| {
-            tool_input_schema(&tool.name).map(|schema| (format!("{:?}", tool.name), schema))
-        })
-        .collect::<BTreeMap<_, _>>();
-
-    PlannerPromptPayload {
-        planner_input,
-        planner_output_schema: planner_output_schema(),
-        tool_input_schemas: tool_schemas,
-        canonical_planner_output_examples: canonical_planner_output_examples(),
     }
 }
 
@@ -148,10 +123,8 @@ fn resolve_with_openai_planner(
     }
 
     let client = Client::with_config(openai_config).with_http_client(http_client);
-    let planner_safe_input = sanitize_remote_planner_input(planner_input);
-    let prompt_payload = planner_prompt_payload(&planner_safe_input);
-    let user_content =
-        serde_json::to_string_pretty(&prompt_payload).expect("planner prompt should serialize");
+    let planner_safe_input = sanitize_remote_planner_input(planner_input)?;
+    let user_content = serialize_remote_planner_prompt(&planner_safe_input)?;
     let request = CreateChatCompletionRequestArgs::default()
         .model(profile.model.clone())
         .temperature(profile.temperature_milli as f32 / 1_000.0)
@@ -206,15 +179,15 @@ fn resolve_with_openai_planner(
             )
         })?;
 
-    let response = futures::executor::block_on(client.chat().create(request)).map_err(|error| {
+    let response = futures::executor::block_on(client.chat().create(request)).map_err(|_| {
         planner_interpretation_unavailable_error(
             "planner_request_failed",
-            format!("remote planner request failed: {error}"),
+            "remote planner request failed",
             true,
             Some(serde_json::json!({
                 "provider": "OpenAI",
                 "model": profile.model,
-                "base_url": profile.base_url,
+                "base_url": endpoint_scope.normalized_base_url(),
             })),
         )
     })?;
@@ -237,7 +210,7 @@ fn resolve_with_openai_planner(
             "planner_response_invalid",
             format!("remote planner returned invalid planner JSON: {error}"),
             true,
-            Some(serde_json::json!({ "content": content })),
+            Some(serde_json::json!({ "content_length": content.len() })),
         )
     })
 }
@@ -302,10 +275,8 @@ fn resolve_with_ollama_planner(
             .with_api_key(api_key),
     )
     .with_http_client(http_client);
-    let planner_safe_input = sanitize_remote_planner_input(planner_input);
-    let prompt_payload = planner_prompt_payload(&planner_safe_input);
-    let user_content =
-        serde_json::to_string_pretty(&prompt_payload).expect("planner prompt should serialize");
+    let planner_safe_input = sanitize_remote_planner_input(planner_input)?;
+    let user_content = serialize_remote_planner_prompt(&planner_safe_input)?;
     let request = CreateChatCompletionRequestArgs::default()
         .model(profile.model.clone())
         .temperature(profile.temperature_milli as f32 / 1_000.0)
@@ -351,15 +322,15 @@ fn resolve_with_ollama_planner(
             )
         })?;
 
-    let response = futures::executor::block_on(client.chat().create(request)).map_err(|error| {
+    let response = futures::executor::block_on(client.chat().create(request)).map_err(|_| {
         planner_interpretation_unavailable_error(
             "planner_request_failed",
-            format!("Ollama planner request failed: {error}"),
+            "Ollama planner request failed",
             true,
             Some(serde_json::json!({
                 "provider": "Ollama",
                 "model": profile.model,
-                "base_url": profile.base_url,
+                "base_url": endpoint_scope.normalized_base_url(),
             })),
         )
     })?;
@@ -382,7 +353,7 @@ fn resolve_with_ollama_planner(
             "planner_response_invalid",
             format!("Ollama planner returned invalid planner JSON: {error}"),
             true,
-            Some(serde_json::json!({ "content": content })),
+            Some(serde_json::json!({ "content_length": content.len() })),
         )
     })
 }

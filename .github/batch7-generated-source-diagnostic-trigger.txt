@@ -1,1 +1,0 @@
-Inspect generated Batch 7 remote-planner source shape.
