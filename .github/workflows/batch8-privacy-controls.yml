@@ -85,7 +85,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Apply bounded Batch 8 transformation
-        run: python3 scripts/batch8-v2-apply.py
+        run: python3 scripts/batch8-v3-apply.py
 
       - name: Generate committed hostile OCR image fixture
         shell: bash
@@ -152,6 +152,7 @@ jobs:
           rm -f \
             scripts/batch8-privacy-controls.py \
             scripts/batch8-v2-apply.py \
+            scripts/batch8-v3-apply.py \
             .github/workflows/batch8-privacy-controls.yml \
             .github/batch8-trigger.txt \
             .github/workflows/batch8-transform-diagnostic.yml \
@@ -212,6 +213,7 @@ jobs:
           for staging in \
             scripts/batch8-privacy-controls.py \
             scripts/batch8-v2-apply.py \
+            scripts/batch8-v3-apply.py \
             .github/workflows/batch8-privacy-controls.yml \
             .github/batch8-trigger.txt \
             .github/workflows/batch8-transform-diagnostic.yml \
