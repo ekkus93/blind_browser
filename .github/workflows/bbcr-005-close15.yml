@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: bbcr-015-direct-master-closure
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   apply-and-validate:
@@ -38,6 +38,13 @@ jobs:
           test -f scripts/bbcr005_close15_patch3.py
           test -f .github/workflows/bbcr-005-close15.yml
           test -f .github/bbcr005-close15-trigger.txt
+
+      - name: Publish observable run marker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-015 closure run started: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`. Superseded runs are cancelled by the workflow concurrency policy."
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -165,6 +172,7 @@ jobs:
             echo 'No BBCR-015 completion claim is made.'
           } >>"${issue_body}"
           gh issue edit 5 --repo "${GITHUB_REPOSITORY}" --body-file "${issue_body}"
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-015 closure run failed: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`. The exact diagnostic was appended to this issue."
 
       - name: Remove one-shot closure files
         run: |
@@ -176,6 +184,8 @@ jobs:
           rm .github/bbcr005-close15-trigger.txt
 
       - name: Commit validated BBCR-015 closure to master
+        id: publish
+        shell: bash
         run: |
           git config user.name "ekkus93"
           git config user.email "1386709+ekkus93@users.noreply.github.com"
@@ -183,3 +193,12 @@ jobs:
           git diff --cached --check
           git commit -m "security: replan stale runtime-bound actions"
           git push origin HEAD:master
+          echo "commit_sha=$(git rev-parse HEAD)" >>"${GITHUB_OUTPUT}"
+
+      - name: Publish validated closure marker
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALIDATED_SHA: ${{ steps.publish.outputs.commit_sha }}
+        shell: bash
+        run: |
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-015 source closure passed all worker gates and was committed to master: trigger head \`${GITHUB_SHA}\`, validated source commit \`${VALIDATED_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`."
