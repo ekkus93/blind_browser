@@ -49,29 +49,17 @@ redaction_path.write_text(redaction.replace(old_imports, new_imports, 1))
 
 remote_path = Path('src-tauri/src/app_core/remote_planner.rs')
 remote = remote_path.read_text()
-canonical = 'canonical_planner_output_examples'
-tool_schema = 'tool_input_schema'
-if remote.count(canonical) != 1:
-    raise SystemExit(f'generated remote canonical examples count={remote.count(canonical)}')
-anchor = remote.index(canonical)
-start = remote.rfind('use crate::commands::{', 0, anchor)
-if start < 0:
-    raise SystemExit('generated remote commands import was not found before canonical examples')
-end = remote.find('};', anchor)
-if end < 0:
-    raise SystemExit('generated remote commands import terminator was not found')
-end += 2
-block = remote[start:end]
-if block.count(canonical) != 1:
-    raise SystemExit('generated remote canonical examples import count was not one')
-if block.count(tool_schema) != 1:
-    raise SystemExit('generated remote tool schema import count was not one')
-if 'planner_output_schema' in block:
-    raise SystemExit('generated remote import unexpectedly already contains planner_output_schema')
-patched_block = block.replace(
-    canonical,
-    f'{canonical}, planner_output_schema',
-    1,
+old_remote_import = 'use crate::commands::{PlannerInput, PlannerOutput, ToolError};'
+new_remote_import = (
+    'use crate::commands::{planner_output_schema, PlannerInput, PlannerOutput, ToolError};'
 )
-remote_path.write_text(remote[:start] + patched_block + remote[end:])
+if remote.count(old_remote_import) != 1:
+    raise SystemExit(
+        f'generated remote command import count={remote.count(old_remote_import)}'
+    )
+if remote.count('planner_output_schema()') != 1:
+    raise SystemExit(
+        f'generated remote planner schema call count={remote.count("planner_output_schema()")}'
+    )
+remote_path.write_text(remote.replace(old_remote_import, new_remote_import, 1))
 print('Applied Batch 7 V3 typed privacy boundary and compiler-scope corrections')
