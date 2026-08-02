@@ -39,6 +39,7 @@ jobs:
         run: |
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           test -f scripts/bbcr006_apply.py
+          test -f scripts/bbcr006_patch1.py
           test -f .github/workflows/bbcr-006-opaque-images.yml
           test -f .github/bbcr006-trigger.txt
           test ! -e src-tauri/src/app_core/image_cache.rs
@@ -84,12 +85,15 @@ jobs:
         run: |
           set -o pipefail
           python3 scripts/bbcr006_apply.py 2>&1 | tee "${RUNNER_TEMP}/bbcr006.log"
+          python3 scripts/bbcr006_patch1.py 2>&1 | tee -a "${RUNNER_TEMP}/bbcr006.log"
           cargo fmt --manifest-path src-tauri/Cargo.toml --all
           grep -Fq 'struct ImageCache' src-tauri/src/app_core/image_cache.rs
           grep -Fq 'invalid_image_handle' src-tauri/src/app_core/image_cache.rs
           grep -Fq 'image_cache_containment_violation' src-tauri/src/app_core/image_cache.rs
           grep -Fq 'cross_page_image_handle' src-tauri/src/app_core/image_cache.rs
           grep -Fq 'stale_image_handle' src-tauri/src/app_core/image_cache.rs
+          grep -Fq 'use tauri::AppHandle;' src-tauri/src/app_core/mod.rs
+          ! grep -Fq 'use tauri::{AppHandle, Manager};' src-tauri/src/app_core/mod.rs
           ! grep -Fq 'pub path: String' src-tauri/src/commands/contracts/tools.rs
           ! grep -Fq 'cached_image_path' src-tauri/src/app_core/mod.rs
           ! grep -Fq 'screenshot_output_path' src-tauri/src/app_core/mod.rs
@@ -137,6 +141,7 @@ jobs:
       - name: Remove one-shot machinery
         run: |
           rm scripts/bbcr006_apply.py
+          rm scripts/bbcr006_patch1.py
           rm .github/workflows/bbcr-006-opaque-images.yml
           rm .github/bbcr006-trigger.txt
 
