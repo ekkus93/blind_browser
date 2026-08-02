@@ -64,4 +64,4 @@ This file intentionally does not embed the final documentation commit SHA or its
 
 ## Permanent CI trigger
 
-The self-cleaning documentation closure commit was `624f210f1ce09440db6546509bf0fc501f31895d`. This owner-authored evidence touch exists only to trigger the repository's normal Permanent CI workflow on an exact final documentation SHA. Its resulting SHA and Permanent CI identifiers are recorded in issue #5.
+The self-cleaning documentation closure commit was `624f210f1ce09440db6546509bf0fc501f31895d`, and the self-cleaning implementation-report summary synchronization commit was `e4a34064ed0f63d68a3c6006335f2c1b705b7c0d`. This owner-authored evidence touch exists only to trigger the repository's normal Permanent CI workflow on an exact final documentation SHA. Its resulting SHA and Permanent CI identifiers are recorded in issue #5.
