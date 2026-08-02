@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use super::*;
 use crate::state::{AppState, ClickAuthorizationRecord};
 
@@ -16,15 +14,33 @@ fn authorized_click_step(confidence_bps: Option<u16>) -> PlannedStep {
         "request_id": "req-batch5-click",
         "timeout_ms": 1000,
         "element_id": "button-1",
-        "click_mode": "Single",
-        CLICK_AUTH_TOKEN_ARG: "opaque-runtime-token",
-        CLICK_AUTH_AMBIGUOUS_ARG: false,
-        CLICK_AUTH_DESTRUCTIVE_ARG: false,
-        CLICK_AUTH_GENERATION_ARG: 7
+        "click_mode": "Single"
     });
-    arguments[CLICK_AUTH_CONFIDENCE_ARG] = confidence_bps
-        .map(|value| serde_json::json!(value))
-        .unwrap_or(serde_json::Value::Null);
+    let object = arguments
+        .as_object_mut()
+        .expect("click arguments should be an object");
+    object.insert(
+        CLICK_AUTH_TOKEN_ARG.to_string(),
+        serde_json::json!("opaque-runtime-token"),
+    );
+    object.insert(
+        CLICK_AUTH_AMBIGUOUS_ARG.to_string(),
+        serde_json::json!(false),
+    );
+    object.insert(
+        CLICK_AUTH_DESTRUCTIVE_ARG.to_string(),
+        serde_json::json!(false),
+    );
+    object.insert(
+        CLICK_AUTH_GENERATION_ARG.to_string(),
+        serde_json::json!(7),
+    );
+    object.insert(
+        CLICK_AUTH_CONFIDENCE_ARG.to_string(),
+        confidence_bps
+            .map(|value| serde_json::json!(value))
+            .unwrap_or(serde_json::Value::Null),
+    );
 
     PlannedStep {
         step_id: String::from("click"),
@@ -158,11 +174,4 @@ fn page_model_change_invalidates_click_authorizations_and_pending_confirmation()
     assert_eq!(state.page_generation, 8);
     assert!(state.click_authorizations.is_empty());
     assert_eq!(state.pending_confirmation_id, None);
-}
-
-#[test]
-fn runtime_click_metadata_is_not_present_in_default_element_attributes() {
-    let attributes = BTreeMap::<String, String>::new();
-    assert!(!attributes.contains_key(CLICK_AUTH_TOKEN_ARG));
-    assert!(!attributes.contains_key(CLICK_AUTH_CONFIDENCE_ARG));
 }
