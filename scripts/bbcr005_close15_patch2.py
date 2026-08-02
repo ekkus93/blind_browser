@@ -44,6 +44,9 @@ pending_pattern = re.compile(
     re.DOTALL,
 )
 for path in sorted((ROOT / "src-tauri" / "src").rglob("*.rs")):
+    relative = path.relative_to(ROOT).as_posix()
+    if relative == "src-tauri/src/commands/contracts/planner.rs":
+        continue
     content = path.read_text()
 
     def inject_pending_token(match: re.Match[str]) -> str:
@@ -87,11 +90,6 @@ replace_once(
 )
 
 # Bind the hand-built replay fixture exactly as production does.
-replace_once(
-    "src-tauri/src/app_core/tests/confirmation_replay_tests.rs",
-    "    core.state.pending_plan_execution = Some(PendingPlanExecutionState {\n        request_id: String::from(\"req-confirm-replay\"),",
-    "    core.state.pending_plan_execution = Some(PendingPlanExecutionState {\n        request_id: String::from(\"req-confirm-replay\"),",
-)
 replace_once(
     "src-tauri/src/app_core/tests/confirmation_replay_tests.rs",
     "        queued_steps,\n    });\n\n    let first =",
