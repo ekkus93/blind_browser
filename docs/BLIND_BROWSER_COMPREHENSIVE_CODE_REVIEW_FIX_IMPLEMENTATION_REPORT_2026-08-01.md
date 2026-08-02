@@ -213,10 +213,10 @@ git diff --check
 
 - **BBCR-001:** Partially implemented; core actual-tool policy, executor guard, and runtime-owned live-DOM click authorization are complete. A complete audit of direct non-planner side-effect entry points remains open.
 - **BBCR-002:** Core immutable confirmation manifests, generation-qualified page binding, click live-revalidation, expiry, and real `AppCore` replay defense are complete. Broader non-click locator re-resolution and richer form/data-entry summaries remain open.
-- **BBCR-003:** Partially implemented; strong extraction and serialization redaction exists, but distinct remote-only types and consent policy remain open.
+- **BBCR-003:** Core typed remote-planner privacy and redaction boundary is implemented and validated. Explicit remote-data consent/per-origin controls, local relevance selection, and the broader tracing/UI/Redux diagnostic audit remain open.
 - **BBCR-004:** Complete, validated, merged to `master`, and branch cleanup complete.
 - **BBCR-005 / BBCR-015 Batch 5:** Source implementation and bounded validation complete; final declaration depends on successful `ci/permanent` status for the exact final evidence SHA.
-- **BBCR-006:** Partially implemented; explicit hostile-content boundaries exist, but full corpus and telemetry work remain open.
+- **BBCR-006:** Core trusted/untrusted payload separation, prompt hardening, caution telemetry, and deterministic hostile-input regressions are implemented and validated. Hidden-DOM and real OCR-image corpus coverage remains open.
 - **BBCR-007 through BBCR-023:** Open except for pre-existing repository behavior documented separately.
 
 No release-readiness, comprehensive-TODO completion, or full security-signoff claim is made by this report.
