@@ -27,19 +27,14 @@ jobs:
           git apply /tmp/postbatch8.patch
           python3 scripts/postbatch8-compile-fixes.py
 
-      - name: Print exact source matches
+      - name: Print speech and local-inference command sources
         shell: bash
         run: |
           set -uo pipefail
-          echo '=== FILE INVENTORY ==='
-          find src-tauri/src -maxdepth 4 -type f | sort | grep -E 'model|download|diagnostic|command|external|data_url' || true
-          echo '=== FAILING MODEL TEST SOURCES ==='
-          grep -R -n -B 35 -A 65 \
-            -E 'truncated_payload_is_rejected|checksum_mismatch_keeps_existing_file_and_removes_partial|declared_size_mismatch_rejects_download|redirect_to_unapproved_origin_is_rejected|successful_verified_download_replaces_existing_file_atomically' \
+          grep -R -n -B 40 -A 120 \
+            -E 'get_local_inference_status|get_speech_capabilities_state|download_speech_artifact|delete_speech_artifact|update_whisper_config|update_tts_config|start_voice_capture|submit_voice_audio|synthesize_speech' \
             src-tauri/src || true
-          echo '=== RANDOM PARTIAL IMPLEMENTATION ==='
-          grep -R -n -B 45 -A 140 -E 'partial-|IntegrityMismatch|RedirectBlocked' src-tauri/src || true
-          echo '=== HELPER COMMAND SOURCES ==='
-          grep -R -n -B 30 -A 80 -E 'read_data_url_text|resolve_external_url' src-tauri/src || true
-          echo '=== DIAGNOSTICS SOURCES ==='
-          grep -R -n -B 45 -A 130 -E 'sanitize_message_redacts_sensitive_values|fn sanitize_message|api_key=\[REDACTED\]' src-tauri/src || true
+          echo '=== CURRENT POLICY REGISTRY ==='
+          sed -n '1,520p' src-tauri/src/direct_command_policy.rs
+          echo '=== POLICY DOCUMENTATION ==='
+          sed -n '1,420p' docs/DIRECT_COMMAND_POLICY_REGISTRY.md || true
