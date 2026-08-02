@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 import subprocess
 
 transformer = Path('scripts/batch7-privacy-boundary.py')
@@ -48,13 +49,18 @@ if redaction.count(old_imports) != 1:
     raise SystemExit('generated planner redaction import baseline did not match exactly once')
 redaction = redaction.replace(old_imports, new_imports, 1)
 
-old_observation_map = '.map(|value| sanitize_tool_observation_value(value))'
-new_observation_map = '.map(sanitize_tool_observation_value)'
-if redaction.count(old_observation_map) != 1:
-    raise SystemExit(
-        f'generated observation closure count={redaction.count(old_observation_map)}'
-    )
-redaction_path.write_text(redaction.replace(old_observation_map, new_observation_map, 1))
+observation_pattern = re.compile(
+    r'\.map\(\s*\|value\|\s*sanitize_tool_observation_value\(value\)\s*\)',
+    re.MULTILINE,
+)
+redaction, observation_count = observation_pattern.subn(
+    '.map(sanitize_tool_observation_value)',
+    redaction,
+    count=1,
+)
+if observation_count != 1:
+    raise SystemExit(f'generated observation closure count={observation_count}')
+redaction_path.write_text(redaction)
 
 remote_path = Path('src-tauri/src/app_core/remote_planner.rs')
 remote = remote_path.read_text()
