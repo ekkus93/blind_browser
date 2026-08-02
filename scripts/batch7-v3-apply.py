@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import re
 import subprocess
 
 transformer = Path('scripts/batch7-privacy-boundary.py')
@@ -47,33 +46,7 @@ use crate::narration::NarrationCursor;
 use crate::state::{BrowserHistoryState, ListeningState};'''
 if redaction.count(old_imports) != 1:
     raise SystemExit('generated planner redaction import baseline did not match exactly once')
-redaction = redaction.replace(old_imports, new_imports, 1)
-
-observation_pattern = re.compile(
-    r'\.map\(\s*\|value\|\s*sanitize_tool_observation_value\(value\)\s*,?\s*\)',
-    re.MULTILINE,
-)
-redaction, observation_count = observation_pattern.subn(
-    '.map(sanitize_tool_observation_value)',
-    redaction,
-    count=1,
-)
-if observation_count != 1:
-    lines = redaction.splitlines()
-    matches = [
-        index
-        for index, line in enumerate(lines)
-        if 'sanitize_tool_observation_value' in line
-    ]
-    print(f'generated observation symbol occurrences={len(matches)}')
-    for index in matches:
-        start = max(0, index - 5)
-        end = min(len(lines), index + 6)
-        print(f'--- generated observation context lines {start + 1}-{end} ---')
-        for line_number in range(start, end):
-            print(f'{line_number + 1}: {lines[line_number]}')
-    raise SystemExit(f'generated observation closure count={observation_count}')
-redaction_path.write_text(redaction)
+redaction_path.write_text(redaction.replace(old_imports, new_imports, 1))
 
 remote_path = Path('src-tauri/src/app_core/remote_planner.rs')
 remote = remote_path.read_text()
