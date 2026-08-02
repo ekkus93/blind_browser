@@ -182,6 +182,25 @@ impl AppCore {
         Ok(())
     }
 
+    pub fn set_remote_planner_privacy_settings(
+        &mut self,
+        consent_to_remote_page_data: bool,
+        local_only: bool,
+        blocked_origins: Vec<String>,
+    ) -> Result<(), ConfigError> {
+        let settings = crate::config::RemotePlannerPrivacySettings {
+            consent_to_remote_page_data,
+            local_only,
+            blocked_origins,
+            high_risk_origin_policy: crate::config::HighRiskOriginPolicy::Block,
+        };
+        self.config = AppConfig::persist_remote_planner_privacy_settings_for_app(
+            &self.app_handle,
+            &settings,
+        )?;
+        Ok(())
+    }
+
     pub fn set_remote_planner_api_key(
         &mut self,
         profile_name: &str,

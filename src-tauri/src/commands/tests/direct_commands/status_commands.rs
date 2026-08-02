@@ -75,6 +75,7 @@ fn resolve_direct_status_query_command_reports_current_url() {
             temperature_milli: Some(200),
             max_output_tokens: Some(1024),
             timeout_ms: Some(30_000),
+            ..RemotePlannerSettings::default()
         },
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
@@ -239,6 +240,7 @@ fn resolve_direct_status_query_command_reports_back_history_availability() {
             temperature_milli: Some(200),
             max_output_tokens: Some(1024),
             timeout_ms: Some(30_000),
+            ..RemotePlannerSettings::default()
         },
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
@@ -398,6 +400,7 @@ fn resolve_direct_status_query_command_reports_listening_state() {
             temperature_milli: Some(200),
             max_output_tokens: Some(1024),
             timeout_ms: Some(30_000),
+            ..RemotePlannerSettings::default()
         },
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),

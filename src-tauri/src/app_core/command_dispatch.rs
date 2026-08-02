@@ -16,7 +16,7 @@ use crate::commands::{
     PlannerOutput, PlannerSafetySettings, PlannerToolHistoryEntry, SerializedToolResult, ToolError,
     ToolName,
 };
-use crate::config::RemotePlannerProfile;
+use crate::config::{RemotePlannerPrivacySettings, RemotePlannerProfile};
 
 /// Outcome of the deterministic resolution phase, which runs under the `AppCore`
 /// lock. A `Direct` match is already validated and needs no network. A `Remote`
@@ -30,6 +30,7 @@ pub(crate) enum PlannerResolution {
         planner_input: Box<PlannerInput>,
         profile_name: String,
         profile: RemotePlannerProfile,
+        privacy: RemotePlannerPrivacySettings,
         available_tools: Vec<AvailableTool>,
         active_skill_names: Vec<String>,
     },
@@ -342,6 +343,7 @@ impl super::AppCore {
         // No direct command matched: snapshot the remote planner profile under the
         // lock so the LLM round-trip can run with the guard released.
         let (profile_name, profile) = self.remote_planner_profile_snapshot()?;
+        let privacy = self.config.remote_planner_privacy.clone();
 
         let planner_input = PlannerInput {
             request_id: request_id.clone(),
@@ -362,6 +364,7 @@ impl super::AppCore {
             planner_input: Box::new(planner_input),
             profile_name,
             profile,
+            privacy,
             available_tools,
         })
     }

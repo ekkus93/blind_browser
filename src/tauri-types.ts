@@ -267,6 +267,12 @@ export interface RemotePlannerSettings {
   temperature_milli: number | null;
   max_output_tokens: number | null;
   timeout_ms: number | null;
+  endpoint_is_loopback: boolean | null;
+  consent_to_remote_page_data: boolean;
+  local_only: boolean;
+  blocked_origins: string[];
+  high_risk_origin_policy: string;
+  remote_data_notice: string;
 }
 
 export interface RemoteTtsSettings {
@@ -302,6 +308,14 @@ export interface RemoteAsrSettings {
 export interface SetRemoteApiKeyData {
   profile_name: string;
   api_key_reference: string;
+}
+
+export interface RemotePlannerPrivacySettingsData {
+  consent_to_remote_page_data: boolean;
+  local_only: boolean;
+  blocked_origins: string[];
+  high_risk_origin_policy: string;
+  changed: boolean;
 }
 
 export interface RemotePlannerConnectionSettingsData {

@@ -86,6 +86,33 @@ pub struct SafetySettings {
     pub always_confirm_submit: bool,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum HighRiskOriginPolicy {
+    #[default]
+    Block,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(default)]
+pub struct RemotePlannerPrivacySettings {
+    pub consent_to_remote_page_data: bool,
+    pub local_only: bool,
+    pub blocked_origins: Vec<String>,
+    pub high_risk_origin_policy: HighRiskOriginPolicy,
+}
+
+impl Default for RemotePlannerPrivacySettings {
+    fn default() -> Self {
+        Self {
+            consent_to_remote_page_data: false,
+            local_only: false,
+            blocked_origins: Vec::new(),
+            high_risk_origin_policy: HighRiskOriginPolicy::Block,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct ModelManagementSettings {
     pub models_dir: String,
@@ -221,6 +248,7 @@ pub struct AppConfig {
     pub local_asr_profiles: BTreeMap<String, LocalAsrProfile>,
     pub audio: AudioSettings,
     pub safety: SafetySettings,
+    pub remote_planner_privacy: RemotePlannerPrivacySettings,
     pub ocr: OcrSettings,
     pub models: ModelManagementSettings,
     pub speech_feedback: SpeechFeedbackSettings,
@@ -231,6 +259,8 @@ pub(super) struct RawAppConfig {
     pub(super) providers: ProviderSelections,
     pub(super) audio: AudioSettings,
     pub(super) safety: SafetySettings,
+    #[serde(default)]
+    pub(super) remote_planner_privacy: RemotePlannerPrivacySettings,
     pub(super) ocr: OcrSettings,
     pub(super) models: ModelManagementSettings,
     pub(super) speech_feedback: SpeechFeedbackSettings,

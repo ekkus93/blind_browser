@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use super::*;
 use crate::provider_endpoint::ProviderEndpointScope;
 
@@ -44,6 +46,53 @@ pub(in crate::config) fn validate_ocr_settings(ocr: &OcrSettings, issues: &mut V
     }
 }
 
+pub(in crate::config) fn normalize_remote_planner_blocked_origins(
+    origins: &[String],
+) -> Result<Vec<String>, ConfigError> {
+    if origins.len() > 128 {
+        return Err(ConfigError::Validation(String::from(
+            "remote_planner_privacy.blocked_origins must contain at most 128 origins",
+        )));
+    }
+
+    let mut normalized = BTreeSet::new();
+    for raw in origins {
+        let raw = raw.trim();
+        if raw.is_empty() {
+            continue;
+        }
+        let parsed = url::Url::parse(raw).map_err(|error| {
+            ConfigError::Validation(format!(
+                "remote_planner_privacy blocked origin must be an absolute URL origin: {error}"
+            ))
+        })?;
+        if !matches!(parsed.scheme(), "http" | "https")
+            || parsed.host_str().is_none()
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
+            || !matches!(parsed.path(), "" | "/")
+        {
+            return Err(ConfigError::Validation(format!(
+                "remote_planner_privacy blocked origin must contain only scheme, host, and optional port: {raw}"
+            )));
+        }
+        normalized.insert(parsed.origin().ascii_serialization());
+    }
+    Ok(normalized.into_iter().collect())
+}
+
+pub(in crate::config) fn normalize_remote_planner_privacy_settings(
+    settings: &mut RemotePlannerPrivacySettings,
+    issues: &mut Vec<String>,
+) {
+    match normalize_remote_planner_blocked_origins(&settings.blocked_origins) {
+        Ok(origins) => settings.blocked_origins = origins,
+        Err(error) => issues.push(error.to_string()),
+    }
+}
+
 pub(in crate::config) fn validate_model_settings(
     models: &ModelManagementSettings,
     issues: &mut Vec<String>,
@@ -57,4 +106,37 @@ pub(in crate::config) fn normalize_remote_endpoint(base_url: &str) -> Result<Str
     ProviderEndpointScope::parse(base_url)
         .map(|scope| scope.normalized_base_url().to_string())
         .map_err(ConfigError::Validation)
+}
+
+#[cfg(test)]
+mod privacy_tests {
+    use super::*;
+
+    #[test]
+    fn blocked_origins_are_normalized_deduplicated_and_sorted() {
+        let origins = vec![
+            String::from("https://EXAMPLE.com:443/"),
+            String::from("https://example.com"),
+            String::from("http://localhost:3000/"),
+        ];
+        assert_eq!(
+            normalize_remote_planner_blocked_origins(&origins).unwrap(),
+            vec![
+                String::from("http://localhost:3000"),
+                String::from("https://example.com"),
+            ]
+        );
+    }
+
+    #[test]
+    fn blocked_origins_reject_paths_credentials_queries_and_non_http_schemes() {
+        for origin in [
+            "https://example.com/private",
+            "https://user:pass@example.com",
+            "https://example.com?token=secret",
+            "file:///tmp/private",
+        ] {
+            assert!(normalize_remote_planner_blocked_origins(&[origin.to_string()]).is_err());
+        }
+    }
 }

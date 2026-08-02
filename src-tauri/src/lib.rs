@@ -8,6 +8,7 @@ pub mod audio_io;
 pub mod browser;
 pub mod commands;
 pub mod config;
+pub mod diagnostic_redaction;
 pub mod dom_inspector;
 pub mod extractor;
 pub mod logging;
@@ -83,6 +84,7 @@ pub fn run() {
             set_tts_voice,
             set_confirmation_threshold,
             set_allow_click_without_confirmation,
+            set_remote_planner_privacy_settings,
             set_ocr_thresholds,
             set_remote_planner_connection_settings,
             reset_remote_planner_connection_settings,

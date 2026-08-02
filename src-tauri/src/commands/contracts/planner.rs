@@ -17,7 +17,7 @@ impl From<&crate::config::SafetySettings> for PlannerSafetySettings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct PlannerInput {
     pub request_id: String,
     #[serde(default)]

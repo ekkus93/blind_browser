@@ -227,7 +227,10 @@ fn planner_input_round_trips_with_nested_runtime_context_and_matches_schema() {
 
     let round_tripped: PlannerInput =
         serde_json::from_value(serialized).expect("planner input should deserialize");
-    assert_eq!(round_tripped, planner_input);
+    assert!(
+        round_tripped == planner_input,
+        "planner input round trip changed"
+    );
 }
 
 #[test]
@@ -309,6 +312,7 @@ fn planner_input_serializes_safety_settings_for_click_policy() {
                 temperature_milli: Some(200),
                 max_output_tokens: Some(1024),
                 timeout_ms: Some(30_000),
+                ..RemotePlannerSettings::default()
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),

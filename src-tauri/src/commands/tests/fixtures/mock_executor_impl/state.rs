@@ -89,6 +89,7 @@ pub(super) fn execute_get_agent_state(
                 temperature_milli: Some(200),
                 max_output_tokens: Some(1024),
                 timeout_ms: Some(30_000),
+                ..RemotePlannerSettings::default()
             },
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),

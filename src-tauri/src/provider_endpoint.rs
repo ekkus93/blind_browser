@@ -96,6 +96,13 @@ impl ProviderEndpointScope {
         &self.scope_id
     }
 
+    pub fn is_loopback(&self) -> bool {
+        Url::parse(&self.origin)
+            .ok()
+            .and_then(|url| url.host_str().map(is_loopback_host))
+            .unwrap_or(false)
+    }
+
     pub fn endpoint_url(&self, relative_path: &str) -> Result<String, String> {
         let relative_path = relative_path.trim_matches('/');
         if relative_path.is_empty()

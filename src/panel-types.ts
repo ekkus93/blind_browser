@@ -105,6 +105,13 @@ export interface RemotePlannerPanelState {
   temperatureMilli: number | null;
   maxOutputTokens: number | null;
   timeoutMs: number | null;
+  endpointIsLoopback: boolean | null;
+  consentToRemotePageData: boolean;
+  localOnly: boolean;
+  blockedOriginsDraft: string;
+  highRiskOriginPolicy: string;
+  remoteDataNotice: string;
+  isSavingPrivacy: boolean;
   apiKeyDraft: string;
   isSavingApiKey: boolean;
   isTestingApiKey: boolean;

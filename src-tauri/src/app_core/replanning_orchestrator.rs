@@ -48,6 +48,7 @@ impl<'a> LockScopedReplanningRuntime<'a> {
                 planner_input,
                 profile_name,
                 profile,
+                privacy,
                 available_tools,
                 active_skill_names,
             } => {
@@ -60,7 +61,7 @@ impl<'a> LockScopedReplanningRuntime<'a> {
                 // command therefore causes a bounded replan rather than allowing a
                 // dependent side effect to execute against changed state.
                 let planner_output =
-                    resolve_remote_planner(&profile_name, &profile, &planner_input)?;
+                    resolve_remote_planner(&profile_name, &profile, &planner_input, &privacy)?;
                 validate_planner_output_with_safety(
                     &planner_output,
                     &available_tools,

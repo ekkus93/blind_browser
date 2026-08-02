@@ -47,12 +47,57 @@ pub enum ToolName {
     ReportResult,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Clone, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct ToolError {
     pub code: String,
     pub message: String,
     pub retryable: bool,
     pub details: Option<serde_json::Value>,
+}
+
+impl std::fmt::Debug for ToolError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ToolError")
+            .field("code", &self.code)
+            .field(
+                "message",
+                &crate::diagnostic_redaction::redact_diagnostic_text(&self.message),
+            )
+            .field("retryable", &self.retryable)
+            .field(
+                "details",
+                &self
+                    .details
+                    .as_ref()
+                    .map(crate::diagnostic_redaction::redact_json_value),
+            )
+            .finish()
+    }
+}
+
+impl Serialize for ToolError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("ToolError", 4)?;
+        state.serialize_field("code", &self.code)?;
+        state.serialize_field(
+            "message",
+            &crate::diagnostic_redaction::redact_diagnostic_text(&self.message),
+        )?;
+        state.serialize_field("retryable", &self.retryable)?;
+        state.serialize_field(
+            "details",
+            &self
+                .details
+                .as_ref()
+                .map(crate::diagnostic_redaction::redact_json_value),
+        )?;
+        state.end()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -239,4 +284,29 @@ pub struct LastToolCallSummary {
     pub tool_name: ToolName,
     pub ok: bool,
     pub observation_summary: Vec<String>,
+}
+
+#[cfg(test)]
+mod diagnostic_contract_tests {
+    use super::*;
+
+    #[test]
+    fn tool_error_debug_and_serialization_redact_secrets() {
+        let error = ToolError {
+            code: String::from("test"),
+            message: String::from("authorization: Bearer abcdefghijklmnop"),
+            retryable: false,
+            details: Some(serde_json::json!({
+                "api_key": "sk-private-secret-value",
+                "safe_count": 2,
+            })),
+        };
+        let debug = format!("{error:?}");
+        let json = serde_json::to_string(&error).unwrap();
+        for output in [debug, json] {
+            assert!(!output.contains("abcdefghijklmnop"));
+            assert!(!output.contains("private-secret"));
+            assert!(output.contains("REDACTED"));
+        }
+    }
 }

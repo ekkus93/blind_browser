@@ -16,6 +16,7 @@ import {
   setRemoteAsrApiKey,
   setRemotePlannerApiKey,
   setRemotePlannerConnectionSettings,
+  setRemotePlannerPrivacySettings,
   setRemoteTtsApiKey,
   testRemoteAsrApiKey,
   testRemotePlannerApiKey,
@@ -495,6 +496,42 @@ export async function testConfiguredRemoteAsrApiKey() {
     setRemoteAsrPanelState({
       isTestingApiKey: false,
       apiKeyTestMessage: null,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+export function parseBlockedOriginsDraft(value: string): string[] {
+  return [...new Set(
+    value
+      .split(/[\n,]/)
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0),
+  )].sort();
+}
+
+export async function persistRemotePlannerPrivacyPolicy() {
+  const state = getPanelStates().remotePlannerPanelState;
+  setRemotePlannerPanelState({ isSavingPrivacy: true, error: null });
+  try {
+    const result = await setRemotePlannerPrivacySettings({
+      requestId: createRequestId("remote-planner-privacy"),
+      consentToRemotePageData: state.consentToRemotePageData,
+      localOnly: state.localOnly,
+      blockedOrigins: parseBlockedOriginsDraft(state.blockedOriginsDraft),
+    });
+    setRemotePlannerPanelState({
+      consentToRemotePageData: result.consent_to_remote_page_data,
+      localOnly: result.local_only,
+      blockedOriginsDraft: result.blocked_origins.join("\n"),
+      highRiskOriginPolicy: result.high_risk_origin_policy,
+      isSavingPrivacy: false,
+      error: null,
+    });
+    await refreshRuntimePanels();
+  } catch (error: unknown) {
+    setRemotePlannerPanelState({
+      isSavingPrivacy: false,
       error: describeAudioControlFailure(error),
     });
   }

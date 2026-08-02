@@ -5,6 +5,10 @@ import type { RemotePlannerPanelState } from "../panel-types.ts";
 import { renderSettingsPanelSection } from "./shared-controls.tsx";
 
 export interface RemotePlannerPanelHandlers {
+  onConsentChange?: (checked: boolean) => void;
+  onLocalOnlyChange?: (checked: boolean) => void;
+  onBlockedOriginsInput?: (value: string) => void;
+  onSavePrivacy?: () => void;
   onApiKeyInput?: (value: string) => void;
   onSaveApiKey?: () => void;
   onTestApiKey?: () => void;
@@ -50,6 +54,64 @@ export function renderSettingsRemotePlannerPanelNode(
     onDismissError: handlers?.onDismissError,
     onRetry: handlers?.onRetry,
     children: [
+      <div className="settings-grid settings-grid-single" key="planner-privacy">
+        <div className="settings-control-card" data-remote-planner-privacy="true">
+          <p className="settings-panel-description settings-panel-warning" role="status" aria-live="polite">
+            {state.endpointIsLoopback === true
+              ? "Current endpoint is loopback-only. Planner context stays on this device."
+              : state.remoteDataNotice}
+          </p>
+          <label className="settings-toggle-row">
+            <input
+              type="checkbox"
+              data-remote-planner-consent="true"
+              checked={state.consentToRemotePageData}
+              disabled={state.isSavingPrivacy || undefined}
+              onChange={handlers?.onConsentChange
+                ? (event) => { handlers.onConsentChange?.(event.currentTarget.checked); }
+                : undefined}
+            />
+            <span>Allow locally selected and sanitized page, OCR, tool, and skill context to be sent to non-loopback planner endpoints.</span>
+          </label>
+          <label className="settings-toggle-row">
+            <input
+              type="checkbox"
+              data-remote-planner-local-only="true"
+              checked={state.localOnly}
+              disabled={state.isSavingPrivacy || undefined}
+              onChange={handlers?.onLocalOnlyChange
+                ? (event) => { handlers.onLocalOnlyChange?.(event.currentTarget.checked); }
+                : undefined}
+            />
+            <span>Local-only planner mode: block every non-loopback planner endpoint.</span>
+          </label>
+          <label className="settings-field-group" htmlFor="settings-remote-planner-blocked-origins">
+            <span className="settings-control-label">Page origins that must stay local</span>
+            <textarea
+              id="settings-remote-planner-blocked-origins"
+              className="settings-control-select"
+              data-remote-planner-blocked-origins="true"
+              rows={4}
+              value={state.blockedOriginsDraft}
+              placeholder="https://bank.example\nhttps://health.example"
+              disabled={state.isSavingPrivacy || undefined}
+              onChange={handlers?.onBlockedOriginsInput
+                ? (event) => { handlers.onBlockedOriginsInput?.(event.currentTarget.value); }
+                : undefined}
+            />
+          </label>
+          <p className="settings-panel-description">High-risk authentication, payment, identity, health, wallet, and administrative contexts are always blocked from network planning.</p>
+          <button
+            type="button"
+            className="settings-control-button"
+            data-remote-planner-privacy-save="true"
+            disabled={state.isSavingPrivacy || undefined}
+            onClick={handlers?.onSavePrivacy}
+          >
+            {state.isSavingPrivacy ? "Saving privacy policy..." : "Save privacy policy"}
+          </button>
+        </div>
+      </div>,
       <div className="settings-grid settings-grid-single" key="planner-api">
         {renderSecretEntryCard(
           "planner",

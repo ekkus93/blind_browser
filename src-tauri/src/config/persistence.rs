@@ -7,11 +7,12 @@ use tauri::AppHandle;
 use super::keyring_store::{keyring_ref_for_remote_api_key, set_keyring_secret};
 use super::loading::{load_document_table_from_path, load_document_table_from_str};
 use super::validation::{
-    normalize_remote_endpoint, validate_audio_settings, validate_model_settings,
+    normalize_remote_endpoint, normalize_remote_planner_blocked_origins, validate_audio_settings,
+    validate_model_settings,
 };
 use super::{
     AppConfig, AudioSettings, ConfigError, ModelManagementSettings, ProviderSelection,
-    SafetySettings, SecretRef,
+    RemotePlannerPrivacySettings, SafetySettings, SecretRef,
 };
 use crate::ocr::OcrSettings;
 use crate::provider_endpoint::ProviderEndpointScope;
@@ -106,6 +107,14 @@ impl AppConfig {
     ) -> Result<Self, ConfigError> {
         let config_path = Self::config_path_for_app(app_handle)?;
         Self::persist_model_management_settings_at_path(&config_path, models)
+    }
+
+    pub fn persist_remote_planner_privacy_settings_for_app(
+        app_handle: &AppHandle,
+        settings: &RemotePlannerPrivacySettings,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::persist_remote_planner_privacy_settings_at_path(&config_path, settings)
     }
 
     pub fn persist_remote_planner_api_key_for_app(
@@ -272,6 +281,29 @@ impl AppConfig {
         let serialized = toml::to_string_pretty(&document)?;
         write_config_atomic(path, &serialized)?;
 
+        Self::load_from_path(path)
+    }
+
+    pub fn persist_remote_planner_privacy_settings_at_path(
+        path: impl AsRef<Path>,
+        settings: &RemotePlannerPrivacySettings,
+    ) -> Result<Self, ConfigError> {
+        let path = path.as_ref();
+        let mut normalized = settings.clone();
+        normalized.blocked_origins =
+            normalize_remote_planner_blocked_origins(&settings.blocked_origins)?;
+
+        let mut document = if path.exists() {
+            load_document_table_from_path(path)?
+        } else {
+            load_document_table_from_str(Self::default_template())?
+        };
+        document.insert(
+            String::from("remote_planner_privacy"),
+            toml::Value::try_from(normalized)?,
+        );
+        let serialized = toml::to_string_pretty(&document)?;
+        write_config_atomic(path, &serialized)?;
         Self::load_from_path(path)
     }
 

@@ -124,7 +124,7 @@ pub struct LocalAsrModelSettings {
     pub threads: Option<u16>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct RemotePlannerSettings {
     pub profile_name: Option<String>,
     pub provider: Option<RemoteProviderLabel>,
@@ -138,6 +138,12 @@ pub struct RemotePlannerSettings {
     pub temperature_milli: Option<u16>,
     pub max_output_tokens: Option<u32>,
     pub timeout_ms: Option<u64>,
+    pub endpoint_is_loopback: Option<bool>,
+    pub consent_to_remote_page_data: bool,
+    pub local_only: bool,
+    pub blocked_origins: Vec<String>,
+    pub high_risk_origin_policy: String,
+    pub remote_data_notice: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

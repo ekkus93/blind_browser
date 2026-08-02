@@ -17,6 +17,15 @@ pub struct SetAllowClickWithoutConfirmationData {
 }
 
 #[derive(serde::Serialize)]
+pub struct SetRemotePlannerPrivacyData {
+    consent_to_remote_page_data: bool,
+    local_only: bool,
+    blocked_origins: Vec<String>,
+    high_risk_origin_policy: String,
+    changed: bool,
+}
+
+#[derive(serde::Serialize)]
 pub struct SetOcrThresholdsData {
     sparse_text_char_threshold: u32,
     sparse_text_region_threshold: u32,
@@ -78,6 +87,41 @@ pub fn set_allow_click_without_confirmation(
     Ok(SetAllowClickWithoutConfirmationData {
         allow_click_without_confirmation,
         changed,
+    })
+}
+
+#[tauri::command]
+pub fn set_remote_planner_privacy_settings(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    consent_to_remote_page_data: bool,
+    local_only: bool,
+    blocked_origins: Vec<String>,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
+) -> Result<SetRemotePlannerPrivacyData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let previous = app_core.config.remote_planner_privacy.clone();
+    app_core
+        .set_remote_planner_privacy_settings(
+            consent_to_remote_page_data,
+            local_only,
+            blocked_origins,
+        )
+        .map_err(|error| ToolError {
+            code: String::from("remote_planner_privacy_persist_failed"),
+            message: format!("Failed to persist the remote planner privacy policy: {error}"),
+            retryable: false,
+            details: None,
+        })?;
+    let current = app_core.config.remote_planner_privacy.clone();
+    Ok(SetRemotePlannerPrivacyData {
+        consent_to_remote_page_data: current.consent_to_remote_page_data,
+        local_only: current.local_only,
+        blocked_origins: current.blocked_origins.clone(),
+        high_risk_origin_policy: String::from("block"),
+        changed: current != previous,
     })
 }
 

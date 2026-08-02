@@ -84,6 +84,13 @@ export function applyAgentStateToPanels(
     temperatureMilli: agentState.remote_planner_settings.temperature_milli,
     maxOutputTokens: agentState.remote_planner_settings.max_output_tokens,
     timeoutMs: agentState.remote_planner_settings.timeout_ms,
+    endpointIsLoopback: agentState.remote_planner_settings.endpoint_is_loopback,
+    consentToRemotePageData: agentState.remote_planner_settings.consent_to_remote_page_data,
+    localOnly: agentState.remote_planner_settings.local_only,
+    blockedOriginsDraft: agentState.remote_planner_settings.blocked_origins.join("\n"),
+    highRiskOriginPolicy: agentState.remote_planner_settings.high_risk_origin_policy,
+    remoteDataNotice: agentState.remote_planner_settings.remote_data_notice,
+    isSavingPrivacy: false,
   });
   dependencies.setProviderFailoverPanelState({
     plannerAvailable: agentState.provider_failover_settings.planner_available,

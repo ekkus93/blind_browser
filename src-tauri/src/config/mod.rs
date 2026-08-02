@@ -27,8 +27,8 @@ pub use keyring_store::{
 use loading::{load_planner_profiles, load_provider_profiles};
 pub use types::*;
 use validation::{
-    validate_audio_settings, validate_model_settings, validate_ocr_settings,
-    validate_safety_settings,
+    normalize_remote_planner_privacy_settings, validate_audio_settings, validate_model_settings,
+    validate_ocr_settings, validate_safety_settings,
 };
 
 impl AppConfig {
@@ -79,6 +79,8 @@ impl AppConfig {
 
         validate_audio_settings(&raw.audio, &mut issues);
         validate_safety_settings(&raw.safety, &mut issues);
+        let mut remote_planner_privacy = raw.remote_planner_privacy;
+        normalize_remote_planner_privacy_settings(&mut remote_planner_privacy, &mut issues);
         validate_ocr_settings(&raw.ocr, &mut issues);
         validate_model_settings(&raw.models, &mut issues);
 
@@ -126,6 +128,7 @@ impl AppConfig {
             local_asr_profiles,
             audio: raw.audio,
             safety: raw.safety,
+            remote_planner_privacy,
             ocr: raw.ocr,
             models: raw.models,
             speech_feedback: raw.speech_feedback,
@@ -262,6 +265,7 @@ impl Default for AppConfig {
                 allow_click_without_confirmation: false,
                 always_confirm_submit: true,
             },
+            remote_planner_privacy: RemotePlannerPrivacySettings::default(),
             ocr: OcrSettings::default(),
             models: ModelManagementSettings {
                 models_dir: String::from("~/.config/blind_browser/models"),

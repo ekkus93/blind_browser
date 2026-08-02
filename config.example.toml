@@ -25,6 +25,14 @@ confirmation_confidence_threshold = 0.90
 allow_click_without_confirmation = false
 always_confirm_submit = true
 
+[remote_planner_privacy]
+# Network remote planning is opt-in. Loopback services such as local Ollama do
+# not leave the machine and remain available without network-data consent.
+consent_to_remote_page_data = false
+local_only = false
+blocked_origins = []
+high_risk_origin_policy = "block"
+
 [ocr]
 trigger_on_no_extractable_text = true
 sparse_text_char_threshold = 200

@@ -11,7 +11,7 @@ use super::AppCore;
 use crate::commands::{planner_output_schema, PlannerInput, PlannerOutput, ToolError};
 #[cfg(feature = "remote-openai")]
 use crate::config::resolve_secret_ref_for_endpoint;
-use crate::config::{RemotePlannerProfile, RemoteProviderKind};
+use crate::config::{RemotePlannerPrivacySettings, RemotePlannerProfile, RemoteProviderKind};
 #[cfg(feature = "remote-openai")]
 use crate::provider_endpoint::ProviderEndpointScope;
 
@@ -51,13 +51,14 @@ pub(crate) fn resolve_remote_planner(
     profile_name: &str,
     profile: &RemotePlannerProfile,
     planner_input: &PlannerInput,
+    privacy: &RemotePlannerPrivacySettings,
 ) -> Result<PlannerOutput, ToolError> {
     match profile.provider {
         RemoteProviderKind::OpenAi => {
-            resolve_with_openai_planner(profile_name, profile, planner_input)
+            resolve_with_openai_planner(profile_name, profile, planner_input, privacy)
         }
         RemoteProviderKind::Ollama => {
-            resolve_with_ollama_planner(profile_name, profile, planner_input)
+            resolve_with_ollama_planner(profile_name, profile, planner_input, privacy)
         }
     }
 }
@@ -67,6 +68,7 @@ fn resolve_with_openai_planner(
     profile_name: &str,
     profile: &RemotePlannerProfile,
     planner_input: &PlannerInput,
+    privacy: &RemotePlannerPrivacySettings,
 ) -> Result<PlannerOutput, ToolError> {
     use async_openai::types::chat::{
         ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
@@ -123,7 +125,8 @@ fn resolve_with_openai_planner(
     }
 
     let client = Client::with_config(openai_config).with_http_client(http_client);
-    let planner_safe_input = sanitize_remote_planner_input(planner_input)?;
+    let planner_safe_input =
+        sanitize_remote_planner_input(planner_input, privacy, &endpoint_scope)?;
     let user_content = serialize_remote_planner_prompt(&planner_safe_input)?;
     let request = CreateChatCompletionRequestArgs::default()
         .model(profile.model.clone())
@@ -220,6 +223,7 @@ fn resolve_with_openai_planner(
     _profile_name: &str,
     _profile: &RemotePlannerProfile,
     _planner_input: &PlannerInput,
+    _privacy: &RemotePlannerPrivacySettings,
 ) -> Result<PlannerOutput, ToolError> {
     Err(planner_interpretation_unavailable_error(
         "planner_backend_unavailable",
@@ -234,6 +238,7 @@ fn resolve_with_ollama_planner(
     profile_name: &str,
     profile: &RemotePlannerProfile,
     planner_input: &PlannerInput,
+    privacy: &RemotePlannerPrivacySettings,
 ) -> Result<PlannerOutput, ToolError> {
     use async_openai::types::chat::ResponseFormat;
     use async_openai::types::chat::{
@@ -275,7 +280,8 @@ fn resolve_with_ollama_planner(
             .with_api_key(api_key),
     )
     .with_http_client(http_client);
-    let planner_safe_input = sanitize_remote_planner_input(planner_input)?;
+    let planner_safe_input =
+        sanitize_remote_planner_input(planner_input, privacy, &endpoint_scope)?;
     let user_content = serialize_remote_planner_prompt(&planner_safe_input)?;
     let request = CreateChatCompletionRequestArgs::default()
         .model(profile.model.clone())
@@ -363,6 +369,7 @@ fn resolve_with_ollama_planner(
     _profile_name: &str,
     _profile: &RemotePlannerProfile,
     _planner_input: &PlannerInput,
+    _privacy: &RemotePlannerPrivacySettings,
 ) -> Result<PlannerOutput, ToolError> {
     Err(planner_interpretation_unavailable_error(
         "planner_backend_unavailable",

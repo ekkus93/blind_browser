@@ -1,9 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ToolError, ToolResult } from "../tauri-types.ts";
+import { redactDiagnosticText, sanitizeToolError } from "../privacy-redaction.ts";
 
 export class FrontendToolError extends Error {
-  constructor(public readonly toolError: ToolError) {
-    super(toolError.message);
+  public readonly toolError: ToolError;
+
+  constructor(toolError: ToolError) {
+    const safeError = sanitizeToolError(toolError);
+    super(safeError.message);
+    this.toolError = safeError;
     this.name = "FrontendToolError";
   }
 }
@@ -48,14 +53,14 @@ export function classifyInvokeFailure(error: unknown): InvokeFailure {
   if (error instanceof Error && error.message.trim().length > 0) {
     return {
       kind: "transport-error",
-      message: error.message,
+      message: redactDiagnosticText(error.message),
     };
   }
 
   if (typeof error === "string" && error.trim().length > 0) {
     return {
       kind: "transport-error",
-      message: error,
+      message: redactDiagnosticText(error),
     };
   }
 
@@ -79,12 +84,12 @@ export function parseToolError(error: unknown): ToolError | null {
     return null;
   }
 
-  return {
+  return sanitizeToolError({
     code,
     message,
     retryable,
     details: details ?? null,
-  };
+  });
 }
 
 export function unwrapToolResult<T>(result: ToolResult<T>): T {

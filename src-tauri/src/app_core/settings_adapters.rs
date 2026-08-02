@@ -11,8 +11,10 @@ use crate::commands::{
     TtsVoiceOption, TtsVoiceSettings,
 };
 use crate::config::{
-    secret_ref_reference, AppConfig, LocalAsrProfile, LocalTtsProfile, RemoteProviderKind,
+    secret_ref_reference, AppConfig, HighRiskOriginPolicy, LocalAsrProfile, LocalTtsProfile,
+    RemoteProviderKind,
 };
+use crate::provider_endpoint::ProviderEndpointScope;
 use crate::tts::{KITTEN_TTS_VOICES, OPENAI_TTS_VOICES};
 
 fn remote_provider_label(provider: &RemoteProviderKind) -> RemoteProviderLabel {
@@ -159,6 +161,18 @@ pub(crate) fn build_remote_planner_settings(config: &AppConfig) -> RemotePlanner
         temperature_milli: profile.map(|configured_profile| configured_profile.temperature_milli),
         max_output_tokens: profile.map(|configured_profile| configured_profile.max_output_tokens),
         timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
+        endpoint_is_loopback: profile
+            .and_then(|configured_profile| ProviderEndpointScope::parse(&configured_profile.base_url).ok())
+            .map(|scope| scope.is_loopback()),
+        consent_to_remote_page_data: config.remote_planner_privacy.consent_to_remote_page_data,
+        local_only: config.remote_planner_privacy.local_only,
+        blocked_origins: config.remote_planner_privacy.blocked_origins.clone(),
+        high_risk_origin_policy: match config.remote_planner_privacy.high_risk_origin_policy {
+            HighRiskOriginPolicy::Block => String::from("block"),
+        },
+        remote_data_notice: String::from(
+            "Network planner endpoints receive only locally selected, sanitized page, OCR, tool, and skill context after explicit consent. Loopback endpoints stay on this device. High-risk pages and blocked origins never leave the device.",
+        ),
     }
 }
 
