@@ -123,8 +123,9 @@ Still open within BBCR-002 or its grounding dependencies:
 **Prior owner-authored evidence head:** `27dda7c43f2015cc33c051120dd1e721cc49c0b0`<br>
 **Prior permanent PR CI:** run `30723051745`, job `91429862875` — success<br>
 **Final TODO-closure evidence:** recorded in PR #4 and issue #5 without mutating the exact validated SHA<br>
-**Draft PR:** `#4`<br>
-**Result:** implementation and TODO closure complete; final exact-head CI and the human merge decision are the remaining PR gates
+**Merged PR:** `#4`<br>
+**Master squash commit:** `30a3d0b2cb7d24cddba35304fff3051062815e81`<br>
+**Result:** implementation, TODO closure, exact-head validation, merge, and stale-branch cleanup complete
 
 Implemented:
 
@@ -153,8 +154,8 @@ Ralph-loop diagnostics and corrections:
 
 Boundary after BBCR-004:
 
-- The final TODO-closure head must pass the permanent repository CI workflow; its run and job are recorded in PR #4 and issue #5.
-- PR #4 remains draft and unmerged for the human merge decision.
+- PR #4 was squash-merged to `master` as `30a3d0b2cb7d24cddba35304fff3051062815e81`.
+- All non-master working branches were deleted after merge.
 - Credential-origin binding does not replace the still-open remote-data consent and high-risk-origin controls in BBCR-003.
 
 ## Validation gate
@@ -178,7 +179,7 @@ git diff --check
 - **BBCR-001:** Partially implemented; core actual-tool policy and executor guard complete, deterministic click authorization still open.
 - **BBCR-002:** Core immutable confirmation-manifest implementation merged and fully validated; DOM-generation and element revalidation dependencies remain open.
 - **BBCR-003:** Partially implemented; strong extraction and serialization redaction exists, but distinct remote-only types and consent policy remain open.
-- **BBCR-004:** Implementation and TODO closure complete on draft PR #4; final exact-head CI is recorded externally, and the human merge decision remains open.
+- **BBCR-004:** Complete, validated, merged to `master`, and branch cleanup complete.
 - **BBCR-005:** Open.
 - **BBCR-006:** Partially implemented; explicit hostile-content boundaries exist, but full corpus and telemetry work remain open.
 - **BBCR-007 through BBCR-023:** Open except for pre-existing repository behavior documented separately.

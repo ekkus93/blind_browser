@@ -8,6 +8,17 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
     executor: &mut E,
     step: &PlannedStep,
 ) -> SerializedToolResult {
+    if let Err(error) = executor.preflight_planned_step(step) {
+        return ToolResult::failure(
+            step.tool_name.clone(),
+            inferred_request_id(step),
+            error,
+            vec![String::from(
+                "Runtime preflight rejected the planned step before dispatch.",
+            )],
+        );
+    }
+
     match step.tool_name {
         ToolName::OpenUrl => {
             execute_serialized_tool(step, ToolName::OpenUrl, executor, |executor, input| {

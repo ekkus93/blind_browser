@@ -11,7 +11,7 @@ use super::tool_dispatch::is_side_effecting_tool;
 use super::StepExecutionContext;
 use std::collections::HashSet;
 
-fn executor_minimum_safety() -> PlannerSafetySettings {
+pub(super) fn executor_minimum_safety() -> PlannerSafetySettings {
     PlannerSafetySettings {
         confirmation_confidence_threshold: 1.0,
         allow_click_without_confirmation: false,
@@ -19,8 +19,11 @@ fn executor_minimum_safety() -> PlannerSafetySettings {
     }
 }
 
-fn initial_execution_policy_error(planner_output: &PlannerOutput) -> Option<ToolError> {
-    let decision = evaluate_action_policy(&planner_output.steps, &executor_minimum_safety());
+fn initial_execution_policy_error(
+    planner_output: &PlannerOutput,
+    safety: &PlannerSafetySettings,
+) -> Option<ToolError> {
+    let decision = evaluate_action_policy(&planner_output.steps, safety);
     match decision.requirement {
         ConfirmationRequirement::Prohibited => Some(ToolError {
             code: String::from("prohibited_action_at_execution"),
@@ -70,13 +73,21 @@ where
     Runner: FnMut(&PlannedStep) -> SerializedToolResult,
 {
     let context = ConfirmationRuntimeContext::detached();
-    execute_planner_output_with_runner_and_context(request_id, planner_output, &context, run_step)
+    let safety = executor_minimum_safety();
+    execute_planner_output_with_runner_and_context(
+        request_id,
+        planner_output,
+        &context,
+        &safety,
+        run_step,
+    )
 }
 
 pub(crate) fn execute_planner_output_with_runner_and_context<Runner>(
     request_id: String,
     planner_output: &PlannerOutput,
     confirmation_context: &ConfirmationRuntimeContext,
+    safety: &PlannerSafetySettings,
     mut run_step: Runner,
 ) -> ExecutionOutcome
 where
@@ -87,7 +98,7 @@ where
         tool_results: Vec::new(),
     };
 
-    if let Some(error) = initial_execution_policy_error(planner_output) {
+    if let Some(error) = initial_execution_policy_error(planner_output, safety) {
         return ExecutionOutcome::Aborted { trace, error };
     }
 

@@ -6,14 +6,14 @@ use super::form_fill::{
     resolve_direct_submit_form_command,
 };
 use crate::commands::{
-    build_planner_skill_selection, execute_planner_output, planner_available_tools,
-    resolve_direct_audio_command, resolve_direct_browser_visibility_command,
-    resolve_direct_navigation_readback_command, resolve_direct_open_url_command,
-    resolve_direct_read_page_command, resolve_direct_read_title_command,
-    resolve_direct_repeat_command, resolve_direct_status_query_command,
-    resolve_direct_voice_input_command, validate_planner_output_with_safety, AvailableTool,
-    ExecutionOutcome, PlannerInput, PlannerOutput, PlannerSafetySettings, PlannerToolHistoryEntry,
-    ToolError,
+    build_planner_skill_selection, execute_planner_output_with_runtime_safety,
+    planner_available_tools, resolve_direct_audio_command,
+    resolve_direct_browser_visibility_command, resolve_direct_navigation_readback_command,
+    resolve_direct_open_url_command, resolve_direct_read_page_command,
+    resolve_direct_read_title_command, resolve_direct_repeat_command,
+    resolve_direct_status_query_command, resolve_direct_voice_input_command,
+    validate_planner_output_with_safety, AvailableTool, ExecutionOutcome, PlannerInput,
+    PlannerOutput, PlannerSafetySettings, PlannerToolHistoryEntry, ToolError,
 };
 use crate::config::RemotePlannerProfile;
 
@@ -40,7 +40,22 @@ impl super::AppCore {
         request_id: String,
         planner_output: &PlannerOutput,
     ) -> ExecutionOutcome {
-        let outcome = execute_planner_output(self, request_id, planner_output);
+        if let Err(error) = self.validate_and_consume_planning_snapshot(planner_output) {
+            let outcome = planner_execution_abort(error);
+            self.state.apply_execution_outcome(&outcome);
+            return outcome;
+        }
+        let prepared = match self.prepare_planner_output_for_execution(planner_output) {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                let outcome = planner_execution_abort(error);
+                self.state.apply_execution_outcome(&outcome);
+                return outcome;
+            }
+        };
+        let safety = PlannerSafetySettings::from(&self.config.safety);
+        let outcome =
+            execute_planner_output_with_runtime_safety(self, request_id, &prepared, &safety);
         self.state.apply_execution_outcome(&outcome);
         outcome
     }
@@ -336,5 +351,15 @@ impl super::AppCore {
             profile,
             available_tools,
         })
+    }
+}
+
+fn planner_execution_abort(error: ToolError) -> ExecutionOutcome {
+    ExecutionOutcome::Aborted {
+        trace: crate::commands::ExecutionTrace {
+            executed_step_ids: Vec::new(),
+            tool_results: Vec::new(),
+        },
+        error,
     }
 }

@@ -33,10 +33,28 @@ pub fn execute_planner_output_with_context<E: DeterministicToolExecutor>(
     planner_output: &PlannerOutput,
     context: &ConfirmationRuntimeContext,
 ) -> ExecutionOutcome {
+    let safety = execution::executor_minimum_safety();
     execution::execute_planner_output_with_runner_and_context(
         request_id,
         planner_output,
         context,
+        &safety,
+        |step| tool_dispatch::execute_planned_step(executor, step),
+    )
+}
+
+pub fn execute_planner_output_with_runtime_safety<E: DeterministicToolExecutor>(
+    executor: &mut E,
+    request_id: String,
+    planner_output: &PlannerOutput,
+    safety: &PlannerSafetySettings,
+) -> ExecutionOutcome {
+    let context = executor.confirmation_runtime_context();
+    execution::execute_planner_output_with_runner_and_context(
+        request_id,
+        planner_output,
+        &context,
+        safety,
         |step| tool_dispatch::execute_planned_step(executor, step),
     )
 }

@@ -177,7 +177,8 @@ impl super::super::AppCore {
                 }
             };
 
-            self.state.current_page = Some(extracted_page_model.clone());
+            self.state
+                .replace_current_page_model(extracted_page_model.clone());
             extracted_page_model
         } else {
             let Some(current_page) = self.state.current_page.as_ref() else {

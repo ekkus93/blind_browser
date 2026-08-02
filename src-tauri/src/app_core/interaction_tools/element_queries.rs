@@ -148,6 +148,41 @@ impl super::super::AppCore {
                 self.config.safety.confirmation_confidence_threshold,
             );
 
+        let click_authorization_token = if let Some(element_id) = chosen_element_id.as_deref() {
+            let confidence_bps = ranked_candidates
+                .first()
+                .map(|candidate| candidate.confidence_bps)
+                .ok_or_else(|| ToolError {
+                    code: String::from("missing_click_confidence"),
+                    message: String::from(
+                        "deterministic element resolution did not retain its confidence score",
+                    ),
+                    retryable: false,
+                    details: None,
+                });
+            match confidence_bps.and_then(|confidence_bps| {
+                self.issue_find_element_click_authorization(
+                    &input.request_id,
+                    element_id,
+                    confidence_bps,
+                )
+            }) {
+                Ok(token) => Some(token),
+                Err(error) => {
+                    return ToolResult::failure(
+                        ToolName::FindElement,
+                        input.request_id,
+                        error,
+                        vec![String::from(
+                            "Element resolution succeeded, but runtime click authorization could not be issued.",
+                        )],
+                    )
+                }
+            }
+        } else {
+            None
+        };
+
         let mut observations = vec![format!(
             "Searched {} interactive element(s) from the current runtime page state.",
             elements.len()
@@ -178,6 +213,9 @@ impl super::super::AppCore {
             observations.push(String::from(
                 "A single strongest candidate was identified from the filtered interactive elements.",
             ));
+        }
+        if let Some(token) = click_authorization_token.as_deref() {
+            observations.push(format!("Opaque click authorization issued: {token}"));
         }
 
         ToolResult::success(

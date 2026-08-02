@@ -354,6 +354,8 @@ impl super::super::AppCore {
             }
         };
 
+        self.state.mark_page_model_changed();
+
         let mut observations = vec![String::from(
             "Merged OCR text into the active runtime page model.",
         )];

@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use url::Url;
 
-use super::{PendingPlanExecutionState, PlannedStep, ToolError, ToolName};
+use super::{
+    PendingPlanExecutionState, PlannedStep, ToolError, ToolName, RUNTIME_FORM_DESTINATION_ARG,
+    RUNTIME_FORM_FIELDS_ARG, RUNTIME_FORM_LABEL_ARG, RUNTIME_TARGET_LABEL_ARG,
+};
 
 pub const DEFAULT_CONFIRMATION_TTL_MS: u64 = 120_000;
 
@@ -255,15 +258,33 @@ fn deterministic_prompt(manifest: &ConfirmationManifest) -> String {
 
 fn safe_action_summary(step: &PlannedStep) -> String {
     match &step.tool_name {
-        ToolName::SubmitActiveForm => String::from("Submit the active form."),
-        ToolName::ClickElement => string_argument(step, "element_id")
+        ToolName::SubmitActiveForm => {
+            let form = string_argument(step, RUNTIME_FORM_LABEL_ARG)
+                .map(safe_label)
+                .unwrap_or_else(|| String::from("the active form"));
+            let destination = string_argument(step, RUNTIME_FORM_DESTINATION_ARG)
+                .map(|origin| format!(" to {origin}"))
+                .unwrap_or_default();
+            let fields = string_array_argument(step, RUNTIME_FORM_FIELDS_ARG);
+            if fields.is_empty() {
+                format!("Submit {form}{destination}.")
+            } else {
+                format!(
+                    "Submit {form}{destination} with fields: {}.",
+                    fields.join(", ")
+                )
+            }
+        }
+        ToolName::ClickElement => string_argument(step, RUNTIME_TARGET_LABEL_ARG)
+            .or_else(|| string_argument(step, "element_id"))
             .map(|value| format!("Click element '{}'.", safe_label(value)))
             .unwrap_or_else(|| String::from("Click the selected page element.")),
         ToolName::FocusElement => string_argument(step, "element_id")
             .map(|value| format!("Focus element '{}'.", safe_label(value)))
             .unwrap_or_else(|| String::from("Focus the selected page element.")),
         ToolName::TypeIntoElement => {
-            let target = string_argument(step, "element_id")
+            let target = string_argument(step, RUNTIME_TARGET_LABEL_ARG)
+                .or_else(|| string_argument(step, "element_id"))
                 .map(safe_label)
                 .unwrap_or_else(|| String::from("selected field"));
             let length = string_argument(step, "text")
@@ -291,6 +312,18 @@ fn string_argument<'a>(step: &'a PlannedStep, name: &str) -> Option<&'a str> {
         .and_then(serde_json::Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
+}
+
+fn string_array_argument(step: &PlannedStep, name: &str) -> Vec<String> {
+    step.arguments
+        .get(name)
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_str)
+        .map(safe_label)
+        .filter(|value| !value.is_empty())
+        .collect()
 }
 
 fn safe_label(value: &str) -> String {

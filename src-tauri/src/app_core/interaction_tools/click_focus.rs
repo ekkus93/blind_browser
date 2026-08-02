@@ -86,6 +86,9 @@ impl super::super::AppCore {
             current_page.url = Some(browser_click.url.clone());
             current_page.title = browser_click.title.clone();
         }
+        if !browser_click.page_changed {
+            self.state.mark_page_model_changed();
+        }
         self.state.browser_history = browser_click.history.clone();
 
         let mut observations = vec![format!(

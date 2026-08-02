@@ -34,13 +34,16 @@ impl<'a> LockScopedReplanningRuntime<'a> {
         recent_tool_results: Vec<PlannerToolHistoryEntry>,
     ) -> Result<PlannerOutput, ToolError> {
         // Phase 1 (locked): deterministic resolution + remote profile snapshot.
-        let resolution = {
+        let (resolution, planning_snapshot) = {
             let mut guard = lock_app_core(self.core)?;
-            guard.build_planner_resolution(request_id, transcript, recent_tool_results)?
+            let planning_snapshot = guard.capture_planning_state_snapshot();
+            let resolution =
+                guard.build_planner_resolution(request_id, transcript, recent_tool_results)?;
+            (resolution, planning_snapshot)
         };
 
-        match resolution {
-            PlannerResolution::Direct(planner_output) => Ok(planner_output),
+        let planner_output = match resolution {
+            PlannerResolution::Direct(planner_output) => planner_output,
             PlannerResolution::Remote {
                 planner_input,
                 profile_name,
@@ -65,9 +68,15 @@ impl<'a> LockScopedReplanningRuntime<'a> {
                     &active_skill_names,
                     &planner_input.safety,
                 )?;
-                Ok(planner_output)
+                planner_output
             }
+        };
+
+        {
+            let mut guard = lock_app_core(self.core)?;
+            guard.register_planning_snapshot(&planner_output, planning_snapshot)?;
         }
+        Ok(planner_output)
     }
 }
 

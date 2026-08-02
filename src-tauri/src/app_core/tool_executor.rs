@@ -6,21 +6,26 @@ use crate::commands::{
     GetAgentStateInput, GetHtmlData, GetHtmlInput, GetPageSnapshotInput, GetRuntimeStatusData,
     GetRuntimeStatusInput, GoBackData, GoBackInput, GoForwardData, GoForwardInput,
     ListInteractiveElementsData, ListInteractiveElementsInput, MergeOcrIntoPageModelData,
-    MergeOcrIntoPageModelInput, OpenUrlData, OpenUrlInput, PageSnapshotData, ReadNextRegionData,
-    ReadNextRegionInput, ReadPreviousRegionData, ReadPreviousRegionInput, ReadRegionData,
-    ReadRegionInput, ReloadPageData, ReloadPageInput, ReportResultData, ReportResultInput,
-    RunOcrData, RunOcrInput, ScrollPageData, ScrollPageInput, SetBrowserVisibilityData,
-    SetBrowserVisibilityInput, SetPlaybackSpeedData, SetPlaybackSpeedInput, SetPlaybackVolumeData,
-    SetPlaybackVolumeInput, SetTtsVoiceData, SetTtsVoiceInput, StartListeningData,
-    StartListeningInput, StopListeningData, StopListeningInput, StopSpeakingData,
-    StopSpeakingInput, SubmitActiveFormData, SubmitActiveFormInput, ToolResult,
-    TranscribeCommandData, TranscribeCommandInput, TypeIntoElementData, TypeIntoElementInput,
+    MergeOcrIntoPageModelInput, OpenUrlData, OpenUrlInput, PageSnapshotData, PlannedStep,
+    ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData, ReadPreviousRegionInput,
+    ReadRegionData, ReadRegionInput, ReloadPageData, ReloadPageInput, ReportResultData,
+    ReportResultInput, RunOcrData, RunOcrInput, ScrollPageData, ScrollPageInput,
+    SetBrowserVisibilityData, SetBrowserVisibilityInput, SetPlaybackSpeedData,
+    SetPlaybackSpeedInput, SetPlaybackVolumeData, SetPlaybackVolumeInput, SetTtsVoiceData,
+    SetTtsVoiceInput, StartListeningData, StartListeningInput, StopListeningData,
+    StopListeningInput, StopSpeakingData, StopSpeakingInput, SubmitActiveFormData,
+    SubmitActiveFormInput, ToolError, ToolResult, TranscribeCommandData, TranscribeCommandInput,
+    TypeIntoElementData, TypeIntoElementInput,
 };
 
 impl DeterministicToolExecutor for super::AppCore {
+    fn preflight_planned_step(&mut self, step: &PlannedStep) -> Result<(), ToolError> {
+        self.preflight_planned_step_runtime(step)
+    }
+
     fn confirmation_runtime_context(&self) -> ConfirmationRuntimeContext {
         ConfirmationRuntimeContext::current(
-            self.state.current_page_id.clone(),
+            self.state.confirmation_page_identity(),
             self.state
                 .current_page
                 .as_ref()

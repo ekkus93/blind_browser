@@ -1,5 +1,15 @@
 use super::*;
 
+pub(crate) const CLICK_AUTH_TOKEN_ARG: &str = "_runtime_click_authorization";
+pub(crate) const CLICK_AUTH_CONFIDENCE_ARG: &str = "_runtime_click_confidence_bps";
+pub(crate) const CLICK_AUTH_AMBIGUOUS_ARG: &str = "_runtime_click_ambiguous";
+pub(crate) const CLICK_AUTH_DESTRUCTIVE_ARG: &str = "_runtime_click_potentially_destructive";
+pub(crate) const CLICK_AUTH_GENERATION_ARG: &str = "_runtime_click_page_generation";
+pub(crate) const RUNTIME_TARGET_LABEL_ARG: &str = "_runtime_target_label";
+pub(crate) const RUNTIME_FORM_LABEL_ARG: &str = "_runtime_form_label";
+pub(crate) const RUNTIME_FORM_DESTINATION_ARG: &str = "_runtime_form_destination";
+pub(crate) const RUNTIME_FORM_FIELDS_ARG: &str = "_runtime_form_fields";
+
 /// Deterministic classification of every planner-visible tool. This match is
 /// intentionally exhaustive: adding a new `ToolName` fails compilation until
 /// its security class and minimum confirmation requirement are chosen.
@@ -49,6 +59,10 @@ pub enum ActionPolicyReasonCode {
     TextEntrySubmitsForm,
     ClickRequiresConfirmationBySetting,
     ClickGroundingUnavailable,
+    ClickGroundingAuthorized,
+    ClickConfidenceBelowThreshold,
+    ClickGroundingAmbiguous,
+    ClickTargetPotentiallyDestructive,
     EvalJsProhibited,
     MalformedProtectedArguments,
 }
@@ -161,15 +175,63 @@ pub fn evaluate_action_policy(
 
         match step.tool_name {
             ToolName::ClickElement => {
-                step_requirement = ConfirmationRequirement::ConfirmationRequired;
-                reason_code = if safety.allow_click_without_confirmation {
-                    // The current planner contract carries only an element id. It has
-                    // no page-bound, versioned grounding authorization, so the
-                    // configured click exception cannot be exercised safely yet.
-                    ActionPolicyReasonCode::ClickGroundingUnavailable
+                let token_present = step
+                    .arguments
+                    .get(CLICK_AUTH_TOKEN_ARG)
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|value| !value.trim().is_empty());
+                let confidence_bps = step
+                    .arguments
+                    .get(CLICK_AUTH_CONFIDENCE_ARG)
+                    .and_then(serde_json::Value::as_u64)
+                    .and_then(|value| u16::try_from(value).ok());
+                let ambiguous = step
+                    .arguments
+                    .get(CLICK_AUTH_AMBIGUOUS_ARG)
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(true);
+                let potentially_destructive = step
+                    .arguments
+                    .get(CLICK_AUTH_DESTRUCTIVE_ARG)
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(true);
+                let threshold_bps = (safety.confirmation_confidence_threshold.clamp(0.0, 1.0)
+                    * 10_000.0)
+                    .round() as u16;
+
+                let (requirement, reason) = if !safety.allow_click_without_confirmation {
+                    (
+                        ConfirmationRequirement::ConfirmationRequired,
+                        ActionPolicyReasonCode::ClickRequiresConfirmationBySetting,
+                    )
+                } else if !token_present || confidence_bps.is_none() {
+                    (
+                        ConfirmationRequirement::ConfirmationRequired,
+                        ActionPolicyReasonCode::ClickGroundingUnavailable,
+                    )
+                } else if ambiguous {
+                    (
+                        ConfirmationRequirement::ConfirmationRequired,
+                        ActionPolicyReasonCode::ClickGroundingAmbiguous,
+                    )
+                } else if potentially_destructive {
+                    (
+                        ConfirmationRequirement::ConfirmationRequired,
+                        ActionPolicyReasonCode::ClickTargetPotentiallyDestructive,
+                    )
+                } else if confidence_bps.is_none_or(|value| value < threshold_bps) {
+                    (
+                        ConfirmationRequirement::ConfirmationRequired,
+                        ActionPolicyReasonCode::ClickConfidenceBelowThreshold,
+                    )
                 } else {
-                    ActionPolicyReasonCode::ClickRequiresConfirmationBySetting
+                    (
+                        ConfirmationRequirement::NoConfirmation,
+                        ActionPolicyReasonCode::ClickGroundingAuthorized,
+                    )
                 };
+                step_requirement = requirement;
+                reason_code = reason;
             }
             ToolName::SubmitActiveForm => {
                 // Form submission is a runtime minimum. The legacy setting may make

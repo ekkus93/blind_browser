@@ -43,12 +43,26 @@ impl super::AppCore {
         }
 
         let confirmation_context = ConfirmationRuntimeContext::current(
-            self.state.current_page_id.clone(),
+            self.state.confirmation_page_identity(),
             self.state
                 .current_page
                 .as_ref()
                 .and_then(|page| page.url.clone()),
         );
+
+        if confirmed {
+            if let Err(error) =
+                self.preflight_pending_click_authorizations(&pending_plan_execution.queued_steps)
+            {
+                return ExecutionOutcome::Aborted {
+                    trace: ExecutionTrace {
+                        executed_step_ids: Vec::new(),
+                        tool_results: Vec::new(),
+                    },
+                    error,
+                };
+            }
+        }
 
         // Matching challenges are consumed before dispatch so duplicate responses,
         // re-entrant UI events, and retries cannot execute the protected action twice.

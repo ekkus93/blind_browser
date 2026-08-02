@@ -1,9 +1,13 @@
+use std::collections::BTreeMap;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::audio_io::RuntimeAudioState;
 use crate::browser::BrowserVisibilityMode;
-use crate::commands::{ExecutionOutcome, LastToolCallSummary, PendingPlanExecutionState};
+use crate::commands::{
+    ExecutionOutcome, LastToolCallSummary, PendingPlanExecutionState, PlannerSafetySettings,
+};
 use crate::config::{AppConfig, AudioSettings};
 use crate::narration::NarrationCursor;
 use crate::page_model::PageModel;
@@ -31,10 +35,40 @@ impl Default for ListeningState {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ClickAuthorizationRecord {
+    pub token: String,
+    pub page_id: String,
+    pub page_generation: u64,
+    pub origin: Option<String>,
+    pub element_id: String,
+    pub dom_locator: String,
+    pub element_fingerprint: String,
+    pub confidence_bps: Option<u16>,
+    pub ambiguous: bool,
+    pub potentially_destructive: bool,
+    pub issued_at_ms: u64,
+    pub expires_at_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct PlanningStateSnapshot {
+    pub page_id: Option<String>,
+    pub page_generation: u64,
+    pub origin: Option<String>,
+    pub browser_history: BrowserHistoryState,
+    pub safety: PlannerSafetySettings,
+    pub pending_confirmation_id: Option<String>,
+    pub issued_at_ms: u64,
+    pub expires_at_ms: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct AppState {
     pub current_page_id: Option<String>,
     pub current_page: Option<PageModel>,
+    #[serde(default)]
+    pub page_generation: u64,
     pub browser_visibility: BrowserVisibilityMode,
     pub browser_history: BrowserHistoryState,
     pub narration_cursor: NarrationCursor,
@@ -46,6 +80,12 @@ pub struct AppState {
     pub last_tool_call: Option<LastToolCallSummary>,
     pub pending_confirmation_id: Option<String>,
     pub pending_plan_execution: Option<PendingPlanExecutionState>,
+    #[serde(skip, default)]
+    #[schemars(skip)]
+    pub(crate) click_authorizations: BTreeMap<String, ClickAuthorizationRecord>,
+    #[serde(skip, default)]
+    #[schemars(skip)]
+    pub(crate) planning_snapshots: BTreeMap<String, PlanningStateSnapshot>,
 }
 
 impl Default for AppState {
@@ -53,6 +93,7 @@ impl Default for AppState {
         Self {
             current_page_id: None,
             current_page: None,
+            page_generation: 0,
             browser_visibility: BrowserVisibilityMode::Visible,
             browser_history: BrowserHistoryState::default(),
             narration_cursor: NarrationCursor::default(),
@@ -64,6 +105,8 @@ impl Default for AppState {
             last_tool_call: None,
             pending_confirmation_id: None,
             pending_plan_execution: None,
+            click_authorizations: BTreeMap::new(),
+            planning_snapshots: BTreeMap::new(),
         }
     }
 }
@@ -79,6 +122,23 @@ impl AppState {
         self.audio = RuntimeAudioState::from(audio);
     }
 
+    pub fn mark_page_model_changed(&mut self) {
+        self.page_generation = self.page_generation.saturating_add(1).max(1);
+        self.click_authorizations.clear();
+        self.clear_pending_execution();
+    }
+
+    pub fn replace_current_page_model(&mut self, page_model: PageModel) {
+        self.current_page = Some(page_model);
+        self.mark_page_model_changed();
+    }
+
+    pub fn confirmation_page_identity(&self) -> Option<String> {
+        self.current_page_id
+            .as_ref()
+            .map(|page_id| format!("{page_id}@generation:{}", self.page_generation))
+    }
+
     pub fn record_navigation(&mut self, page_id: String, page_url: String) {
         self.current_page_id = Some(page_id);
         self.current_page = Some(PageModel {
@@ -87,6 +147,7 @@ impl AppState {
             regions: Vec::new(),
             interactive_elements: Vec::new(),
         });
+        self.mark_page_model_changed();
         self.browser_history = next_history_state_after_navigation(&self.browser_history);
         self.narration_cursor = NarrationCursor::default();
         self.speaking = false;
@@ -365,6 +426,23 @@ mod tests {
                 entry_count: 2,
             }
         );
+    }
+
+    #[test]
+    fn page_generation_advances_for_navigation_and_model_replacement() {
+        let mut state = AppState::default();
+        state.record_navigation(String::from("page-1"), String::from("https://example.com"));
+        let first_identity = state.confirmation_page_identity();
+        assert_eq!(state.page_generation, 1);
+
+        state.replace_current_page_model(PageModel {
+            title: Some(String::from("Replacement")),
+            url: Some(String::from("https://example.com")),
+            regions: Vec::new(),
+            interactive_elements: Vec::new(),
+        });
+        assert_eq!(state.page_generation, 2);
+        assert_ne!(state.confirmation_page_identity(), first_identity);
     }
 
     #[test]

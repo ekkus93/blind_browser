@@ -119,17 +119,85 @@ fn ready_submit_after_read_only_step_is_rejected() {
 }
 
 #[test]
-fn click_setting_cannot_bypass_missing_grounding_authorization() {
+fn click_without_runtime_grounding_is_deferred_to_the_strict_executor() {
     let plan = output(
         PlannerStatus::Ready,
         IntentName::ClickElement,
         vec![click_step()],
     );
-    let error =
-        validate_planner_output_with_safety(&plan, &planner_available_tools(), &[], &safety(true))
-            .expect_err("element id alone is not deterministic click authorization");
+    validate_planner_output_with_safety(&plan, &planner_available_tools(), &[], &safety(true))
+        .expect("click-only policy is finalized against runtime authorization under AppCore");
 
-    assert_eq!(error.code, "confirmation_required_by_runtime_policy");
+    let outcome = execute_planner_output_with_runner(String::from("req-security"), &plan, |_| {
+        panic!("unprepared click must not reach the runner")
+    });
+    let ExecutionOutcome::Aborted { error, .. } = outcome else {
+        panic!("strict generic executor must reject an unprepared click");
+    };
+    assert_eq!(error.code, "unconfirmed_side_effect_at_execution");
+}
+
+#[test]
+fn high_confidence_runtime_authorization_can_honor_click_setting() {
+    let mut step = click_step();
+    let arguments = step.arguments.as_object_mut().unwrap();
+    arguments.insert(
+        CLICK_AUTH_TOKEN_ARG.to_string(),
+        serde_json::json!("opaque-runtime-token"),
+    );
+    arguments.insert(
+        CLICK_AUTH_CONFIDENCE_ARG.to_string(),
+        serde_json::json!(9500),
+    );
+    arguments.insert(
+        CLICK_AUTH_AMBIGUOUS_ARG.to_string(),
+        serde_json::json!(false),
+    );
+    arguments.insert(
+        CLICK_AUTH_DESTRUCTIVE_ARG.to_string(),
+        serde_json::json!(false),
+    );
+
+    let decision = evaluate_action_policy(&[step], &safety(true));
+    assert_eq!(
+        decision.requirement,
+        ConfirmationRequirement::NoConfirmation
+    );
+    assert_eq!(
+        decision.findings,
+        Vec::<ActionPolicyFinding>::new(),
+        "authorized ordinary click should not create a protected finding"
+    );
+}
+
+#[test]
+fn ambiguous_or_destructive_runtime_clicks_still_require_confirmation() {
+    for (ambiguous, destructive) in [(true, false), (false, true)] {
+        let mut step = click_step();
+        let arguments = step.arguments.as_object_mut().unwrap();
+        arguments.insert(
+            CLICK_AUTH_TOKEN_ARG.to_string(),
+            serde_json::json!("opaque-runtime-token"),
+        );
+        arguments.insert(
+            CLICK_AUTH_CONFIDENCE_ARG.to_string(),
+            serde_json::json!(9500),
+        );
+        arguments.insert(
+            CLICK_AUTH_AMBIGUOUS_ARG.to_string(),
+            serde_json::json!(ambiguous),
+        );
+        arguments.insert(
+            CLICK_AUTH_DESTRUCTIVE_ARG.to_string(),
+            serde_json::json!(destructive),
+        );
+
+        let decision = evaluate_action_policy(&[step], &safety(true));
+        assert_eq!(
+            decision.requirement,
+            ConfirmationRequirement::ConfirmationRequired
+        );
+    }
 }
 
 #[test]

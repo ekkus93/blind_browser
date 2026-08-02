@@ -118,6 +118,10 @@ pub trait DeterministicToolExecutor {
         ConfirmationRuntimeContext::detached()
     }
 
+    fn preflight_planned_step(&mut self, _step: &PlannedStep) -> Result<(), ToolError> {
+        Ok(())
+    }
+
     fn execute_open_url(&mut self, input: OpenUrlInput) -> ToolResult<OpenUrlData>;
     fn execute_go_back(&mut self, input: GoBackInput) -> ToolResult<GoBackData>;
     fn execute_go_forward(&mut self, input: GoForwardInput) -> ToolResult<GoForwardData>;

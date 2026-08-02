@@ -112,12 +112,14 @@ mod planner_prompt;
 mod navigation_tools;
 use navigation_tools::browser_error_to_tool_error;
 
+mod click_authorization;
 mod command_dispatch;
 mod confirmation_workflow;
 mod result_reporting;
 
 mod model_management;
 
+mod planning_snapshot;
 mod replanning;
 mod replanning_orchestrator;
 pub(crate) use replanning_orchestrator::{

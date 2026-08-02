@@ -179,6 +179,7 @@ impl super::AppCore {
                 browser_navigation.url.clone(),
                 browser_navigation.title.clone(),
             );
+            self.state.mark_page_model_changed();
             clear_navigation_follow_up_state(&mut self.state, &mut self.recent_field_context);
         }
 
@@ -253,6 +254,7 @@ impl super::AppCore {
                 browser_navigation.url.clone(),
                 browser_navigation.title.clone(),
             );
+            self.state.mark_page_model_changed();
             clear_navigation_follow_up_state(&mut self.state, &mut self.recent_field_context);
         }
 
@@ -323,6 +325,7 @@ impl super::AppCore {
             Some(browser_page.url.clone()),
             browser_page.title.clone(),
         );
+        self.state.mark_page_model_changed();
         clear_navigation_follow_up_state(&mut self.state, &mut self.recent_field_context);
 
         let mut observations = vec![String::from(

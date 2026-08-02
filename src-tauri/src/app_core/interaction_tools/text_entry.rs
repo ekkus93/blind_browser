@@ -99,6 +99,9 @@ impl super::super::AppCore {
                 live_element.value = browser_type.value_after.clone();
             }
         }
+        if !browser_type.page_changed {
+            self.state.mark_page_model_changed();
+        }
         self.state.browser_history = browser_type.history.clone();
         if browser_type.page_changed {
             self.clear_recent_field_context();
@@ -223,6 +226,9 @@ impl super::super::AppCore {
         } else if let Some(current_page) = self.state.current_page.as_mut() {
             current_page.url = Some(browser_submit.url.clone());
             current_page.title = browser_submit.title.clone();
+        }
+        if !browser_submit.page_changed {
+            self.state.mark_page_model_changed();
         }
         self.state.browser_history = browser_submit.history.clone();
 

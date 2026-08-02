@@ -179,6 +179,15 @@ pub fn validate_planner_output_with_safety(
             retryable: false,
             details: serde_json::to_value(&decision).ok(),
         }),
+        ConfirmationRequirement::ConfirmationRequired
+            if planner_output.status == PlannerStatus::Ready
+                && decision
+                    .findings
+                    .iter()
+                    .all(|finding| finding.tool_name == ToolName::ClickElement) =>
+        {
+            Ok(())
+        }
         ConfirmationRequirement::ConfirmationRequired => {
             validate_runtime_confirmation_gate(planner_output, &decision)
         }

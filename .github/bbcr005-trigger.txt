@@ -1,3 +1,0 @@
-BBCR-005 direct-master validation trigger
-Run: 2
-Compatibility patch: legacy AppState page_generation defaults to zero
