@@ -1,7 +1,8 @@
 name: Post-Batch-8 source diagnostic
 
 on:
-  workflow_dispatch:
+  pull_request:
+    branches: [master]
 
 permissions:
   contents: read
@@ -10,9 +11,10 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out dispatched branch
+      - name: Check out exact PR head
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Apply bounded product patch and repairs
