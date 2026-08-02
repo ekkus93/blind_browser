@@ -1,5 +1,5 @@
 BBCR-015 direct-master closure trigger
-Run: 6
-Observable cancel-superseded workflow: 40b262fafa0f6edde6c8b4597cac4fe887c7143c
+Run: 7
+Regression fixes: c5f3efff7a42c01c995150002b0d5f7bbbef0dff
+Workflow wiring: 94a24dafb61d06caa05e58137e65aea285989ee4
 Server-only confirmation binding: b8f8f38f45cd4c09b092ba8a98c3b4a64ba5d651
-Corrected safety patch: a5586e7e3e3e520c099520983c142fc1aad2e8f2
