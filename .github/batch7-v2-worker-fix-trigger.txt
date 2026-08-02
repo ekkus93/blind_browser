@@ -1,1 +1,1 @@
-Patch the Batch 7 V2 generated import matcher, corrected attempt.
+Patch the Batch 7 V2 generated import matcher with the standalone patcher.
