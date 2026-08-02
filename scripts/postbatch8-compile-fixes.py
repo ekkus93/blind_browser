@@ -138,36 +138,40 @@ def repair_planner_metadata_move() -> None:
 def repair_planner_high_risk_text_iterator() -> None:
     path = "src-tauri/src/app_core/planner_redaction.rs"
     source = read(path)
+    start = source.find("let high_risk_text =")
+    if start < 0:
+        raise SystemExit(f"{path}: high_risk_text declaration was not found")
+    terminator = ".any(contains_high_risk_text);"
+    end = source.find(terminator, start)
+    if end < 0:
+        raise SystemExit(f"{path}: high_risk_text terminator was not found")
+    end += len(terminator)
+    block = source[start:end]
+
     stale = re.compile(
-        r"(?P<indent>[ \t]*)\.flat_map\(\|region\|\s*\[\s*"
-        r"region\.label\.as_deref\(\),\s*"
-        r"Some\(region\.text\.as_str\(\)\),?\s*\]\s*\)",
+        r"(?P<indent>^[ \t]*)\.flat_map\(\|region\|\s*"
+        r"(?P<array>\[(?:.|\n)*?\])\s*\)",
         re.MULTILINE,
     )
-    matches = list(stale.finditer(source))
+    matches = list(stale.finditer(block))
     if matches:
         if len(matches) != 1:
-            raise SystemExit(f"{path}: expected one stale region text iterator, found {len(matches)}")
+            raise SystemExit(f"{path}: expected one stale region iterator, found {len(matches)}")
         match = matches[0]
-        indent = match.group("indent")
         corrected = (
-            f"{indent}.flat_map(|region| {{\n"
-            f"{indent}    [region.label.as_deref(), Some(region.text.as_str())]\n"
-            f"{indent}        .into_iter()\n"
-            f"{indent}        .flatten()\n"
-            f"{indent}}})"
+            f"{match.group('indent')}.flat_map(|region| "
+            f"{match.group('array')}.into_iter().flatten())"
         )
-        write(path, source[: match.start()] + corrected + source[match.end() :])
+        repaired_block = block[: match.start()] + corrected + block[match.end() :]
+        write(path, source[:start] + repaired_block + source[end:])
         return
 
     corrected = re.compile(
-        r"\.flat_map\(\|region\|\s*\{\s*"
-        r"\[\s*region\.label\.as_deref\(\),\s*"
-        r"Some\(region\.text\.as_str\(\)\),?\s*\]\s*"
-        r"\.into_iter\(\)\s*\.flatten\(\)\s*\}\)",
+        r"\.flat_map\(\|region\|\s*\[(?:.|\n)*?\]\s*"
+        r"\.into_iter\(\)\s*\.flatten\(\)\s*\)",
         re.MULTILINE,
     )
-    if len(list(corrected.finditer(source))) == 1:
+    if len(list(corrected.finditer(block))) == 1:
         return
     raise SystemExit(f"{path}: neither stale nor corrected high-risk text iterator was found")
 
