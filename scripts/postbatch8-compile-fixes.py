@@ -148,41 +148,37 @@ def repair_planner_high_risk_text_iterator() -> None:
     end += len(terminator)
     block = source[start:end]
 
-    patterns = [
-        re.compile(
-            r"(?P<indent>^[ \t]*)\.flat_map\(\|region\|\s*"
-            r"(?P<array>\[(?:.|\n)*?\])\s*\)",
-            re.MULTILINE,
-        ),
-        re.compile(
-            r"(?P<indent>^[ \t]*)\.flat_map\(\|region\|\s*\{\s*"
-            r"(?P<array>\[(?:.|\n)*?\])\s*\}\)",
-            re.MULTILINE,
-        ),
-    ]
-    matches = [(pattern, match) for pattern in patterns for match in pattern.finditer(block)]
-    if matches:
-        if len(matches) != 1:
-            raise SystemExit(f"{path}: expected one stale region iterator, found {len(matches)}")
-        _, match = matches[0]
-        indent = match.group("indent")
-        corrected = (
-            f"{indent}.flat_map(|region| {{\n"
-            f"{match.group('array')}.into_iter().flatten()\n"
-            f"{indent}}})"
+    marker = ".flat_map(|region|"
+    if block.count(marker) != 1:
+        raise SystemExit(
+            f"{path}: expected one region flat_map in high_risk_text, found {block.count(marker)}"
         )
-        repaired_block = block[: match.start()] + corrected + block[match.end() :]
-        write(path, source[:start] + repaired_block + source[end:])
+    region_start = block.index(marker)
+    array_start = block.find("[", region_start + len(marker))
+    if array_start < 0:
+        raise SystemExit(f"{path}: region flat_map array was not found")
+
+    depth = 0
+    array_end = -1
+    for index in range(array_start, len(block)):
+        character = block[index]
+        if character == "[":
+            depth += 1
+        elif character == "]":
+            depth -= 1
+            if depth == 0:
+                array_end = index
+                break
+    if array_end < 0:
+        raise SystemExit(f"{path}: region flat_map array was not balanced")
+
+    suffix = ".into_iter().flatten()"
+    after_array = block[array_end + 1 :]
+    if after_array.lstrip().startswith(suffix):
         return
 
-    corrected = re.compile(
-        r"\.flat_map\(\|region\|\s*\{\s*\[(?:.|\n)*?\]\s*"
-        r"\.into_iter\(\)\s*\.flatten\(\)\s*\}\)",
-        re.MULTILINE,
-    )
-    if len(list(corrected.finditer(block))) == 1:
-        return
-    raise SystemExit(f"{path}: neither stale nor corrected high-risk text iterator was found")
+    repaired_block = block[: array_end + 1] + suffix + block[array_end + 1 :]
+    write(path, source[:start] + repaired_block + source[end:])
 
 
 def repair_direct_command_policy_clippy() -> None:
