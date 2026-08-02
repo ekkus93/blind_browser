@@ -1,0 +1,41 @@
+name: Post-Batch-8 source diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out dispatched branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply bounded product patch and repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat scripts/postbatch8-apply.patch.gz.b64.* > /tmp/postbatch8.patch.gz.b64
+          base64 --decode /tmp/postbatch8.patch.gz.b64 | gzip --decompress > /tmp/postbatch8.patch
+          git apply --check /tmp/postbatch8.patch
+          git apply /tmp/postbatch8.patch
+          python3 scripts/postbatch8-compile-fixes.py
+
+      - name: Print bounded source excerpts
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== MODEL DOWNLOAD IMPLEMENTATION ==='
+          grep -n -B 20 -A 100 'fn write_verified\|fn download_verified\|partial-' src-tauri/src/app_core/model_management.rs || true
+          echo '=== MODEL DOWNLOAD TESTS ==='
+          sed -n '1420,1580p' src-tauri/src/app_core/model_management.rs
+          echo '=== DIRECT COMMAND POLICY ==='
+          sed -n '1,280p' src-tauri/src/direct_command_policy.rs
+          echo '=== DIRECT COMMAND POLICY TEST WRAPPER ==='
+          sed -n '1,270p' src-tauri/src/commands/direct_command_policy.rs
+          echo '=== DIAGNOSTICS SANITIZER AND TEST ==='
+          grep -n -B 30 -A 90 'sanitize_message_redacts_sensitive_values\|fn sanitize_message' src-tauri/src/diagnostics.rs || true
