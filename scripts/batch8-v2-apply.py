@@ -21,7 +21,7 @@ new = '''def insert_before_last_brace(path: str, addition: str) -> None:
         "src-tauri/src/config/validation.rs",
     }
     if path in top_level_append_paths:
-        write(path, content.rstrip() + addition + "\\n")
+        write(path, content.rstrip() + "\\n\\n" + addition.strip() + "\\n")
         return
     index = content.rfind("\\n}")
     if index < 0:
