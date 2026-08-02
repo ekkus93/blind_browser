@@ -1,0 +1,2 @@
+BBCR-005 direct-master validation trigger
+Expected staged worker base: 6c7a4fc5e3907ede4ba1fa472eb2194be82bfc51
