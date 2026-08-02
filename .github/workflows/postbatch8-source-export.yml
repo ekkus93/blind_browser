@@ -40,7 +40,9 @@ jobs:
           base64 --decode /tmp/postbatch8.patch.gz.b64 | gzip --decompress > /tmp/postbatch8.patch
           git apply --check /tmp/postbatch8.patch
           git apply /tmp/postbatch8.patch
+          python3 scripts/postbatch8-compile-fixes.py
           rm scripts/postbatch8-apply.patch.gz.b64.*
+          rm scripts/postbatch8-compile-fixes.py
 
       - name: Set up Rust
         if: steps.patch.outputs.present == 'true'
@@ -118,6 +120,7 @@ jobs:
         run: |
           git diff --check
           test ! -e scripts/postbatch8-apply.patch.gz.b64.00
+          test ! -e scripts/postbatch8-compile-fixes.py
           git status --short
 
       - name: Commit and push validated product changes
