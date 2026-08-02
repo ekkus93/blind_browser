@@ -52,7 +52,8 @@ jobs:
             libasound2-dev \
             libleptonica-dev \
             libtesseract-dev \
-            tesseract-ocr
+            tesseract-ocr \
+            xvfb
 
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
@@ -70,7 +71,7 @@ jobs:
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
 
       - name: Run Rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
+        run: xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features
 
       - name: Run frontend lint
         run: pnpm lint
