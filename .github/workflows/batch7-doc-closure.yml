@@ -57,7 +57,23 @@ jobs:
           gh issue comment 5 --body "Batch 7 documentation closure started: trigger head \`${GITHUB_SHA}\`, source \`${SOURCE_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`close-batch7\`."
 
       - name: Apply bounded documentation closure
-        run: python3 .github/batch7-doc-closure.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/batch7-doc-closure.py
+          python3 - <<'PY'
+          from pathlib import Path
+
+          paths = [
+              Path('docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md'),
+              Path('docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_IMPLEMENTATION_REPORT_2026-08-01.md'),
+              Path('docs/BBCR-003_BBCR-006_BATCH7_FINAL_VALIDATION_EVIDENCE_2026-08-02.md'),
+              Path('memory.md'),
+          ]
+          for path in paths:
+              text = path.read_text()
+              path.write_text('\n'.join(line.rstrip() for line in text.splitlines()) + '\n')
+          PY
 
       - name: Verify documentation diff
         shell: bash
