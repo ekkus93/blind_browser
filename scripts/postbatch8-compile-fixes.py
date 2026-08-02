@@ -65,7 +65,7 @@ def repair_confirmation_summary() -> None:
         )
         write(path, source)
         return
-    corrected_markers = [
+n    corrected_markers = [
         "summary = append_confirmation_warnings(",
         "let warnings = string_array_argument(step, RUNTIME_CONFIRMATION_WARNINGS_ARG);",
         "with_confirmation_warnings(",
@@ -140,8 +140,8 @@ def repair_planner_high_risk_text_iterator() -> None:
     source = read(path)
     stale = re.compile(
         r"(?P<indent>[ \t]*)\.flat_map\(\|region\|\s*\[\s*"
-        r"region\.heading\.as_deref\(\),\s*"
-        r"region\.text\.as_deref\(\),?\s*\]\s*\)",
+        r"region\.label\.as_deref\(\),\s*"
+        r"Some\(region\.text\.as_str\(\)\),?\s*\]\s*\)",
         re.MULTILINE,
     )
     matches = list(stale.finditer(source))
@@ -152,7 +152,7 @@ def repair_planner_high_risk_text_iterator() -> None:
         indent = match.group("indent")
         corrected = (
             f"{indent}.flat_map(|region| {{\n"
-            f"{indent}    [region.heading.as_deref(), region.text.as_deref()]\n"
+            f"{indent}    [region.label.as_deref(), Some(region.text.as_str())]\n"
             f"{indent}        .into_iter()\n"
             f"{indent}        .flatten()\n"
             f"{indent}}})"
@@ -162,8 +162,8 @@ def repair_planner_high_risk_text_iterator() -> None:
 
     corrected = re.compile(
         r"\.flat_map\(\|region\|\s*\{\s*"
-        r"\[\s*region\.heading\.as_deref\(\),\s*"
-        r"region\.text\.as_deref\(\),?\s*\]\s*"
+        r"\[\s*region\.label\.as_deref\(\),\s*"
+        r"Some\(region\.text\.as_str\(\)\),?\s*\]\s*"
         r"\.into_iter\(\)\s*\.flatten\(\)\s*\}\)",
         re.MULTILINE,
     )
