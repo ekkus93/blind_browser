@@ -36,6 +36,7 @@ jobs:
           test -f scripts/bbcr005_close15_patch1.py
           test -f scripts/bbcr005_close15_patch2.py
           test -f scripts/bbcr005_close15_patch3.py
+          test -f scripts/bbcr005_close15_patch4.py
           test -f .github/workflows/bbcr-005-close15.yml
           test -f .github/bbcr005-close15-trigger.txt
 
@@ -90,6 +91,7 @@ jobs:
             python3 scripts/bbcr005_close15_patch1.py
             python3 scripts/bbcr005_close15_patch2.py
             python3 scripts/bbcr005_close15_patch3.py
+            python3 scripts/bbcr005_close15_patch4.py
           } 2>&1 | tee "${RUNNER_TEMP}/bbcr015-transform.log"
 
       - name: Install JavaScript dependencies
@@ -180,6 +182,7 @@ jobs:
           rm scripts/bbcr005_close15_patch1.py
           rm scripts/bbcr005_close15_patch2.py
           rm scripts/bbcr005_close15_patch3.py
+          rm scripts/bbcr005_close15_patch4.py
           rm .github/workflows/bbcr-005-close15.yml
           rm .github/bbcr005-close15-trigger.txt
 
