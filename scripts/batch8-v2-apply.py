@@ -26,9 +26,14 @@ if old not in text:
     raise SystemExit("insert_before_last_brace helper shape changed")
 text = text.replace(old, new, 1)
 
-if text.count("import re\n") != 1:
-    raise SystemExit("transformer import shape changed")
-text = text.replace("import re\n", "import re\nimport subprocess\n", 1)
+import_header = "from pathlib import Path\nimport re\n\nROOT ="
+if import_header not in text:
+    raise SystemExit("transformer import header changed")
+text = text.replace(
+    import_header,
+    "from pathlib import Path\nimport re\nimport subprocess\n\nROOT =",
+    1,
+)
 
 if text.count("    minimum=4,\n") != 1:
     raise SystemExit("remote planner signature cardinality assertion shape changed")
