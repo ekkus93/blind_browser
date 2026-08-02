@@ -10,9 +10,10 @@ required = {
         'pub(crate) struct RemotePlannerInput',
         'pub(crate) struct PlannerSafeElementAttributes',
         'remote_planner_high_risk_context_blocked',
+        'use crate::audio_io::RuntimeAudioState;',
         'use crate::browser::BrowserVisibilityMode;',
         'use crate::narration::NarrationCursor;',
-        'use crate::state::{BrowserHistoryState, ListeningState, RuntimeAudioState};',
+        'use crate::state::{BrowserHistoryState, ListeningState};',
     ],
     'prompt': [
         'trusted_contract',
@@ -52,6 +53,7 @@ for value in [
     'pub(crate) planner_input:',
     '"content": content',
     'AvailableTool, BrowserHistoryState',
+    'use crate::state::{BrowserHistoryState, ListeningState, RuntimeAudioState};',
 ]:
     if value in joined:
         raise SystemExit(f'forbidden Batch 7 pattern remains: {value}')
