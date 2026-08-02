@@ -88,11 +88,9 @@ jobs:
           fi
           gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-005 documentation closure failed: head \`${GITHUB_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`. Diagnostic:\n\n\`\`\`text\n${diagnostic}\n\`\`\`"
 
-      - name: Restore permanent CI and remove one-shot closure files
+      - name: Remove non-workflow one-shot files
         run: |
-          git show e9e9e5644e7874ab72bb16483b5ad3ccedc0ccfd:.github/workflows/ci.yml > .github/workflows/ci.yml
           rm scripts/bbcr005_docs_close.py
-          rm .github/workflows/bbcr005-docs-close.yml
           rm .github/bbcr005-docs-trigger.txt
 
       - name: Commit documentation closure to master
@@ -113,4 +111,4 @@ jobs:
           DOCS_SHA: ${{ steps.publish.outputs.commit_sha }}
         shell: bash
         run: |
-          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-005 documentation closure committed to master: trigger head \`${GITHUB_SHA}\`, documentation commit \`${DOCS_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`. Final Batch 5 declaration still requires permanent CI on an owner-authored exact final SHA."
+          gh issue comment 5 --repo "${GITHUB_REPOSITORY}" --body "BBCR-005 documentation closure committed to master: trigger head \`${GITHUB_SHA}\`, documentation commit \`${DOCS_SHA}\`, run \`${GITHUB_RUN_ID}\`, job \`${GITHUB_JOB}\`. Workflow cleanup and exact-final-SHA permanent CI remain."
