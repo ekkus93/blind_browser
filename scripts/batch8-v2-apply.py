@@ -14,7 +14,13 @@ old = '''def insert_before_last_brace(path: str, addition: str) -> None:
 '''
 new = '''def insert_before_last_brace(path: str, addition: str) -> None:
     content = read(path)
-    if path in {"src/api/providers.ts", "src/planner-actions.ts"}:
+    top_level_append_paths = {
+        "src/api/providers.ts",
+        "src/planner-actions.ts",
+        "src-tauri/src/commands/contracts/mod.rs",
+        "src-tauri/src/config/validation.rs",
+    }
+    if path in top_level_append_paths:
         write(path, content.rstrip() + addition + "\\n")
         return
     index = content.rfind("\\n}")
