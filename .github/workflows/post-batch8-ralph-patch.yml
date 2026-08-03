@@ -97,6 +97,34 @@ jobs:
               print(f"Pruned stale fallback allowlist entry: {entry}")
           PY
 
+      - name: Reconcile generated evidence assertions
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path(".github/post_batch8_ralph_patch.py")
+          source = path.read_text(encoding="utf-8")
+
+          old_assertion = '    assert!(api_keys.contains(".timeout(Duration::from_millis(timeout_ms.max(1)))"));\n'
+          new_assertion = (
+              '    assert!(api_keys.contains("fn credential_async_client(timeout_ms: u64)"));\n'
+              '    assert!(api_keys.contains("fn credential_client(timeout_ms: u64, purpose: &str)"));\n'
+              '    assert!(api_keys.matches("timeout_ms.max(1)").count() >= 2);\n'
+          )
+          if source.count(old_assertion) != 1:
+              raise SystemExit("expected one brittle timeout assertion")
+          source = source.replace(old_assertion, new_assertion, 1)
+
+          old_cleanup = '            cleanup_failed_screenshot_write(&path, &io_error)?;\n'
+          new_cleanup = '            drop(file);\n            cleanup_failed_screenshot_write(&path, &io_error)?;\n'
+          if source.count(old_cleanup) != 1:
+              raise SystemExit("expected one screenshot cleanup call in generated patch")
+          source = source.replace(old_cleanup, new_cleanup, 1)
+
+          path.write_text(source, encoding="utf-8")
+          PY
+
       - name: Apply and validate bounded patch
         run: python3 .github/post_batch8_ralph_patch.py
 
