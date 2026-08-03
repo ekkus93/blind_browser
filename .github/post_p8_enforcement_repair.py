@@ -20,8 +20,16 @@ def regex_replace_once(path: str, pattern: str, replacement: str) -> None:
     content = target.read_text(encoding="utf-8")
     updated, count = re.subn(pattern, replacement, content, count=1)
     if count != 1:
+        marker = content.find("try_url_token")
+        if marker >= 0:
+            start = max(0, marker - 240)
+            end = min(len(content), marker + 700)
+            excerpt = content[start:end]
+        else:
+            excerpt = "(try_url_token marker absent)"
         raise SystemExit(
-            f"{path}: expected one regex integration match, found {count}: {pattern!r}"
+            f"{path}: expected one regex integration match, found {count}: {pattern!r}\n"
+            f"generated excerpt:\n{excerpt}"
         )
     target.write_text(updated, encoding="utf-8")
 
@@ -158,8 +166,13 @@ def repair_output() -> None:
     replace_once("src-tauri/src/diagnostic_redaction.rs", ", ''',", ",")
     regex_replace_once(
         "src-tauri/src/diagnostic_redaction.rs",
-        r"Option<\(\s*&Box<str>\s*,\s*usize\s*\)>",
-        "Option<(&str, usize)>",
+        (
+            r"(fn\s+try_url_token\s*\([^)]*\)\s*->\s*Option\s*<\s*\(\s*)"
+            r"&(?:'[A-Za-z_][A-Za-z0-9_]*\s+)?"
+            r"(?:Box\s*<\s*str\s*>|[A-Za-z_][A-Za-z0-9_:<>]*)"
+            r"(\s*,\s*usize\s*\)\s*>\s*\{)"
+        ),
+        r"\1&str\2",
     )
 
     replace_once(
