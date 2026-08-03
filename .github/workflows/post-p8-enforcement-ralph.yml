@@ -1,0 +1,130 @@
+name: Post-P8 Enforcement Ralph
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/post_p8_enforcement_patch.py'
+      - '.github/workflows/post-p8-enforcement-ralph.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: post-p8-enforcement-ralph
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply bounded patch
+        run: python3 .github/post_p8_enforcement_patch.py
+
+      - name: Run fallback and diagnostic scanners
+        run: |
+          bash scripts/check-silent-fallbacks.sh
+          python3 scripts/check-security-fallbacks.py --self-test
+          python3 scripts/check-security-fallbacks.py
+          python3 scripts/check-security-fallback-inventory.py --self-test
+          python3 scripts/check-security-fallback-inventory.py
+          python3 scripts/check-sensitive-diagnostics.py --self-test
+          python3 scripts/check-sensitive-diagnostics.py
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      - name: Check Rust
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Run Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Run focused direct-command evidence
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features --test post_batch8_direct_command_policy_evidence
+
+      - name: Run Rust tests
+        run: xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features
+
+      - name: Run frontend validation
+        run: |
+          pnpm lint
+          pnpm test:ui
+          pnpm build
+
+      - name: Commit validated implementation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            docs/BLIND_BROWSER_ACCEPTED_FALLBACKS_2026-08-02.md \
+            scripts/check-security-fallback-inventory.py \
+            scripts/security-fallback-allowlist.txt \
+            scripts/security-fallback-inventory.json \
+            src-tauri/src/app_core/command_dispatch.rs \
+            src-tauri/src/app_core/fill_correction.rs \
+            src-tauri/src/app_core/form_fill/field_focus.rs \
+            src-tauri/src/app_core/mod.rs \
+            src-tauri/src/app_core/settings_adapters.rs \
+            src-tauri/src/app_core/state_snapshots.rs \
+            src-tauri/src/app_core/tests/settings_tests.rs \
+            src-tauri/src/command_handlers/provider_handlers.rs \
+            src-tauri/src/commands/contracts/providers.rs \
+            src-tauri/src/commands/registry.rs \
+            src-tauri/src/commands/skill_loader.rs \
+            src-tauri/src/diagnostic_redaction.rs \
+            src-tauri/src/direct_command_policy.rs \
+            src-tauri/tests/post_batch8_direct_command_policy_evidence.rs \
+            src/tauri-types.ts
+          if git diff --cached --quiet; then
+            echo 'No generated changes to commit'
+            exit 1
+          fi
+          git commit -m 'fix: enforce exact fallback occurrence hardening'
+          git push origin HEAD:master
