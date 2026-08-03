@@ -10,12 +10,19 @@ permissions:
 
 concurrency:
   group: postbatch8-direct-master
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   apply-validate-export:
     runs-on: ubuntu-latest
     steps:
+      - name: Report exact workflow run start
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh pr comment 6 --body "Direct-master post-Batch-8 publication run ${GITHUB_RUN_ID} started. Source master SHA: ${GITHUB_SHA}."
+
       - name: Check out exact master commit
         uses: actions/checkout@v4
         with:
@@ -149,7 +156,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Report exact workflow run
+      - name: Report exact workflow run result
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
