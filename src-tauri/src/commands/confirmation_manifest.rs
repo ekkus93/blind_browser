@@ -542,9 +542,7 @@ mod tests {
         let action = &built.manifest.actions[0];
         assert!(action.safe_summary.contains("Checkout form"));
         assert!(action.safe_summary.contains("https://payments.example"));
-        assert!(action
-            .safe_summary
-            .contains("Email, Shipping address"));
+        assert!(action.safe_summary.contains("Email, Shipping address"));
         assert!(action
             .summary_warnings
             .contains(&ConfirmationSummaryWarningCode::SensitiveFieldsMayBeOmitted));
