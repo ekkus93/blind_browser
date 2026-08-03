@@ -63,6 +63,40 @@ jobs:
             tesseract-ocr \
             xvfb
 
+      - name: Prune stale exact fallback metadata
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path.cwd()
+          allowlist = root / "scripts/security-fallback-allowlist.txt"
+
+          def normalize(line: str) -> str:
+              return " ".join(line.strip().split())
+
+          retained = []
+          removed = []
+          for raw in allowlist.read_text(encoding="utf-8").splitlines():
+              stripped = raw.strip()
+              if not stripped or stripped.startswith("#"):
+                  retained.append(raw)
+                  continue
+              path, expression = stripped.split("|", 1)
+              source_path = root / path
+              live = source_path.exists() and any(
+                  normalize(line) == expression
+                  for line in source_path.read_text(encoding="utf-8", errors="replace").splitlines()
+              )
+              if live:
+                  retained.append(raw)
+              else:
+                  removed.append(stripped)
+          allowlist.write_text("\n".join(retained).rstrip() + "\n", encoding="utf-8")
+          for entry in removed:
+              print(f"Pruned stale fallback allowlist entry: {entry}")
+          PY
+
       - name: Apply and validate bounded patch
         run: python3 .github/post_batch8_ralph_patch.py
 
