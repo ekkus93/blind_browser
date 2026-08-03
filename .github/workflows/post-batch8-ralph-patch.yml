@@ -1,4 +1,4 @@
-# Temporary bounded runner. Retriggered after verified model activation evidence fix.
+# Temporary bounded runner. Retriggered after generated-evidence formatting fix.
 name: Post-Batch-8 Ralph Patch
 
 on:
@@ -187,6 +187,20 @@ jobs:
 
       - name: Apply and validate bounded patch
         run: python3 .github/post_batch8_ralph_patch.py
+
+      - name: Normalize generated evidence formatting
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("docs/BLIND_BROWSER_ACCEPTED_FALLBACKS_2026-08-02.md")
+          lines = path.read_text(encoding="utf-8").splitlines()
+          path.write_text(
+              "\n".join(line.rstrip() for line in lines).rstrip() + "\n",
+              encoding="utf-8",
+          )
+          PY
 
       - name: Commit validated source and evidence changes
         shell: bash
