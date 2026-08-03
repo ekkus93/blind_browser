@@ -69,7 +69,9 @@ pub(super) enum ModelDownloadError {
     SyncTemporary { file_name: String, reason: String },
     #[error("failed to atomically replace model file '{file_name}': {reason}")]
     ReplaceTarget { file_name: String, reason: String },
-    #[error("failed to clean up the partial model file for '{file_name}' after '{primary}': {reason}")]
+    #[error(
+        "failed to clean up the partial model file for '{file_name}' after '{primary}': {reason}"
+    )]
     CleanupFailed {
         file_name: String,
         primary: String,
@@ -77,21 +79,10 @@ pub(super) enum ModelDownloadError {
     },
 }
 
-const KITTEN_MINI_FILE_NAMES: &[&str] = &[
-    "config.json",
-    "kitten_tts_mini_v0_8.onnx",
-    "voices.npz",
-];
-const KITTEN_MICRO_FILE_NAMES: &[&str] = &[
-    "config.json",
-    "kitten_tts_micro_v0_8.onnx",
-    "voices.npz",
-];
-const KITTEN_NANO_FILE_NAMES: &[&str] = &[
-    "config.json",
-    "kitten_tts_nano_v0_8.onnx",
-    "voices.npz",
-];
+const KITTEN_MINI_FILE_NAMES: &[&str] = &["config.json", "kitten_tts_mini_v0_8.onnx", "voices.npz"];
+const KITTEN_MICRO_FILE_NAMES: &[&str] =
+    &["config.json", "kitten_tts_micro_v0_8.onnx", "voices.npz"];
+const KITTEN_NANO_FILE_NAMES: &[&str] = &["config.json", "kitten_tts_nano_v0_8.onnx", "voices.npz"];
 
 const KITTEN_MINI_FILES: &[VerifiedModelFile] = &[
     file(
@@ -339,7 +330,11 @@ fn validate_plan(
             reason: String::from("repository must be an owner/name identifier"),
         });
     }
-    if revision.len() != 40 || !revision.chars().all(|character| character.is_ascii_hexdigit()) {
+    if revision.len() != 40
+        || !revision
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    {
         return Err(ModelDownloadError::InvalidManifest {
             file_name: repository.to_string(),
             reason: String::from("revision must be a pinned 40-character commit SHA"),
@@ -357,9 +352,7 @@ fn validate_plan(
     Ok(())
 }
 
-pub(super) fn validate_file_manifest(
-    file: &VerifiedModelFile,
-) -> Result<(), ModelDownloadError> {
+pub(super) fn validate_file_manifest(file: &VerifiedModelFile) -> Result<(), ModelDownloadError> {
     let invalid_name = file.file_name.is_empty()
         || file.file_name.contains('/')
         || file.file_name.contains('\\')
@@ -388,7 +381,10 @@ pub(super) fn validate_file_manifest(
             reason: String::from("minimum byte size must be greater than zero"),
         });
     }
-    if file.max_bytes.is_some_and(|maximum| maximum < file.min_bytes) {
+    if file
+        .max_bytes
+        .is_some_and(|maximum| maximum < file.min_bytes)
+    {
         return Err(ModelDownloadError::InvalidManifest {
             file_name: file.file_name.to_string(),
             reason: String::from("maximum byte size must not be smaller than minimum"),

@@ -192,12 +192,13 @@ pub(super) fn write_verified_reader_atomically<R: Read>(
         let mut total = 0_u64;
         let mut buffer = [0_u8; 64 * 1024];
         loop {
-            let read = reader
-                .read(&mut buffer)
-                .map_err(|error| ModelDownloadError::ReadResponse {
-                    file_name: file.file_name.to_string(),
-                    reason: error.to_string(),
-                })?;
+            let read =
+                reader
+                    .read(&mut buffer)
+                    .map_err(|error| ModelDownloadError::ReadResponse {
+                        file_name: file.file_name.to_string(),
+                        reason: error.to_string(),
+                    })?;
             if read == 0 {
                 break;
             }

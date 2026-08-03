@@ -97,7 +97,9 @@ impl DirectCommandName {
             Self::SetRemotePlannerPrivacySettings => "set_remote_planner_privacy_settings",
             Self::SetOcrThresholds => "set_ocr_thresholds",
             Self::SetRemotePlannerConnectionSettings => "set_remote_planner_connection_settings",
-            Self::ResetRemotePlannerConnectionSettings => "reset_remote_planner_connection_settings",
+            Self::ResetRemotePlannerConnectionSettings => {
+                "reset_remote_planner_connection_settings"
+            }
             Self::ListRemotePlannerModels => "list_remote_planner_models",
             Self::SetRemotePlannerApiKey => "set_remote_planner_api_key",
             Self::SetRemoteTtsApiKey => "set_remote_tts_api_key",
@@ -163,27 +165,198 @@ pub(crate) const fn direct_command_policy(name: DirectCommandName) -> DirectComm
     use ActionClass as A;
     use DirectCommandName as D;
     match name {
-        D::ResolveCommand => policy(A::OtherSideEffect, true, false, false, false, true, true, true, false, false),
-        D::ExecutePlannerOutput => policy(A::OtherSideEffect, true, true, false, false, false, false, false, false, false),
-        D::SubmitConfirmationResponse => policy(A::OtherSideEffect, true, true, false, false, false, false, false, false, false),
-        D::StartListening | D::StopListening => policy(A::ReversibleLocalStateChange, true, true, false, false, false, false, false, false, false),
-        D::TranscribeCommand => policy(A::ReadOnly, true, true, false, false, true, true, false, false, false),
-        D::TranscribeAndExecuteCommand => policy(A::OtherSideEffect, true, true, false, false, true, true, true, false, false),
-        D::OpenUrl => policy(A::BrowserNavigation, true, true, false, false, true, false, false, false, false),
-        D::OpenExternalUrl => policy(A::BrowserNavigation, true, false, false, false, false, false, false, false, true),
-        D::GetAgentState | D::GetModelManagementSettings => policy(A::ReadOnly, false, false, false, false, false, false, false, false, false),
-        D::SetPlaybackVolume | D::SetPlaybackSpeed | D::SetBrowserVisibility | D::SetTtsVoice => policy(A::ReversibleLocalStateChange, true, true, true, false, false, false, false, false, false),
-        D::SetConfirmationThreshold | D::SetAllowClickWithoutConfirmation | D::SetRemotePlannerPrivacySettings | D::SetOcrThresholds | D::SetRemotePlannerConnectionSettings | D::ResetRemotePlannerConnectionSettings | D::SetModelManagementSettings | D::SetTtsProviderSelection | D::SetAsrProviderSelection | D::SetTtsModelSelection => policy(A::ReversibleLocalStateChange, true, true, true, false, false, false, false, false, false),
-        D::ListRemotePlannerModels | D::TestRemotePlannerApiKey | D::TestRemoteTtsApiKey | D::TestRemoteAsrApiKey => policy(A::CredentialOperation, true, false, false, false, true, true, false, false, false),
-        D::SetRemotePlannerApiKey | D::SetRemoteTtsApiKey | D::SetRemoteAsrApiKey => policy(A::CredentialOperation, true, true, true, true, false, false, false, false, false),
-        D::DownloadActiveLocalTtsModel | D::DownloadActiveLocalAsrModel => policy(A::ModelDownload, true, true, true, false, true, false, false, true, false),
+        D::ResolveCommand => policy(
+            A::OtherSideEffect,
+            true,
+            false,
+            false,
+            false,
+            true,
+            true,
+            true,
+            false,
+            false,
+        ),
+        D::ExecutePlannerOutput => policy(
+            A::OtherSideEffect,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+        ),
+        D::SubmitConfirmationResponse => policy(
+            A::OtherSideEffect,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+        ),
+        D::StartListening | D::StopListening => policy(
+            A::ReversibleLocalStateChange,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+        ),
+        D::TranscribeCommand => policy(
+            A::ReadOnly,
+            true,
+            true,
+            false,
+            false,
+            true,
+            true,
+            false,
+            false,
+            false,
+        ),
+        D::TranscribeAndExecuteCommand => policy(
+            A::OtherSideEffect,
+            true,
+            true,
+            false,
+            false,
+            true,
+            true,
+            true,
+            false,
+            false,
+        ),
+        D::OpenUrl => policy(
+            A::BrowserNavigation,
+            true,
+            true,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+        ),
+        D::OpenExternalUrl => policy(
+            A::BrowserNavigation,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+        ),
+        D::GetAgentState | D::GetModelManagementSettings => policy(
+            A::ReadOnly,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+        ),
+        D::SetPlaybackVolume | D::SetPlaybackSpeed | D::SetBrowserVisibility | D::SetTtsVoice => {
+            policy(
+                A::ReversibleLocalStateChange,
+                true,
+                true,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+            )
+        }
+        D::SetConfirmationThreshold
+        | D::SetAllowClickWithoutConfirmation
+        | D::SetRemotePlannerPrivacySettings
+        | D::SetOcrThresholds
+        | D::SetRemotePlannerConnectionSettings
+        | D::ResetRemotePlannerConnectionSettings
+        | D::SetModelManagementSettings
+        | D::SetTtsProviderSelection
+        | D::SetAsrProviderSelection
+        | D::SetTtsModelSelection => policy(
+            A::ReversibleLocalStateChange,
+            true,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+        ),
+        D::ListRemotePlannerModels
+        | D::TestRemotePlannerApiKey
+        | D::TestRemoteTtsApiKey
+        | D::TestRemoteAsrApiKey => policy(
+            A::CredentialOperation,
+            true,
+            false,
+            false,
+            false,
+            true,
+            true,
+            false,
+            false,
+            false,
+        ),
+        D::SetRemotePlannerApiKey | D::SetRemoteTtsApiKey | D::SetRemoteAsrApiKey => policy(
+            A::CredentialOperation,
+            true,
+            true,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+        ),
+        D::DownloadActiveLocalTtsModel | D::DownloadActiveLocalAsrModel => policy(
+            A::ModelDownload,
+            true,
+            true,
+            true,
+            false,
+            true,
+            false,
+            false,
+            true,
+            false,
+        ),
     }
 }
 
 pub(crate) fn validate_direct_command_registry() {
     for name in DirectCommandName::ALL {
         let policy = direct_command_policy(*name);
-        assert!(!name.as_handler_name().is_empty(), "direct command name must not be empty");
+        assert!(
+            !name.as_handler_name().is_empty(),
+            "direct command name must not be empty"
+        );
         assert!(
             !policy.persists_secret || policy.mutates_config,
             "secret persistence must be classified as a config mutation"

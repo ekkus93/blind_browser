@@ -11,8 +11,8 @@ use super::download::{
     MODEL_DOWNLOAD_CONNECT_TIMEOUT, MODEL_DOWNLOAD_REQUEST_TIMEOUT,
 };
 use super::manifest::{
-    kitten_download_plan_for_model_id, validate_file_manifest,
-    whisper_download_plan_for_model_id, ModelDownloadError, VerifiedModelFile,
+    kitten_download_plan_for_model_id, validate_file_manifest, whisper_download_plan_for_model_id,
+    ModelDownloadError, VerifiedModelFile,
 };
 use crate::config::{LocalAsrBackend, LocalAsrProfile, LocalTtsBackend, LocalTtsProfile};
 
@@ -102,9 +102,8 @@ fn hash_mismatch_preserves_old_target_and_cleans_part() {
     let mut manifest = fixture_manifest(b"expected bytes");
     manifest.min_bytes = 1;
     manifest.max_bytes = Some(64);
-    let error =
-        write_verified_reader_atomically(Cursor::new(b"wrong bytes"), &target, &manifest)
-            .unwrap_err();
+    let error = write_verified_reader_atomically(Cursor::new(b"wrong bytes"), &target, &manifest)
+        .unwrap_err();
     assert!(matches!(error, ModelDownloadError::HashMismatch { .. }));
     assert_eq!(fs::read(&target).unwrap(), b"known good old model");
     assert!(!directory.path().join("fixture.bin.part").exists());
@@ -144,14 +143,20 @@ fn redirect_policy_accepts_only_https_hugging_face_delivery_hosts() {
         "https://cdn-lfs-us-1.hf.co/file",
         "https://cas-bridge.xethub.hf.co/file",
     ] {
-        assert!(model_redirect_url_allowed(&Url::parse(url).unwrap()), "{url}");
+        assert!(
+            model_redirect_url_allowed(&Url::parse(url).unwrap()),
+            "{url}"
+        );
     }
     for url in [
         "http://huggingface.co/repo/file",
         "https://evil.example/file",
         "https://user:pass@huggingface.co/file",
     ] {
-        assert!(!model_redirect_url_allowed(&Url::parse(url).unwrap()), "{url}");
+        assert!(
+            !model_redirect_url_allowed(&Url::parse(url).unwrap()),
+            "{url}"
+        );
     }
 }
 
