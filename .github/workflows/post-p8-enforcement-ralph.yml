@@ -175,8 +175,10 @@ jobs:
           python3 scripts/check-sensitive-diagnostics.py --self-test
           python3 scripts/check-sensitive-diagnostics.py
 
-      - name: Check Rust formatting
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - name: Normalize and check Rust formatting
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml
+          cargo fmt --manifest-path src-tauri/Cargo.toml --check
 
       - name: Check Rust
         run: cargo check --manifest-path src-tauri/Cargo.toml
