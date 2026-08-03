@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 concurrency:
   group: postbatch8-direct-master
@@ -147,3 +148,12 @@ jobs:
           path: /tmp/postbatch8-package
           if-no-files-found: error
           retention-days: 7
+
+      - name: Report exact workflow run
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          gh pr comment 6 --body "Direct-master post-Batch-8 publication run ${GITHUB_RUN_ID} completed with status: ${RUN_STATUS}. Source master SHA: ${GITHUB_SHA}."
