@@ -3,6 +3,8 @@ name: Post-Batch-8 direct master publication
 on:
   push:
     branches: [master]
+  issues:
+    types: [opened]
 
 permissions:
   contents: write
@@ -14,6 +16,7 @@ concurrency:
 
 jobs:
   apply-validate-publish:
+    if: github.event_name == 'push' || github.event.issue.title == 'Run post-Batch-8 direct master publication'
     runs-on: ubuntu-latest
     steps:
       - name: Report exact workflow run start
@@ -23,10 +26,10 @@ jobs:
         run: |
           gh pr comment 6 --body "Direct-master post-Batch-8 publication run ${GITHUB_RUN_ID} started. Source master SHA: ${GITHUB_SHA}."
 
-      - name: Check out exact master commit
+      - name: Check out current master
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: master
           fetch-depth: 0
 
       - name: Require bounded patch inputs
