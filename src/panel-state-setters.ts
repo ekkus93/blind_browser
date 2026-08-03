@@ -1,4 +1,5 @@
 import { appShellStore } from "./store";
+import { classifyInvokeFailure } from "./api/errors";
 import {
   setAppView as setAppShellView,
   setSettingsView as setAppShellSettingsView,
@@ -66,11 +67,29 @@ export function focusSettingsTarget(targetId: string) {
   setSettingsView(targetId as SettingsView);
 }
 
+function safeExternalLinkDisplay(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || parsed.hostname.length === 0) {
+      return null;
+    }
+    parsed.username = "";
+    parsed.password = "";
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 function describeExternalLinkFailure(url: string, error: unknown): string {
-  const detail = error instanceof Error && error.message.trim().length > 0
-    ? ` ${error.message}`
-    : "";
-  return `Could not open the external link. Copy this URL and open it manually: ${url}.${detail}`;
+  const failure = classifyInvokeFailure(error);
+  const safeUrl = safeExternalLinkDisplay(url);
+  if (safeUrl === null) {
+    return `Could not open the external link because the URL was invalid. ${failure.message}`;
+  }
+  return `Could not open the external link. Copy this URL and open it manually: ${safeUrl}. ${failure.message}`;
 }
 
 export function setAppAlertState(nextState: Partial<AppAlertState>) {
@@ -83,7 +102,8 @@ export function clearAppAlert() {
 
 export function openExternalLink(url: string) {
   void openExternalUrlImpl({ url }).catch((error) => {
-    console.error("Failed to open external link.", error);
+    const safeFailure = classifyInvokeFailure(error);
+    console.error("Failed to open external link.", safeFailure);
     setAppAlertState({
       kind: "error",
       message: describeExternalLinkFailure(url, error),
