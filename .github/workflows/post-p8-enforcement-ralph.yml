@@ -81,6 +81,31 @@ jobs:
           python3 .github/post_p8_enforcement_repair.py --prepare
           python3 .github/post_p8_enforcement_patch.py
           python3 .github/post_p8_enforcement_repair.py --repair
+          python3 - <<'PY'
+          from pathlib import Path
+
+          evidence = Path('src-tauri/src/app_core/tests/direct_command_evidence_tests.rs')
+          print('=== generated direct-command evidence test ===')
+          if evidence.is_file():
+              for number, line in enumerate(evidence.read_text(encoding='utf-8').splitlines(), 1):
+                  print(f'{number:04d}: {line}')
+          else:
+              print(f'missing: {evidence}')
+
+          print('=== generated page-context sanitization references ===')
+          for path in sorted(Path('src-tauri/src/app_core').rglob('*.rs')):
+              matches = []
+              for number, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+                  lowered = line.lower()
+                  if ('sanitize' in lowered or 'redact' in lowered) and (
+                      'page' in lowered or 'context' in lowered or 'snapshot' in lowered
+                  ):
+                      matches.append((number, line))
+              if matches:
+                  print(f'--- {path} ---')
+                  for number, line in matches:
+                      print(f'{number:04d}: {line}')
+          PY
 
       - name: Run fallback and diagnostic scanners
         run: |
