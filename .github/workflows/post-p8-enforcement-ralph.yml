@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  statuses: write
 
 concurrency:
   group: post-p8-enforcement-ralph
@@ -23,6 +24,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Publish patch pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state=pending \
+            -f context='ci/post-p8-enforcement-ralph' \
+            -f description='Post-P8 enforcement Ralph validation is running' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -128,3 +141,24 @@ jobs:
           fi
           git commit -m 'fix: enforce exact fallback occurrence hardening'
           git push origin HEAD:master
+
+      - name: Publish patch conclusion
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if test "${JOB_STATUS}" = success; then
+            state=success
+            description='Post-P8 enforcement Ralph validation passed'
+          else
+            state=failure
+            description='Post-P8 enforcement Ralph validation failed'
+          fi
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state="${state}" \
+            -f context='ci/post-p8-enforcement-ralph' \
+            -f description="${description}" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
