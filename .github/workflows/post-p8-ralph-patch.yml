@@ -141,11 +141,32 @@ jobs:
           python3 scripts/check-sensitive-diagnostics.py --self-test
           python3 scripts/check-sensitive-diagnostics.py
 
-      - name: Validate Rust
+      - name: Cargo check
+        shell: bash
         run: |
-          cargo check --manifest-path src-tauri/Cargo.toml
-          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
-          xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features
+          set -o pipefail
+          cargo check --manifest-path src-tauri/Cargo.toml 2>&1 | tee /tmp/cargo-check.log
+
+      - name: Cargo clippy
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings 2>&1 | tee /tmp/cargo-clippy.log
+
+      - name: Cargo test
+        shell: bash
+        run: |
+          set -o pipefail
+          xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features 2>&1 | tee /tmp/cargo-test.log
+
+      - name: Upload Rust failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-p8-rust-failure-${{ github.run_id }}
+          path: /tmp/cargo-*.log
+          if-no-files-found: ignore
+          retention-days: 1
 
       - name: Validate frontend
         run: |
