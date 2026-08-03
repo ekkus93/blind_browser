@@ -9,10 +9,8 @@ const MIN_TTS_VOICES_BYTES: u64 = 1_000;
 const MIN_TTS_ONNX_BYTES: u64 = 1_000_000;
 
 fn file_size_at_least(path: &Path, min_bytes: u64) -> bool {
-    let Ok(metadata) = path.metadata() else {
-        return false;
-    };
-    metadata.is_file() && metadata.len() >= min_bytes
+    path.metadata()
+        .is_ok_and(|metadata| metadata.is_file() && metadata.len() >= min_bytes)
 }
 
 pub(crate) fn local_tts_model_is_available(profile: &LocalTtsProfile) -> bool {
@@ -27,22 +25,26 @@ pub(crate) fn local_tts_model_is_available(profile: &LocalTtsProfile) -> bool {
         return false;
     };
 
-    while let Some(entry) = entries.next() {
-        let Ok(entry) = entry else {
-            return false;
-        };
-        let path = entry.path();
-        if path
-            .extension()
-            .and_then(|extension| extension.to_str())
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("onnx"))
-            && file_size_at_least(&path, MIN_TTS_ONNX_BYTES)
-        {
-            return has_config && has_voices;
-        }
+    let mut has_onnx = false;
+    if entries
+        .try_for_each(|entry| -> Result<(), std::io::Error> {
+            let path = entry?.path();
+            if path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("onnx"))
+                && file_size_at_least(&path, MIN_TTS_ONNX_BYTES)
+            {
+                has_onnx = true;
+            }
+            Ok(())
+        })
+        .is_err()
+    {
+        return false;
     }
 
-    false
+    has_config && has_voices && has_onnx
 }
 
 pub(crate) fn local_asr_model_is_available(profile: &LocalAsrProfile) -> bool {
