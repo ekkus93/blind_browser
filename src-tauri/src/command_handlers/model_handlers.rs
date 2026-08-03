@@ -74,14 +74,13 @@ pub async fn download_active_local_tts_model(
     let core = Arc::clone(&app_core);
     tauri::async_runtime::spawn_blocking(move || {
         let mut guard = lock_app_core(&core)?;
-        guard
-            .download_active_local_tts_model()
-            .map_err(|message| ToolError {
-                code: String::from("local_tts_model_download_failed"),
-                message,
-                retryable: false,
-                details: None,
-            })
+        let download_result = guard.download_active_local_tts_model();
+        download_result.map_err(|message| ToolError {
+            code: String::from("local_tts_model_download_failed"),
+            message,
+            retryable: false,
+            details: None,
+        })
     })
     .await
     .map_err(join_error_to_tool_error)?
@@ -98,14 +97,13 @@ pub async fn download_active_local_asr_model(
     let core = Arc::clone(&app_core);
     tauri::async_runtime::spawn_blocking(move || {
         let mut guard = lock_app_core(&core)?;
-        guard
-            .download_active_local_asr_model()
-            .map_err(|message| ToolError {
-                code: String::from("local_asr_model_download_failed"),
-                message,
-                retryable: false,
-                details: None,
-            })
+        let download_result = guard.download_active_local_asr_model();
+        download_result.map_err(|message| ToolError {
+            code: String::from("local_asr_model_download_failed"),
+            message,
+            retryable: false,
+            details: None,
+        })
     })
     .await
     .map_err(join_error_to_tool_error)?
