@@ -80,6 +80,11 @@ jobs:
           python3 scripts/check-security-fallbacks.py --self-test
           python3 scripts/check-security-fallbacks.py
 
+      - name: Check exact accepted-fallback inventory
+        run: |
+          python3 scripts/check-security-fallback-inventory.py --self-test
+          python3 scripts/check-security-fallback-inventory.py
+
       - name: Check for sensitive diagnostics
         run: |
           python3 scripts/check-sensitive-diagnostics.py --self-test
