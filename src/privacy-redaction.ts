@@ -3,11 +3,10 @@ import type { ToolError } from "./tauri-types.ts";
 const SENSITIVE_KEY = /api[_-]?key|arguments|authorization|cookie|credential|html|ocr[_-]?text|page[_-]?text|password|response[_-]?body|secret|token|transcript/i;
 const SENSITIVE_TEXT = /authorization:|bearer\s+|password\s*[:=]|api[_ ]?key\s*[:=]|access_token\s*=|id_token\s*=|session cookie/i;
 const CREDENTIAL = /(?:sk-|ghp_|github_pat_|xox[bp]-|akia)[a-z0-9._-]{12,}/i;
+const JWT = /\b[a-z0-9_-]{8,}\.[a-z0-9_-]{8,}\.[a-z0-9_-]{8,}\b/i;
+const URL_CANDIDATE = /https?:\/\/[^\s"'<>]+/gi;
 
-export function redactDiagnosticText(value: string): string {
-  if (SENSITIVE_TEXT.test(value) || CREDENTIAL.test(value)) {
-    return "[REDACTED SENSITIVE DIAGNOSTIC]";
-  }
+function sanitizeDiagnosticUrl(value: string): string {
   try {
     const url = new URL(value);
     url.username = "";
@@ -16,8 +15,16 @@ export function redactDiagnosticText(value: string): string {
     url.hash = "";
     return url.toString();
   } catch {
-    return value;
+    return "[REDACTED URL]";
   }
+}
+
+export function redactDiagnosticText(value: string): string {
+  if (SENSITIVE_TEXT.test(value) || CREDENTIAL.test(value) || JWT.test(value)) {
+    return "[REDACTED SENSITIVE DIAGNOSTIC]";
+  }
+
+  return value.replace(URL_CANDIDATE, (candidate) => sanitizeDiagnosticUrl(candidate));
 }
 
 export function redactDiagnosticValue(value: unknown, key = ""): unknown {
