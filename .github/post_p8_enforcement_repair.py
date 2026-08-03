@@ -29,19 +29,32 @@ def initializer_end(lines: list[str], start: int, path: Path, struct_name: str) 
     raise SystemExit(f"{path}: unterminated {struct_name} initializer at line {start + 1}")
 
 
+def is_initializer_line(line: str, struct_name: str) -> bool:
+    needle = f"{struct_name} {{"
+    if needle not in line:
+        return False
+    prefix = line.split(needle, 1)[0]
+    # A Rust function returning a struct has `-> StructName {`, but that brace
+    # opens the function body rather than a struct initializer. Construction
+    # sites either begin with the struct name or appear after `=` / `:`.
+    if "->" in prefix:
+        return False
+    stripped_prefix = prefix.strip()
+    return not stripped_prefix or "=" in prefix or ":" in prefix
+
+
 def ensure_initializer_fields(
     path: Path,
     struct_name: str,
     required_fields: tuple[tuple[str, str], ...],
 ) -> tuple[int, int]:
     lines = path.read_text(encoding="utf-8").splitlines()
-    needle = f"{struct_name} {{"
     total = 0
     modified = 0
     index = 0
 
     while index < len(lines):
-        if needle not in lines[index]:
+        if not is_initializer_line(lines[index], struct_name):
             index += 1
             continue
 
@@ -63,10 +76,12 @@ def ensure_initializer_fields(
     # Fail closed if any initializer is still missing a required field.
     verification = path.read_text(encoding="utf-8").splitlines()
     index = 0
+    verified = 0
     while index < len(verification):
-        if needle not in verification[index]:
+        if not is_initializer_line(verification[index], struct_name):
             index += 1
             continue
+        verified += 1
         end = initializer_end(verification, index, path, struct_name)
         block = "\n".join(verification[index : end + 1])
         absent = [field for field, _ in required_fields if f"{field}:" not in block]
@@ -75,6 +90,11 @@ def ensure_initializer_fields(
                 f"{path}: incomplete {struct_name} initializer at line {index + 1}: {absent}"
             )
         index = end + 1
+    if verified != total:
+        raise SystemExit(
+            f"{path}: {struct_name} initializer count changed during migration: "
+            f"{total} before, {verified} after"
+        )
 
     return total, modified
 
