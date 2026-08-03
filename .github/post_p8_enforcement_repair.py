@@ -177,6 +177,22 @@ def repair_output() -> None:
 ''',
     )
 
+    replace_once(
+        "src-tauri/src/app_core/tests/settings_tests.rs",
+        '''        assert!(!displayed.contains("user"));
+        assert!(!displayed.contains("pass"));
+        assert!(!displayed.contains('?'));
+        assert!(!displayed.contains('#'));
+''',
+        '''        assert!(!displayed.contains("user:pass@"));
+        assert!(!displayed.contains('@'));
+        assert!(!displayed.contains("token=secret"));
+        assert!(!displayed.contains("code=secret"));
+        assert!(!displayed.contains('?'));
+        assert!(!displayed.contains('#'));
+''',
+    )
+
     # src/tauri-types.ts does not define GetRuntimeStatusData; only shared provider
     # and agent types are maintained there. The generator already adds the shared
     # SkillDiscoveryDiagnostics and TTS/ASR endpoint fields, so no status-field
