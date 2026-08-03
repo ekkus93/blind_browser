@@ -15,25 +15,6 @@ def replace_once(path: str, old: str, new: str) -> None:
     target.write_text(content.replace(old, new, 1), encoding="utf-8")
 
 
-def regex_replace_once(path: str, pattern: str, replacement: str) -> None:
-    target = Path(path)
-    content = target.read_text(encoding="utf-8")
-    updated, count = re.subn(pattern, replacement, content, count=1)
-    if count != 1:
-        marker = content.find("try_url_token")
-        if marker >= 0:
-            start = max(0, marker - 240)
-            end = min(len(content), marker + 700)
-            excerpt = content[start:end]
-        else:
-            excerpt = "(try_url_token marker absent)"
-        raise SystemExit(
-            f"{path}: expected one regex integration match, found {count}: {pattern!r}\n"
-            f"generated excerpt:\n{excerpt}"
-        )
-    target.write_text(updated, encoding="utf-8")
-
-
 def prepare_generator() -> None:
     generator_path = Path(".github/post_p8_enforcement_patch.py")
     generator = generator_path.read_text(encoding="utf-8")
@@ -164,16 +145,11 @@ write(
 
 def repair_output() -> None:
     replace_once("src-tauri/src/diagnostic_redaction.rs", ", ''',", ",")
-    regex_replace_once(
-        "src-tauri/src/diagnostic_redaction.rs",
-        (
-            r"(fn\s+try_url_token\s*\([^)]*\)\s*->\s*Option\s*<\s*\(\s*)"
-            r"&(?:'[A-Za-z_][A-Za-z0-9_]*\s+)?"
-            r"(?:Box\s*<\s*str\s*>|[A-Za-z_][A-Za-z0-9_:<>]*)"
-            r"(\s*,\s*usize\s*\)\s*>\s*\{)"
-        ),
-        r"\1&str\2",
-    )
+    diagnostic_path = Path("src-tauri/src/diagnostic_redaction.rs")
+    diagnostic_lines = diagnostic_path.read_text(encoding="utf-8").splitlines()
+    print("Generated diagnostic_redaction.rs lines 40-75:")
+    for line_number in range(40, min(76, len(diagnostic_lines) + 1)):
+        print(f"{line_number:04d}: {diagnostic_lines[line_number - 1]}")
 
     replace_once(
         "src-tauri/src/app_core/settings_adapters.rs",
