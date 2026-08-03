@@ -85,12 +85,86 @@ jobs:
           from pathlib import Path
 
           evidence = Path('src-tauri/src/app_core/tests/direct_command_evidence_tests.rs')
+          if not evidence.is_file():
+              raise SystemExit(f'missing generated evidence test: {evidence}')
+
+          evidence_source = evidence.read_text(encoding='utf-8')
+          old_page_context_evidence = '''    let page_context_resolver_sources = [
+        &dispatch_source,
+        &executor_source,
+        &validator_source,
+        &field_focus_source,
+    ];
+    for command in [
+        DirectCommandName::ClickElementV2,
+        DirectCommandName::FillForm,
+        DirectCommandName::SubmitForm,
+        DirectCommandName::ReportFocusedField,
+    ] {
+        let policy = direct_command_policy(command);
+        assert_eq!(
+            policy.page_context,
+            DirectCommandPageContextPolicy::SanitizedSnapshot,
+            "{}: page-context commands must require a sanitized snapshot",
+            command.as_str()
+        );
+        assert!(
+            page_context_resolver_sources
+                .iter()
+                .all(|source| source.contains("redact_page_snapshot_for_remote")),
+            "{}: page-context resolver sources must retain the reviewed sanitization helper",
+            command.as_str()
+        );
+    }
+'''
+          new_page_context_evidence = '''    // Sanitization belongs to the command-resolution boundary. The executor and
+    // validator consume already-resolved actions and are covered by the typed
+    // page-context policy assertion rather than a helper-name source check.
+    let page_context_sanitization_owners = [&dispatch_source, &field_focus_source];
+    for command in [
+        DirectCommandName::ClickElementV2,
+        DirectCommandName::FillForm,
+        DirectCommandName::SubmitForm,
+        DirectCommandName::ReportFocusedField,
+    ] {
+        let policy = direct_command_policy(command);
+        assert_eq!(
+            policy.page_context,
+            DirectCommandPageContextPolicy::SanitizedSnapshot,
+            "{}: page-context commands must require a sanitized snapshot",
+            command.as_str()
+        );
+        assert!(
+            page_context_sanitization_owners
+                .iter()
+                .all(|source| source.contains("redact_page_snapshot_for_remote")),
+            "{}: page-context resolver owners must retain the reviewed sanitization helper",
+            command.as_str()
+        );
+    }
+'''
+          count = evidence_source.count(old_page_context_evidence)
+          if count != 1:
+              raise SystemExit(
+                  f'expected one generated page-context evidence block, found {count}'
+              )
+          evidence_source = evidence_source.replace(
+              old_page_context_evidence,
+              new_page_context_evidence,
+              1,
+          )
+          validator_line = '    let validator_source = read_source("app_core/validator.rs");\n'
+          count = evidence_source.count(validator_line)
+          if count != 1:
+              raise SystemExit(f'expected one unused validator source binding, found {count}')
+          evidence.write_text(
+              evidence_source.replace(validator_line, '', 1),
+              encoding='utf-8',
+          )
+
           print('=== generated direct-command evidence test ===')
-          if evidence.is_file():
-              for number, line in enumerate(evidence.read_text(encoding='utf-8').splitlines(), 1):
-                  print(f'{number:04d}: {line}')
-          else:
-              print(f'missing: {evidence}')
+          for number, line in enumerate(evidence.read_text(encoding='utf-8').splitlines(), 1):
+              print(f'{number:04d}: {line}')
 
           print('=== generated page-context sanitization references ===')
           for path in sorted(Path('src-tauri/src/app_core').rglob('*.rs')):
