@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
+import sys
 from pathlib import Path
 
 
@@ -11,10 +14,11 @@ def replace_once(path: str, old: str, new: str) -> None:
     target.write_text(content.replace(old, new, 1), encoding="utf-8")
 
 
-# Repair duplicate source patterns in the temporary generator before applying it.
-generator_path = Path(".github/post_p8_enforcement_patch.py")
-generator = generator_path.read_text(encoding="utf-8")
-old_skill = '''for _ in range(2):
+def prepare_generator() -> None:
+    generator_path = Path(".github/post_p8_enforcement_patch.py")
+    generator = generator_path.read_text(encoding="utf-8")
+
+    old_skill = '''for _ in range(2):
     replace_once(
         "src-tauri/src/commands/skill_loader.rs",
         """            &available_tool_names,
@@ -28,7 +32,7 @@ old_skill = '''for _ in range(2):
 """,
     )
 '''
-new_skill = '''skill_loader_calls = read("src-tauri/src/commands/skill_loader.rs")
+    new_skill = '''skill_loader_calls = read("src-tauri/src/commands/skill_loader.rs")
 old_skill_loader_call = """            &available_tool_names,
             &mut discovered,
         );
@@ -48,11 +52,11 @@ write(
     skill_loader_calls.replace(old_skill_loader_call, new_skill_loader_call),
 )
 '''
-if generator.count(old_skill) != 1:
-    raise SystemExit("skill-loader duplicate-edit block was not found exactly once")
-generator = generator.replace(old_skill, new_skill, 1)
+    if generator.count(old_skill) != 1:
+        raise SystemExit("skill-loader duplicate-edit block was not found exactly once")
+    generator = generator.replace(old_skill, new_skill, 1)
 
-old_provider = '''for _ in range(2):
+    old_provider = '''for _ in range(2):
     replace_once(
         "src-tauri/src/command_handlers/provider_handlers.rs",
         """    let settings = app_core.current_remote_planner_settings();
@@ -67,7 +71,7 @@ old_provider = '''for _ in range(2):
 """,
     )
 '''
-new_provider = '''provider_handler_calls = read("src-tauri/src/command_handlers/provider_handlers.rs")
+    new_provider = '''provider_handler_calls = read("src-tauri/src/command_handlers/provider_handlers.rs")
 old_provider_handler_call = """    let settings = app_core.current_remote_planner_settings();
     Ok(RemotePlannerConnectionSettingsData {
         profile_name,
@@ -88,9 +92,115 @@ write(
     provider_handler_calls.replace(old_provider_handler_call, new_provider_handler_call),
 )
 '''
-if generator.count(old_provider) != 1:
-    raise SystemExit("provider duplicate-edit block was not found exactly once")
-generator_path.write_text(generator.replace(old_provider, new_provider, 1), encoding="utf-8")
+    if generator.count(old_provider) != 1:
+        raise SystemExit("provider duplicate-edit block was not found exactly once")
+    generator_path.write_text(generator.replace(old_provider, new_provider, 1), encoding="utf-8")
+    print("Prepared temporary generator exact-count repairs")
 
-# The generator must run before the repairs below.
-print("Prepared temporary generator exact-count repairs")
+
+def repair_output() -> None:
+    replace_once("src-tauri/src/diagnostic_redaction.rs", ", ''',", ",")
+
+    replace_once(
+        "src-tauri/src/app_core/settings_adapters.rs",
+        '''            sanitize_url_for_display(base_url)
+                .map(|safe| safe.value)
+                .or_else(|| Some(String::from("[REDACTED INVALID ENDPOINT]"))),
+''',
+        '''            Some(
+                sanitize_url_for_display(base_url)
+                    .map(|safe| safe.value)
+                    .unwrap_or_else(|| String::from("[REDACTED INVALID ENDPOINT]")),
+            ),
+''',
+    )
+
+    state_path = Path("src-tauri/src/app_core/state_snapshots.rs")
+    state = state_path.read_text(encoding="utf-8")
+    diagnostics_line = (
+        "            skill_discovery_diagnostics: "
+        "self.last_skill_discovery_diagnostics.clone(),\n"
+    )
+    if state.count(diagnostics_line) != 1:
+        raise SystemExit(
+            "state snapshots: expected one misplaced diagnostics field, "
+            f"found {state.count(diagnostics_line)}"
+        )
+    state = state.replace(diagnostics_line, "", 1)
+    runtime_tail = '''            } else {
+                None
+            },
+        }
+    }
+'''
+    runtime_replacement = '''            } else {
+                None
+            },
+            skill_discovery_diagnostics: self.last_skill_discovery_diagnostics.clone(),
+        }
+    }
+'''
+    if state.count(runtime_tail) != 1:
+        raise SystemExit(
+            f"state snapshots: expected one runtime status tail, found {state.count(runtime_tail)}"
+        )
+    state_path.write_text(state.replace(runtime_tail, runtime_replacement, 1), encoding="utf-8")
+
+    replace_once(
+        "src-tauri/src/app_core/planner_redaction.rs",
+        '''                audio_format: None,
+                timeout_ms: None,
+            },
+            remote_asr_settings: RemoteAsrSettings {
+''',
+        '''                audio_format: None,
+                timeout_ms: None,
+                endpoint_is_loopback: None,
+                availability_reason: None,
+            },
+            remote_asr_settings: RemoteAsrSettings {
+''',
+    )
+    replace_once(
+        "src-tauri/src/app_core/planner_redaction.rs",
+        '''                temperature_milli: None,
+                timeout_ms: None,
+            },
+            provider_failover_settings: ProviderFailoverSettings {
+''',
+        '''                temperature_milli: None,
+                timeout_ms: None,
+                endpoint_is_loopback: None,
+                availability_reason: None,
+            },
+            provider_failover_settings: ProviderFailoverSettings {
+''',
+    )
+
+    types_path = Path("src/tauri-types.ts")
+    types = types_path.read_text(encoding="utf-8")
+    field = "  skill_discovery_diagnostics: SkillDiscoveryDiagnostics;\n"
+    if field not in types:
+        marker = "  provider_modes: ProviderSelectionStatus | null;\n"
+        if types.count(marker) != 1:
+            raise SystemExit(
+                f"tauri-types: expected one provider_modes field, found {types.count(marker)}"
+            )
+        types_path.write_text(types.replace(marker, marker + field, 1), encoding="utf-8")
+
+    print("Repaired generated Rust and TypeScript integration output")
+
+
+def main() -> int:
+    if sys.argv[1:] == ["--prepare"]:
+        prepare_generator()
+        return 0
+    if sys.argv[1:] == ["--repair"]:
+        repair_output()
+        return 0
+    print("usage: post_p8_enforcement_repair.py --prepare|--repair", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
