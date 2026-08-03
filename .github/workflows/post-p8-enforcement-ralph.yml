@@ -165,6 +165,21 @@ jobs:
       - name: Apply bounded patch
         run: python3 .github/post_p8_enforcement_patch.py
 
+      - name: Repair generated diagnostic URL punctuation list
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('src-tauri/src/diagnostic_redaction.rs')
+          content = path.read_text(encoding='utf-8')
+          marker = ", ''',"
+          if content.count(marker) != 1:
+              raise SystemExit(
+                  f'expected one malformed generated apostrophe marker, found {content.count(marker)}'
+              )
+          path.write_text(content.replace(marker, ',', 1), encoding='utf-8')
+          PY
+
       - name: Run fallback and diagnostic scanners
         run: |
           bash scripts/check-silent-fallbacks.sh
