@@ -12,7 +12,7 @@ use crate::commands::{planner_output_schema, PlannerInput, PlannerOutput, ToolEr
 #[cfg(feature = "remote-openai")]
 use crate::config::resolve_secret_ref_for_endpoint;
 use crate::config::{RemotePlannerPrivacySettings, RemotePlannerProfile, RemoteProviderKind};
-#[cfg(feature = "remote-openai")]
+#[cfg(any(feature = "remote-openai", test))]
 use crate::provider_endpoint::ProviderEndpointScope;
 
 impl AppCore {
@@ -61,6 +61,24 @@ pub(crate) fn resolve_remote_planner(
             resolve_with_ollama_planner(profile_name, profile, planner_input, privacy)
         }
     }
+}
+
+#[cfg(any(feature = "remote-openai", test))]
+fn planner_request_failed_error(
+    provider: &str,
+    model: &str,
+    endpoint_scope: &ProviderEndpointScope,
+) -> ToolError {
+    planner_interpretation_unavailable_error(
+        "planner_request_failed",
+        format!("{provider} planner request failed"),
+        true,
+        Some(serde_json::json!({
+            "provider": provider,
+            "model": model,
+            "base_url": endpoint_scope.normalized_base_url(),
+        })),
+    )
 }
 
 #[cfg(feature = "remote-openai")]
@@ -182,18 +200,8 @@ fn resolve_with_openai_planner(
             )
         })?;
 
-    let response = futures::executor::block_on(client.chat().create(request)).map_err(|_| {
-        planner_interpretation_unavailable_error(
-            "planner_request_failed",
-            "remote planner request failed",
-            true,
-            Some(serde_json::json!({
-                "provider": "OpenAI",
-                "model": profile.model,
-                "base_url": endpoint_scope.normalized_base_url(),
-            })),
-        )
-    })?;
+    let response = futures::executor::block_on(client.chat().create(request))
+        .map_err(|_| planner_request_failed_error("OpenAI", &profile.model, &endpoint_scope))?;
     let content = response
         .choices
         .into_iter()
@@ -328,18 +336,8 @@ fn resolve_with_ollama_planner(
             )
         })?;
 
-    let response = futures::executor::block_on(client.chat().create(request)).map_err(|_| {
-        planner_interpretation_unavailable_error(
-            "planner_request_failed",
-            "Ollama planner request failed",
-            true,
-            Some(serde_json::json!({
-                "provider": "Ollama",
-                "model": profile.model,
-                "base_url": endpoint_scope.normalized_base_url(),
-            })),
-        )
-    })?;
+    let response = futures::executor::block_on(client.chat().create(request))
+        .map_err(|_| planner_request_failed_error("Ollama", &profile.model, &endpoint_scope))?;
     let content = response
         .choices
         .into_iter()
@@ -377,4 +375,24 @@ fn resolve_with_ollama_planner(
         false,
         None,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn planner_request_failure_exposes_only_safe_connection_metadata() {
+        let endpoint = ProviderEndpointScope::parse("https://api.example.com/v1")
+            .expect("test endpoint must be valid");
+        let error = planner_request_failed_error("OpenAI", "gpt-test", &endpoint);
+        let serialized = serde_json::to_string(&error).expect("ToolError must serialize");
+
+        assert!(serialized.contains("OpenAI"));
+        assert!(serialized.contains("gpt-test"));
+        assert!(serialized.contains("https://api.example.com/v1"));
+        assert!(!serialized.contains("response_body"));
+        assert!(!serialized.contains("authorization"));
+        assert!(!serialized.contains("sk-abcdefghijklmnopqrstuv"));
+    }
 }
