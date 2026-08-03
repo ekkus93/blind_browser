@@ -144,6 +144,11 @@ write(
 
 def repair_output() -> None:
     replace_once("src-tauri/src/diagnostic_redaction.rs", ", ''',", ",")
+    replace_once(
+        "src-tauri/src/diagnostic_redaction.rs",
+        "fn try_url_token(value: &str) -> Option<(&Box<str>, usize)> {",
+        "fn try_url_token(value: &str) -> Option<(&str, usize)> {",
+    )
 
     replace_once(
         "src-tauri/src/app_core/settings_adapters.rs",
