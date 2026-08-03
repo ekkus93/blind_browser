@@ -19,6 +19,15 @@ pub(super) fn executor_minimum_safety() -> PlannerSafetySettings {
     }
 }
 
+fn policy_details(
+    result: Result<serde_json::Value, serde_json::Error>,
+) -> Option<serde_json::Value> {
+    Some(match result {
+        Ok(details) => details,
+        Err(_) => serde_json::json!({ "detail_serialization": "failed" }),
+    })
+}
+
 fn initial_execution_policy_error(
     planner_output: &PlannerOutput,
     safety: &PlannerSafetySettings,
@@ -31,7 +40,7 @@ fn initial_execution_policy_error(
                 "executor refused an action prohibited by deterministic runtime policy",
             ),
             retryable: false,
-            details: serde_json::to_value(decision).ok(),
+            details: policy_details(serde_json::to_value(decision)),
         }),
         ConfirmationRequirement::ConfirmationRequired
             if planner_output.status != PlannerStatus::NeedsConfirmation =>
@@ -42,7 +51,7 @@ fn initial_execution_policy_error(
                     "executor refused a protected action that reached dispatch without confirmation",
                 ),
                 retryable: false,
-                details: serde_json::to_value(decision).ok(),
+                details: policy_details(serde_json::to_value(decision)),
             })
         }
         ConfirmationRequirement::NoConfirmation
@@ -57,7 +66,7 @@ fn resumed_execution_policy_error(steps: &[PlannedStep]) -> Option<ToolError> {
             code: String::from("prohibited_action_at_execution"),
             message: String::from("executor refused a prohibited action even after confirmation"),
             retryable: false,
-            details: serde_json::to_value(decision).ok(),
+            details: policy_details(serde_json::to_value(decision)),
         });
     }
     None
@@ -407,5 +416,17 @@ where
                 return ExecutionOutcome::NeedsReplan { trace };
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod post_p8_policy_detail_tests {
+    use super::*;
+
+    #[test]
+    fn post_p8_policy_detail_serialization_failure_keeps_typed_marker() {
+        let failed = serde_json::from_str::<serde_json::Value>("{");
+        let details = policy_details(failed).expect("details remain present");
+        assert_eq!(details["detail_serialization"], "failed");
     }
 }

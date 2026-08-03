@@ -5,15 +5,16 @@ use super::model_management::{
 use super::{ManagedLocalModelStatusData, ModelManagementSettingsData};
 use crate::audio_io::RuntimeAudioState;
 use crate::commands::{
-    AsrProviderSettings, ConfirmationSettings, LocalAsrModelSettings, LocalTtsModelSettings,
-    OcrThresholdSettings, ProviderFailoverSettings, RemoteAsrSettings, RemotePlannerSettings,
-    RemoteProviderLabel, RemoteTtsSettings, TtsModelOption, TtsModelSettings, TtsProviderSettings,
-    TtsVoiceOption, TtsVoiceSettings,
+    AsrProviderSettings, CapabilityAbsenceReason, ConfirmationSettings, LocalAsrModelSettings,
+    LocalTtsModelSettings, OcrThresholdSettings, ProviderFailoverSettings, RemoteAsrSettings,
+    RemotePlannerSettings, RemoteProviderLabel, RemoteTtsSettings, TtsModelOption,
+    TtsModelSettings, TtsProviderSettings, TtsVoiceOption, TtsVoiceSettings,
 };
 use crate::config::{
     secret_ref_reference, AppConfig, HighRiskOriginPolicy, LocalAsrProfile, LocalTtsProfile,
     RemoteProviderKind,
 };
+use crate::diagnostic_redaction::sanitize_url_for_display;
 use crate::provider_endpoint::ProviderEndpointScope;
 use crate::tts::{KITTEN_TTS_VOICES, OPENAI_TTS_VOICES};
 
@@ -140,6 +141,16 @@ pub(crate) fn build_remote_planner_settings(config: &AppConfig) -> RemotePlanner
         .as_ref()
         .and_then(|configured_profile| config.remote_planner_profiles.get(configured_profile));
 
+    let (endpoint_scope, availability_reason) = match (profile_name.as_ref(), profile) {
+        (None, _) => (None, Some(CapabilityAbsenceReason::NotConfigured)),
+        (Some(_), None) => (None, Some(CapabilityAbsenceReason::ProfileMissing)),
+        (Some(_), Some(configured_profile)) => {
+            match ProviderEndpointScope::parse(&configured_profile.base_url) {
+                Ok(scope) => (Some(scope), None),
+                Err(_) => (None, Some(CapabilityAbsenceReason::InvalidEndpoint)),
+            }
+        }
+    };
     let (api_key_masked_value, api_key_reference_error) = profile
         .map(|p| masked_secret_status(&p.api_key))
         .unwrap_or((None, None));
@@ -148,7 +159,15 @@ pub(crate) fn build_remote_planner_settings(config: &AppConfig) -> RemotePlanner
         profile_name,
         provider: profile
             .map(|configured_profile| remote_provider_label(&configured_profile.provider)),
-        base_url: profile.map(|configured_profile| configured_profile.base_url.clone()),
+        base_url: profile.map(|configured_profile| {
+            endpoint_scope
+                .as_ref()
+                .map(|scope| scope.normalized_base_url().to_string())
+                .or_else(|| {
+                    sanitize_url_for_display(&configured_profile.base_url).map(|safe| safe.value)
+                })
+                .unwrap_or_else(|| String::from("[REDACTED INVALID ENDPOINT]"))
+        }),
         model: profile.map(|configured_profile| configured_profile.model.clone()),
         api_key_reference: profile
             .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
@@ -161,9 +180,8 @@ pub(crate) fn build_remote_planner_settings(config: &AppConfig) -> RemotePlanner
         temperature_milli: profile.map(|configured_profile| configured_profile.temperature_milli),
         max_output_tokens: profile.map(|configured_profile| configured_profile.max_output_tokens),
         timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
-        endpoint_is_loopback: profile
-            .and_then(|configured_profile| ProviderEndpointScope::parse(&configured_profile.base_url).ok())
-            .map(|scope| scope.is_loopback()),
+        endpoint_is_loopback: endpoint_scope.as_ref().map(ProviderEndpointScope::is_loopback),
+        availability_reason,
         consent_to_remote_page_data: config.remote_planner_privacy.consent_to_remote_page_data,
         local_only: config.remote_planner_privacy.local_only,
         blocked_origins: config.remote_planner_privacy.blocked_origins.clone(),
@@ -328,6 +346,32 @@ pub(crate) fn build_model_management_settings(config: &AppConfig) -> ModelManage
             None => (None, None),
         };
 
+    let (tts_download_supported, tts_download_label, tts_download_absence_reason) =
+        match (local_tts_profile_name.as_ref(), local_tts_profile) {
+            (None, _) => (false, None, Some(CapabilityAbsenceReason::NotConfigured)),
+            (Some(_), None) => (false, None, Some(CapabilityAbsenceReason::ProfileMissing)),
+            (Some(_), Some(profile)) => {
+                match kitten_download_plan_for_model_id(&profile.model_id) {
+                    Ok(plan) => (true, Some(format!("Download {}", plan.display_name)), None),
+                    Err(_) => (false, None, Some(CapabilityAbsenceReason::UnknownModelId)),
+                }
+            }
+        };
+    let (asr_download_supported, asr_download_label, asr_download_absence_reason) =
+        match (local_asr_profile_name.as_ref(), local_asr_profile) {
+            (None, _) => (false, None, Some(CapabilityAbsenceReason::NotConfigured)),
+            (Some(_), None) => (false, None, Some(CapabilityAbsenceReason::ProfileMissing)),
+            (Some(_), Some(profile)) => match whisper_download_plan_for_model_id(&profile.model_id)
+            {
+                Ok(plan) => (
+                    true,
+                    Some(format!("Download Whisper {}", plan.display_name)),
+                    None,
+                ),
+                Err(_) => (false, None, Some(CapabilityAbsenceReason::UnknownModelId)),
+            },
+        };
+
     ModelManagementSettingsData {
         models_dir: config.models.models_dir.clone(),
         check_on_startup: config.models.check_on_startup,
@@ -338,12 +382,9 @@ pub(crate) fn build_model_management_settings(config: &AppConfig) -> ModelManage
             model_id: local_tts_profile.map(|profile| profile.model_id.clone()),
             model_path: local_tts_profile.map(|profile| profile.model_path.clone()),
             available: local_tts_profile.is_some_and(local_tts_model_is_available),
-            download_supported: local_tts_profile.is_some_and(|profile| {
-                kitten_download_plan_for_model_id(&profile.model_id).is_ok()
-            }),
-            download_label: local_tts_profile
-                .and_then(|profile| kitten_download_plan_for_model_id(&profile.model_id).ok())
-                .map(|plan| format!("Download {}", plan.display_name)),
+            download_supported: tts_download_supported,
+            download_label: tts_download_label,
+            download_absence_reason: tts_download_absence_reason,
         },
         local_asr: ManagedLocalModelStatusData {
             profile_name: local_asr_profile_name,
@@ -351,12 +392,9 @@ pub(crate) fn build_model_management_settings(config: &AppConfig) -> ModelManage
             model_id: local_asr_profile.map(|profile| profile.model_id.clone()),
             model_path: local_asr_profile.map(|profile| profile.model_path.clone()),
             available: local_asr_profile.is_some_and(local_asr_model_is_available),
-            download_supported: local_asr_profile.is_some_and(|profile| {
-                whisper_download_plan_for_model_id(&profile.model_id).is_ok()
-            }),
-            download_label: local_asr_profile
-                .and_then(|profile| whisper_download_plan_for_model_id(&profile.model_id).ok())
-                .map(|plan| format!("Download Whisper {}", plan.display_name)),
+            download_supported: asr_download_supported,
+            download_label: asr_download_label,
+            download_absence_reason: asr_download_absence_reason,
         },
     }
 }
@@ -381,22 +419,20 @@ pub(crate) fn build_tts_voice_settings(
                 .remote_profile
                 .as_ref()
                 .and_then(|profile_name| config.remote_tts_profiles.get(profile_name));
-            match active_remote_profile.map(|profile| &profile.provider) {
-                Some(RemoteProviderKind::OpenAi) => OPENAI_TTS_VOICES
-                    .iter()
-                    .map(|voice| TtsVoiceOption {
-                        voice_name: (*voice).to_string(),
-                        display_label: (*voice).to_string(),
-                    })
-                    .collect(),
-                Some(_) => active_remote_profile
-                    .map(|profile| {
-                        vec![TtsVoiceOption {
-                            voice_name: profile.voice.clone(),
-                            display_label: profile.voice.clone(),
-                        }]
-                    })
-                    .unwrap_or_default(),
+            match active_remote_profile {
+                Some(profile) if profile.provider == RemoteProviderKind::OpenAi => {
+                    OPENAI_TTS_VOICES
+                        .iter()
+                        .map(|voice| TtsVoiceOption {
+                            voice_name: (*voice).to_string(),
+                            display_label: (*voice).to_string(),
+                        })
+                        .collect()
+                }
+                Some(profile) => vec![TtsVoiceOption {
+                    voice_name: profile.voice.clone(),
+                    display_label: profile.voice.clone(),
+                }],
                 None => Vec::new(),
             }
         }

@@ -9,6 +9,7 @@ use crate::commands::{
     ToolError, ToolName,
 };
 use crate::config::{HighRiskOriginPolicy, RemotePlannerPrivacySettings};
+use crate::diagnostic_redaction::sanitize_url_for_display;
 use crate::narration::NarrationCursor;
 use crate::page_model::{
     ElementRole, InteractiveElement, PageModel, PageRegion, Rect, RegionRole, RegionSource,
@@ -795,20 +796,14 @@ fn sanitize_text(
 }
 
 fn sanitize_url(raw: &str, metadata: &mut SanitizationMetadata) -> PlannerSafeUrl {
-    let Ok(mut parsed) = url::Url::parse(raw) else {
+    let Some(safe) = sanitize_url_for_display(raw) else {
         metadata.redacted_text_fields += 1;
         return PlannerSafeUrl(String::from("[REDACTED INVALID URL]"));
     };
-
-    let _ = parsed.set_username("");
-    let _ = parsed.set_password(None);
-    parsed.set_fragment(None);
-    if parsed.query().is_some() {
+    if safe.removed_query {
         metadata.query_values_removed += 1;
-        parsed.set_query(None);
     }
-
-    PlannerSafeUrl(truncate_chars(parsed.as_str(), MAX_URL_CHARS, metadata))
+    PlannerSafeUrl(truncate_chars(&safe.value, MAX_URL_CHARS, metadata))
 }
 
 fn contains_sensitive_material(value: &str) -> bool {
@@ -1227,6 +1222,7 @@ mod tests {
                 max_output_tokens: Some(1024),
                 timeout_ms: Some(30_000),
                 endpoint_is_loopback: Some(false),
+                availability_reason: None,
                 consent_to_remote_page_data: true,
                 local_only: false,
                 blocked_origins: Vec::new(),
@@ -1754,5 +1750,28 @@ mod tests {
             .prompt_injection_indicators
             .reason_codes
             .contains(&String::from("confirmation_bypass")));
+    }
+}
+
+#[cfg(test)]
+mod post_p8_url_sanitization_tests {
+    use super::*;
+
+    #[test]
+    fn post_p8_url_sanitization_reconstructs_approved_components() {
+        let mut metadata = SanitizationMetadata::default();
+        let safe = sanitize_url(
+            "https://user:pass@example.com:8443/safe/path?token=secret#fragment",
+            &mut metadata,
+        );
+        assert_eq!(safe.0, "https://example.com:8443/safe/path");
+        assert_eq!(metadata.query_values_removed, 1);
+        assert!(!safe.0.contains("user"));
+        assert!(!safe.0.contains("pass"));
+        assert!(!safe.0.contains("token"));
+        assert!(!safe.0.contains("fragment"));
+
+        let malformed = sanitize_url("https://[invalid?token=secret", &mut metadata);
+        assert_eq!(malformed.0, "[REDACTED INVALID URL]");
     }
 }

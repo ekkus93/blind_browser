@@ -19,6 +19,16 @@ REQUIRED = {
     "side_effect_impact",
     "test_coverage",
     "future_replacement",
+    "disposition",
+    "review_due",
+    "owner_note",
+}
+VALID_DISPOSITIONS = {
+    "permanent_accepted",
+    "temporary_accepted",
+    "convert_to_warning",
+    "convert_to_error",
+    "remove",
 }
 
 
@@ -50,6 +60,26 @@ def source_functions(path: str, expression: str) -> list[str]:
     return sorted(set(functions))
 
 
+def metadata_problems(key: tuple[str, str], entry: dict) -> list[str]:
+    problems = []
+    missing = REQUIRED - set(entry)
+    if missing:
+        return [f"{key}: missing fields {sorted(missing)}"]
+    for field in REQUIRED - {"functions"}:
+        if not isinstance(entry[field], str) or not entry[field].strip():
+            problems.append(f"{key}: empty {field}")
+    if not isinstance(entry["functions"], list) or not entry["functions"]:
+        problems.append(f"{key}: functions must be a non-empty list")
+    if entry["disposition"] not in VALID_DISPOSITIONS:
+        problems.append(f"{key}: invalid disposition {entry['disposition']!r}")
+    if entry["disposition"] == "temporary_accepted":
+        if entry["review_due"] == "not_applicable":
+            problems.append(f"{key}: temporary fallback requires a review boundary")
+        if len(entry["owner_note"].strip()) < 20:
+            problems.append(f"{key}: temporary fallback requires an actionable owner_note")
+    return problems
+
+
 def audit() -> list[str]:
     problems = []
     payload = json.loads(INVENTORY.read_text(encoding="utf-8"))
@@ -58,17 +88,14 @@ def audit() -> list[str]:
     expected = allowlist_keys()
     observed = set(indexed)
     if expected != observed:
-        problems.append(f"inventory keys differ: missing={sorted(expected-observed)} extra={sorted(observed-expected)}")
+        problems.append(
+            f"inventory keys differ: missing={sorted(expected-observed)} extra={sorted(observed-expected)}"
+        )
     for key, entry in indexed.items():
-        missing = REQUIRED - set(entry)
-        if missing:
-            problems.append(f"{key}: missing fields {sorted(missing)}")
+        entry_problems = metadata_problems(key, entry)
+        problems.extend(entry_problems)
+        if entry_problems:
             continue
-        for field in REQUIRED - {"functions"}:
-            if not isinstance(entry[field], str) or not entry[field].strip():
-                problems.append(f"{key}: empty {field}")
-        if not isinstance(entry["functions"], list) or not entry["functions"]:
-            problems.append(f"{key}: functions must be a non-empty list")
         actual_functions = source_functions(*key)
         if actual_functions != entry["functions"]:
             problems.append(f"{key}: functions {entry['functions']} != source {actual_functions}")
@@ -77,7 +104,36 @@ def audit() -> list[str]:
 
 def self_test() -> None:
     assert normalize("  let   x = 1; ") == "let x = 1;"
-    assert REQUIRED.issuperset({"path", "expression", "functions"})
+    base = {
+        "path": "src-tauri/src/app_core/click_authorization.rs",
+        "functions": ["example"],
+        "expression": "example()",
+        "justification": "safe",
+        "user_visibility": "visible",
+        "side_effect_impact": "none",
+        "test_coverage": "unit",
+        "future_replacement": "none",
+        "disposition": "permanent_accepted",
+        "review_due": "not_applicable",
+        "owner_note": "Permanent exact fallback with no authority impact.",
+    }
+    missing = dict(base)
+    missing.pop("disposition")
+    assert "missing fields" in metadata_problems(("p", "e"), missing)[0]
+    invalid = dict(base, disposition="maybe")
+    assert any("invalid disposition" in problem for problem in metadata_problems(("p", "e"), invalid))
+    temporary = dict(
+        base,
+        disposition="temporary_accepted",
+        review_due="not_applicable",
+        owner_note="short",
+    )
+    temporary_problems = metadata_problems(("p", "e"), temporary)
+    assert any("review boundary" in problem for problem in temporary_problems)
+    assert any("actionable owner_note" in problem for problem in temporary_problems)
+    assert source_functions(
+        "scripts/check-security-fallback-inventory.py", "definitely stale expression"
+    ) == []
     print("Security fallback inventory self-test passed")
 
 

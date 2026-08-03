@@ -4,7 +4,7 @@
 **Scope:** Production fallback expressions in security-sensitive Rust and frontend paths
 **Machine-readable allowlist:** `scripts/security-fallback-allowlist.txt`
 **Enforcement:** `scripts/check-security-fallbacks.py`
-**Status:** Reconciled for the post-Batch-8 hardening branch; final exact-SHA CI evidence remains pending.
+**Status:** Reconciled and disposition-classified for the post-P8 fallback/evidence hardening pass.
 
 ## Rules
 
@@ -32,6 +32,25 @@ Every accepted fallback must satisfy all of the following:
 | Best-effort non-authoritative cleanup | temporary config/image-cache cleanup after a primary failure or cache eviction | Cleanup failure may be secondary | Cleanup does not report the protected operation as successful and cannot activate unverified model bytes. Verified model `.part` cleanup is explicitly not allowlisted: failure returns `ModelDownloadError::CleanupFailed`. | Primary failure remains visible; secondary cache cleanup may be diagnostic-only. | Security fallback scanner synthetic tests; model cleanup tests. | Retain only for disposable cache/config artifacts. |
 | Feature-disabled stubs | remote TTS feature-disabled implementation | Parameters are consumed before typed unavailable error | No request or fallback operation succeeds. | Explicit feature-unavailable error. | Feature-matrix compile/tests; scanner. | Remove stub only if feature becomes mandatory. |
 | URL sanitization setters | provider/diagnostic URL redaction helpers | Results of `Url::set_username`/`set_password` are ignored after successful parsing | The URL is subsequently stripped of query and fragment data. Failure to clear credentials is covered by output assertions; the value is never used to authorize navigation or credentials. | Sanitized endpoint/path or generic redacted URL. | Planner payload, diagnostic redaction, and external-link tests. | Replace with a reconstruction-from-components helper if URL crate semantics change. |
+
+## Post-P8 disposition policy and counts
+
+Every live accepted expression now carries a machine-enforced disposition in
+`scripts/security-fallback-inventory.json`:
+
+- `permanent_accepted`: 21
+- `temporary_accepted`: 5
+- converted or removed in this pass: 13
+
+Temporary entries require both a concrete `review_due` boundary and an actionable
+`owner_note`. Permanent entries remain exact-expression exceptions only; they must
+be re-reviewed if they begin affecting authority, persistence success, or a public
+error contract.
+
+This pass converted the quiet skill-directory entry skip into bounded warning
+aggregation, converted settings/model/provider ambiguity into typed absence
+reasons, reconstructed sanitized URLs without ignored mutator results, and made
+policy-detail serialization degradation explicit.
 
 ## Exact per-expression fallback inventory
 

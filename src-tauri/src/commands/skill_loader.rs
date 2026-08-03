@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
+use std::io;
 use std::path::Path;
 
 use super::skill_parser::{parse_bundled_skills, parse_skill_document};
@@ -67,6 +68,43 @@ fn skill_directory_label(path: &Path) -> &str {
         .unwrap_or("unknown-skill")
 }
 
+#[derive(Debug, Default, PartialEq, Eq)]
+struct SkillEntryWarningSummary {
+    skipped_entries: usize,
+    error_categories: BTreeMap<&'static str, usize>,
+}
+
+fn skill_entry_error_category(kind: io::ErrorKind) -> &'static str {
+    match kind {
+        io::ErrorKind::PermissionDenied => "permission_denied",
+        io::ErrorKind::InvalidData => "invalid_data",
+        io::ErrorKind::NotFound => "not_found",
+        io::ErrorKind::Interrupted => "interrupted",
+        _ => "other_io",
+    }
+}
+
+fn collect_readable_entries<T, I>(entries: I) -> (Vec<T>, SkillEntryWarningSummary)
+where
+    I: IntoIterator<Item = io::Result<T>>,
+{
+    let mut readable = Vec::new();
+    let mut warnings = SkillEntryWarningSummary::default();
+    for entry in entries {
+        match entry {
+            Ok(entry) => readable.push(entry),
+            Err(error) => {
+                warnings.skipped_entries += 1;
+                *warnings
+                    .error_categories
+                    .entry(skill_entry_error_category(error.kind()))
+                    .or_insert(0) += 1;
+            }
+        }
+    }
+    (readable, warnings)
+}
+
 fn load_skills_from_directory(
     skill_root: &Path,
     source: SkillSource,
@@ -87,7 +125,17 @@ fn load_skills_from_directory(
         }
     };
 
-    for entry in entries.filter_map(Result::ok) {
+    let (entries, entry_warnings) = collect_readable_entries(entries);
+    if entry_warnings.skipped_entries > 0 {
+        tracing::warn!(
+            source = source_label,
+            skipped_entries = entry_warnings.skipped_entries,
+            error_categories = ?entry_warnings.error_categories,
+            "skipped unreadable skill directory entries"
+        );
+    }
+
+    for entry in entries {
         let path = entry.path();
         if !path.is_dir() {
             continue;
@@ -138,7 +186,8 @@ fn load_skills_from_directory(
 
 #[cfg(test)]
 mod tests {
-    use super::{skill_directory_label, skill_source_label, SkillSource};
+    use super::{collect_readable_entries, skill_directory_label, skill_source_label, SkillSource};
+    use std::io;
     use std::path::Path;
 
     #[test]
@@ -151,5 +200,23 @@ mod tests {
         assert_eq!(skill_directory_label(path), "navigation");
         assert!(!skill_directory_label(path).contains("private-user"));
         assert!(!skill_directory_label(path).contains("secret-project"));
+    }
+
+    #[test]
+    fn unreadable_entries_are_aggregated_without_dropping_valid_neighbors() {
+        let entries = vec![
+            Ok("valid-one"),
+            Err(io::Error::from(io::ErrorKind::PermissionDenied)),
+            Ok("valid-two"),
+            Err(io::Error::from(io::ErrorKind::InvalidData)),
+        ];
+        let (readable, warnings) = collect_readable_entries(entries);
+        assert_eq!(readable, vec!["valid-one", "valid-two"]);
+        assert_eq!(warnings.skipped_entries, 2);
+        assert_eq!(warnings.error_categories.get("permission_denied"), Some(&1));
+        assert_eq!(warnings.error_categories.get("invalid_data"), Some(&1));
+        let diagnostic = format!("{warnings:?}");
+        assert!(!diagnostic.contains("/home/"));
+        assert!(!diagnostic.contains("secret-project"));
     }
 }

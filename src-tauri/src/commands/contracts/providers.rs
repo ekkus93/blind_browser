@@ -66,6 +66,19 @@ impl From<&crate::config::RemoteProviderKind> for RemoteProviderLabel {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityAbsenceReason {
+    NotConfigured,
+    ProfileMissing,
+    InvalidEndpoint,
+    UnknownModelId,
+    ManifestUnavailable,
+    FeatureDisabled,
+    CredentialReferenceMissing,
+    LocalBinaryUnavailable,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct TtsModelOption {
     pub profile_name: String,
@@ -139,6 +152,7 @@ pub struct RemotePlannerSettings {
     pub max_output_tokens: Option<u32>,
     pub timeout_ms: Option<u64>,
     pub endpoint_is_loopback: Option<bool>,
+    pub availability_reason: Option<CapabilityAbsenceReason>,
     pub consent_to_remote_page_data: bool,
     pub local_only: bool,
     pub blocked_origins: Vec<String>,

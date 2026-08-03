@@ -28,6 +28,34 @@ const SENSITIVE_MARKERS: &[&str] = &[
     "session cookie",
 ];
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SanitizedUrlDisplay {
+    pub(crate) value: String,
+    pub(crate) removed_query: bool,
+    pub(crate) removed_fragment: bool,
+}
+
+/// Reconstruct a display-safe URL from its origin and path. Userinfo, query,
+/// and fragment components are never copied into the returned value.
+pub(crate) fn sanitize_url_for_display(value: &str) -> Option<SanitizedUrlDisplay> {
+    let parsed = match url::Url::parse(value) {
+        Ok(parsed) => parsed,
+        Err(_) => return None,
+    };
+    parsed.host_str()?;
+    let origin = parsed.origin().ascii_serialization();
+    if origin == "null" {
+        return None;
+    }
+    let path = parsed.path();
+    let safe_path = if path == "/" { "" } else { path };
+    Some(SanitizedUrlDisplay {
+        value: format!("{origin}{safe_path}"),
+        removed_query: parsed.query().is_some(),
+        removed_fragment: parsed.fragment().is_some(),
+    })
+}
+
 pub(crate) fn redact_diagnostic_text(value: &str) -> String {
     let lower = value.to_ascii_lowercase();
     if SENSITIVE_MARKERS
@@ -62,14 +90,11 @@ pub(crate) fn redact_json_value(value: &Value) -> Value {
 }
 
 fn redact_url_query(value: &str) -> String {
-    if let Ok(mut url) = url::Url::parse(value) {
-        let _ = url.set_username("");
-        let _ = url.set_password(None);
-        url.set_query(None);
-        url.set_fragment(None);
-        return url.to_string();
+    match sanitize_url_for_display(value) {
+        Some(safe) => safe.value,
+        None if value.contains("://") => String::from("[REDACTED INVALID URL]"),
+        None => value.to_string(),
     }
-    value.to_string()
 }
 
 fn is_credential_shaped(token: &str) -> bool {
@@ -113,5 +138,24 @@ mod tests {
         assert!(!safe.contains("user:pass"));
         assert!(!safe.contains("token=secret"));
         assert!(safe.contains("safe reason"));
+    }
+
+    #[test]
+    fn reconstructs_urls_without_userinfo_query_or_fragment() {
+        let safe = sanitize_url_for_display(
+            "https://user:pass@example.com:8443/safe/path?token=secret#fragment",
+        )
+        .expect("URL should be reconstructable");
+        assert_eq!(safe.value, "https://example.com:8443/safe/path");
+        assert!(safe.removed_query);
+        assert!(safe.removed_fragment);
+        assert!(!safe.value.contains("user"));
+        assert!(!safe.value.contains("pass"));
+        assert!(!safe.value.contains("secret"));
+
+        assert_eq!(
+            redact_diagnostic_text("https://[invalid?token=secret"),
+            "[REDACTED INVALID URL]"
+        );
     }
 }

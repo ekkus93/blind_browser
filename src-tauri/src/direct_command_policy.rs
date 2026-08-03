@@ -119,6 +119,91 @@ impl DirectCommandName {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DirectCommandNetworkPolicy {
+    RemotePlanner,
+    RemoteAsr,
+    RemoteAsrAndPlanner,
+    BrowserNavigation,
+    CredentialProbe,
+    VerifiedModelDownload,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DirectCommandCredentialPolicy {
+    EndpointBound,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DirectCommandPageContextPolicy {
+    SanitizedRemotePlanner,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DirectCommandArtifactPolicy {
+    VerifiedAtomicActivation,
+}
+
+pub(crate) const fn direct_command_network_policy(
+    name: DirectCommandName,
+) -> Option<DirectCommandNetworkPolicy> {
+    use DirectCommandName as D;
+    match name {
+        D::ResolveCommand => Some(DirectCommandNetworkPolicy::RemotePlanner),
+        D::TranscribeCommand => Some(DirectCommandNetworkPolicy::RemoteAsr),
+        D::TranscribeAndExecuteCommand => Some(DirectCommandNetworkPolicy::RemoteAsrAndPlanner),
+        D::OpenUrl => Some(DirectCommandNetworkPolicy::BrowserNavigation),
+        D::ListRemotePlannerModels
+        | D::TestRemotePlannerApiKey
+        | D::TestRemoteTtsApiKey
+        | D::TestRemoteAsrApiKey => Some(DirectCommandNetworkPolicy::CredentialProbe),
+        D::DownloadActiveLocalTtsModel | D::DownloadActiveLocalAsrModel => {
+            Some(DirectCommandNetworkPolicy::VerifiedModelDownload)
+        }
+        _ => None,
+    }
+}
+
+pub(crate) const fn direct_command_credential_policy(
+    name: DirectCommandName,
+) -> Option<DirectCommandCredentialPolicy> {
+    match name {
+        DirectCommandName::ResolveCommand
+        | DirectCommandName::TranscribeCommand
+        | DirectCommandName::TranscribeAndExecuteCommand
+        | DirectCommandName::ListRemotePlannerModels
+        | DirectCommandName::TestRemotePlannerApiKey
+        | DirectCommandName::TestRemoteTtsApiKey
+        | DirectCommandName::TestRemoteAsrApiKey => {
+            Some(DirectCommandCredentialPolicy::EndpointBound)
+        }
+        _ => None,
+    }
+}
+
+pub(crate) const fn direct_command_page_context_policy(
+    name: DirectCommandName,
+) -> Option<DirectCommandPageContextPolicy> {
+    match name {
+        DirectCommandName::ResolveCommand | DirectCommandName::TranscribeAndExecuteCommand => {
+            Some(DirectCommandPageContextPolicy::SanitizedRemotePlanner)
+        }
+        _ => None,
+    }
+}
+
+pub(crate) const fn direct_command_artifact_policy(
+    name: DirectCommandName,
+) -> Option<DirectCommandArtifactPolicy> {
+    match name {
+        DirectCommandName::DownloadActiveLocalTtsModel
+        | DirectCommandName::DownloadActiveLocalAsrModel => {
+            Some(DirectCommandArtifactPolicy::VerifiedAtomicActivation)
+        }
+        _ => None,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DirectCommandPolicy {
     pub(crate) class: ActionClass,
     pub(crate) requires_user_gesture: bool,
@@ -377,6 +462,26 @@ pub(crate) fn validate_direct_command_registry() {
             !policy.launches_external_program || policy.requires_user_gesture,
             "external program launch requires an explicit user gesture"
         );
+        assert_eq!(
+            policy.performs_network_io,
+            direct_command_network_policy(*name).is_some(),
+            "networked direct commands require a typed semantic network mapping"
+        );
+        assert_eq!(
+            policy.credential_bearing_network_io,
+            direct_command_credential_policy(*name).is_some(),
+            "credential-bearing direct commands require endpoint-bound mapping"
+        );
+        assert_eq!(
+            policy.transmits_page_context,
+            direct_command_page_context_policy(*name).is_some(),
+            "page-context direct commands require sanitizer mapping"
+        );
+        assert_eq!(
+            policy.downloads_executable_or_model_artifact,
+            direct_command_artifact_policy(*name).is_some(),
+            "artifact direct commands require verified activation mapping"
+        );
         std::hint::black_box((policy.class, policy.mutates_runtime_state));
     }
 }
@@ -408,6 +513,37 @@ mod tests {
             .map(|name| name.as_handler_name().to_string())
             .collect::<BTreeSet<_>>();
         assert_eq!(registered, generated);
+    }
+
+    #[test]
+    fn semantic_direct_command_mappings_match_policy_flags() {
+        for name in DirectCommandName::ALL {
+            let policy = direct_command_policy(*name);
+            assert_eq!(
+                policy.performs_network_io,
+                direct_command_network_policy(*name).is_some(),
+                "{}",
+                name.as_handler_name()
+            );
+            assert_eq!(
+                policy.credential_bearing_network_io,
+                direct_command_credential_policy(*name).is_some(),
+                "{}",
+                name.as_handler_name()
+            );
+            assert_eq!(
+                policy.transmits_page_context,
+                direct_command_page_context_policy(*name).is_some(),
+                "{}",
+                name.as_handler_name()
+            );
+            assert_eq!(
+                policy.downloads_executable_or_model_artifact,
+                direct_command_artifact_policy(*name).is_some(),
+                "{}",
+                name.as_handler_name()
+            );
+        }
     }
 
     #[test]

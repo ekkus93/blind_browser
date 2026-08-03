@@ -326,7 +326,7 @@ fn evidence_inventory_matches_registry_and_tauri_surface() {
 }
 
 #[test]
-fn every_networked_direct_command_has_timeout_and_redirect_evidence() {
+fn source_drift_networked_direct_commands_retain_timeout_and_redirect_evidence() {
     let api_keys = source("src/app_core/api_key_tools.rs");
     let remote_planner = source("src/app_core/remote_planner.rs");
     let remote_asr = source("src/asr/remote.rs");
@@ -372,7 +372,7 @@ fn every_networked_direct_command_has_timeout_and_redirect_evidence() {
 }
 
 #[test]
-fn every_credential_bearing_direct_command_is_endpoint_bound() {
+fn source_drift_credential_bearing_commands_retain_endpoint_binding() {
     let api_keys = source("src/app_core/api_key_tools.rs");
     let remote_planner = source("src/app_core/remote_planner.rs");
     let remote_asr = source("src/asr/remote.rs");
@@ -403,7 +403,7 @@ fn every_credential_bearing_direct_command_is_endpoint_bound() {
 }
 
 #[test]
-fn direct_model_downloads_are_wired_to_verified_activation() {
+fn source_drift_model_downloads_retain_verified_activation_wiring() {
     let handlers = source("src/command_handlers/model_handlers.rs");
     let runtime = source("src/app_core/runtime_config.rs");
     let download = source("src/app_core/model_management/download.rs");
@@ -431,7 +431,7 @@ fn direct_model_downloads_are_wired_to_verified_activation() {
 }
 
 #[test]
-fn direct_page_context_transmission_cannot_bypass_privacy_sanitization() {
+fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
     let core_handlers = source("src/command_handlers/core_handlers.rs");
     let voice_handlers = source("src/command_handlers/voice_handlers.rs");
     let remote_planner = source("src/app_core/remote_planner.rs");

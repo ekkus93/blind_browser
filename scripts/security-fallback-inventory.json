@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "entries": [
     {
       "path": "src-tauri/src/app_core/click_authorization.rs",
@@ -11,7 +11,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/click_authorization.rs",
@@ -23,7 +26,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/click_authorization.rs",
@@ -35,7 +41,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/click_authorization.rs",
@@ -47,7 +56,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/click_authorization.rs",
@@ -60,7 +72,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/click_authorization.rs",
@@ -72,7 +87,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/click_authorization.rs",
@@ -84,7 +102,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/click_authorization.rs",
@@ -96,7 +117,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/command_dispatch.rs",
@@ -108,7 +132,10 @@
       "user_visibility": "The command replans, rejects, or reports that no suitable target was found.",
       "side_effect_impact": "Cannot execute an unvalidated target or report a protected side effect as successful.",
       "test_coverage": "Command dispatch/form-fill tests and scanner enforcement.",
-      "future_replacement": "Promote to typed candidate-rejection reasons if surfaced in UX."
+      "future_replacement": "Promote to typed candidate-rejection reasons if surfaced in UX.",
+      "disposition": "temporary_accepted",
+      "review_due": "before_release_candidate",
+      "owner_note": "Promote this capability-reducing omission to a typed candidate or parse diagnostic before the release-candidate gate if the UI can render it safely."
     },
     {
       "path": "src-tauri/src/app_core/command_dispatch.rs",
@@ -120,7 +147,10 @@
       "user_visibility": "The command replans, rejects, or reports that no suitable target was found.",
       "side_effect_impact": "Cannot execute an unvalidated target or report a protected side effect as successful.",
       "test_coverage": "Command dispatch/form-fill tests and scanner enforcement.",
-      "future_replacement": "Promote to typed candidate-rejection reasons if surfaced in UX."
+      "future_replacement": "Promote to typed candidate-rejection reasons if surfaced in UX.",
+      "disposition": "temporary_accepted",
+      "review_due": "before_release_candidate",
+      "owner_note": "Promote this capability-reducing omission to a typed candidate or parse diagnostic before the release-candidate gate if the UI can render it safely."
     },
     {
       "path": "src-tauri/src/app_core/confirmation_workflow.rs",
@@ -132,7 +162,10 @@
       "user_visibility": "The protected confirmation still presents deterministic runtime-authored wording.",
       "side_effect_impact": "Cannot approve, replay, or mutate the pending action manifest.",
       "test_coverage": "Confirmation digest/replay/expiry tests and scanner enforcement.",
-      "future_replacement": "Retain unless the display field becomes contractually mandatory."
+      "future_replacement": "Retain unless the display field becomes contractually mandatory.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/element_scoring.rs",
@@ -144,7 +177,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/element_scoring.rs",
@@ -156,7 +192,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/element_scoring.rs",
@@ -168,7 +207,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/element_scoring.rs",
@@ -180,7 +222,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/element_scoring.rs",
@@ -192,7 +237,10 @@
       "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
       "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
       "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
-      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/app_core/fill_correction.rs",
@@ -204,7 +252,10 @@
       "user_visibility": "The command replans, rejects, or reports that no suitable target was found.",
       "side_effect_impact": "Cannot execute an unvalidated target or report a protected side effect as successful.",
       "test_coverage": "Command dispatch/form-fill tests and scanner enforcement.",
-      "future_replacement": "Promote to typed candidate-rejection reasons if surfaced in UX."
+      "future_replacement": "Promote to typed candidate-rejection reasons if surfaced in UX.",
+      "disposition": "temporary_accepted",
+      "review_due": "before_release_candidate",
+      "owner_note": "Promote this capability-reducing omission to a typed candidate or parse diagnostic before the release-candidate gate if the UI can render it safely."
     },
     {
       "path": "src-tauri/src/app_core/form_fill/field_focus.rs",
@@ -216,7 +267,10 @@
       "user_visibility": "The command replans, rejects, or reports that no suitable target was found.",
       "side_effect_impact": "Cannot execute an unvalidated target or report a protected side effect as successful.",
       "test_coverage": "Command dispatch/form-fill tests and scanner enforcement.",
-      "future_replacement": "Promote to typed candidate-rejection reasons if surfaced in UX."
+      "future_replacement": "Promote to typed candidate-rejection reasons if surfaced in UX.",
+      "disposition": "temporary_accepted",
+      "review_due": "before_release_candidate",
+      "owner_note": "Promote this capability-reducing omission to a typed candidate or parse diagnostic before the release-candidate gate if the UI can render it safely."
     },
     {
       "path": "src-tauri/src/app_core/planner_redaction.rs",
@@ -228,79 +282,10 @@
       "user_visibility": "Invalid metadata is redacted or shown as unavailable.",
       "side_effect_impact": "Cannot bypass consent, high-risk blocking, or credential scoping.",
       "test_coverage": "Remote-planner privacy/redaction tests and scanner enforcement.",
-      "future_replacement": "Use typed parse reasons only if the privacy UI requires them."
-    },
-    {
-      "path": "src-tauri/src/app_core/planner_redaction.rs",
-      "functions": [
-        "sanitize_url"
-      ],
-      "expression": "let _ = parsed.set_password(None);",
-      "justification": "The parsed diagnostic/planner URL is stripped of userinfo before query and fragment removal.",
-      "user_visibility": "Only a sanitized origin/path is displayed or transmitted.",
-      "side_effect_impact": "Presentation-only sanitization; the URL is not used to grant credentials or authority.",
-      "test_coverage": "Planner URL redaction and frontend diagnostic URL tests plus scanner enforcement.",
-      "future_replacement": "Reconstruct URLs from approved components if URL mutation semantics change."
-    },
-    {
-      "path": "src-tauri/src/app_core/planner_redaction.rs",
-      "functions": [
-        "sanitize_url"
-      ],
-      "expression": "let _ = parsed.set_username(\"\");",
-      "justification": "The parsed diagnostic/planner URL is stripped of userinfo before query and fragment removal.",
-      "user_visibility": "Only a sanitized origin/path is displayed or transmitted.",
-      "side_effect_impact": "Presentation-only sanitization; the URL is not used to grant credentials or authority.",
-      "test_coverage": "Planner URL redaction and frontend diagnostic URL tests plus scanner enforcement.",
-      "future_replacement": "Reconstruct URLs from approved components if URL mutation semantics change."
-    },
-    {
-      "path": "src-tauri/src/app_core/settings_adapters.rs",
-      "functions": [
-        "build_remote_planner_settings"
-      ],
-      "expression": ".and_then(|configured_profile| ProviderEndpointScope::parse(&configured_profile.base_url).ok())",
-      "justification": "Optional capability/status discovery omits unavailable endpoint or model metadata.",
-      "user_visibility": "Settings/runtime status reports the configured capability as unavailable.",
-      "side_effect_impact": "Capability-reducing only; configured operations still fail explicitly.",
-      "test_coverage": "Settings/model availability tests and scanner enforcement.",
-      "future_replacement": "Add typed absence reasons when the settings UI needs finer diagnostics."
-    },
-    {
-      "path": "src-tauri/src/app_core/settings_adapters.rs",
-      "functions": [
-        "build_model_management_settings"
-      ],
-      "expression": ".and_then(|profile| kitten_download_plan_for_model_id(&profile.model_id).ok())",
-      "justification": "Optional capability/status discovery omits unavailable endpoint or model metadata.",
-      "user_visibility": "Settings/runtime status reports the configured capability as unavailable.",
-      "side_effect_impact": "Capability-reducing only; configured operations still fail explicitly.",
-      "test_coverage": "Settings/model availability tests and scanner enforcement.",
-      "future_replacement": "Add typed absence reasons when the settings UI needs finer diagnostics."
-    },
-    {
-      "path": "src-tauri/src/app_core/settings_adapters.rs",
-      "functions": [
-        "build_model_management_settings"
-      ],
-      "expression": ".and_then(|profile| whisper_download_plan_for_model_id(&profile.model_id).ok())",
-      "justification": "Optional capability/status discovery omits unavailable endpoint or model metadata.",
-      "user_visibility": "Settings/runtime status reports the configured capability as unavailable.",
-      "side_effect_impact": "Capability-reducing only; configured operations still fail explicitly.",
-      "test_coverage": "Settings/model availability tests and scanner enforcement.",
-      "future_replacement": "Add typed absence reasons when the settings UI needs finer diagnostics."
-    },
-    {
-      "path": "src-tauri/src/app_core/settings_adapters.rs",
-      "functions": [
-        "build_tts_voice_settings"
-      ],
-      "expression": ".unwrap_or_default(),",
-      "justification": "Optional capability/status discovery omits unavailable endpoint or model metadata.",
-      "user_visibility": "Settings/runtime status reports the configured capability as unavailable.",
-      "side_effect_impact": "Capability-reducing only; configured operations still fail explicitly.",
-      "test_coverage": "Settings/model availability tests and scanner enforcement.",
-      "future_replacement": "Add typed absence reasons when the settings UI needs finer diagnostics."
+      "future_replacement": "Use typed parse reasons only if the privacy UI requires them.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/asr/wav.rs",
@@ -312,7 +297,10 @@
       "user_visibility": "Invalid input is rejected or the optional value is reported unavailable.",
       "side_effect_impact": "Cannot widen a numeric bound or increase authority.",
       "test_coverage": "Boundary/argument tests and scanner enforcement.",
-      "future_replacement": "Retain checked conversion unless the type contract is narrowed further."
+      "future_replacement": "Retain checked conversion unless the type contract is narrowed further.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/commands/action_policy.rs",
@@ -324,20 +312,10 @@
       "user_visibility": "Invalid input is rejected or the optional value is reported unavailable.",
       "side_effect_impact": "Cannot widen a numeric bound or increase authority.",
       "test_coverage": "Boundary/argument tests and scanner enforcement.",
-      "future_replacement": "Retain checked conversion unless the type contract is narrowed further."
-    },
-    {
-      "path": "src-tauri/src/commands/planner_executor/execution.rs",
-      "functions": [
-        "initial_execution_policy_error",
-        "resumed_execution_policy_error"
-      ],
-      "expression": "details: serde_json::to_value(decision).ok(),",
-      "justification": "Optional policy-detail serialization may fail only after the typed refusal and error code are fixed.",
-      "user_visibility": "The typed failure remains visible; only supplemental JSON detail may be absent.",
-      "side_effect_impact": "Cannot authorize or execute an action and cannot convert failure into success.",
-      "test_coverage": "Policy validator/executor tests plus the security-fallback scanner.",
-      "future_replacement": "Make policy details mandatory only if they become part of the public error contract."
+      "future_replacement": "Retain checked conversion unless the type contract is narrowed further.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/commands/routing/audio_commands.rs",
@@ -349,19 +327,10 @@
       "user_visibility": "Invalid input is rejected or the optional value is reported unavailable.",
       "side_effect_impact": "Cannot widen a numeric bound or increase authority.",
       "test_coverage": "Boundary/argument tests and scanner enforcement.",
-      "future_replacement": "Retain checked conversion unless the type contract is narrowed further."
-    },
-    {
-      "path": "src-tauri/src/commands/skill_loader.rs",
-      "functions": [
-        "load_skills_from_directory"
-      ],
-      "expression": "for entry in entries.filter_map(Result::ok) {",
-      "justification": "Unavailable optional skill metadata or unreadable optional entries reduce discovered capability only.",
-      "user_visibility": "Unavailable skills are omitted and discovery diagnostics remain path-private.",
-      "side_effect_impact": "Cannot add tools, grant permission, or bypass confirmation.",
-      "test_coverage": "Skill parser/policy/path-privacy tests and scanner enforcement.",
-      "future_replacement": "Use typed per-entry discovery results if the UI gains a dedicated warning surface."
+      "future_replacement": "Retain checked conversion unless the type contract is narrowed further.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/commands/skill_parser.rs",
@@ -373,67 +342,10 @@
       "user_visibility": "Unavailable skills are omitted and discovery diagnostics remain path-private.",
       "side_effect_impact": "Cannot add tools, grant permission, or bypass confirmation.",
       "test_coverage": "Skill parser/policy/path-privacy tests and scanner enforcement.",
-      "future_replacement": "Use typed per-entry discovery results if the UI gains a dedicated warning surface."
-    },
-    {
-      "path": "src-tauri/src/commands/validators/mod.rs",
-      "functions": [
-        "validate_planner_output_with_safety"
-      ],
-      "expression": "details: serde_json::to_value(&decision).ok(),",
-      "justification": "Optional policy-detail serialization may fail only after the typed refusal and error code are fixed.",
-      "user_visibility": "The typed failure remains visible; only supplemental JSON detail may be absent.",
-      "side_effect_impact": "Cannot authorize or execute an action and cannot convert failure into success.",
-      "test_coverage": "Policy validator/executor tests plus the security-fallback scanner.",
-      "future_replacement": "Make policy details mandatory only if they become part of the public error contract."
-    },
-    {
-      "path": "src-tauri/src/commands/validators/mod.rs",
-      "functions": [
-        "validate_runtime_confirmation_gate"
-      ],
-      "expression": "details: serde_json::to_value(decision).ok(),",
-      "justification": "Optional policy-detail serialization may fail only after the typed refusal and error code are fixed.",
-      "user_visibility": "The typed failure remains visible; only supplemental JSON detail may be absent.",
-      "side_effect_impact": "Cannot authorize or execute an action and cannot convert failure into success.",
-      "test_coverage": "Policy validator/executor tests plus the security-fallback scanner.",
-      "future_replacement": "Make policy details mandatory only if they become part of the public error contract."
-    },
-    {
-      "path": "src-tauri/src/commands/validators/mod.rs",
-      "functions": [
-        "validate_planner_output_with_safety"
-      ],
-      "expression": "details: serde_json::to_value(preliminary_decision).ok(),",
-      "justification": "Optional policy-detail serialization may fail only after the typed refusal and error code are fixed.",
-      "user_visibility": "The typed failure remains visible; only supplemental JSON detail may be absent.",
-      "side_effect_impact": "Cannot authorize or execute an action and cannot convert failure into success.",
-      "test_coverage": "Policy validator/executor tests plus the security-fallback scanner.",
-      "future_replacement": "Make policy details mandatory only if they become part of the public error contract."
-    },
-    {
-      "path": "src-tauri/src/commands/validators/mod.rs",
-      "functions": [
-        "validate_planner_output_with_safety"
-      ],
-      "expression": "serde_json::to_value(&decision).ok(),",
-      "justification": "Optional policy-detail serialization may fail only after the typed refusal and error code are fixed.",
-      "user_visibility": "The typed failure remains visible; only supplemental JSON detail may be absent.",
-      "side_effect_impact": "Cannot authorize or execute an action and cannot convert failure into success.",
-      "test_coverage": "Policy validator/executor tests plus the security-fallback scanner.",
-      "future_replacement": "Make policy details mandatory only if they become part of the public error contract."
-    },
-    {
-      "path": "src-tauri/src/commands/validators/mod.rs",
-      "functions": [
-        "validate_runtime_confirmation_gate"
-      ],
-      "expression": "serde_json::to_value(decision).ok(),",
-      "justification": "Optional policy-detail serialization may fail only after the typed refusal and error code are fixed.",
-      "user_visibility": "The typed failure remains visible; only supplemental JSON detail may be absent.",
-      "side_effect_impact": "Cannot authorize or execute an action and cannot convert failure into success.",
-      "test_coverage": "Policy validator/executor tests plus the security-fallback scanner.",
-      "future_replacement": "Make policy details mandatory only if they become part of the public error contract."
+      "future_replacement": "Use typed per-entry discovery results if the UI gains a dedicated warning surface.",
+      "disposition": "temporary_accepted",
+      "review_due": "before_release_candidate",
+      "owner_note": "Promote this capability-reducing omission to a typed candidate or parse diagnostic before the release-candidate gate if the UI can render it safely."
     },
     {
       "path": "src-tauri/src/tts/remote.rs",
@@ -445,7 +357,10 @@
       "user_visibility": "The caller receives a typed feature-unavailable failure.",
       "side_effect_impact": "No network call, playback, or successful fallback occurs.",
       "test_coverage": "Feature-matrix compilation/tests and scanner enforcement.",
-      "future_replacement": "Remove the stub when remote TTS becomes mandatory in all builds."
+      "future_replacement": "Remove the stub when remote TTS becomes mandatory in all builds.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/tts/remote.rs",
@@ -457,7 +372,10 @@
       "user_visibility": "The caller receives a typed feature-unavailable failure.",
       "side_effect_impact": "No network call, playback, or successful fallback occurs.",
       "test_coverage": "Feature-matrix compilation/tests and scanner enforcement.",
-      "future_replacement": "Remove the stub when remote TTS becomes mandatory in all builds."
+      "future_replacement": "Remove the stub when remote TTS becomes mandatory in all builds.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     },
     {
       "path": "src-tauri/src/tts/remote.rs",
@@ -469,7 +387,10 @@
       "user_visibility": "The caller receives a typed feature-unavailable failure.",
       "side_effect_impact": "No network call, playback, or successful fallback occurs.",
       "test_coverage": "Feature-matrix compilation/tests and scanner enforcement.",
-      "future_replacement": "Remove the stub when remote TTS becomes mandatory in all builds."
+      "future_replacement": "Remove the stub when remote TTS becomes mandatory in all builds.",
+      "disposition": "permanent_accepted",
+      "review_due": "not_applicable",
+      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract."
     }
   ]
 }

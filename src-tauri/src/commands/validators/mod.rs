@@ -26,6 +26,15 @@ use self::planner::{validate_report_result_input, validate_step_transition};
 mod voice;
 use self::voice::{validate_read_region_input, validate_transcribe_command_input};
 
+fn policy_details(
+    result: Result<serde_json::Value, serde_json::Error>,
+) -> Option<serde_json::Value> {
+    Some(match result {
+        Ok(details) => details,
+        Err(_) => serde_json::json!({ "detail_serialization": "failed" }),
+    })
+}
+
 pub fn validate_planner_output(
     planner_output: &PlannerOutput,
     available_tools: &[AvailableTool],
@@ -207,7 +216,7 @@ pub fn validate_planner_output_with_safety(
                 "planner output contains an action prohibited by deterministic runtime policy",
             ),
             retryable: false,
-            details: serde_json::to_value(preliminary_decision).ok(),
+            details: policy_details(serde_json::to_value(preliminary_decision)),
         });
     }
 
@@ -224,7 +233,7 @@ pub fn validate_planner_output_with_safety(
                 "planner output contains an action prohibited by deterministic runtime policy",
             ),
             retryable: false,
-            details: serde_json::to_value(&decision).ok(),
+            details: policy_details(serde_json::to_value(&decision)),
         }),
         ConfirmationRequirement::ConfirmationRequired
             if planner_output.status == PlannerStatus::Ready
@@ -242,7 +251,7 @@ pub fn validate_planner_output_with_safety(
             if planner_output.status == PlannerStatus::NeedsConfirmation {
                 return Err(invalid_planner_output(
                     "planner requested confirmation for a plan with no runtime-protected action",
-                    serde_json::to_value(&decision).ok(),
+                    policy_details(serde_json::to_value(&decision)),
                 ));
             }
             Ok(())
@@ -261,14 +270,14 @@ fn validate_runtime_confirmation_gate(
                 "planner marked a runtime-protected action ready without confirmation",
             ),
             retryable: false,
-            details: serde_json::to_value(decision).ok(),
+            details: policy_details(serde_json::to_value(decision)),
         });
     }
 
     if !planner_output.requires_confirmation {
         return Err(invalid_planner_output(
             "runtime-protected plan must set requires_confirmation",
-            serde_json::to_value(decision).ok(),
+            policy_details(serde_json::to_value(decision)),
         ));
     }
 
@@ -280,32 +289,32 @@ fn validate_runtime_confirmation_gate(
     if confirm_steps.len() != 1 {
         return Err(invalid_planner_output(
             "runtime-protected plan must contain exactly one confirm_action step",
-            serde_json::to_value(decision).ok(),
+            policy_details(serde_json::to_value(decision)),
         ));
     }
 
     let first_step = planner_output.steps.first().ok_or_else(|| {
         invalid_planner_output(
             "runtime-protected plan has no confirmation gate",
-            serde_json::to_value(decision).ok(),
+            policy_details(serde_json::to_value(decision)),
         )
     })?;
     if first_step.tool_name != ToolName::ConfirmAction {
         return Err(invalid_planner_output(
             "confirm_action must be the first step of every runtime-protected plan",
-            serde_json::to_value(decision).ok(),
+            policy_details(serde_json::to_value(decision)),
         ));
     }
     if !matches!(&first_step.on_success, StepTransition::RequestConfirmation) {
         return Err(invalid_planner_output(
             "confirm_action success must transition to RequestConfirmation",
-            serde_json::to_value(decision).ok(),
+            policy_details(serde_json::to_value(decision)),
         ));
     }
     if !matches!(&first_step.on_failure, StepTransition::Replan) {
         return Err(invalid_planner_output(
             "confirm_action failure must replan and may not route to a protected action",
-            serde_json::to_value(decision).ok(),
+            policy_details(serde_json::to_value(decision)),
         ));
     }
 
@@ -609,4 +618,16 @@ where
                 })),
             )
         })
+}
+
+#[cfg(test)]
+mod post_p8_policy_detail_tests {
+    use super::*;
+
+    #[test]
+    fn post_p8_validator_policy_detail_failure_is_explicit() {
+        let failed = serde_json::from_str::<serde_json::Value>("{");
+        let details = policy_details(failed).expect("details remain present");
+        assert_eq!(details["detail_serialization"], "failed");
+    }
 }

@@ -34,6 +34,7 @@ pub struct ManagedLocalModelStatusData {
     pub available: bool,
     pub download_supported: bool,
     pub download_label: Option<String>,
+    pub download_absence_reason: Option<crate::commands::CapabilityAbsenceReason>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]

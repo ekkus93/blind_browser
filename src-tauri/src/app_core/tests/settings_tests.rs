@@ -410,3 +410,73 @@ fn build_tts_voice_settings_returns_openai_builtin_voices_for_remote_mode() {
         .iter()
         .any(|option| option.voice_name == "cedar"));
 }
+
+#[test]
+fn post_p8_settings_surface_typed_absence_reasons() {
+    use crate::commands::CapabilityAbsenceReason;
+
+    let mut invalid_endpoint = AppConfig::default();
+    invalid_endpoint
+        .remote_planner_profiles
+        .get_mut("openai-default")
+        .expect("default profile")
+        .base_url = String::from("https://user:pass@api.example.com:8443/v1?token=secret#fragment");
+    let settings = build_remote_planner_settings(&invalid_endpoint);
+    assert_eq!(
+        settings.availability_reason,
+        Some(CapabilityAbsenceReason::InvalidEndpoint)
+    );
+    assert_eq!(
+        settings.base_url.as_deref(),
+        Some("https://api.example.com:8443/v1")
+    );
+    let displayed = settings.base_url.as_deref().unwrap_or_default();
+    assert!(!displayed.contains("user"));
+    assert!(!displayed.contains("pass"));
+    assert!(!displayed.contains("secret"));
+    assert!(!displayed.contains('?'));
+    assert!(!displayed.contains('#'));
+
+    let mut not_configured = AppConfig::default();
+    not_configured.providers.planner.remote_profile = None;
+    assert_eq!(
+        build_remote_planner_settings(&not_configured).availability_reason,
+        Some(CapabilityAbsenceReason::NotConfigured)
+    );
+
+    let mut profile_missing = AppConfig::default();
+    profile_missing.providers.planner.remote_profile = Some(String::from("missing-profile"));
+    assert_eq!(
+        build_remote_planner_settings(&profile_missing).availability_reason,
+        Some(CapabilityAbsenceReason::ProfileMissing)
+    );
+
+    let mut unknown_models = AppConfig::default();
+    unknown_models
+        .local_tts_profiles
+        .get_mut("kitten-default")
+        .expect("default TTS profile")
+        .model_id = String::from("unknown-kitten-model");
+    unknown_models
+        .local_asr_profiles
+        .get_mut("whisper-default")
+        .expect("default ASR profile")
+        .model_id = String::from("unknown-whisper-model");
+    let model_settings =
+        crate::app_core::settings_adapters::build_model_management_settings(&unknown_models);
+    assert_eq!(
+        model_settings.local_tts.download_absence_reason,
+        Some(CapabilityAbsenceReason::UnknownModelId)
+    );
+    assert_eq!(
+        model_settings.local_asr.download_absence_reason,
+        Some(CapabilityAbsenceReason::UnknownModelId)
+    );
+    assert!(!model_settings.local_tts.download_supported);
+    assert!(!model_settings.local_asr.download_supported);
+
+    let valid =
+        crate::app_core::settings_adapters::build_model_management_settings(&AppConfig::default());
+    assert_eq!(valid.local_tts.download_absence_reason, None);
+    assert_eq!(valid.local_asr.download_absence_reason, None);
+}

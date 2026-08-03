@@ -6,6 +6,15 @@ export type RemoteProviderLabel = "OpenAI" | "Ollama";
 export type LocalTtsBackend = "kitten_tts_rs";
 export type LocalAsrBackend = "whisper";
 export type RemoteTtsAudioFormat = "wav";
+export type CapabilityAbsenceReason =
+  | "not_configured"
+  | "profile_missing"
+  | "invalid_endpoint"
+  | "unknown_model_id"
+  | "manifest_unavailable"
+  | "feature_disabled"
+  | "credential_reference_missing"
+  | "local_binary_unavailable";
 
 export type ToolName =
   | "OpenUrl"
@@ -237,6 +246,7 @@ export interface ManagedLocalModelStatusData {
   available: boolean;
   download_supported: boolean;
   download_label: string | null;
+  download_absence_reason: CapabilityAbsenceReason | null;
 }
 
 export interface ModelManagementSettingsData {
@@ -268,6 +278,7 @@ export interface RemotePlannerSettings {
   max_output_tokens: number | null;
   timeout_ms: number | null;
   endpoint_is_loopback: boolean | null;
+  availability_reason: CapabilityAbsenceReason | null;
   consent_to_remote_page_data: boolean;
   local_only: boolean;
   blocked_origins: string[];
