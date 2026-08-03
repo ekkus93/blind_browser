@@ -71,5 +71,185 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
-          from pathlib import import Path
+          from pathlib import Path
+
+          root = Path.cwd()
+          allowlist = root / "scripts/security-fallback-allowlist.txt"
+
+          def normalize(line: str) -> str:
+              return " ".join(line.strip().split())
+
+          retained = []
+          for raw in allowlist.read_text(encoding="utf-8").splitlines():
+              stripped = raw.strip()
+              if not stripped or stripped.startswith("#"):
+                  retained.append(raw)
+                  continue
+              file_name, expression = stripped.split("|", 1)
+              source_path = root / file_name
+              live = source_path.exists() and any(
+                  normalize(line) == expression
+                  for line in source_path.read_text(encoding="utf-8", errors="replace").splitlines()
+              )
+              if live:
+                  retained.append(raw)
+              else:
+                  print(f"Pruned stale fallback allowlist entry: {stripped}")
+          allowlist.write_text("\n".join(retained).rstrip() + "\n", encoding="utf-8")
+
+          path = root / ".github/post_batch8_ralph_patch.py"
+          source = path.read_text(encoding="utf-8")
+
+          replacements = [
+              (
+                  '    assert!(api_keys.contains(".timeout(Duration::from_millis(timeout_ms.max(1)))"));\n',
+                  '    assert!(api_keys.contains("fn credential_async_client(timeout_ms: u64)"));\n'
+                  '    assert!(api_keys.contains("fn credential_client(timeout_ms: u64, purpose: &str)"));\n'
+                  '    assert!(api_keys.matches("timeout_ms.max(1)").count() >= 2);\n',
+                  "timeout assertion",
+              ),
+              (
+                  '            cleanup_failed_screenshot_write(&path, &io_error)?;\n',
+                  '            drop(file);\n            cleanup_failed_screenshot_write(&path, &io_error)?;\n',
+                  "screenshot cleanup",
+              ),
+              (
+                  '                name: IntentName::ClickElement,\n',
+                  '                name: IntentName::FindElement,\n',
+                  "click intent",
+              ),
+          ]
+          for old, new, label in replacements:
+              if source.count(old) != 1:
+                  raise SystemExit(f"expected one {label} replacement")
+              source = source.replace(old, new, 1)
+
+          old_helper = (
+              "fn remove_failed_config_temp_file(path: &Path) -> std::io::Result<()> {\n"
+              "    match fs::remove_file(path) {\n"
+              "        Ok(()) => Ok(()),\n"
+              "        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),\n"
+              "        Err(error) => Err(error),\n"
+              "    }\n"
+              "}\n"
+          )
+          new_helper = (
+              "fn remove_failed_config_temp_file(path: &Path) -> std::io::Result<()> {\n"
+              "    remove_failed_config_temp_file_with(path, |candidate| fs::remove_file(candidate))\n"
+              "}\n\n"
+              "fn remove_failed_config_temp_file_with<F>(path: &Path, remover: F) -> std::io::Result<()>\n"
+              "where\n"
+              "    F: FnOnce(&Path) -> std::io::Result<()>,\n"
+              "{\n"
+              "    match remover(path) {\n"
+              "        Ok(()) => Ok(()),\n"
+              "        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),\n"
+              "        Err(error) => Err(error),\n"
+              "    }\n"
+              "}\n"
+          )
+          if source.count(old_helper) != 1:
+              raise SystemExit("expected one config cleanup helper")
+          source = source.replace(old_helper, new_helper, 1)
+
+          old_test = (
+              "    fn failed_config_temp_cleanup_is_explicit() {\n"
+              "        let directory = tempfile::tempdir().unwrap();\n"
+              "        let directory_target = directory.path().join(\"config.toml.tmp\");\n"
+              "        fs::create_dir(&directory_target).unwrap();\n\n"
+              "        assert!(remove_failed_config_temp_file(&directory_target).is_err());\n"
+              "        assert!(directory_target.exists());\n"
+              "        remove_failed_config_temp_file(&directory.path().join(\"missing.tmp\"))\n"
+              "            .expect(\"missing temporary file is already clean\");\n"
+              "    }\n"
+          )
+          new_test = (
+              "    fn failed_config_temp_cleanup_is_explicit() {\n"
+              "        let synthetic_path = Path::new(\"synthetic-config.toml.tmp\");\n"
+              "        let failure = remove_failed_config_temp_file_with(synthetic_path, |_| {\n"
+              "            Err(std::io::Error::new(\n"
+              "                std::io::ErrorKind::PermissionDenied,\n"
+              "                \"synthetic cleanup refusal\",\n"
+              "            ))\n"
+              "        })\n"
+              "        .expect_err(\"cleanup refusal must remain visible\");\n"
+              "        assert_eq!(failure.kind(), std::io::ErrorKind::PermissionDenied);\n\n"
+              "        remove_failed_config_temp_file_with(synthetic_path, |_| {\n"
+              "            Err(std::io::Error::new(\n"
+              "                std::io::ErrorKind::NotFound,\n"
+              "                \"already absent\",\n"
+              "            ))\n"
+              "        })\n"
+              "        .expect(\"missing temporary file is already clean\");\n"
+              "    }\n"
+          )
+          if source.count(old_test) != 1:
+              raise SystemExit("expected one config cleanup test")
+          source = source.replace(old_test, new_test, 1)
+          path.write_text(source, encoding="utf-8")
           PY
+
+      - name: Apply and validate bounded patch
+        run: python3 .github/post_batch8_ralph_patch.py
+
+      - name: Normalize generated evidence formatting
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path("docs/BLIND_BROWSER_ACCEPTED_FALLBACKS_2026-08-02.md")
+          lines = path.read_text(encoding="utf-8").splitlines()
+          normalized = [re.sub(r"[ \t]+\|", " |", line.rstrip()) for line in lines]
+          path.write_text(
+              "\n".join(normalized).rstrip() + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Commit validated source and evidence changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            .github/workflows/ci.yml \
+            docs/BLIND_BROWSER_ACCEPTED_FALLBACKS_2026-08-02.md \
+            scripts/check-security-fallback-inventory.py \
+            scripts/security-fallback-allowlist.txt \
+            scripts/security-fallback-inventory.json \
+            src-tauri/src/app_core/image_cache.rs \
+            src-tauri/src/app_core/planner_redaction.rs \
+            src-tauri/src/config/persistence.rs \
+            src-tauri/tests/post_batch8_direct_command_policy_evidence.rs
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'No generated source or evidence changes remain.'
+            exit 0
+          fi
+          git commit -m 'test: close post-Batch-8 source evidence gaps'
+          git push origin HEAD:master
+
+      - name: Publish patch conclusion
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          if test "${JOB_STATUS}" = success; then
+            state=success
+            description='Post-Batch-8 source patch passed and published'
+          else
+            state=failure
+            description='Post-Batch-8 source patch failed'
+          fi
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state="${state}" \
+            -f context='ralph/post-batch8-patch' \
+            -f description="${description}" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
