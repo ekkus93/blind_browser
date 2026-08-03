@@ -110,6 +110,24 @@ fn hash_mismatch_preserves_old_target_and_cleans_part() {
 }
 
 #[test]
+fn model_download_error_names_file_without_exposing_target_path() {
+    let directory = tempfile::tempdir().unwrap();
+    let private_root = directory.path().join("private-user-home").join("models");
+    let target = private_root.join("fixture.bin");
+    let mut manifest = fixture_manifest(b"expected bytes");
+    manifest.min_bytes = 1;
+    manifest.max_bytes = Some(64);
+
+    let error = write_verified_reader_atomically(Cursor::new(b"wrong bytes"), &target, &manifest)
+        .expect_err("hash mismatch must fail");
+    let message = error.to_string();
+
+    assert!(message.contains("fixture.bin"));
+    assert!(!message.contains("private-user-home"));
+    assert!(!message.contains(&private_root.display().to_string()));
+}
+
+#[test]
 fn size_bounds_fail_before_replacement() {
     let directory = tempfile::tempdir().unwrap();
     let target = directory.path().join("fixture.bin");
