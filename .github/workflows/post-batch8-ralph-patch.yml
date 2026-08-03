@@ -131,7 +131,7 @@ jobs:
           )
           new_helper = (
               "fn remove_failed_config_temp_file(path: &Path) -> std::io::Result<()> {\n"
-              "    remove_failed_config_temp_file_with(path, fs::remove_file)\n"
+              "    remove_failed_config_temp_file_with(path, |candidate| fs::remove_file(candidate))\n"
               "}\n\n"
               "fn remove_failed_config_temp_file_with<F>(path: &Path, remover: F) -> std::io::Result<()>\n"
               "where\n"
