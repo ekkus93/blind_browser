@@ -86,7 +86,7 @@ test("tool errors redact messages and arbitrary nested details", () => {
   assert.doesNotMatch(serialized, /user:pass|token=secret|#debug|private credential|eyJhbGci/);
   assert.equal(safe.message, "request failed at https://example.com/v1");
   assert.deepEqual(safe.details, {
-    payload: ["[REDACTED]", REDACTED],
+    payload: [{ credential: "[REDACTED]" }, REDACTED],
   });
 });
 
