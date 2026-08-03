@@ -103,9 +103,7 @@ pub fn set_remote_planner_api_key(
 
     let api_key_reference = require_api_key_reference(
         RemoteApiKeyKind::Planner,
-        app_core
-            .current_remote_planner_settings()
-            .api_key_reference,
+        app_core.current_remote_planner_settings().api_key_reference,
     )?;
 
     Ok(SetRemoteApiKeyData {
