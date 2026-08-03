@@ -1,142 +1,87 @@
 # Blind Browser Accepted Fallback Inventory
 
-**Date:** 2026-08-02
-**Scope:** Production fallback expressions in security-sensitive Rust and frontend paths
-**Machine-readable allowlist:** `scripts/security-fallback-allowlist.txt`
-**Enforcement:** `scripts/check-security-fallbacks.py`
+**Original date:** 2026-08-02  
+**Post-P8 reconciliation:** 2026-08-03  
+**Scope:** Production fallback expressions in security-sensitive Rust and frontend paths  
+**Machine-readable allowlist:** `scripts/security-fallback-allowlist.txt`  
+**Machine-readable inventory:** `scripts/security-fallback-inventory.json`  
+**Enforcement:** `scripts/check-security-fallbacks.py` and `scripts/check-security-fallback-inventory.py`  
 **Status:** Reconciled and disposition-classified for the post-P8 fallback/evidence hardening pass.
 
-## Rules
+## Acceptance rules
 
-An allowlisted expression is not automatically safe. It is accepted only when its failure mode cannot authorize a stronger action, leak a secret, report false success for a protected side effect, or replace a verified artifact. New expressions fail CI until reviewed.
+An allowlisted expression is not automatically safe. It is accepted only when its failure mode cannot authorize a stronger action, leak a secret, report false success for a protected side effect, or replace a verified artifact.
 
-Every accepted fallback must satisfy all of the following:
+Every accepted fallback must satisfy all of these rules:
 
-1. It can only reduce capability, omit optional presentation/diagnostic detail, or select an explicitly documented conservative default.
-2. It cannot turn a failed credential, confirmation, download, persistence, navigation, or protected-action operation into success.
-3. It cannot reduce a deterministic confirmation requirement or create an authorization token.
-4. It cannot expose raw page/OCR/form/transcript/credential data.
-5. Its source line is present in the exact machine allowlist or excluded because it is test-only code.
-6. Refactoring the source line requires renewed review because the allowlist uses normalized exact expressions.
+1. It only reduces capability, omits optional presentation/diagnostic detail, or selects a documented conservative default.
+2. It cannot convert a failed credential, confirmation, download, persistence, navigation, or protected-action operation into success.
+3. It cannot reduce confirmation requirements or create authorization.
+4. It cannot expose raw page, OCR, form, transcript, credential, provider-response, or private-path data.
+5. It is listed as an exact normalized expression in the allowlist and inventory.
+6. Its disposition, review boundary, justification, visibility, side-effect impact, tests, and replacement plan are machine-readable.
+7. Refactoring an accepted expression requires renewed review because CI matches exact source expressions and containing functions.
 
-## Reviewed inventory
+## Disposition policy and counts
 
-| Category | Files/functions | Expression/fallback | Justification and side-effect impact | User visibility | Tests / enforcement | Future replacement |
-|---|---|---|---|---|---|---|
-| Optional element display/scoring text | `src-tauri/src/app_core/element_scoring.rs`; destructive/sensitive label builders in `click_authorization.rs` | Missing optional label, text, placeholder, href, or value becomes empty comparison text | Used only for deterministic scoring/classification. It cannot execute an action. Unresolved, ambiguous, low-confidence, or risky targets remain confirmation-required or rejected. | Confirmation text now emits an explicit target-label warning when required metadata is unavailable. | Click authorization, destructive-click, ambiguity, stale-target, and confirmation tests; fallback scanner. | Replace with richer typed absence reasons only when the page-model contract benefits from the extra distinction. |
-| Optional URL-derived metadata | `normalized_origin`; form destination extraction | Parse failure becomes `None` | Invalid/missing origin metadata cannot authorize an action. Confirmation remains required and the manifest now includes digest-bound destination/page-metadata warnings. | Explicit warning in degraded confirmation summaries. | Confirmation manifest degradation and digest tests. | Retain `Option`; add more granular typed parse reasons only if the UI needs them. |
-| Optional runtime presentation state | confirmation response prompt lookup; skill display descriptions | Missing non-authoritative display text becomes empty text | Confirmation ID/digest/runtime validation remains authoritative. Skill descriptions cannot grant tools or bypass policy. | Missing protected target/form metadata is explicitly warned; ordinary optional descriptive text may remain absent. | Confirmation mismatch/replay tests; skill parser/policy tests; fallback scanner. | No security replacement required. |
-| Bounded numeric parsing | audio routing, ASR WAV sizing, click confidence decoding, direct-command parsing | Failed checked conversion/parse returns `None` or enters validation error branch | Invalid protected arguments are rejected or require confirmation; no unchecked wrap or authority expansion occurs. | Typed validation failure or unavailable capability state. | Boundary tests plus scanner allowlist. | Retain checked conversions. |
-| Optional policy diagnostics | policy decision detail serialization | `serde_json::to_value(...).ok()` may omit optional detail | The error code, refusal, retryability, and action classification are already fixed before optional detail serialization. Failure removes diagnostics only. | User still receives the typed failure without optional detail. | Centralized `ToolError` serialization/redaction tests; fallback scanner. | Replace only if policy detail becomes contractually mandatory. |
-| Capability discovery | current directory, app config directory, user skill root, optional model plan | Unavailable optional source may be omitted | Omission cannot increase authority. Project/user skill discovery failures are now logged without full local paths; configured required model/profile operations still fail explicitly. | Skill directory read failures are logged with source class/leaf name/error kind. Settings/runtime panels expose unavailable configured capabilities. | Skill diagnostic privacy test; model availability tests; scanner. | Continue converting user-actionable configured capability failures to explicit UI warnings as the UI gains dedicated surfaces. |
-| Best-effort non-authoritative cleanup | temporary config/image-cache cleanup after a primary failure or cache eviction | Cleanup failure may be secondary | Cleanup does not report the protected operation as successful and cannot activate unverified model bytes. Verified model `.part` cleanup is explicitly not allowlisted: failure returns `ModelDownloadError::CleanupFailed`. | Primary failure remains visible; secondary cache cleanup may be diagnostic-only. | Security fallback scanner synthetic tests; model cleanup tests. | Retain only for disposable cache/config artifacts. |
-| Feature-disabled stubs | remote TTS feature-disabled implementation | Parameters are consumed before typed unavailable error | No request or fallback operation succeeds. | Explicit feature-unavailable error. | Feature-matrix compile/tests; scanner. | Remove stub only if feature becomes mandatory. |
-| URL sanitization setters | provider/diagnostic URL redaction helpers | Results of `Url::set_username`/`set_password` are ignored after successful parsing | The URL is subsequently stripped of query and fragment data. Failure to clear credentials is covered by output assertions; the value is never used to authorize navigation or credentials. | Sanitized endpoint/path or generic redacted URL. | Planner payload, diagnostic redaction, and external-link tests. | Replace with a reconstruction-from-components helper if URL crate semantics change. |
+- `permanent_accepted`: **21**
+- `temporary_accepted`: **5**
+- converted or removed in this pass: **13**
 
-## Post-P8 disposition policy and counts
+`permanent_accepted` is reserved for capability-reducing, presentation-only, checked-conversion, or feature-disabled behavior that does not hide protected-operation failure. These entries must be reconsidered if they begin affecting authority, persistence success, or a public error contract.
 
-Every live accepted expression now carries a machine-enforced disposition in
-`scripts/security-fallback-inventory.json`:
+`temporary_accepted` requires an actionable `owner_note` and a concrete `review_due` boundary. All five temporary entries are due **before the release-candidate gate**.
 
-- `permanent_accepted`: 21
-- `temporary_accepted`: 5
-- converted or removed in this pass: 13
+Permanent CI verifies the live source expression, containing function, complete metadata, valid disposition, and temporary-review requirements. It also verifies the counts and temporary-entry summary in this document.
 
-Temporary entries require both a concrete `review_due` boundary and an actionable
-`owner_note`. Permanent entries remain exact-expression exceptions only; they must
-be re-reviewed if they begin affecting authority, persistence success, or a public
-error contract.
+## Remaining temporary accepted fallbacks
 
-This pass converted the quiet skill-directory entry skip into bounded warning
-aggregation, converted settings/model/provider ambiguity into typed absence
-reasons, reconstructed sanitized URLs without ignored mutator results, and made
-policy-detail serialization degradation explicit.
+- `src-tauri/src/app_core/command_dispatch.rs` — `.ok()` in `build_planner_resolution`. Optional candidate discovery failure reduces capability. Replace with a typed candidate-rejection reason before the release-candidate gate when the UI can display it safely.
+- `src-tauri/src/app_core/command_dispatch.rs` — `let current_dir = std::env::current_dir().ok();` in `build_planner_resolution`. Missing optional project context reduces skill discovery only. Replace with a bounded typed project-context diagnostic before the release-candidate gate.
+- `src-tauri/src/app_core/fill_correction.rs` — `.ok()` in `resolve_recent_fill_correction_command`. Invalid optional correction discovery is omitted. Replace with a typed correction-rejection reason before the release-candidate gate.
+- `src-tauri/src/app_core/form_fill/field_focus.rs` — `let search_query = build_find_element_query(&query).ok()?;` in `resolve_direct_focus_field_command`. Failed optional focus-query construction aborts that candidate. Replace with a typed query-construction reason before the release-candidate gate.
+- `src-tauri/src/commands/skill_parser.rs` — `.unwrap_or_default()` in `skill_frontmatter_from_parts`. Missing optional frontmatter text reduces descriptive capability. Replace with typed per-entry parser diagnostics before the release-candidate gate if the settings/status UI can expose them without path leakage.
 
-## Exact per-expression fallback inventory
+None of these temporary entries can grant tools, authorize an action, lower confirmation, report a protected side effect as successful, or leak sensitive content. Their exact source and metadata remain CI-enforced.
 
-<!-- BEGIN GENERATED SECURITY FALLBACK INVENTORY -->
-This table is generated from `scripts/security-fallback-inventory.json`; permanent CI verifies that every exact allowlist expression has complete metadata and still resolves to the documented source function(s).
+## Permanent accepted categories
 
-| File | Function(s) | Exact expression | Justification | User visibility | Side-effect impact | Tests/enforcement | Future replacement |
-|---|---|---|---|---|---|---|---|
-| `src-tauri/src/app_core/click_authorization.rs ` | `latest_click_authorization_for_element` | `&& record.page_id == self.state.current_page_id.as_deref().unwrap_or_default()` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/click_authorization.rs ` | `sensitive_field_label` | `.unwrap_or_default(),` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/click_authorization.rs ` | `form_destination` | `Some(action) if !action.is_empty() => Url::parse(page_url).ok()?.join(action).ok()?,` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/click_authorization.rs ` | `form_destination` | `_ => Url::parse(page_url).ok()?,` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/click_authorization.rs ` | `is_potentially_destructive_click, sensitive_field_label` | `element.accessible_name.as_deref().unwrap_or_default(),` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/click_authorization.rs ` | `is_potentially_destructive_click` | `element.href.as_deref().unwrap_or_default(),` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/click_authorization.rs ` | `sensitive_field_label` | `element.placeholder.as_deref().unwrap_or_default(),` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/click_authorization.rs ` | `is_potentially_destructive_click` | `element.text.as_deref().unwrap_or_default(),` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/command_dispatch.rs ` | `build_planner_resolution` | `.ok()` | Optional command/fill discovery failure aborts that optional candidate path and reduces capability. | The command replans, rejects, or reports that no suitable target was found. | Cannot execute an unvalidated target or report a protected side effect as successful. | Command dispatch/form-fill tests and scanner enforcement. | Promote to typed candidate-rejection reasons if surfaced in UX. |
-| `src-tauri/src/app_core/command_dispatch.rs ` | `build_planner_resolution` | `let current_dir = std::env::current_dir().ok();` | Optional command/fill discovery failure aborts that optional candidate path and reduces capability. | The command replans, rejects, or reports that no suitable target was found. | Cannot execute an unvalidated target or report a protected side effect as successful. | Command dispatch/form-fill tests and scanner enforcement. | Promote to typed candidate-rejection reasons if surfaced in UX. |
-| `src-tauri/src/app_core/confirmation_workflow.rs ` | `submit_confirmation_response` | `.unwrap_or_default();` | Missing non-authoritative display text does not affect confirmation ID, digest, expiry, or runtime binding. | The protected confirmation still presents deterministic runtime-authored wording. | Cannot approve, replay, or mutate the pending action manifest. | Confirmation digest/replay/expiry tests and scanner enforcement. | Retain unless the display field becomes contractually mandatory. |
-| `src-tauri/src/app_core/element_scoring.rs ` | `text_overlap_score` | `element.accessible_name.as_deref().unwrap_or_default(),` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/element_scoring.rs ` | `text_overlap_score` | `element.href.as_deref().unwrap_or_default(),` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/element_scoring.rs ` | `text_overlap_score` | `element.placeholder.as_deref().unwrap_or_default(),` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/element_scoring.rs ` | `text_overlap_score` | `element.text.as_deref().unwrap_or_default(),` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/element_scoring.rs ` | `text_overlap_score` | `element.value.as_deref().unwrap_or_default(),` | Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults. | Ambiguous or missing protected-target metadata produces confirmation or an explicit warning. | Cannot mint authorization, lower confirmation, or mark a destructive target safe. | Click authorization, destructive-target, confirmation-summary, and scanner tests. | Adopt typed absence reasons if richer page-model diagnostics are required. |
-| `src-tauri/src/app_core/fill_correction.rs ` | `resolve_recent_fill_correction_command` | `.ok()` | Optional command/fill discovery failure aborts that optional candidate path and reduces capability. | The command replans, rejects, or reports that no suitable target was found. | Cannot execute an unvalidated target or report a protected side effect as successful. | Command dispatch/form-fill tests and scanner enforcement. | Promote to typed candidate-rejection reasons if surfaced in UX. |
-| `src-tauri/src/app_core/form_fill/field_focus.rs ` | `resolve_direct_focus_field_command` | `let search_query = build_find_element_query(&query).ok()?;` | Optional command/fill discovery failure aborts that optional candidate path and reduces capability. | The command replans, rejects, or reports that no suitable target was found. | Cannot execute an unvalidated target or report a protected side effect as successful. | Command dispatch/form-fill tests and scanner enforcement. | Promote to typed candidate-rejection reasons if surfaced in UX. |
-| `src-tauri/src/app_core/planner_redaction.rs ` | `planner_page_origin` | `.ok()` | Invalid optional origin or planner metadata is omitted while the privacy gate remains authoritative. | Invalid metadata is redacted or shown as unavailable. | Cannot bypass consent, high-risk blocking, or credential scoping. | Remote-planner privacy/redaction tests and scanner enforcement. | Use typed parse reasons only if the privacy UI requires them. |
-| `src-tauri/src/app_core/planner_redaction.rs ` | `sanitize_url` | `let _ = parsed.set_password(None);` | The parsed diagnostic/planner URL is stripped of userinfo before query and fragment removal. | Only a sanitized origin/path is displayed or transmitted. | Presentation-only sanitization; the URL is not used to grant credentials or authority. | Planner URL redaction and frontend diagnostic URL tests plus scanner enforcement. | Reconstruct URLs from approved components if URL mutation semantics change. |
-| `src-tauri/src/app_core/planner_redaction.rs ` | `sanitize_url` | `let _ = parsed.set_username("");` | The parsed diagnostic/planner URL is stripped of userinfo before query and fragment removal. | Only a sanitized origin/path is displayed or transmitted. | Presentation-only sanitization; the URL is not used to grant credentials or authority. | Planner URL redaction and frontend diagnostic URL tests plus scanner enforcement. | Reconstruct URLs from approved components if URL mutation semantics change. |
-| `src-tauri/src/app_core/settings_adapters.rs ` | `build_remote_planner_settings` | `.and_then(\|configured_profile\| ProviderEndpointScope::parse(&configured_profile.base_url).ok())` | Optional capability/status discovery omits unavailable endpoint or model metadata. | Settings/runtime status reports the configured capability as unavailable. | Capability-reducing only; configured operations still fail explicitly. | Settings/model availability tests and scanner enforcement. | Add typed absence reasons when the settings UI needs finer diagnostics. |
-| `src-tauri/src/app_core/settings_adapters.rs ` | `build_model_management_settings` | `.and_then(\|profile\| kitten_download_plan_for_model_id(&profile.model_id).ok())` | Optional capability/status discovery omits unavailable endpoint or model metadata. | Settings/runtime status reports the configured capability as unavailable. | Capability-reducing only; configured operations still fail explicitly. | Settings/model availability tests and scanner enforcement. | Add typed absence reasons when the settings UI needs finer diagnostics. |
-| `src-tauri/src/app_core/settings_adapters.rs ` | `build_model_management_settings` | `.and_then(\|profile\| whisper_download_plan_for_model_id(&profile.model_id).ok())` | Optional capability/status discovery omits unavailable endpoint or model metadata. | Settings/runtime status reports the configured capability as unavailable. | Capability-reducing only; configured operations still fail explicitly. | Settings/model availability tests and scanner enforcement. | Add typed absence reasons when the settings UI needs finer diagnostics. |
-| `src-tauri/src/app_core/settings_adapters.rs ` | `build_tts_voice_settings` | `.unwrap_or_default(),` | Optional capability/status discovery omits unavailable endpoint or model metadata. | Settings/runtime status reports the configured capability as unavailable. | Capability-reducing only; configured operations still fail explicitly. | Settings/model availability tests and scanner enforcement. | Add typed absence reasons when the settings UI needs finer diagnostics. |
-| `src-tauri/src/asr/wav.rs ` | `encode_wav_pcm16` | `.and_then(\|size\| u32::try_from(size).ok())` | Checked numeric conversion failure selects validation failure or conservative absence. | Invalid input is rejected or the optional value is reported unavailable. | Cannot widen a numeric bound or increase authority. | Boundary/argument tests and scanner enforcement. | Retain checked conversion unless the type contract is narrowed further. |
-| `src-tauri/src/commands/action_policy.rs ` | `evaluate_action_policy` | `.and_then(\|value\| u16::try_from(value).ok());` | Checked numeric conversion failure selects validation failure or conservative absence. | Invalid input is rejected or the optional value is reported unavailable. | Cannot widen a numeric bound or increase authority. | Boundary/argument tests and scanner enforcement. | Retain checked conversion unless the type contract is narrowed further. |
-| `src-tauri/src/commands/planner_executor/execution.rs ` | `initial_execution_policy_error, resumed_execution_policy_error` | `details: serde_json::to_value(decision).ok(),` | Optional policy-detail serialization may fail only after the typed refusal and error code are fixed. | The typed failure remains visible; only supplemental JSON detail may be absent. | Cannot authorize or execute an action and cannot convert failure into success. | Policy validator/executor tests plus the security-fallback scanner. | Make policy details mandatory only if they become part of the public error contract. |
-| `src-tauri/src/commands/routing/audio_commands.rs ` | `parse_multiplier_token` | `.and_then(\|value\| value.parse::<f32>().ok())` | Checked numeric conversion failure selects validation failure or conservative absence. | Invalid input is rejected or the optional value is reported unavailable. | Cannot widen a numeric bound or increase authority. | Boundary/argument tests and scanner enforcement. | Retain checked conversion unless the type contract is narrowed further. |
-| `src-tauri/src/commands/skill_loader.rs ` | `load_skills_from_directory` | `for entry in entries.filter_map(Result::ok) {` | Unavailable optional skill metadata or unreadable optional entries reduce discovered capability only. | Unavailable skills are omitted and discovery diagnostics remain path-private. | Cannot add tools, grant permission, or bypass confirmation. | Skill parser/policy/path-privacy tests and scanner enforcement. | Use typed per-entry discovery results if the UI gains a dedicated warning surface. |
-| `src-tauri/src/commands/skill_parser.rs ` | `skill_frontmatter_from_parts` | `.unwrap_or_default()` | Unavailable optional skill metadata or unreadable optional entries reduce discovered capability only. | Unavailable skills are omitted and discovery diagnostics remain path-private. | Cannot add tools, grant permission, or bypass confirmation. | Skill parser/policy/path-privacy tests and scanner enforcement. | Use typed per-entry discovery results if the UI gains a dedicated warning surface. |
-| `src-tauri/src/commands/validators/mod.rs ` | `validate_planner_output_with_safety` | `details: serde_json::to_value(&decision).ok(),` | Optional policy-detail serialization may fail only after the typed refusal and error code are fixed. | The typed failure remains visible; only supplemental JSON detail may be absent. | Cannot authorize or execute an action and cannot convert failure into success. | Policy validator/executor tests plus the security-fallback scanner. | Make policy details mandatory only if they become part of the public error contract. |
-| `src-tauri/src/commands/validators/mod.rs ` | `validate_runtime_confirmation_gate` | `details: serde_json::to_value(decision).ok(),` | Optional policy-detail serialization may fail only after the typed refusal and error code are fixed. | The typed failure remains visible; only supplemental JSON detail may be absent. | Cannot authorize or execute an action and cannot convert failure into success. | Policy validator/executor tests plus the security-fallback scanner. | Make policy details mandatory only if they become part of the public error contract. |
-| `src-tauri/src/commands/validators/mod.rs ` | `validate_planner_output_with_safety` | `details: serde_json::to_value(preliminary_decision).ok(),` | Optional policy-detail serialization may fail only after the typed refusal and error code are fixed. | The typed failure remains visible; only supplemental JSON detail may be absent. | Cannot authorize or execute an action and cannot convert failure into success. | Policy validator/executor tests plus the security-fallback scanner. | Make policy details mandatory only if they become part of the public error contract. |
-| `src-tauri/src/commands/validators/mod.rs ` | `validate_planner_output_with_safety` | `serde_json::to_value(&decision).ok(),` | Optional policy-detail serialization may fail only after the typed refusal and error code are fixed. | The typed failure remains visible; only supplemental JSON detail may be absent. | Cannot authorize or execute an action and cannot convert failure into success. | Policy validator/executor tests plus the security-fallback scanner. | Make policy details mandatory only if they become part of the public error contract. |
-| `src-tauri/src/commands/validators/mod.rs ` | `validate_runtime_confirmation_gate` | `serde_json::to_value(decision).ok(),` | Optional policy-detail serialization may fail only after the typed refusal and error code are fixed. | The typed failure remains visible; only supplemental JSON detail may be absent. | Cannot authorize or execute an action and cannot convert failure into success. | Policy validator/executor tests plus the security-fallback scanner. | Make policy details mandatory only if they become part of the public error contract. |
-| `src-tauri/src/tts/remote.rs ` | `synthesize_remote` | `let _ = config;` | Feature-disabled parameters are deliberately consumed before returning an explicit unavailable error. | The caller receives a typed feature-unavailable failure. | No network call, playback, or successful fallback occurs. | Feature-matrix compilation/tests and scanner enforcement. | Remove the stub when remote TTS becomes mandatory in all builds. |
-| `src-tauri/src/tts/remote.rs ` | `synthesize_remote` | `let _ = runtime_audio;` | Feature-disabled parameters are deliberately consumed before returning an explicit unavailable error. | The caller receives a typed feature-unavailable failure. | No network call, playback, or successful fallback occurs. | Feature-matrix compilation/tests and scanner enforcement. | Remove the stub when remote TTS becomes mandatory in all builds. |
-| `src-tauri/src/tts/remote.rs ` | `synthesize_remote` | `let _ = text;` | Feature-disabled parameters are deliberately consumed before returning an explicit unavailable error. | The caller receives a typed feature-unavailable failure. | No network call, playback, or successful fallback occurs. | Feature-matrix compilation/tests and scanner enforcement. | Remove the stub when remote TTS becomes mandatory in all builds. |
+| Category | Current behavior | Why it is accepted | User/diagnostic effect | Replacement boundary |
+|---|---|---|---|---|
+| Optional element scoring and click classification | Missing accessible name, placeholder, text, href, or value contributes empty comparison text | Absence lowers information and confidence; it cannot mint click authorization or mark a destructive target safe | Protected summaries emit target/degradation warnings where user-facing identity matters | Introduce richer typed page-model absence only if diagnostics need the distinction |
+| Optional form destination/origin parsing | Invalid optional URL metadata becomes `None` | Missing destination/origin cannot authorize submission and keeps confirmation conservative | Confirmation warnings identify unavailable destination/page metadata | Retain `Option` unless UI requires typed URL-parse reasons |
+| Confirmation display-only text | Missing non-authoritative display text becomes empty | Confirmation ID, digest, expiry, runtime binding, and runtime-authored text remain authoritative | Protected confirmation remains visible and validated | Change only if display text becomes contractual |
+| Checked numeric conversion/parsing | Overflow or invalid numeric input becomes validation absence/failure | Checked conversion cannot widen bounds or increase authority | Invalid input is rejected or reported unavailable | Retain checked conversions |
+| Planner page-origin metadata | Invalid optional origin is omitted after privacy controls remain authoritative | Cannot bypass remote-data consent, high-risk blocking, or credential scoping | Origin is unavailable/redacted | Add typed reason only if privacy UI needs it |
+| Feature-disabled remote TTS stub | Parameters are consumed before a typed unavailable error | No network, playback, or successful fallback occurs | Caller receives explicit feature-unavailable failure | Remove only if remote TTS becomes mandatory in every build |
 
-<!-- END GENERATED SECURITY FALLBACK INVENTORY -->
+## Converted or removed fallbacks
 
-## Converted unsafe or ambiguous fallbacks
+This pass removed thirteen exact accepted expressions:
 
-The following are no longer accepted fallbacks:
+- two ignored URL userinfo mutation results in planner sanitization;
+- three settings/model lookup `.ok()` paths;
+- one settings voice `.unwrap_or_default()` path;
+- one quiet skill-directory `filter_map(Result::ok)` skip;
+- one executor policy-detail serialization `.ok()` expression;
+- five validator policy-detail serialization `.ok()` expressions.
 
-- API-key setters no longer use `.api_key_reference.unwrap_or_default()`. Planner, TTS, and ASR persistence report typed invariant failures when a non-empty reference is absent.
-- External URL opening no longer trusts `starts_with("https://")`. URLs are parsed and normalized; non-HTTPS schemes, missing hosts, control characters, embedded credentials, query strings, fragments, and malformed inputs are rejected.
-- Confirmation summaries no longer silently degrade to generic form/destination/field wording. Structured warning codes and user-visible text are part of the manifest digest.
-- Model availability directory iteration no longer silently skips unreadable entries.
-- Verified model-download cleanup failure is not ignored.
-- Verified model bytes are written only to `.part`, bounded, SHA-256 verified, synced, and atomically activated.
-- Unknown model IDs fail closed unless a pinned integrity manifest exists.
-- Raw frontend caught errors are no longer written directly to `console.error`; they pass through the diagnostic classifier/redactor.
-- Skill-loading diagnostics no longer reveal full project or user-home paths.
+They were replaced by:
 
-## Scanner coverage
+- URL reconstruction from approved origin/path components;
+- typed settings capability absence reasons;
+- bounded path-private skill-entry warning aggregation;
+- explicit policy-detail serialization failure markers.
 
-`scripts/check-security-fallbacks.py` and its machine-readable allowlist detect reviewed security-sensitive fallback expressions, including:
+## Authoritative exact inventory
 
-- suspicious `.ok()`;
-- suspicious `.unwrap_or_default()`;
-- ignored `Result` patterns;
-- direct model final-path writes;
-- API-key-reference defaults;
-- unchecked diagnostic/serialization fallbacks.
+The authoritative per-expression records are in `scripts/security-fallback-inventory.json`. Each record contains:
 
-Permanent CI runs:
+- source path and containing function(s);
+- exact normalized expression;
+- justification and user visibility;
+- side-effect impact and tests;
+- future replacement plan;
+- disposition, review boundary, and owner note.
 
-```text
-python3 scripts/check-security-fallbacks.py --self-test
-python3 scripts/check-security-fallbacks.py
-```
-
-The self-test proves that synthetic unsafe `.ok()`, direct final-path model writes, and API-key-reference `.unwrap_or_default()` patterns fail, while a documented allowlisted expression is accepted.
-
-## Limitations and maintenance
-
-The scanner is a regression tripwire, not a substitute for semantic review. It scans production code before each file's `#[cfg(test)]` section and excludes test-only cleanup. Aliases, macro expansion, generated code, and semantically equivalent new patterns may evade a regex-based scanner. Reviewers must therefore apply the governing rule directly: an accepted fallback may only reduce capability or optional detail; it must never increase authority, disclose sensitive data, activate an unverified artifact, or report a protected side effect as successful.
-
-No fallback-audit completion or release-readiness claim is valid until permanent CI passes on the exact final repository SHA and the authoritative TODO is reconciled.
+The JSON inventory is intentionally authoritative rather than duplicating a large generated Markdown table that can become stale. `scripts/check-security-fallback-inventory.py` verifies source/allowlist/inventory parity and the human-readable counts and temporary-entry summary above.
