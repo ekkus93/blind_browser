@@ -372,20 +372,17 @@ fn submit_action_summary(step: &PlannedStep) -> ActionSummary {
                 ConfirmationSummaryWarningCode::FormLabelUnavailable,
                 ConfirmationSummaryWarningCode::FormIdentityAmbiguous,
             ]);
-            warning_text.push(
-                "Warning: the active form could not be uniquely identified.".to_string(),
-            );
+            warning_text
+                .push("Warning: the active form could not be uniquely identified.".to_string());
         }
         if destination.is_none() {
             warnings.push(ConfirmationSummaryWarningCode::DestinationUnavailable);
-            warning_text.push(
-                "Warning: the submission destination could not be verified.".to_string(),
-            );
+            warning_text
+                .push("Warning: the submission destination could not be verified.".to_string());
         }
         warnings.push(ConfirmationSummaryWarningCode::SensitiveFieldsMayBeOmitted);
-        warning_text.push(
-            "Sensitive or hidden fields may be omitted from this summary.".to_string(),
-        );
+        warning_text
+            .push("Sensitive or hidden fields may be omitted from this summary.".to_string());
     }
 
     let mut safe_summary = format!("Submit {form}{destination_text}{fields_text}.");
@@ -545,7 +542,9 @@ mod tests {
         let action = &built.manifest.actions[0];
         assert!(action.safe_summary.contains("Checkout form"));
         assert!(action.safe_summary.contains("https://payments.example"));
-        assert!(action.safe_summary.contains("Email, Shipping address"));
+        assert!(action
+            .safe_summary
+            .contains("Email, Shipping address"));
         assert!(action
             .summary_warnings
             .contains(&ConfirmationSummaryWarningCode::SensitiveFieldsMayBeOmitted));
@@ -567,7 +566,9 @@ mod tests {
         ] {
             assert!(action.summary_warnings.contains(&expected));
         }
-        assert!(action.safe_summary.contains("page metadata was unavailable"));
+        assert!(action
+            .safe_summary
+            .contains("page metadata was unavailable"));
     }
 
     #[test]
@@ -583,7 +584,9 @@ mod tests {
         assert!(action
             .summary_warnings
             .contains(&ConfirmationSummaryWarningCode::FormIdentityAmbiguous));
-        assert!(action.safe_summary.contains("could not be uniquely identified"));
+        assert!(action
+            .safe_summary
+            .contains("could not be uniquely identified"));
     }
 
     #[test]
@@ -599,7 +602,9 @@ mod tests {
         assert!(action
             .summary_warnings
             .contains(&ConfirmationSummaryWarningCode::DestinationUnavailable));
-        assert!(action.safe_summary.contains("destination could not be verified"));
+        assert!(action
+            .safe_summary
+            .contains("destination could not be verified"));
     }
 
     #[test]
@@ -612,8 +617,8 @@ mod tests {
                 "submit": "Submit"
             }),
         ));
-        let encoded = serde_json::to_string(&built.manifest)
-            .expect("confirmation manifest should serialize");
+        let encoded =
+            serde_json::to_string(&built.manifest).expect("confirmation manifest should serialize");
         assert!(built.prompt_text.contains("21 characters"));
         assert!(!built.prompt_text.contains("super-secret-password"));
         assert!(!encoded.contains("super-secret-password"));
@@ -630,7 +635,9 @@ mod tests {
             action.summary_warnings,
             vec![ConfirmationSummaryWarningCode::TargetLabelUnavailable]
         );
-        assert!(action.safe_summary.contains("field label could not be verified"));
+        assert!(action
+            .safe_summary
+            .contains("field label could not be verified"));
     }
 
     #[test]
