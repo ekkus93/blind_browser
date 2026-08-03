@@ -83,7 +83,10 @@ fn hostile_dom_corpus_contains_every_required_attack_shape() {
         "title_alt_prompt_injection",
     ]);
 
-    assert_eq!(cases.keys().map(String::as_str).collect::<BTreeSet<_>>(), expected);
+    assert_eq!(
+        cases.keys().map(String::as_str).collect::<BTreeSet<_>>(),
+        expected
+    );
     assert_case_contract(&cases);
 }
 
@@ -101,9 +104,15 @@ fn hostile_ocr_corpus_contains_every_required_attack_shape() {
         "ocr_skip_confirmation",
     ]);
 
-    assert_eq!(cases.keys().map(String::as_str).collect::<BTreeSet<_>>(), expected);
+    assert_eq!(
+        cases.keys().map(String::as_str).collect::<BTreeSet<_>>(),
+        expected
+    );
     assert_case_contract(&cases);
-    assert_eq!(cases["ocr_payment_receipt_context"]["high_risk_context"], true);
+    assert_eq!(
+        cases["ocr_payment_receipt_context"]["high_risk_context"],
+        true
+    );
 }
 
 #[test]
