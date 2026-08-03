@@ -63,7 +63,7 @@ jobs:
             tesseract-ocr \
             xvfb
 
-      - name: Prune stale exact fallback metadata
+      - name: Reconcile patch generator and stale metadata
         shell: bash
         run: |
           python3 - <<'PY'
@@ -76,14 +76,13 @@ jobs:
               return " ".join(line.strip().split())
 
           retained = []
-          removed = []
           for raw in allowlist.read_text(encoding="utf-8").splitlines():
               stripped = raw.strip()
               if not stripped or stripped.startswith("#"):
                   retained.append(raw)
                   continue
-              path, expression = stripped.split("|", 1)
-              source_path = root / path
+              file_name, expression = stripped.split("|", 1)
+              source_path = root / file_name
               live = source_path.exists() and any(
                   normalize(line) == expression
                   for line in source_path.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -91,105 +90,98 @@ jobs:
               if live:
                   retained.append(raw)
               else:
-                  removed.append(stripped)
+                  print(f"Pruned stale fallback allowlist entry: {stripped}")
           allowlist.write_text("\n".join(retained).rstrip() + "\n", encoding="utf-8")
-          for entry in removed:
-              print(f"Pruned stale fallback allowlist entry: {entry}")
-          PY
 
-      - name: Reconcile generated evidence assertions
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path(".github/post_batch8_ralph_patch.py")
+          path = root / ".github/post_batch8_ralph_patch.py"
           source = path.read_text(encoding="utf-8")
 
-          old_assertion = '    assert!(api_keys.contains(".timeout(Duration::from_millis(timeout_ms.max(1)))"));\n'
-          new_assertion = (
-              '    assert!(api_keys.contains("fn credential_async_client(timeout_ms: u64)"));\n'
-              '    assert!(api_keys.contains("fn credential_client(timeout_ms: u64, purpose: &str)"));\n'
-              '    assert!(api_keys.matches("timeout_ms.max(1)").count() >= 2);\n'
+          replacements = [
+              (
+                  '    assert!(api_keys.contains(".timeout(Duration::from_millis(timeout_ms.max(1)))"));\n',
+                  '    assert!(api_keys.contains("fn credential_async_client(timeout_ms: u64)"));\n'
+                  '    assert!(api_keys.contains("fn credential_client(timeout_ms: u64, purpose: &str)"));\n'
+                  '    assert!(api_keys.matches("timeout_ms.max(1)").count() >= 2);\n',
+                  "timeout assertion",
+              ),
+              (
+                  '            cleanup_failed_screenshot_write(&path, &io_error)?;\n',
+                  '            drop(file);\n            cleanup_failed_screenshot_write(&path, &io_error)?;\n',
+                  "screenshot cleanup",
+              ),
+              (
+                  '                name: IntentName::ClickElement,\n',
+                  '                name: IntentName::FindElement,\n',
+                  "click intent",
+              ),
+          ]
+          for old, new, label in replacements:
+              if source.count(old) != 1:
+                  raise SystemExit(f"expected one {label} replacement")
+              source = source.replace(old, new, 1)
+
+          old_helper = (
+              "fn remove_failed_config_temp_file(path: &Path) -> std::io::Result<()> {\n"
+              "    match fs::remove_file(path) {\n"
+              "        Ok(()) => Ok(()),\n"
+              "        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),\n"
+              "        Err(error) => Err(error),\n"
+              "    }\n"
+              "}\n"
           )
-          if source.count(old_assertion) != 1:
-              raise SystemExit("expected one brittle timeout assertion")
-          source = source.replace(old_assertion, new_assertion, 1)
-
-          old_cleanup = '            cleanup_failed_screenshot_write(&path, &io_error)?;\n'
-          new_cleanup = '            drop(file);\n            cleanup_failed_screenshot_write(&path, &io_error)?;\n'
-          if source.count(old_cleanup) != 1:
-              raise SystemExit("expected one screenshot cleanup call in generated patch")
-          source = source.replace(old_cleanup, new_cleanup, 1)
-
-          old_intent = '                name: IntentName::ClickElement,\n'
-          new_intent = '                name: IntentName::FindElement,\n'
-          if source.count(old_intent) != 1:
-              raise SystemExit("expected one nonexistent click intent in generated test")
-          source = source.replace(old_intent, new_intent, 1)
-
-          old_helper = '''fn remove_failed_config_temp_file(path: &Path) -> std::io::Result<()> {
-    match fs::remove_file(path) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(error),
-    }
-}
-'''
-          new_helper = '''fn remove_failed_config_temp_file(path: &Path) -> std::io::Result<()> {
-    remove_failed_config_temp_file_with(path, fs::remove_file)
-}
-
-fn remove_failed_config_temp_file_with<F>(path: &Path, remover: F) -> std::io::Result<()>
-where
-    F: FnOnce(&Path) -> std::io::Result<()>,
-{
-    match remover(path) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(error),
-    }
-}
-'''
+          new_helper = (
+              "fn remove_failed_config_temp_file(path: &Path) -> std::io::Result<()> {\n"
+              "    remove_failed_config_temp_file_with(path, fs::remove_file)\n"
+              "}\n\n"
+              "fn remove_failed_config_temp_file_with<F>(path: &Path, remover: F) -> std::io::Result<()>\n"
+              "where\n"
+              "    F: FnOnce(&Path) -> std::io::Result<()>,\n"
+              "{\n"
+              "    match remover(path) {\n"
+              "        Ok(()) => Ok(()),\n"
+              "        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),\n"
+              "        Err(error) => Err(error),\n"
+              "    }\n"
+              "}\n"
+          )
           if source.count(old_helper) != 1:
-              raise SystemExit("expected one config cleanup helper in generated patch")
+              raise SystemExit("expected one config cleanup helper")
           source = source.replace(old_helper, new_helper, 1)
 
-          old_test = '''    fn failed_config_temp_cleanup_is_explicit() {
-        let directory = tempfile::tempdir().unwrap();
-        let directory_target = directory.path().join("config.toml.tmp");
-        fs::create_dir(&directory_target).unwrap();
-
-        assert!(remove_failed_config_temp_file(&directory_target).is_err());
-        assert!(directory_target.exists());
-        remove_failed_config_temp_file(&directory.path().join("missing.tmp"))
-            .expect("missing temporary file is already clean");
-    }
-'''
-          new_test = '''    fn failed_config_temp_cleanup_is_explicit() {
-        let synthetic_path = Path::new("synthetic-config.toml.tmp");
-        let failure = remove_failed_config_temp_file_with(synthetic_path, |_| {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::PermissionDenied,
-                "synthetic cleanup refusal",
-            ))
-        })
-        .expect_err("cleanup refusal must remain visible");
-        assert_eq!(failure.kind(), std::io::ErrorKind::PermissionDenied);
-
-        remove_failed_config_temp_file_with(synthetic_path, |_| {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "already absent",
-            ))
-        })
-        .expect("missing temporary file is already clean");
-    }
-'''
+          old_test = (
+              "    fn failed_config_temp_cleanup_is_explicit() {\n"
+              "        let directory = tempfile::tempdir().unwrap();\n"
+              "        let directory_target = directory.path().join(\"config.toml.tmp\");\n"
+              "        fs::create_dir(&directory_target).unwrap();\n\n"
+              "        assert!(remove_failed_config_temp_file(&directory_target).is_err());\n"
+              "        assert!(directory_target.exists());\n"
+              "        remove_failed_config_temp_file(&directory.path().join(\"missing.tmp\"))\n"
+              "            .expect(\"missing temporary file is already clean\");\n"
+              "    }\n"
+          )
+          new_test = (
+              "    fn failed_config_temp_cleanup_is_explicit() {\n"
+              "        let synthetic_path = Path::new(\"synthetic-config.toml.tmp\");\n"
+              "        let failure = remove_failed_config_temp_file_with(synthetic_path, |_| {\n"
+              "            Err(std::io::Error::new(\n"
+              "                std::io::ErrorKind::PermissionDenied,\n"
+              "                \"synthetic cleanup refusal\",\n"
+              "            ))\n"
+              "        })\n"
+              "        .expect_err(\"cleanup refusal must remain visible\");\n"
+              "        assert_eq!(failure.kind(), std::io::ErrorKind::PermissionDenied);\n\n"
+              "        remove_failed_config_temp_file_with(synthetic_path, |_| {\n"
+              "            Err(std::io::Error::new(\n"
+              "                std::io::ErrorKind::NotFound,\n"
+              "                \"already absent\",\n"
+              "            ))\n"
+              "        })\n"
+              "        .expect(\"missing temporary file is already clean\");\n"
+              "    }\n"
+          )
           if source.count(old_test) != 1:
-              raise SystemExit("expected one nondeterministic config cleanup test")
+              raise SystemExit("expected one config cleanup test")
           source = source.replace(old_test, new_test, 1)
-
           path.write_text(source, encoding="utf-8")
           PY
 
