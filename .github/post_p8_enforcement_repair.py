@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -12,6 +13,17 @@ def replace_once(path: str, old: str, new: str) -> None:
     if count != 1:
         raise SystemExit(f"{path}: expected one integration match, found {count}: {old[:80]!r}")
     target.write_text(content.replace(old, new, 1), encoding="utf-8")
+
+
+def regex_replace_once(path: str, pattern: str, replacement: str) -> None:
+    target = Path(path)
+    content = target.read_text(encoding="utf-8")
+    updated, count = re.subn(pattern, replacement, content, count=1)
+    if count != 1:
+        raise SystemExit(
+            f"{path}: expected one regex integration match, found {count}: {pattern!r}"
+        )
+    target.write_text(updated, encoding="utf-8")
 
 
 def prepare_generator() -> None:
@@ -144,10 +156,10 @@ write(
 
 def repair_output() -> None:
     replace_once("src-tauri/src/diagnostic_redaction.rs", ", ''',", ",")
-    replace_once(
+    regex_replace_once(
         "src-tauri/src/diagnostic_redaction.rs",
-        "fn try_url_token(value: &str) -> Option<(&Box<str>, usize)> {",
-        "fn try_url_token(value: &str) -> Option<(&str, usize)> {",
+        r"Option<\(\s*&Box<str>\s*,\s*usize\s*\)>",
+        "Option<(&str, usize)>",
     )
 
     replace_once(
