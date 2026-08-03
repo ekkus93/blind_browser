@@ -5,7 +5,7 @@ on:
     branches: [master]
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 concurrency:
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  apply-validate-export:
+  apply-validate-publish:
     runs-on: ubuntu-latest
     steps:
       - name: Report exact workflow run start
@@ -129,32 +129,14 @@ jobs:
           test ! -e scripts/postbatch8-compile-fixes.py
           git diff --cached --name-status
 
-      - name: Package exact validated changes
+      - name: Commit and publish validated product tree
         shell: bash
         run: |
           set -euo pipefail
-          package=/tmp/postbatch8-package
-          files=/tmp/postbatch8-files
-          rm -rf "$package" "$files"
-          mkdir -p "$package" "$files"
-          printf '%s\n' "$GITHUB_SHA" > "$package/base-sha.txt"
-          git diff --cached --name-status > "$package/name-status.txt"
-          git diff --cached --name-only --diff-filter=D > "$package/deletions.txt"
-          git diff --cached --binary > "$package/final.patch"
-          while IFS= read -r -d '' path; do
-            mkdir -p "$files/$(dirname "$path")"
-            cp "$path" "$files/$path"
-          done < <(git diff --cached --name-only --diff-filter=ACMRT -z)
-          tar -C "$files" -czf "$package/final-files.tar.gz" .
-          sha256sum "$package/final.patch" "$package/final-files.tar.gz" > "$package/SHA256SUMS"
-
-      - name: Upload validated publication package
-        uses: actions/upload-artifact@v4
-        with:
-          name: postbatch8-validated-master-publication
-          path: /tmp/postbatch8-package
-          if-no-files-found: error
-          retention-days: 7
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'security: complete post-Batch-8 hardening'
+          git push origin HEAD:master
 
       - name: Report exact workflow run result
         if: always()
