@@ -200,4 +200,22 @@ mod tests {
             "hello world"
         );
     }
+
+    #[test]
+    fn parse_error_does_not_echo_sensitive_remote_response_fields() {
+        let parsed = serde_json::json!({
+            "error": {
+                "message": "authorization: Bearer sk-abcdefghijklmnopqrstuv",
+                "response_body": "private provider response"
+            }
+        });
+
+        let error = parse_remote_transcription_text(&parsed)
+            .expect_err("response without text must be rejected");
+        let message = error.to_string();
+        assert!(message.contains("did not contain a string 'text' field"));
+        assert!(!message.contains("sk-abcdefghijklmnopqrstuv"));
+        assert!(!message.contains("private provider response"));
+        assert!(!message.contains("authorization"));
+    }
 }
