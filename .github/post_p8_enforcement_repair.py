@@ -178,6 +178,24 @@ def repair_output() -> None:
     )
 
     replace_once(
+        "src-tauri/src/app_core/fill_correction.rs",
+        '''    let alternate_element_id = context
+        .candidate_element_ids
+        .iter()
+        .find(|candidate_id| candidate_id.as_str() != active_element_id)
+        .find(|candidate_id| resolve_typeable_element(current_page, candidate_id).is_ok())
+''',
+        '''    let alternate_element_id = context
+        .candidate_element_ids
+        .iter()
+        .find(|candidate_id| {
+            candidate_id.as_str() != active_element_id
+                && resolve_typeable_element(current_page, candidate_id.as_str()).is_ok()
+        })
+''',
+    )
+
+    replace_once(
         "src-tauri/src/app_core/tests/settings_tests.rs",
         '''        assert!(!displayed.contains("user"));
         assert!(!displayed.contains("pass"));
