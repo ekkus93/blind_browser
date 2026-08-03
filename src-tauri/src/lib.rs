@@ -9,6 +9,7 @@ pub mod browser;
 pub mod commands;
 pub mod config;
 pub mod diagnostic_redaction;
+mod direct_command_policy;
 pub mod dom_inspector;
 pub mod extractor;
 pub mod logging;
@@ -65,6 +66,7 @@ fn join_error_to_tool_error(error: tauri::Error) -> ToolError {
 
 pub fn run() {
     logging::init_logging();
+    direct_command_policy::validate_direct_command_registry();
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![

@@ -130,6 +130,9 @@ pub(crate) struct DirectCommandPolicy {
     pub(crate) launches_external_program: bool,
 }
 
+// The constructor mirrors every security field so each registry entry must make
+// every authority and side-effect property explicit at the call site.
+#[allow(clippy::too_many_arguments)]
 const fn policy(
     class: ActionClass,
     requires_user_gesture: bool,

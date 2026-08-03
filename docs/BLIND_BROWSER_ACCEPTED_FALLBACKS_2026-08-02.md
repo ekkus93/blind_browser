@@ -17,7 +17,7 @@ An allowlisted expression is not automatically safe. It is accepted only because
 
 ### Optional URL-derived summaries
 
-`form_destination` and `normalized_origin` return `None` when a page or form URL cannot be parsed. Post-Batch-8 confirmation code now binds an explicit degraded-summary warning into the confirmation manifest whenever destination information is unavailable. Failure therefore produces a more cautious prompt rather than authorization.
+`form_destination` and `normalized_origin` may return `None` when a page or form URL cannot be parsed. This cannot lower the existing confirmation requirement or authorize an action. However, explicit digest-bound degraded-summary warnings are still open under P8-003; these fallbacks are accepted only as an interim fail-closed behavior, not as completion of the confirmation-summary work.
 
 ### Optional runtime presentation state
 
@@ -47,14 +47,23 @@ Remote TTS parameters are explicitly consumed in the feature-disabled implementa
 
 `Url::set_username` and `Url::set_password` return results that are ignored only after a valid URL is parsed. The sanitized URL is subsequently stripped of query and fragment data. Regression tests verify credentials are absent from remote planner and diagnostic payloads.
 
-## Converted fallbacks in this pass
+## Converted in the recovery and P8-001 pass
 
-- API-key persistence no longer returns an empty reference through `unwrap_or_default()`; it returns `persisted_api_key_reference_missing`.
 - Model availability directory iteration no longer silently skips unreadable entries.
-- Verified model download cleanup failure is no longer ignored.
-- Missing form/field metadata now produces digest-bound confirmation warnings.
-- External URL validation no longer relies on a string prefix.
+- Verified model-download cleanup failure is no longer ignored.
+- Model artifacts are written only to a `.part` file, bounded, SHA-256 verified, synced, and atomically activated.
+- Unknown model IDs fail closed unless a pinned integrity manifest exists.
+- The direct-command registry is compiled, executed at startup, and parity-tested against `tauri::generate_handler!`.
+- The reviewed fallback scanner and its synthetic self-test are enforced by permanent CI.
+
+## Explicitly still open
+
+The following earlier draft claims were removed because their production fixes are not part of this recovery/P8-001 pass:
+
+- API-key reference invariants remain open under P8-002.4.
+- Strict parsed external-URL validation remains open under P8-002.3.
+- Digest-bound degraded confirmation-summary warnings remain open under P8-003.
 
 ## Scanner limitations and maintenance
 
-The scanner is a regression tripwire, not a substitute for review. It examines production code before each file’s `#[cfg(test)]` section and ignores test-only cleanup. The allowlist uses exact normalized source lines, so refactoring an accepted fallback requires renewed review. The broader code-review rule remains: an accepted fallback may only reduce capability or diagnostic detail; it must never increase authority or report a protected side effect as successful.
+The scanner is a regression tripwire, not a substitute for review. It examines production code before each file's `#[cfg(test)]` section and ignores test-only cleanup. The allowlist uses exact normalized source lines, so refactoring an accepted fallback requires renewed review. The broader code-review rule remains: an accepted fallback may only reduce capability or diagnostic detail; it must never increase authority or report a protected side effect as successful.
