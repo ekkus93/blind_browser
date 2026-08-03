@@ -85,11 +85,12 @@ function safeExternalLinkDisplay(url: string): string | null {
 
 function describeExternalLinkFailure(url: string, error: unknown): string {
   const failure = classifyInvokeFailure(error);
+  const failureMessage = failure.kind === "tool-error" ? failure.toolError.message : failure.message;
   const safeUrl = safeExternalLinkDisplay(url);
   if (safeUrl === null) {
-    return `Could not open the external link because the URL was invalid. ${failure.message}`;
+    return `Could not open the external link because the URL was invalid. ${failureMessage}`;
   }
-  return `Could not open the external link. Copy this URL and open it manually: ${safeUrl}. ${failure.message}`;
+  return `Could not open the external link. Copy this URL and open it manually: ${safeUrl}. ${failureMessage}`;
 }
 
 export function setAppAlertState(nextState: Partial<AppAlertState>) {
