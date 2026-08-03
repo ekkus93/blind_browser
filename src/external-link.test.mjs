@@ -43,6 +43,29 @@ test("openExternalLink surfaces rejected external open as global app alert", asy
   }
 });
 
+test("openExternalLink redacts URL credentials, query data, fragments, and error tokens", async () => {
+  const restore = setOpenExternalUrlForTest(async () => {
+    throw new Error("transport failed with sk-abcdefghijklmnopqrstuv");
+  });
+
+  try {
+    clearAppAlert();
+    openExternalLink("https://user:password@example.test/docs?token=secret#private");
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const state = getAlertState();
+    assert.equal(state.kind, "error");
+    assert.match(state.message, /https:\/\/example\.test\/docs/);
+    assert.match(state.message, /REDACTED SENSITIVE DIAGNOSTIC/);
+    assert.doesNotMatch(state.message, /user|password|token=secret|private|sk-abcdefghijkl/);
+  } finally {
+    restore();
+    clearAppAlert();
+  }
+});
+
 test("openExternalLink does not throw when openExternalUrl rejects", async () => {
   const restore = setOpenExternalUrlForTest(async () => {
     throw new Error("connection refused");
