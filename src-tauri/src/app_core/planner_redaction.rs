@@ -922,6 +922,31 @@ fn is_sensitive_element(element: &InteractiveElement) -> bool {
             .is_some_and(|kind| matches!(kind.to_ascii_lowercase().as_str(), "password" | "hidden"))
 }
 
+fn contains_high_risk_page_text(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    contains_long_digit_sequence(value)
+        || contains_ssn_shape(value)
+        || [
+            "payment receipt",
+            "card number",
+            "credit card",
+            "security code",
+            "cvv",
+            "cvc",
+            "social security",
+            "medical record",
+            "patient record",
+            "wallet seed",
+            "seed phrase",
+            "recovery phrase",
+            "one-time code",
+            "one time code",
+            "otp code",
+        ]
+        .iter()
+        .any(|marker| lower.contains(marker))
+}
+
 fn high_risk_context_reason(input: &PlannerInput) -> Option<&'static str> {
     let has_sensitive_element = input
         .page_model
@@ -936,6 +961,31 @@ fn high_risk_context_reason(input: &PlannerInput) -> Option<&'static str> {
         .any(is_sensitive_element);
     if has_sensitive_element {
         return Some("sensitive_form_control");
+    }
+
+    let has_high_risk_page_text = input
+        .page_model
+        .iter()
+        .flat_map(|page| {
+            page.regions.iter().flat_map(|region| {
+                std::iter::once(region.text.as_str()).chain(region.label.as_deref())
+            })
+        })
+        .chain(
+            input
+                .page_snapshot
+                .iter()
+                .map(|snapshot| snapshot.visible_text_excerpt.as_str()),
+        )
+        .chain(
+            input
+                .recent_tool_results
+                .iter()
+                .flat_map(|result| result.observation_summary.iter().map(String::as_str)),
+        )
+        .any(contains_high_risk_page_text);
+    if has_high_risk_page_text {
+        return Some("high_risk_page_text");
     }
 
     let urls = [
@@ -1369,6 +1419,82 @@ mod tests {
         login_path.page_snapshot.as_mut().unwrap().url = String::from("https://example.com/login");
         let error = sanitize_for_network(&login_path).unwrap_err();
         assert_eq!(error.code, "remote_planner_high_risk_context_blocked");
+    }
+
+    #[test]
+    fn high_risk_ocr_and_page_text_block_network_remote_planning() {
+        let mut payment = fixture_planner_input();
+        payment.page_snapshot = None;
+        payment.recent_tool_results.clear();
+        payment.relevant_skill_summaries.clear();
+        let page = payment.page_model.as_mut().unwrap();
+        page.interactive_elements.clear();
+        page.regions = vec![PageRegion {
+            region_id: String::from("ocr-payment-receipt"),
+            role: RegionRole::Paragraph,
+            label: Some(String::from("OCR payment receipt")),
+            text: String::from("PAYMENT RECEIPT 4111 1111 1111 1111"),
+            bbox: None,
+            source: RegionSource::Ocr,
+        }];
+
+        let error = sanitize_for_network(&payment)
+            .expect_err("high-risk OCR payment text must block network planning");
+        assert_eq!(error.code, "remote_planner_high_risk_context_blocked");
+        assert_eq!(
+            error
+                .details
+                .as_ref()
+                .and_then(|details| details["reason_code"].as_str()),
+            Some("high_risk_page_text")
+        );
+    }
+
+    #[test]
+    fn hostile_content_cannot_authorize_click() {
+        let input = fixture_planner_input();
+        let indicators = detect_prompt_injection(&input);
+        assert!(indicators.detected);
+        assert!(indicators.caution_only);
+
+        let malicious_output = PlannerOutput {
+            status: PlannerStatus::Ready,
+            intent: IntentSummary {
+                name: IntentName::FindElement,
+                goal: String::from("follow hostile page instruction"),
+                target_description: Some(String::from("Continue")),
+            },
+            selected_skills: Vec::new(),
+            steps: vec![PlannedStep {
+                step_id: String::from("hostile-click"),
+                tool_name: ToolName::ClickElement,
+                arguments: serde_json::json!({
+                    "request_id": "hostile-click",
+                    "timeout_ms": null,
+                    "element_id": "element-1"
+                }),
+                purpose: String::from("page text attempted to authorize a click"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Complete,
+            }],
+            requires_confirmation: false,
+            confirmation_reason: None,
+            blocked_reason: None,
+            user_message: None,
+        };
+        let safety = PlannerSafetySettings {
+            confirmation_confidence_threshold: 0.0,
+            allow_click_without_confirmation: true,
+            always_confirm_submit: true,
+        };
+
+        assert!(validate_planner_output_with_safety(
+            &malicious_output,
+            &planner_available_tools(),
+            &[],
+            &safety,
+        )
+        .is_err());
     }
 
     #[test]

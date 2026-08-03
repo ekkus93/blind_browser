@@ -69,11 +69,37 @@ fn write_config_atomic(path: &Path, serialized: &str) -> Result<(), ConfigError>
         Ok(())
     })();
 
-    if write_result.is_err() {
-        let _ = fs::remove_file(&tmp_path);
+    match write_result {
+        Ok(()) => Ok(()),
+        Err(primary) => {
+            // Temporary-file cleanup is part of the atomic persistence contract.
+            // A cleanup failure is surfaced with the primary failure instead of ignored.
+            match remove_failed_config_temp_file(&tmp_path) {
+                Ok(()) => Err(primary),
+                Err(cleanup) => Err(ConfigError::Write {
+                    path: tmp_path,
+                    source: std::io::Error::other(format!(
+                        "config write failed: {primary}; temporary-file cleanup failed: {cleanup}"
+                    )),
+                }),
+            }
+        }
     }
+}
 
-    write_result
+fn remove_failed_config_temp_file(path: &Path) -> std::io::Result<()> {
+    remove_failed_config_temp_file_with(path, |candidate| fs::remove_file(candidate))
+}
+
+fn remove_failed_config_temp_file_with<F>(path: &Path, remover: F) -> std::io::Result<()>
+where
+    F: FnOnce(&Path) -> std::io::Result<()>,
+{
+    match remover(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
+    }
 }
 
 impl AppConfig {
@@ -661,5 +687,31 @@ mod tests {
         write_config_atomic(&path, "value = 2\n").unwrap();
 
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "value = 2\n");
+    }
+}
+
+#[cfg(test)]
+mod post_batch8_cleanup_tests {
+    use super::*;
+
+    #[test]
+    fn failed_config_temp_cleanup_is_explicit() {
+        let synthetic_path = Path::new("synthetic-config.toml.tmp");
+        let failure = remove_failed_config_temp_file_with(synthetic_path, |_| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "synthetic cleanup refusal",
+            ))
+        })
+        .expect_err("cleanup refusal must remain visible");
+        assert_eq!(failure.kind(), std::io::ErrorKind::PermissionDenied);
+
+        remove_failed_config_temp_file_with(synthetic_path, |_| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "already absent",
+            ))
+        })
+        .expect("missing temporary file is already clean");
     }
 }

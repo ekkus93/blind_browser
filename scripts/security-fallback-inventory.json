@@ -1,0 +1,475 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "path": "src-tauri/src/app_core/click_authorization.rs",
+      "functions": [
+        "latest_click_authorization_for_element"
+      ],
+      "expression": "&& record.page_id == self.state.current_page_id.as_deref().unwrap_or_default()",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/click_authorization.rs",
+      "functions": [
+        "sensitive_field_label"
+      ],
+      "expression": ".unwrap_or_default(),",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/click_authorization.rs",
+      "functions": [
+        "form_destination"
+      ],
+      "expression": "Some(action) if !action.is_empty() => Url::parse(page_url).ok()?.join(action).ok()?,",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/click_authorization.rs",
+      "functions": [
+        "form_destination"
+      ],
+      "expression": "_ => Url::parse(page_url).ok()?,",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/click_authorization.rs",
+      "functions": [
+        "is_potentially_destructive_click",
+        "sensitive_field_label"
+      ],
+      "expression": "element.accessible_name.as_deref().unwrap_or_default(),",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/click_authorization.rs",
+      "functions": [
+        "is_potentially_destructive_click"
+      ],
+      "expression": "element.href.as_deref().unwrap_or_default(),",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/click_authorization.rs",
+      "functions": [
+        "sensitive_field_label"
+      ],
+      "expression": "element.placeholder.as_deref().unwrap_or_default(),",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/click_authorization.rs",
+      "functions": [
+        "is_potentially_destructive_click"
+      ],
+      "expression": "element.text.as_deref().unwrap_or_default(),",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/command_dispatch.rs",
+      "functions": [
+        "build_planner_resolution"
+      ],
+      "expression": ".ok()",
+      "justification": "Optional command/fill discovery failure aborts that optional candidate path and reduces capability.",
+      "user_visibility": "The command replans, rejects, or reports that no suitable target was found.",
+      "side_effect_impact": "Cannot execute an unvalidated target or report a protected side effect as successful.",
+      "test_coverage": "Command dispatch/form-fill tests and scanner enforcement.",
+      "future_replacement": "Promote to typed candidate-rejection reasons if surfaced in UX."
+    },
+    {
+      "path": "src-tauri/src/app_core/command_dispatch.rs",
+      "functions": [
+        "build_planner_resolution"
+      ],
+      "expression": "let current_dir = std::env::current_dir().ok();",
+      "justification": "Optional command/fill discovery failure aborts that optional candidate path and reduces capability.",
+      "user_visibility": "The command replans, rejects, or reports that no suitable target was found.",
+      "side_effect_impact": "Cannot execute an unvalidated target or report a protected side effect as successful.",
+      "test_coverage": "Command dispatch/form-fill tests and scanner enforcement.",
+      "future_replacement": "Promote to typed candidate-rejection reasons if surfaced in UX."
+    },
+    {
+      "path": "src-tauri/src/app_core/confirmation_workflow.rs",
+      "functions": [
+        "submit_confirmation_response"
+      ],
+      "expression": ".unwrap_or_default();",
+      "justification": "Missing non-authoritative display text does not affect confirmation ID, digest, expiry, or runtime binding.",
+      "user_visibility": "The protected confirmation still presents deterministic runtime-authored wording.",
+      "side_effect_impact": "Cannot approve, replay, or mutate the pending action manifest.",
+      "test_coverage": "Confirmation digest/replay/expiry tests and scanner enforcement.",
+      "future_replacement": "Retain unless the display field becomes contractually mandatory."
+    },
+    {
+      "path": "src-tauri/src/app_core/element_scoring.rs",
+      "functions": [
+        "text_overlap_score"
+      ],
+      "expression": "element.accessible_name.as_deref().unwrap_or_default(),",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/element_scoring.rs",
+      "functions": [
+        "text_overlap_score"
+      ],
+      "expression": "element.href.as_deref().unwrap_or_default(),",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/element_scoring.rs",
+      "functions": [
+        "text_overlap_score"
+      ],
+      "expression": "element.placeholder.as_deref().unwrap_or_default(),",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/element_scoring.rs",
+      "functions": [
+        "text_overlap_score"
+      ],
+      "expression": "element.text.as_deref().unwrap_or_default(),",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/element_scoring.rs",
+      "functions": [
+        "text_overlap_score"
+      ],
+      "expression": "element.value.as_deref().unwrap_or_default(),",
+      "justification": "Missing optional labels or URL metadata feed deterministic scoring/summary logic with conservative defaults.",
+      "user_visibility": "Ambiguous or missing protected-target metadata produces confirmation or an explicit warning.",
+      "side_effect_impact": "Cannot mint authorization, lower confirmation, or mark a destructive target safe.",
+      "test_coverage": "Click authorization, destructive-target, confirmation-summary, and scanner tests.",
+      "future_replacement": "Adopt typed absence reasons if richer page-model diagnostics are required."
+    },
+    {
+      "path": "src-tauri/src/app_core/fill_correction.rs",
+      "functions": [
+        "resolve_recent_fill_correction_command"
+      ],
+      "expression": ".ok()",
+      "justification": "Optional command/fill discovery failure aborts that optional candidate path and reduces capability.",
+      "user_visibility": "The command replans, rejects, or reports that no suitable target was found.",
+      "side_effect_impact": "Cannot execute an unvalidated target or report a protected side effect as successful.",
+      "test_coverage": "Command dispatch/form-fill tests and scanner enforcement.",
+      "future_replacement": "Promote to typed candidate-rejection reasons if surfaced in UX."
+    },
+    {
+      "path": "src-tauri/src/app_core/form_fill/field_focus.rs",
+      "functions": [
+        "resolve_direct_focus_field_command"
+      ],
+      "expression": "let search_query = build_find_element_query(&query).ok()?;",
+      "justification": "Optional command/fill discovery failure aborts that optional candidate path and reduces capability.",
+      "user_visibility": "The command replans, rejects, or reports that no suitable target was found.",
+      "side_effect_impact": "Cannot execute an unvalidated target or report a protected side effect as successful.",
+      "test_coverage": "Command dispatch/form-fill tests and scanner enforcement.",
+      "future_replacement": "Promote to typed candidate-rejection reasons if surfaced in UX."
+    },
+    {
+      "path": "src-tauri/src/app_core/planner_redaction.rs",
+      "functions": [
+        "planner_page_origin"
+      ],
+      "expression": ".ok()",
+      "justification": "Invalid optional origin or planner metadata is omitted while the privacy gate remains authoritative.",
+      "user_visibility": "Invalid metadata is redacted or shown as unavailable.",
+      "side_effect_impact": "Cannot bypass consent, high-risk blocking, or credential scoping.",
+      "test_coverage": "Remote-planner privacy/redaction tests and scanner enforcement.",
+      "future_replacement": "Use typed parse reasons only if the privacy UI requires them."
+    },
+    {
+      "path": "src-tauri/src/app_core/planner_redaction.rs",
+      "functions": [
+        "sanitize_url"
+      ],
+      "expression": "let _ = parsed.set_password(None);",
+      "justification": "The parsed diagnostic/planner URL is stripped of userinfo before query and fragment removal.",
+      "user_visibility": "Only a sanitized origin/path is displayed or transmitted.",
+      "side_effect_impact": "Presentation-only sanitization; the URL is not used to grant credentials or authority.",
+      "test_coverage": "Planner URL redaction and frontend diagnostic URL tests plus scanner enforcement.",
+      "future_replacement": "Reconstruct URLs from approved components if URL mutation semantics change."
+    },
+    {
+      "path": "src-tauri/src/app_core/planner_redaction.rs",
+      "functions": [
+        "sanitize_url"
+      ],
+      "expression": "let _ = parsed.set_username(\"\");",
+      "justification": "The parsed diagnostic/planner URL is stripped of userinfo before query and fragment removal.",
+      "user_visibility": "Only a sanitized origin/path is displayed or transmitted.",
+      "side_effect_impact": "Presentation-only sanitization; the URL is not used to grant credentials or authority.",
+      "test_coverage": "Planner URL redaction and frontend diagnostic URL tests plus scanner enforcement.",
+      "future_replacement": "Reconstruct URLs from approved components if URL mutation semantics change."
+    },
+    {
+      "path": "src-tauri/src/app_core/settings_adapters.rs",
+      "functions": [
+        "build_remote_planner_settings"
+      ],
+      "expression": ".and_then(|configured_profile| ProviderEndpointScope::parse(&configured_profile.base_url).ok())",
+      "justification": "Optional capability/status discovery omits unavailable endpoint or model metadata.",
+      "user_visibility": "Settings/runtime status reports the configured capability as unavailable.",
+      "side_effect_impact": "Capability-reducing only; configured operations still fail explicitly.",
+      "test_coverage": "Settings/model availability tests and scanner enforcement.",
+      "future_replacement": "Add typed absence reasons when the settings UI needs finer diagnostics."
+    },
+    {
+      "path": "src-tauri/src/app_core/settings_adapters.rs",
+      "functions": [
+        "build_model_management_settings"
+      ],
+      "expression": ".and_then(|profile| kitten_download_plan_for_model_id(&profile.model_id).ok())",
+      "justification": "Optional capability/status discovery omits unavailable endpoint or model metadata.",
+      "user_visibility": "Settings/runtime status reports the configured capability as unavailable.",
+      "side_effect_impact": "Capability-reducing only; configured operations still fail explicitly.",
+      "test_coverage": "Settings/model availability tests and scanner enforcement.",
+      "future_replacement": "Add typed absence reasons when the settings UI needs finer diagnostics."
+    },
+    {
+      "path": "src-tauri/src/app_core/settings_adapters.rs",
+      "functions": [
+        "build_model_management_settings"
+      ],
+      "expression": ".and_then(|profile| whisper_download_plan_for_model_id(&profile.model_id).ok())",
+      "justification": "Optional capability/status discovery omits unavailable endpoint or model metadata.",
+      "user_visibility": "Settings/runtime status reports the configured capability as unavailable.",
+      "side_effect_impact": "Capability-reducing only; configured operations still fail explicitly.",
+      "test_coverage": "Settings/model availability tests and scanner enforcement.",
+      "future_replacement": "Add typed absence reasons when the settings UI needs finer diagnostics."
+    },
+    {
+      "path": "src-tauri/src/app_core/settings_adapters.rs",
+      "functions": [
+        "build_tts_voice_settings"
+      ],
+      "expression": ".unwrap_or_default(),",
+      "justification": "Optional capability/status discovery omits unavailable endpoint or model metadata.",
+      "user_visibility": "Settings/runtime status reports the configured capability as unavailable.",
+      "side_effect_impact": "Capability-reducing only; configured operations still fail explicitly.",
+      "test_coverage": "Settings/model availability tests and scanner enforcement.",
+      "future_replacement": "Add typed absence reasons when the settings UI needs finer diagnostics."
+    },
+    {
+      "path": "src-tauri/src/asr/wav.rs",
+      "functions": [
+        "encode_wav_pcm16"
+      ],
+      "expression": ".and_then(|size| u32::try_from(size).ok())",
+      "justification": "Checked numeric conversion failure selects validation failure or conservative absence.",
+      "user_visibility": "Invalid input is rejected or the optional value is reported unavailable.",
+      "side_effect_impact": "Cannot widen a numeric bound or increase authority.",
+      "test_coverage": "Boundary/argument tests and scanner enforcement.",
+      "future_replacement": "Retain checked conversion unless the type contract is narrowed further."
+    },
+    {
+      "path": "src-tauri/src/commands/action_policy.rs",
+      "functions": [
+        "evaluate_action_policy"
+      ],
+      "expression": ".and_then(|value| u16::try_from(value).ok());",
+      "justification": "Checked numeric conversion failure selects validation failure or conservative absence.",
+      "user_visibility": "Invalid input is rejected or the optional value is reported unavailable.",
+      "side_effect_impact": "Cannot widen a numeric bound or increase authority.",
+      "test_coverage": "Boundary/argument tests and scanner enforcement.",
+      "future_replacement": "Retain checked conversion unless the type contract is narrowed further."
+    },
+    {
+      "path": "src-tauri/src/commands/planner_executor/execution.rs",
+      "functions": [
+        "initial_execution_policy_error",
+        "resumed_execution_policy_error"
+      ],
+      "expression": "details: serde_json::to_value(decision).ok(),",
+      "justification": "Optional policy-detail serialization may fail only after the typed refusal and error code are fixed.",
+      "user_visibility": "The typed failure remains visible; only supplemental JSON detail may be absent.",
+      "side_effect_impact": "Cannot authorize or execute an action and cannot convert failure into success.",
+      "test_coverage": "Policy validator/executor tests plus the security-fallback scanner.",
+      "future_replacement": "Make policy details mandatory only if they become part of the public error contract."
+    },
+    {
+      "path": "src-tauri/src/commands/routing/audio_commands.rs",
+      "functions": [
+        "parse_multiplier_token"
+      ],
+      "expression": ".and_then(|value| value.parse::<f32>().ok())",
+      "justification": "Checked numeric conversion failure selects validation failure or conservative absence.",
+      "user_visibility": "Invalid input is rejected or the optional value is reported unavailable.",
+      "side_effect_impact": "Cannot widen a numeric bound or increase authority.",
+      "test_coverage": "Boundary/argument tests and scanner enforcement.",
+      "future_replacement": "Retain checked conversion unless the type contract is narrowed further."
+    },
+    {
+      "path": "src-tauri/src/commands/skill_loader.rs",
+      "functions": [
+        "load_skills_from_directory"
+      ],
+      "expression": "for entry in entries.filter_map(Result::ok) {",
+      "justification": "Unavailable optional skill metadata or unreadable optional entries reduce discovered capability only.",
+      "user_visibility": "Unavailable skills are omitted and discovery diagnostics remain path-private.",
+      "side_effect_impact": "Cannot add tools, grant permission, or bypass confirmation.",
+      "test_coverage": "Skill parser/policy/path-privacy tests and scanner enforcement.",
+      "future_replacement": "Use typed per-entry discovery results if the UI gains a dedicated warning surface."
+    },
+    {
+      "path": "src-tauri/src/commands/skill_parser.rs",
+      "functions": [
+        "skill_frontmatter_from_parts"
+      ],
+      "expression": ".unwrap_or_default()",
+      "justification": "Unavailable optional skill metadata or unreadable optional entries reduce discovered capability only.",
+      "user_visibility": "Unavailable skills are omitted and discovery diagnostics remain path-private.",
+      "side_effect_impact": "Cannot add tools, grant permission, or bypass confirmation.",
+      "test_coverage": "Skill parser/policy/path-privacy tests and scanner enforcement.",
+      "future_replacement": "Use typed per-entry discovery results if the UI gains a dedicated warning surface."
+    },
+    {
+      "path": "src-tauri/src/commands/validators/mod.rs",
+      "functions": [
+        "validate_planner_output_with_safety"
+      ],
+      "expression": "details: serde_json::to_value(&decision).ok(),",
+      "justification": "Optional policy-detail serialization may fail only after the typed refusal and error code are fixed.",
+      "user_visibility": "The typed failure remains visible; only supplemental JSON detail may be absent.",
+      "side_effect_impact": "Cannot authorize or execute an action and cannot convert failure into success.",
+      "test_coverage": "Policy validator/executor tests plus the security-fallback scanner.",
+      "future_replacement": "Make policy details mandatory only if they become part of the public error contract."
+    },
+    {
+      "path": "src-tauri/src/commands/validators/mod.rs",
+      "functions": [
+        "validate_runtime_confirmation_gate"
+      ],
+      "expression": "details: serde_json::to_value(decision).ok(),",
+      "justification": "Optional policy-detail serialization may fail only after the typed refusal and error code are fixed.",
+      "user_visibility": "The typed failure remains visible; only supplemental JSON detail may be absent.",
+      "side_effect_impact": "Cannot authorize or execute an action and cannot convert failure into success.",
+      "test_coverage": "Policy validator/executor tests plus the security-fallback scanner.",
+      "future_replacement": "Make policy details mandatory only if they become part of the public error contract."
+    },
+    {
+      "path": "src-tauri/src/commands/validators/mod.rs",
+      "functions": [
+        "validate_planner_output_with_safety"
+      ],
+      "expression": "details: serde_json::to_value(preliminary_decision).ok(),",
+      "justification": "Optional policy-detail serialization may fail only after the typed refusal and error code are fixed.",
+      "user_visibility": "The typed failure remains visible; only supplemental JSON detail may be absent.",
+      "side_effect_impact": "Cannot authorize or execute an action and cannot convert failure into success.",
+      "test_coverage": "Policy validator/executor tests plus the security-fallback scanner.",
+      "future_replacement": "Make policy details mandatory only if they become part of the public error contract."
+    },
+    {
+      "path": "src-tauri/src/commands/validators/mod.rs",
+      "functions": [
+        "validate_planner_output_with_safety"
+      ],
+      "expression": "serde_json::to_value(&decision).ok(),",
+      "justification": "Optional policy-detail serialization may fail only after the typed refusal and error code are fixed.",
+      "user_visibility": "The typed failure remains visible; only supplemental JSON detail may be absent.",
+      "side_effect_impact": "Cannot authorize or execute an action and cannot convert failure into success.",
+      "test_coverage": "Policy validator/executor tests plus the security-fallback scanner.",
+      "future_replacement": "Make policy details mandatory only if they become part of the public error contract."
+    },
+    {
+      "path": "src-tauri/src/commands/validators/mod.rs",
+      "functions": [
+        "validate_runtime_confirmation_gate"
+      ],
+      "expression": "serde_json::to_value(decision).ok(),",
+      "justification": "Optional policy-detail serialization may fail only after the typed refusal and error code are fixed.",
+      "user_visibility": "The typed failure remains visible; only supplemental JSON detail may be absent.",
+      "side_effect_impact": "Cannot authorize or execute an action and cannot convert failure into success.",
+      "test_coverage": "Policy validator/executor tests plus the security-fallback scanner.",
+      "future_replacement": "Make policy details mandatory only if they become part of the public error contract."
+    },
+    {
+      "path": "src-tauri/src/tts/remote.rs",
+      "functions": [
+        "synthesize_remote"
+      ],
+      "expression": "let _ = config;",
+      "justification": "Feature-disabled parameters are deliberately consumed before returning an explicit unavailable error.",
+      "user_visibility": "The caller receives a typed feature-unavailable failure.",
+      "side_effect_impact": "No network call, playback, or successful fallback occurs.",
+      "test_coverage": "Feature-matrix compilation/tests and scanner enforcement.",
+      "future_replacement": "Remove the stub when remote TTS becomes mandatory in all builds."
+    },
+    {
+      "path": "src-tauri/src/tts/remote.rs",
+      "functions": [
+        "synthesize_remote"
+      ],
+      "expression": "let _ = runtime_audio;",
+      "justification": "Feature-disabled parameters are deliberately consumed before returning an explicit unavailable error.",
+      "user_visibility": "The caller receives a typed feature-unavailable failure.",
+      "side_effect_impact": "No network call, playback, or successful fallback occurs.",
+      "test_coverage": "Feature-matrix compilation/tests and scanner enforcement.",
+      "future_replacement": "Remove the stub when remote TTS becomes mandatory in all builds."
+    },
+    {
+      "path": "src-tauri/src/tts/remote.rs",
+      "functions": [
+        "synthesize_remote"
+      ],
+      "expression": "let _ = text;",
+      "justification": "Feature-disabled parameters are deliberately consumed before returning an explicit unavailable error.",
+      "user_visibility": "The caller receives a typed feature-unavailable failure.",
+      "side_effect_impact": "No network call, playback, or successful fallback occurs.",
+      "test_coverage": "Feature-matrix compilation/tests and scanner enforcement.",
+      "future_replacement": "Remove the stub when remote TTS becomes mandatory in all builds."
+    }
+  ]
+}

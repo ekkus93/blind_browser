@@ -110,7 +110,8 @@ impl ImageCache {
         let handle = ImageHandle::generate();
         let (path, mut file) = create_private_file(&root)?;
         if let Err(io_error) = file.write_all(bytes).and_then(|_| file.sync_all()) {
-            let _ = fs::remove_file(&path);
+            drop(file);
+            cleanup_failed_screenshot_write(&path, &io_error)?;
             return Err(io_tool_error("screenshot_write_failed", io_error));
         }
         drop(file);
@@ -317,6 +318,26 @@ impl super::AppCore {
             .app_cache_dir()
             .map(|p| p.join("screenshots"))
             .map_err(|e| io_tool_error("resolve_app_cache_dir_failed", e))
+    }
+}
+
+/// Remove a partial screenshot after a failed write. Cleanup is security-relevant:
+/// a failure is surfaced instead of silently leaving unregistered private image bytes.
+fn cleanup_failed_screenshot_write(path: &Path, primary: &io::Error) -> Result<(), ToolError> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(cleanup) => Err(ToolError {
+            code: String::from("screenshot_write_cleanup_failed"),
+            message: String::from(
+                "failed to remove a partial private screenshot after write failure",
+            ),
+            retryable: true,
+            details: Some(serde_json::json!({
+                "primary_error_kind": format!("{:?}", primary.kind()),
+                "cleanup_error_kind": format!("{:?}", cleanup.kind()),
+            })),
+        }),
     }
 }
 
@@ -547,6 +568,22 @@ mod tests {
                 .code,
             "image_cache_integrity_mismatch"
         );
+    }
+
+    #[test]
+    fn failed_screenshot_write_cleanup_failure_is_explicit() {
+        let dir = TempDir::new().unwrap();
+        let directory_target = dir.path().join("partial.png");
+        fs::create_dir(&directory_target).unwrap();
+        let primary = io::Error::other("synthetic write failure");
+
+        let error = cleanup_failed_screenshot_write(&directory_target, &primary)
+            .expect_err("directory removal through remove_file must fail");
+        assert_eq!(error.code, "screenshot_write_cleanup_failed");
+        assert!(directory_target.exists());
+
+        cleanup_failed_screenshot_write(&dir.path().join("missing.png"), &primary)
+            .expect("missing partial file is already clean");
     }
 
     #[test]
