@@ -94,8 +94,52 @@ write(
 '''
     if generator.count(old_provider) != 1:
         raise SystemExit("provider duplicate-edit block was not found exactly once")
-    generator_path.write_text(generator.replace(old_provider, new_provider, 1), encoding="utf-8")
-    print("Prepared temporary generator exact-count repairs")
+    generator = generator.replace(old_provider, new_provider, 1)
+
+    old_fill = '''replace_once(
+    "src-tauri/src/app_core/fill_correction.rs",
+    """                .and_then(|candidate_id| {
+                    resolve_typeable_element(current_page, candidate_id)
+                        .ok()
+                        .map(|_| candidate_id.clone())
+                });
+""",
+    """                .find(|candidate_id| {
+                    resolve_typeable_element(current_page, candidate_id).is_ok()
+                })
+                .cloned();
+""",
+)
+'''
+    new_fill = '''replace_once(
+    "src-tauri/src/app_core/fill_correction.rs",
+    """            let alternate_element_id = context
+                .candidate_element_ids
+                .iter()
+                .find(|candidate_id| candidate_id.as_str() != active_element_id)
+                .and_then(|candidate_id| {
+                    resolve_typeable_element(current_page, candidate_id)
+                        .ok()
+                        .map(|_| candidate_id.clone())
+                });
+""",
+    """            let alternate_element_id = context
+                .candidate_element_ids
+                .iter()
+                .find(|candidate_id| {
+                    candidate_id.as_str() != active_element_id
+                        && resolve_typeable_element(current_page, candidate_id.as_str()).is_ok()
+                })
+                .cloned();
+""",
+)
+'''
+    if generator.count(old_fill) != 1:
+        raise SystemExit("fill-correction generator block was not found exactly once")
+    generator = generator.replace(old_fill, new_fill, 1)
+
+    generator_path.write_text(generator, encoding="utf-8")
+    print("Prepared temporary generator exact-count and iterator repairs")
 
 
 def repair_output() -> None:
@@ -174,24 +218,6 @@ def repair_output() -> None:
                 availability_reason: None,
             },
             provider_failover_settings: ProviderFailoverSettings {
-''',
-    )
-
-    replace_once(
-        "src-tauri/src/app_core/fill_correction.rs",
-        '''    let alternate_element_id = context
-        .candidate_element_ids
-        .iter()
-        .find(|candidate_id| candidate_id.as_str() != active_element_id)
-        .find(|candidate_id| resolve_typeable_element(current_page, candidate_id).is_ok())
-''',
-        '''    let alternate_element_id = context
-        .candidate_element_ids
-        .iter()
-        .find(|candidate_id| {
-            candidate_id.as_str() != active_element_id
-                && resolve_typeable_element(current_page, candidate_id.as_str()).is_ok()
-        })
 ''',
     )
 
