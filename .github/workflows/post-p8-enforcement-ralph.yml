@@ -75,6 +75,52 @@ jobs:
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Repair generator exact-count edit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/post_p8_enforcement_patch.py')
+          content = path.read_text(encoding='utf-8')
+          old = '''for _ in range(2):
+              replace_once(
+                  "src-tauri/src/commands/skill_loader.rs",
+                  """            &available_tool_names,
+                      &mut discovered,
+                  );
+          """,
+                  """            &available_tool_names,
+                      &mut discovered,
+                      &mut diagnostics,
+                  );
+          """,
+              )
+          '''
+          new = '''skill_loader_calls = read("src-tauri/src/commands/skill_loader.rs")
+          old_skill_loader_call = """            &available_tool_names,
+                      &mut discovered,
+                  );
+          """
+          new_skill_loader_call = """            &available_tool_names,
+                      &mut discovered,
+                      &mut diagnostics,
+                  );
+          """
+          count = skill_loader_calls.count(old_skill_loader_call)
+          if count != 2:
+              raise RuntimeError(
+                  f"src-tauri/src/commands/skill_loader.rs: expected two discovery calls, found {count}"
+              )
+          write(
+              "src-tauri/src/commands/skill_loader.rs",
+              skill_loader_calls.replace(old_skill_loader_call, new_skill_loader_call),
+          )
+          '''
+          if content.count(old) != 1:
+              raise SystemExit('generator exact-count block was not found exactly once')
+          path.write_text(content.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Apply bounded patch
         run: python3 .github/post_p8_enforcement_patch.py
 
