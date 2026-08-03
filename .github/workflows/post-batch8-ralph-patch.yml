@@ -122,6 +122,12 @@ jobs:
               raise SystemExit("expected one screenshot cleanup call in generated patch")
           source = source.replace(old_cleanup, new_cleanup, 1)
 
+          old_intent = '                name: IntentName::ClickElement,\n'
+          new_intent = '                name: IntentName::FindElement,\n'
+          if source.count(old_intent) != 1:
+              raise SystemExit("expected one nonexistent click intent in generated test")
+          source = source.replace(old_intent, new_intent, 1)
+
           path.write_text(source, encoding="utf-8")
           PY
 
