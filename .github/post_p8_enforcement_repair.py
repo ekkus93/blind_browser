@@ -177,18 +177,11 @@ def repair_output() -> None:
 ''',
     )
 
-    types_path = Path("src/tauri-types.ts")
-    types = types_path.read_text(encoding="utf-8")
-    field = "  skill_discovery_diagnostics: SkillDiscoveryDiagnostics;\n"
-    if field not in types:
-        marker = "  provider_modes: ProviderSelectionStatus | null;\n"
-        if types.count(marker) != 1:
-            raise SystemExit(
-                f"tauri-types: expected one provider_modes field, found {types.count(marker)}"
-            )
-        types_path.write_text(types.replace(marker, marker + field, 1), encoding="utf-8")
-
-    print("Repaired generated Rust and TypeScript integration output")
+    # src/tauri-types.ts does not define GetRuntimeStatusData; only shared provider
+    # and agent types are maintained there. The generator already adds the shared
+    # SkillDiscoveryDiagnostics and TTS/ASR endpoint fields, so no status-field
+    # insertion is required on the TypeScript side.
+    print("Repaired generated Rust integration output")
 
 
 def main() -> int:
