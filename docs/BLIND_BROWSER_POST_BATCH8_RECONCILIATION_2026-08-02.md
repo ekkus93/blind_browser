@@ -4,6 +4,8 @@
 **Repository:** `ekkus93/blind_browser`  
 **Reviewed starting point:** `master` at `00d2e5c5cf5cf42f26dd73872fe58ddc7420ea6a`  
 **Authoritative comprehensive TODO:** `docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md`  
+**Prior implementation report:** `docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_IMPLEMENTATION_REPORT_2026-08-01.md`  
+**Post-Batch-8 spec:** `docs/BLIND_BROWSER_POST_BATCH8_SECURITY_HARDENING_SPEC_2026-08-02.md`  
 **Post-Batch-8 TODO:** `docs/BLIND_BROWSER_POST_BATCH8_SECURITY_HARDENING_TODO_2026-08-02.md`  
 **Status:** Reconciled; the broader comprehensive remediation remains open and no release-readiness claim is made.
 
@@ -44,12 +46,78 @@ The post-Batch-8 work primarily closes residual model-download integrity, direct
 | **BBCR-020 — Fuzzing/property/mutation coverage** | **Still open, with deterministic adversarial corpora now stronger.** | Hostile DOM/OCR corpus and scanner self-tests improve adversarial regression coverage. | Add fuzzers, redaction/resource-limit properties, mutation testing, and measurable coverage expectations. |
 | **BBCR-021 — Architecture/security documentation** | **Partially complete.** | Direct-command policy, accepted-fallback inventory, diagnostic/privacy audit, hostile-content corpus, and this reconciliation add required security documentation. | Update primary architecture/README/security reporting/threat model, explicit remote-data consent, model provenance/update process, resource limits, supported-platform persistence guarantees, and final operational guidance. |
 
+## Source, tests, evidence, and next-batch index
+
+The table below makes the evidence/disposition fields explicit for every BBCR item. Historical commit/run identifiers remain in the original TODO, batch evidence documents, prior implementation report, PRs, and issue #5. The final post-Batch-8 branch/master SHA and CI identifiers belong in the post-Batch-8 implementation report and PR #12 evidence because they do not exist until publication/merge.
+
+| Item | Primary source / documentation | Tests or validation evidence | Residual risk and next-batch disposition |
+|---|---|---|---|
+| BBCR-001 | `commands/action_policy.rs`, `app_core/click_authorization.rs`, `app_core/tool_executor.rs`, `direct_command_policy.rs`, direct-command policy doc | security-policy, planner-output, click-authorization, executor defense-in-depth, direct-handler parity tests | Retain in the next comprehensive architecture/documentation batch for non-Tauri future surfaces and classification rationale maintenance. |
+| BBCR-002 | `commands/confirmation_manifest.rs`, confirmation runtime state and response handlers | confirmation digest, replay, expiry, mutation, origin/page change, redaction, degraded-summary tests | Future protected locator classes must add equivalent live re-resolution and summary contracts. |
+| BBCR-003 | planner-safe page/OCR types, `planner_redaction.rs`, privacy-redaction frontend, diagnostic audit doc | planner redaction/cap tests, OCR tests, frontend privacy tests, diagnostics scanner | Move consent, per-origin controls, local-only mode, and high-risk-origin UX into the next privacy product batch. |
+| BBCR-004 | `provider_endpoint.rs`, config/keyring scoping, API-key handlers | endpoint normalization, changed host/scheme/port/path, redirect refusal, key-reference invariant tests | Maintenance-only unless a new provider or credential-bearing operation is added. |
+| BBCR-005 | image registry/cache/OCR routing modules and Batch 6 evidence | traversal, separators, symlink, stale/cross-page, cleanup, real fixture presence | Broader filesystem identifiers and packaged capture-to-real-OCR E2E belong in the platform/filesystem batch. |
+| BBCR-006 | trusted/untrusted planner payload types, `planner_redaction.rs`, hostile corpus JSON and manifest test | prompt-injection indicators, high-risk remote block, submit/click refusal, hostile observation, real-image OCR tests | Seed future fuzz/property corpus and extend for new extraction channels. |
+| BBCR-007 | `model_management/{manifest,download,tests}.rs`, accepted fallback doc | manifest/hash/size/old-target/cleanup/redirect/timeout/path-privacy tests and silent-fallback scanner | Provenance/status/update UX and multi-file directory transaction move to model-management/persistence batch. |
+| BBCR-008 | remote planner clients/orchestration | existing network and lock-release tests are incomplete for full original criterion | Keep open for planner cancellation/body-limit/error-taxonomy batch. |
+| BBCR-009 | `provider_endpoint.rs` and provider client builders | endpoint policy and credential redirect tests | Maintenance-only; require policy extension for new endpoints. |
+| BBCR-010 | API-key/config persistence code | key-reference invariant tests only close the false-success residual | Keep open for transaction/fault-injection/orphan-cleanup batch. |
+| BBCR-011 | atomic config/model write primitives | model sync/replace/old-target tests; broader persistence suite incomplete | Keep open for durability/concurrency/platform semantics batch. |
+| BBCR-012 | planner/OCR/resource caps, screenshot cache, model download ceilings | truncation/cache/model size tests; not every stream/concurrency path is covered | Keep open for centralized budgets and stress/concurrency batch. |
+| BBCR-013 | frontend settings components/store/actions | diagnostic redaction tests do not prove secret-state absence | Keep open for ephemeral secret-input/state-lifecycle batch. |
+| BBCR-014 | Tauri config/CSP and backend provider routing | no full arbitrary-frontend-network denial test | Keep open for CSP/capability hardening batch. |
+| BBCR-015 | planning snapshot/state token/revalidation modules and Batch 5 evidence | navigation/page/safety change, read-only tolerance, confirmation replay/state-change tests | Maintenance-only; extend invalidation matrix for new protected tools. |
+| BBCR-016 | none in this bounded pass | diagnostic/fallback scanners are explicitly not secret-history scanners | Keep open for Gitleaks/TruffleHog, push protection, current/history/admin evidence batch. |
+| BBCR-017 | `.gitignore`, repository hygiene docs/CI | no completion evidence in this pass | Keep open with BBCR-016 secret-hygiene batch. |
+| BBCR-018 | Cargo/pnpm lockfiles and current CI | build/lint/test gates only; no full advisory/license/SAST gate | Keep open for dependency/security automation batch. |
+| BBCR-019 | Linux permanent CI | Xvfb source validation only | Keep open for Windows/macOS/package/smoke/platform semantics batch. |
+| BBCR-020 | hostile corpus and scanner self-tests | deterministic adversarial cases; no fuzz/property/mutation gate | Keep open for fuzz/property/mutation batch. |
+| BBCR-021 | direct-command, fallback, audit, reconciliation, implementation-report docs | documentation consistency checked by review/CI presence; primary docs remain incomplete | Keep open for primary SPECS/README/SECURITY/threat-model/operations batch. |
+
+## Batch 7, Batch 8, and post-Batch-8 confusion resolved
+
+### Batch 7 residuals later closed
+
+- The repository-wide diagnostic/error/privacy audit residual under BBCR-003 is covered by P8-005 and its audit report, redaction tests, scanner self-test, and permanent CI integration.
+- The named hidden-DOM and real-image OCR hostile-content corpus residual under BBCR-006 is covered by P8-006.
+- Confirmation summaries now explicitly disclose unavailable form/destination/field metadata rather than silently relying on generic wording.
+
+### Batch 7 residuals still open
+
+- Explicit remote page-data consent, local-only/per-origin controls, and high-risk-origin product policy.
+- Broader filesystem identifier audit and packaged capture-to-Tesseract E2E.
+- Comprehensive P1/P2/P3 items outside the bounded Batch 7/8 safety core.
+
+### Batch 8 work already complete at the starting SHA
+
+- Deterministic planner/executor action policy and click authorization.
+- Immutable confirmation ID/digest/replay/expiry/state binding.
+- Destination-bound provider credentials and redirect refusal.
+- Planner-safe page/OCR payload boundary and high-risk remote-planning controls.
+- Opaque screenshot handles/cache containment.
+- Permanent baseline CI, fallback scanner, and final Clippy cleanup at `00d2e5c5cf5cf42f26dd73872fe58ddc7420ea6a`.
+
+### Work moved into the post-Batch-8 TODO
+
+- Per-file model manifest/download integrity reconciliation.
+- Direct Tauri command inventory/parity and strict external launcher URL validation.
+- Planner/TTS/ASR post-persistence key-reference invariants.
+- Structured degraded confirmation-summary metadata.
+- Accepted fallback reconciliation and scanner self-tests.
+- Backend/frontend diagnostic privacy audit and scanner expansion.
+- Deterministic hostile hidden-DOM/OCR corpus.
+- Full BBCR status reconciliation and implementation handoff.
+
+### Status of the prior implementation report
+
+`docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_IMPLEMENTATION_REPORT_2026-08-01.md` is retained as historical evidence but is stale as a current completion statement. It predates the post-Batch-8 defects and residual audit described above, and it does not reconcile the still-open BBCR P1/P2/P3 items with the bounded Batch 7/8 accomplishments. This addendum and the post-Batch-8 implementation report supersede it for current status; they do not rewrite or erase what the older report claimed at the time.
+
 ## Post-Batch-8 workstream mapping
 
 | Post-Batch-8 workstream | Primary BBCR items affected | Reconciled result |
 |---|---|---|
 | P8-001 model integrity | BBCR-007, BBCR-011, BBCR-012 | Closes per-file integrity, bounded client, verified activation, and failure-path tests; broader provenance, directory transaction, and persistence program remain open. |
-| P8-002 direct commands | BBCR-001, BBCR-004, BBCR-009 | Closes Tauri surface inventory/policy parity, strict external URL parsing, and API-key reference invariants. |
+| P8-002 direct commands | BBCR-001, BBCR-004, BBCR-009 | Closes Tauri surface inventory/policy parity, strict external URL validation, and API-key reference invariants. |
 | P8-003 confirmations | BBCR-002, BBCR-015 | Closes implicit generic-summary degradation by making warnings structured, visible, redacted, and digest-bound. |
 | P8-004 fallback audit | Cross-cutting | Establishes a reviewed allowlist and permanent self-testing scanner; accepted entries may only reduce capability/optional detail. |
 | P8-005 diagnostics/privacy | BBCR-003, BBCR-007, BBCR-013 | Closes the repository logging/error/response-body audit gap, but does not close remote-data-consent or Redux secret-draft redesign. |
