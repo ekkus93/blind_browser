@@ -122,6 +122,52 @@ def repair_model_downloads() -> None:
     replace_or_verify(path, stale_streaming_limit, corrected_streaming_limit)
 
 
+def repair_model_size_boundary_test() -> None:
+    path = "src-tauri/src/app_core/model_management.rs"
+    stale = (
+        "        let mut small = fixture_manifest(b\"12345\");\n"
+        "        small.min_bytes = 6;\n"
+        "        assert!(matches!("
+    )
+    corrected = (
+        "        let mut small = fixture_manifest(b\"12345\");\n"
+        "        small.min_bytes = 6;\n"
+        "        small.max_bytes = Some(6);\n"
+        "        assert!(matches!("
+    )
+    replace_or_verify(path, stale, corrected)
+
+
+def repair_external_url_authority_syntax() -> None:
+    path = "src-tauri/src/command_handlers/url_handlers.rs"
+    stale = (
+        "    }\n\n"
+        "    let mut parsed = url::Url::parse(trimmed).map_err(|_| {\n"
+        "        external_url_error(\"External links must be valid absolute HTTPS URLs.\")\n"
+        "    })?;"
+    )
+    corrected = (
+        "    }\n\n"
+        "    let Some((scheme, authority_and_path)) = trimmed.split_once(\"://\") else {\n"
+        "        return Err(external_url_error(\n"
+        "            \"External links must use explicit HTTPS authority syntax.\",\n"
+        "        ));\n"
+        "    };\n"
+        "    if !scheme.eq_ignore_ascii_case(\"https\")\n"
+        "        || authority_and_path.is_empty()\n"
+        "        || authority_and_path.starts_with('/')\n"
+        "    {\n"
+        "        return Err(external_url_error(\n"
+        "            \"External links must use exactly two slashes before a non-empty HTTPS authority.\",\n"
+        "        ));\n"
+        "    }\n\n"
+        "    let mut parsed = url::Url::parse(trimmed).map_err(|_| {\n"
+        "        external_url_error(\"External links must be valid absolute HTTPS URLs.\")\n"
+        "    })?;"
+    )
+    replace_or_verify(path, stale, corrected)
+
+
 def repair_planner_metadata_move() -> None:
     path = "src-tauri/src/app_core/planner_redaction.rs"
     source = read(path)
@@ -196,10 +242,12 @@ def repair_direct_command_policy_clippy() -> None:
 def main() -> None:
     repair_confirmation_summary()
     repair_model_downloads()
+    repair_model_size_boundary_test()
+    repair_external_url_authority_syntax()
     repair_planner_metadata_move()
     repair_planner_high_risk_text_iterator()
     repair_direct_command_policy_clippy()
-    print("Deterministic post-Batch-8 compile and Clippy repairs applied or verified")
+    print("Deterministic post-Batch-8 compile, test, and Clippy repairs applied or verified")
 
 
 if __name__ == "__main__":
