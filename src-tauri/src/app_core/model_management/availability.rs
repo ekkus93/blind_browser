@@ -9,10 +9,10 @@ const MIN_TTS_VOICES_BYTES: u64 = 1_000;
 const MIN_TTS_ONNX_BYTES: u64 = 1_000_000;
 
 fn file_size_at_least(path: &Path, min_bytes: u64) -> bool {
-    match path.metadata() {
-        Ok(metadata) => metadata.is_file() && metadata.len() >= min_bytes,
-        Err(_) => false,
-    }
+    let Ok(metadata) = path.metadata() else {
+        return false;
+    };
+    metadata.is_file() && metadata.len() >= min_bytes
 }
 
 pub(crate) fn local_tts_model_is_available(profile: &LocalTtsProfile) -> bool {
@@ -23,15 +23,13 @@ pub(crate) fn local_tts_model_is_available(profile: &LocalTtsProfile) -> bool {
 
     let has_config = file_size_at_least(&model_path.join("config.json"), MIN_TTS_CONFIG_BYTES);
     let has_voices = file_size_at_least(&model_path.join("voices.npz"), MIN_TTS_VOICES_BYTES);
-    let entries = match fs::read_dir(model_path) {
-        Ok(entries) => entries,
-        Err(_) => return false,
+    let Ok(mut entries) = fs::read_dir(model_path) else {
+        return false;
     };
 
-    for entry in entries {
-        let entry = match entry {
-            Ok(entry) => entry,
-            Err(_) => return false,
+    while let Some(entry) = entries.next() {
+        let Ok(entry) = entry else {
+            return false;
         };
         let path = entry.path();
         if path
