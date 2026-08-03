@@ -1,0 +1,71 @@
+name: Post-Batch-8 Ralph Patch
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/post_batch8_ralph_patch.py
+      - .github/workflows/post-batch8-ralph-patch.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: post-batch8-ralph-patch
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact master candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install native test dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Apply and validate bounded patch
+        run: python3 .github/post_batch8_ralph_patch.py
+
+      - name: Commit validated source and evidence changes
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            .github/workflows/ci.yml \
+            docs/BLIND_BROWSER_ACCEPTED_FALLBACKS_2026-08-02.md \
+            scripts/check-security-fallback-inventory.py \
+            scripts/security-fallback-allowlist.txt \
+            scripts/security-fallback-inventory.json \
+            src-tauri/src/app_core/image_cache.rs \
+            src-tauri/src/app_core/planner_redaction.rs \
+            src-tauri/src/config/persistence.rs \
+            src-tauri/tests/post_batch8_direct_command_policy_evidence.rs
+          git diff --cached --check
+          git commit -m 'test: close post-Batch-8 source evidence gaps'
+          git push origin HEAD:master
