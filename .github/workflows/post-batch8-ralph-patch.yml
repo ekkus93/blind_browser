@@ -1,4 +1,4 @@
-# Temporary bounded runner. Retriggered after generated-evidence formatting fix.
+# Temporary bounded runner. Publishes only non-workflow hardening changes.
 name: Post-Batch-8 Ralph Patch
 
 on:
@@ -186,6 +186,13 @@ jobs:
           if source.count(old_test) != 1:
               raise SystemExit("expected one config cleanup test")
           source = source.replace(old_test, new_test, 1)
+
+          ci_patch_start = source.find('replace_once(\n    ".github/workflows/ci.yml",')
+          ci_patch_end = source.find('\n# Format and run focused gates', ci_patch_start)
+          if ci_patch_start < 0 or ci_patch_end < 0:
+              raise SystemExit("expected generated CI patch block")
+          source = source[:ci_patch_start] + source[ci_patch_end + 1:]
+
           path.write_text(source, encoding="utf-8")
           PY
 
@@ -215,7 +222,6 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
-            .github/workflows/ci.yml \
             docs/BLIND_BROWSER_ACCEPTED_FALLBACKS_2026-08-02.md \
             scripts/check-security-fallback-inventory.py \
             scripts/security-fallback-allowlist.txt \
