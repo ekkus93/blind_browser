@@ -1,4 +1,4 @@
-name: Post-Batch-8 compact source diagnostic
+name: Post-Batch-8 validator source diagnostic
 
 on:
   pull_request:
@@ -31,20 +31,30 @@ jobs:
           git apply /tmp/postbatch8.patch
           python3 scripts/postbatch8-compile-fixes.py
 
-      - name: Print only the two failing contracts
+      - name: Print exact validator implementations
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
 
-          excerpts = (
-              ("MODEL MANAGEMENT", "src-tauri/src/app_core/model_management.rs", 680, 805),
-              ("EXTERNAL URL HANDLER", "src-tauri/src/command_handlers/url_handlers.rs", 70, 150),
-          )
-          for title, path, first, last in excerpts:
+          def numbered(path: str, first: int, last: int) -> None:
               lines = Path(path).read_text(encoding="utf-8").splitlines()
-              print(f"=== {title}: {path}:{first}-{last} ===")
+              print(f"=== {path}:{first}-{last} ===")
               for number in range(first, min(last, len(lines)) + 1):
                   print(f"{number:04d}: {lines[number - 1]}")
+
+          numbered("src-tauri/src/command_handlers/url_handlers.rs", 1, 72)
+
+          path = "src-tauri/src/app_core/model_management.rs"
+          lines = Path(path).read_text(encoding="utf-8").splitlines()
+          needle = "fn write_verified_reader_atomically"
+          starts = [index for index, line in enumerate(lines) if needle in line]
+          if len(starts) != 1:
+              raise SystemExit(f"expected one {needle}, found {len(starts)}")
+          first = max(1, starts[0] + 1 - 15)
+          last = min(len(lines), starts[0] + 1 + 125)
+          print(f"=== {path}:{first}-{last} ===")
+          for number in range(first, last + 1):
+              print(f"{number:04d}: {lines[number - 1]}")
           PY
