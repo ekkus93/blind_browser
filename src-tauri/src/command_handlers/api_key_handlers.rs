@@ -17,6 +17,49 @@ pub struct TestRemoteApiKeyData {
     message: String,
 }
 
+#[derive(Clone, Copy)]
+enum RemoteApiKeyKind {
+    Planner,
+    Tts,
+    Asr,
+}
+
+impl RemoteApiKeyKind {
+    fn reference_error_code(self) -> &'static str {
+        match self {
+            Self::Planner => "remote_planner_api_key_reference_missing",
+            Self::Tts => "remote_tts_api_key_reference_missing",
+            Self::Asr => "remote_asr_api_key_reference_missing",
+        }
+    }
+
+    fn service_label(self) -> &'static str {
+        match self {
+            Self::Planner => "remote planner",
+            Self::Tts => "remote TTS",
+            Self::Asr => "remote ASR",
+        }
+    }
+}
+
+fn require_api_key_reference(
+    kind: RemoteApiKeyKind,
+    reference: Option<String>,
+) -> Result<String, ToolError> {
+    reference
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| ToolError {
+            code: String::from(kind.reference_error_code()),
+            message: format!(
+                "The {} API key was persisted without a non-empty key reference.",
+                kind.service_label()
+            ),
+            retryable: false,
+            details: None,
+        })
+}
+
 #[tauri::command]
 pub fn set_remote_planner_api_key(
     request_id: String,
@@ -58,12 +101,16 @@ pub fn set_remote_planner_api_key(
             details: None,
         })?;
 
-    Ok(SetRemoteApiKeyData {
-        profile_name: profile_name.clone(),
-        api_key_reference: app_core
+    let api_key_reference = require_api_key_reference(
+        RemoteApiKeyKind::Planner,
+        app_core
             .current_remote_planner_settings()
-            .api_key_reference
-            .unwrap_or_default(),
+            .api_key_reference,
+    )?;
+
+    Ok(SetRemoteApiKeyData {
+        profile_name,
+        api_key_reference,
     })
 }
 
@@ -225,12 +272,14 @@ pub fn set_remote_tts_api_key(
             details: None,
         })?;
 
+    let api_key_reference = require_api_key_reference(
+        RemoteApiKeyKind::Tts,
+        app_core.current_remote_tts_settings().api_key_reference,
+    )?;
+
     Ok(SetRemoteApiKeyData {
-        profile_name: profile_name.clone(),
-        api_key_reference: app_core
-            .current_remote_tts_settings()
-            .api_key_reference
-            .unwrap_or_default(),
+        profile_name,
+        api_key_reference,
     })
 }
 
@@ -322,12 +371,14 @@ pub fn set_remote_asr_api_key(
             details: None,
         })?;
 
+    let api_key_reference = require_api_key_reference(
+        RemoteApiKeyKind::Asr,
+        app_core.current_remote_asr_settings().api_key_reference,
+    )?;
+
     Ok(SetRemoteApiKeyData {
-        profile_name: profile_name.clone(),
-        api_key_reference: app_core
-            .current_remote_asr_settings()
-            .api_key_reference
-            .unwrap_or_default(),
+        profile_name,
+        api_key_reference,
     })
 }
 
@@ -378,4 +429,53 @@ pub async fn test_remote_asr_api_key(
     })
     .await
     .map_err(join_error_to_tool_error)?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{require_api_key_reference, RemoteApiKeyKind};
+
+    fn assert_missing_reference(kind: RemoteApiKeyKind, expected_code: &str) {
+        for reference in [None, Some(String::new()), Some(String::from("   "))] {
+            let error = require_api_key_reference(kind, reference)
+                .expect_err("missing API key reference should fail closed");
+            assert_eq!(error.code, expected_code);
+            assert!(!error.retryable);
+            assert!(error.details.is_none());
+        }
+    }
+
+    #[test]
+    fn planner_api_key_reference_is_required() {
+        assert_missing_reference(
+            RemoteApiKeyKind::Planner,
+            "remote_planner_api_key_reference_missing",
+        );
+    }
+
+    #[test]
+    fn tts_api_key_reference_is_required() {
+        assert_missing_reference(
+            RemoteApiKeyKind::Tts,
+            "remote_tts_api_key_reference_missing",
+        );
+    }
+
+    #[test]
+    fn asr_api_key_reference_is_required() {
+        assert_missing_reference(
+            RemoteApiKeyKind::Asr,
+            "remote_asr_api_key_reference_missing",
+        );
+    }
+
+    #[test]
+    fn non_empty_api_key_reference_is_normalized() {
+        let reference = require_api_key_reference(
+            RemoteApiKeyKind::Planner,
+            Some(String::from("  keyring://remote-planner/profile  ")),
+        )
+        .expect("non-empty API key reference should be accepted");
+        assert_eq!(reference, "keyring://remote-planner/profile");
+    }
 }
