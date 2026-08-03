@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
 
@@ -13,6 +12,139 @@ def replace_once(path: str, old: str, new: str) -> None:
     if count != 1:
         raise SystemExit(f"{path}: expected one integration match, found {count}: {old[:80]!r}")
     target.write_text(content.replace(old, new, 1), encoding="utf-8")
+
+
+def initializer_end(lines: list[str], start: int, path: Path, struct_name: str) -> int:
+    depth = 0
+    opened = False
+    for index in range(start, len(lines)):
+        line = lines[index]
+        opening = line.count("{")
+        closing = line.count("}")
+        if opening:
+            opened = True
+        depth += opening - closing
+        if opened and depth == 0:
+            return index
+    raise SystemExit(f"{path}: unterminated {struct_name} initializer at line {start + 1}")
+
+
+def ensure_initializer_fields(
+    path: Path,
+    struct_name: str,
+    required_fields: tuple[tuple[str, str], ...],
+) -> tuple[int, int]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    needle = f"{struct_name} {{"
+    total = 0
+    modified = 0
+    index = 0
+
+    while index < len(lines):
+        if needle not in lines[index]:
+            index += 1
+            continue
+
+        total += 1
+        end = initializer_end(lines, index, path, struct_name)
+        block = "\n".join(lines[index : end + 1])
+        missing = [rendered for field, rendered in required_fields if f"{field}:" not in block]
+        if missing:
+            closing_indent = lines[end][: len(lines[end]) - len(lines[end].lstrip())]
+            insertion = [f"{closing_indent}    {rendered}" for rendered in missing]
+            lines[end:end] = insertion
+            modified += 1
+            end += len(insertion)
+        index = end + 1
+
+    if modified:
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    # Fail closed if any initializer is still missing a required field.
+    verification = path.read_text(encoding="utf-8").splitlines()
+    index = 0
+    while index < len(verification):
+        if needle not in verification[index]:
+            index += 1
+            continue
+        end = initializer_end(verification, index, path, struct_name)
+        block = "\n".join(verification[index : end + 1])
+        absent = [field for field, _ in required_fields if f"{field}:" not in block]
+        if absent:
+            raise SystemExit(
+                f"{path}: incomplete {struct_name} initializer at line {index + 1}: {absent}"
+            )
+        index = end + 1
+
+    return total, modified
+
+
+def migrate_command_test_contracts() -> None:
+    root = Path("src-tauri/src/commands/tests")
+    if not root.is_dir():
+        raise SystemExit(f"missing command test root: {root}")
+
+    specifications = (
+        (
+            "RemoteTtsSettings",
+            (
+                ("endpoint_is_loopback", "endpoint_is_loopback: None,"),
+                ("availability_reason", "availability_reason: None,"),
+            ),
+            13,
+        ),
+        (
+            "RemoteAsrSettings",
+            (
+                ("endpoint_is_loopback", "endpoint_is_loopback: None,"),
+                ("availability_reason", "availability_reason: None,"),
+            ),
+            13,
+        ),
+        (
+            "GetRuntimeStatusData",
+            (("skill_discovery_diagnostics", "skill_discovery_diagnostics: Default::default(),"),),
+            6,
+        ),
+    )
+
+    totals = {name: [0, 0] for name, _, _ in specifications}
+    for path in sorted(root.rglob("*.rs")):
+        for struct_name, fields, _minimum in specifications:
+            total, modified = ensure_initializer_fields(path, struct_name, fields)
+            totals[struct_name][0] += total
+            totals[struct_name][1] += modified
+
+    for struct_name, _fields, minimum in specifications:
+        total, modified = totals[struct_name]
+        if total < minimum:
+            raise SystemExit(
+                f"test fixture migration found only {total} {struct_name} initializers; "
+                f"expected at least {minimum}"
+            )
+        print(f"Migrated {modified}/{total} {struct_name} test initializers")
+
+    skill_selection_path = Path("src-tauri/src/commands/tests/skill_selection.rs")
+    skill_selection = skill_selection_path.read_text(encoding="utf-8")
+    old_iteration = """    let matching_skills = loaded_skills
+        .iter()
+"""
+    new_iteration = """    let matching_skills = loaded_skills
+        .skills
+        .iter()
+"""
+    if new_iteration not in skill_selection:
+        count = skill_selection.count(old_iteration)
+        if count != 1:
+            raise SystemExit(
+                "skill selection: expected one DiscoveredSkills iteration migration, "
+                f"found {count}"
+            )
+        skill_selection_path.write_text(
+            skill_selection.replace(old_iteration, new_iteration, 1),
+            encoding="utf-8",
+        )
+    print("Migrated DiscoveredSkills test iteration")
 
 
 def prepare_generator() -> None:
@@ -242,6 +374,8 @@ def repair_output() -> None:
         assert!(!displayed.contains('#'));
 ''',
     )
+
+    migrate_command_test_contracts()
 
     # src/tauri-types.ts does not define GetRuntimeStatusData; only shared provider
     # and agent types are maintained there. The generator already adds the shared
