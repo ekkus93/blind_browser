@@ -7,6 +7,7 @@ import {
   resolveConfirmationResponse,
 } from "./planner-orchestration";
 import { describePushToTalkFailure } from "./main-errors";
+import { classifyInvokeFailure } from "./api/errors";
 import {
   startListening,
   stopListening,
@@ -297,6 +298,6 @@ export function submitConfirmationAction(action: "approve" | "reject", confirmat
     })
     .catch((error: unknown) => {
       uiStore.setConfirmationError(confirmationId, describeConfirmationSubmissionFailure(error));
-      console.error("Failed to submit confirmation response.", error);
+      console.error("Failed to submit confirmation response.", classifyInvokeFailure(error));
     });
 }
