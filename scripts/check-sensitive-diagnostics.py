@@ -13,6 +13,12 @@ LOG_START = re.compile(
     r"|console\.(?:debug|info|warn|error)\s*\("
     r"|(?:e?println|dbg)!\s*\("
 )
+FRONTEND_RAW_ERROR_ARGUMENT = re.compile(
+    r"(?:,\s*|\{\s*)(?:error|[A-Za-z][A-Za-z0-9]*Error)\s*(?:[,})])"
+)
+FRONTEND_ERROR_REDACTION = re.compile(
+    r"classifyInvokeFailure|sanitizeToolError|redactDiagnostic(?:Text|Value)"
+)
 SENSITIVE_DEBUG_STRUCTS = {
     "PlannerInput",
     "SetRemoteApiKeyData",
@@ -55,12 +61,21 @@ def diagnostic_call_expression(source: str, start: int) -> str:
 
 def scan_diagnostic_source(label: str, source: str) -> list[str]:
     violations: list[str] = []
+    is_frontend = Path(label).suffix in {".ts", ".tsx", ".mjs"}
     for match in LOG_START.finditer(source):
         expression = diagnostic_call_expression(source, match.start())
+        line = source.count("\n", 0, match.start()) + 1
         if SENSITIVE.search(expression):
-            line = source.count("\n", 0, match.start()) + 1
             violations.append(
                 f"{label}:{line}: sensitive value referenced by diagnostic call"
+            )
+        if (
+            is_frontend
+            and FRONTEND_RAW_ERROR_ARGUMENT.search(expression)
+            and not FRONTEND_ERROR_REDACTION.search(expression)
+        ):
+            violations.append(
+                f"{label}:{line}: raw frontend error object referenced by diagnostic call"
             )
     return violations
 
@@ -117,6 +132,12 @@ console.error(
   planner_input,
 );
 """,
+        "frontend-raw-error.ts": """
+console.error(
+  "request failed",
+  error,
+);
+""",
         "raw-arguments.rs": "dbg!(step.arguments.clone());",
         "debug-derive.rs": """
 #[derive(
@@ -140,9 +161,10 @@ tracing::info!(request_id = %request_id, status = "failed", "provider request fi
 #[derive(Clone, Serialize)]
 pub struct PlannerInput { pub request_id: String }
 console.warn("request failed", sanitizeToolError(error));
+console.error("request failed", classifyInvokeFailure(error));
 """
-    violations = scan_diagnostic_source("benign", benign)
-    violations.extend(scan_sensitive_debug_derives("benign", benign))
+    violations = scan_diagnostic_source("benign.ts", benign)
+    violations.extend(scan_sensitive_debug_derives("benign.ts", benign))
     if violations:
         raise SystemExit(f"self-test rejected benign diagnostics: {violations}")
 
