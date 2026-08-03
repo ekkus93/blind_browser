@@ -128,6 +128,68 @@ jobs:
               raise SystemExit("expected one nonexistent click intent in generated test")
           source = source.replace(old_intent, new_intent, 1)
 
+          old_helper = '''fn remove_failed_config_temp_file(path: &Path) -> std::io::Result<()> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+'''
+          new_helper = '''fn remove_failed_config_temp_file(path: &Path) -> std::io::Result<()> {
+    remove_failed_config_temp_file_with(path, fs::remove_file)
+}
+
+fn remove_failed_config_temp_file_with<F>(path: &Path, remover: F) -> std::io::Result<()>
+where
+    F: FnOnce(&Path) -> std::io::Result<()>,
+{
+    match remover(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+'''
+          if source.count(old_helper) != 1:
+              raise SystemExit("expected one config cleanup helper in generated patch")
+          source = source.replace(old_helper, new_helper, 1)
+
+          old_test = '''    fn failed_config_temp_cleanup_is_explicit() {
+        let directory = tempfile::tempdir().unwrap();
+        let directory_target = directory.path().join("config.toml.tmp");
+        fs::create_dir(&directory_target).unwrap();
+
+        assert!(remove_failed_config_temp_file(&directory_target).is_err());
+        assert!(directory_target.exists());
+        remove_failed_config_temp_file(&directory.path().join("missing.tmp"))
+            .expect("missing temporary file is already clean");
+    }
+'''
+          new_test = '''    fn failed_config_temp_cleanup_is_explicit() {
+        let synthetic_path = Path::new("synthetic-config.toml.tmp");
+        let failure = remove_failed_config_temp_file_with(synthetic_path, |_| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "synthetic cleanup refusal",
+            ))
+        })
+        .expect_err("cleanup refusal must remain visible");
+        assert_eq!(failure.kind(), std::io::ErrorKind::PermissionDenied);
+
+        remove_failed_config_temp_file_with(synthetic_path, |_| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "already absent",
+            ))
+        })
+        .expect("missing temporary file is already clean");
+    }
+'''
+          if source.count(old_test) != 1:
+              raise SystemExit("expected one nondeterministic config cleanup test")
+          source = source.replace(old_test, new_test, 1)
+
           path.write_text(source, encoding="utf-8")
           PY
 
