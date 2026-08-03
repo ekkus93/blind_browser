@@ -52,19 +52,35 @@ pub(crate) fn discover_skills(
     discovered.into_values().collect()
 }
 
+fn skill_source_label(source: SkillSource) -> &'static str {
+    match source {
+        SkillSource::Project => "project",
+        SkillSource::User => "user",
+        SkillSource::Bundled => "bundled",
+    }
+}
+
+fn skill_directory_label(path: &Path) -> &str {
+    path.file_name()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or("unknown-skill")
+}
+
 fn load_skills_from_directory(
     skill_root: &Path,
     source: SkillSource,
     available_tool_names: &[ToolName],
     discovered: &mut HashMap<String, LoadedSkill>,
 ) {
+    let source_label = skill_source_label(source);
     let entries = match fs::read_dir(skill_root) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
         Err(error) => {
             tracing::warn!(
-                path = %skill_root.display(),
-                error = %error,
+                source = source_label,
+                error_kind = ?error.kind(),
                 "failed to read skill directory"
             );
             return;
@@ -77,14 +93,16 @@ fn load_skills_from_directory(
             continue;
         }
 
+        let directory_name = skill_directory_label(&path).to_string();
         let skill_file_path = path.join("SKILL.md");
         let content = match fs::read_to_string(&skill_file_path) {
             Ok(content) => content,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
             Err(error) => {
                 tracing::warn!(
-                    path = %skill_file_path.display(),
-                    error = %error,
+                    source = source_label,
+                    skill = %directory_name,
+                    error_kind = ?error.kind(),
                     "failed to read SKILL.md"
                 );
                 continue;
@@ -93,14 +111,10 @@ fn load_skills_from_directory(
 
         match parse_skill_document(&content, source, available_tool_names) {
             Ok(skill) => {
-                let directory_name = path
-                    .file_name()
-                    .and_then(|value| value.to_str())
-                    .unwrap_or_default();
                 if directory_name != skill.summary.name {
                     tracing::warn!(
-                        path = %skill_file_path.display(),
-                        expected = directory_name,
+                        source = source_label,
+                        expected = %directory_name,
                         actual = %skill.summary.name,
                         "skipping skill because directory name does not match frontmatter name"
                     );
@@ -112,11 +126,30 @@ fn load_skills_from_directory(
             }
             Err(error) => {
                 tracing::warn!(
-                    path = %skill_file_path.display(),
+                    source = source_label,
+                    skill = %directory_name,
                     error = %error,
                     "skipping invalid skill document"
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{skill_directory_label, skill_source_label, SkillSource};
+    use std::path::Path;
+
+    #[test]
+    fn skill_diagnostics_use_source_and_leaf_name_only() {
+        let path = Path::new("/home/private-user/secret-project/.pi/skills/navigation");
+
+        assert_eq!(skill_source_label(SkillSource::Project), "project");
+        assert_eq!(skill_source_label(SkillSource::User), "user");
+        assert_eq!(skill_source_label(SkillSource::Bundled), "bundled");
+        assert_eq!(skill_directory_label(path), "navigation");
+        assert!(!skill_directory_label(path).contains("private-user"));
+        assert!(!skill_directory_label(path).contains("secret-project"));
     }
 }
