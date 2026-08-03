@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Verify exact per-expression metadata for every accepted security fallback."""
+"""Verify exact metadata and human-readable parity for accepted fallbacks."""
 from __future__ import annotations
 
 import json
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWLIST = ROOT / "scripts/security-fallback-allowlist.txt"
 INVENTORY = ROOT / "scripts/security-fallback-inventory.json"
+DOCUMENTATION = ROOT / "docs/BLIND_BROWSER_ACCEPTED_FALLBACKS_2026-08-02.md"
 REQUIRED = {
     "path",
     "functions",
@@ -80,6 +82,41 @@ def metadata_problems(key: tuple[str, str], entry: dict) -> list[str]:
     return problems
 
 
+def documentation_problems(entries: list[dict], documentation: str) -> list[str]:
+    problems = []
+    counts = Counter(entry.get("disposition") for entry in entries)
+    for disposition in ("permanent_accepted", "temporary_accepted"):
+        expected = f"- `{disposition}`: **{counts[disposition]}**"
+        if expected not in documentation:
+            problems.append(
+                f"accepted-fallback documentation missing current count line: {expected}"
+            )
+
+    temporary = [
+        entry for entry in entries if entry.get("disposition") == "temporary_accepted"
+    ]
+    for entry in temporary:
+        path_marker = f"`{entry['path']}`"
+        expression_marker = f"`{entry['expression']}`"
+        if path_marker not in documentation or expression_marker not in documentation:
+            problems.append(
+                "accepted-fallback documentation is missing temporary entry "
+                f"{entry['path']}|{entry['expression']}"
+            )
+
+    stale_table_markers = (
+        "<!-- BEGIN GENERATED SECURITY FALLBACK INVENTORY -->",
+        "| File | Function(s) | Exact expression |",
+    )
+    for marker in stale_table_markers:
+        if marker in documentation:
+            problems.append(
+                "accepted-fallback documentation still contains the deprecated duplicated "
+                f"per-expression table marker: {marker}"
+            )
+    return problems
+
+
 def audit() -> list[str]:
     problems = []
     payload = json.loads(INVENTORY.read_text(encoding="utf-8"))
@@ -99,6 +136,9 @@ def audit() -> list[str]:
         actual_functions = source_functions(*key)
         if actual_functions != entry["functions"]:
             problems.append(f"{key}: functions {entry['functions']} != source {actual_functions}")
+
+    documentation = DOCUMENTATION.read_text(encoding="utf-8")
+    problems.extend(documentation_problems(entries, documentation))
     return problems
 
 
@@ -120,8 +160,13 @@ def self_test() -> None:
     missing = dict(base)
     missing.pop("disposition")
     assert "missing fields" in metadata_problems(("p", "e"), missing)[0]
+
     invalid = dict(base, disposition="maybe")
-    assert any("invalid disposition" in problem for problem in metadata_problems(("p", "e"), invalid))
+    assert any(
+        "invalid disposition" in problem
+        for problem in metadata_problems(("p", "e"), invalid)
+    )
+
     temporary = dict(
         base,
         disposition="temporary_accepted",
@@ -131,6 +176,30 @@ def self_test() -> None:
     temporary_problems = metadata_problems(("p", "e"), temporary)
     assert any("review boundary" in problem for problem in temporary_problems)
     assert any("actionable owner_note" in problem for problem in temporary_problems)
+
+    documented_temporary = dict(
+        base,
+        path="src/example.rs",
+        expression="value.ok()",
+        functions=["example"],
+        disposition="temporary_accepted",
+        review_due="before_release_candidate",
+        owner_note="Replace with a typed reason before the release candidate.",
+    )
+    valid_documentation = (
+        "- `permanent_accepted`: **1**\n"
+        "- `temporary_accepted`: **1**\n"
+        "- `src/example.rs` — `value.ok()`\n"
+    )
+    assert not documentation_problems([base, documented_temporary], valid_documentation)
+    assert documentation_problems(
+        [base, documented_temporary], "- `permanent_accepted`: **1**\n"
+    )
+    assert documentation_problems(
+        [base, documented_temporary],
+        valid_documentation + "<!-- BEGIN GENERATED SECURITY FALLBACK INVENTORY -->",
+    )
+
     assert source_functions(
         "scripts/check-security-fallback-inventory.py", "definitely stale expression"
     ) == []
