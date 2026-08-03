@@ -1,233 +1,182 @@
 # Blind Browser Post-Batch-8 Security Hardening Implementation Report
 
-**Date:** 2026-08-02  
+**Original date:** 2026-08-02  
+**Finalized:** 2026-08-03  
 **Repository:** `ekkus93/blind_browser`  
+**Branch:** `master`  
 **Authoritative TODO:** `docs/BLIND_BROWSER_POST_BATCH8_SECURITY_HARDENING_TODO_2026-08-02.md`  
-**Starting `master` SHA:** `00d2e5c5cf5cf42f26dd73872fe58ddc7420ea6a`  
-**Working branch:** `post-batch8-hardening-continuation`  
-**Draft pull request:** `#12`  
-**Pre-report implementation/documentation snapshot:** `7d3e6abd064acac45d6105e5428061b755151eac`  
-**Status:** Implementation complete for the bounded source scope; exact final-head and final-`master` permanent CI evidence must still be appended before the authoritative TODO can be closed.
+**Starting SHA:** `00d2e5c5cf5cf42f26dd73872fe58ddc7420ea6a`  
+**Published source-evidence commit:** `a56c87f8597bbd53db90874658de71164d0c5005`  
+**Cleaned implementation SHA:** `ad92e5a071784204cc55a370ffc23362de7dc54a`  
+**Ralph validation run/job:** `30836879809` / `91764098763` — success  
+**Permanent CI run/job:** `30837538008` / `91766346922` — success  
+**Status:** Complete for the bounded post-Batch-8 TODO scope. Broader comprehensive remediation remains open; this is not a general release-readiness declaration.
 
-## Scope and corrected completion boundary
+## Final publication state
 
-This pass completes the residual post-Batch-8 work identified after permanent CI first became green on `00d2e5c5cf5cf42f26dd73872fe58ddc7420ea6a`.
+The completed work is on `master`. No branch, pull request, or worktree is part of the final workflow. Earlier branch/PR references in the draft report were stale and have been removed from the authoritative evidence chain.
 
-It does **not** declare the repository generally release-ready or the entire comprehensive review complete. The exact remaining BBCR P1/P2/P3 program is recorded in `docs/BLIND_BROWSER_POST_BATCH8_RECONCILIATION_2026-08-02.md`.
+The temporary Ralph workflow and generator were deleted before the cleaned implementation SHA was validated. Permanent CI passed on `ad92e5a071784204cc55a370ffc23362de7dc54a` with every scanner, formatting gate, Rust check, Clippy, Rust test, frontend lint, UI test, and production build successful.
 
-## Implemented workstreams
+## Completed workstreams
 
-### P8-001 — Model-download integrity reconciliation
+### P8-001 — Model-download integrity and network hardening
 
-The underlying verified-download implementation was already present at the starting SHA. This pass re-audited and reconciled it rather than replacing it.
+Completed and verified:
 
-Confirmed implementation:
-
-- immutable code-pinned Kitten TTS and Whisper ASR file manifests;
-- SHA-256, minimum size, and configured maximum size for known files;
+- immutable known-model file metadata with SHA-256 and size bounds;
 - unknown model IDs fail closed;
-- explicit connect and request timeouts;
-- redirect refusal followed by an explicit HTTPS Hugging Face/CDN host allowlist;
+- bounded request/connect behavior and controlled redirects;
 - streaming byte ceilings;
 - `.part`-only writes;
-- hash/size verification before activation;
-- file sync before atomic replacement;
-- old-target preservation and partial cleanup on failure;
-- typed redirect, timeout, status, size, hash, sync, replacement, and cleanup errors.
+- hash and size verification before activation;
+- file synchronization and atomic replacement;
+- failed verification preserves the previous target;
+- explicit partial-file cleanup and typed failures;
+- direct model handlers are evidence-tested as relying on verified activation.
 
-Additional evidence added here:
+### P8-002 — Direct non-planner command policy
 
-- a regression proving model-download errors expose the manifest file identity without exposing unrelated private local parent paths.
+Completed and verified:
 
-The broader BBCR-007 provenance/update UX and directory-level multi-file transaction program remains open as documented in the reconciliation addendum.
+- exhaustive direct-command inventory matches `tauri::generate_handler!`;
+- runtime/config/secret/network/credential/page-context/model/external-launch effects are classified;
+- strict normalized HTTPS-only external URL launching;
+- API-key persistence fails closed without a non-empty scoped reference;
+- exhaustive evidence tests cover every networked direct command’s timeout/redirect path;
+- every credential-bearing direct command is tied to endpoint-bound credential resolution;
+- direct model downloads are tied to P8-001 verification;
+- every page-context-transmitting direct command is tied to privacy sanitization.
 
-### P8-002 — Direct-command policy and concrete defects
+### P8-003 — Confirmation-summary fail-closed behavior
 
-Confirmed the exhaustive `DirectCommandName`/`DirectCommandPolicy` registry and handler-surface parity test.
+Completed and verified:
 
-Implemented:
+- structured warning codes cover unavailable page model, form label/identity, destination, field inventory, omitted sensitive fields, and target labels;
+- warning metadata is redacted and included in the canonical confirmation digest;
+- submit summaries expose only safe labels/origins and explicit degradation warnings;
+- type-then-submit exposes only character count and safe label metadata;
+- planner-authored confirmation text remains non-authoritative;
+- missing metadata never lowers confirmation requirements.
 
-- strict parsed external HTTPS URL validation;
-- required host;
-- control-character rejection;
-- malformed URL rejection;
-- username/password rejection;
-- query-string and fragment rejection;
-- normalized URL passed to the OS launcher;
-- focused URL validation tests;
-- explicit planner/TTS/ASR post-persistence API-key-reference invariant errors;
-- tests for missing, empty, whitespace-only, and normalized non-empty key references.
+### P8-004 — Silent-fallback audit expansion
 
-Policy evidence remains documented in `docs/BLIND_BROWSER_DIRECT_COMMAND_POLICY_2026-08-02.md`.
+Completed and verified:
 
-### P8-003 — Fail-closed confirmation summaries
+- exact per-expression fallback metadata includes path, containing function, exact expression, justification, user visibility, side-effect impact, tests/enforcement, and replacement plan;
+- machine-readable inventory: `scripts/security-fallback-inventory.json`;
+- exact inventory scanner: `scripts/check-security-fallback-inventory.py`;
+- reviewed allowlist remains enforced by `scripts/check-security-fallbacks.py`;
+- silent screenshot/config cleanup was replaced with explicit error handling and focused tests;
+- permanent CI executes scanner self-tests and repository audits.
 
-Implemented structured `ConfirmationSummaryWarningCode` values for:
+### P8-005 — Diagnostic and privacy audit
 
-- page model unavailable;
-- form label unavailable;
-- form identity ambiguous;
-- destination unavailable;
-- field inventory unavailable;
-- sensitive/hidden fields may be omitted;
-- target label unavailable.
+Completed and verified:
 
-The warning vector is serialized inside each confirmation action manifest and therefore changes the canonical manifest digest.
-
-Behavior implemented and tested:
-
-- full submit metadata includes safe form label, destination, and safe field labels;
-- missing page metadata produces an explicit form/destination/inventory warning;
-- ambiguous form identity is explicit;
-- unknown destination is explicit;
-- sensitive/hidden-field omission is explicit;
-- typed text is represented only by character count;
-- missing type target label is explicit;
-- raw typed text is absent from prompt and manifest JSON;
-- planner-authored confirmation copy remains ignored;
-- tests now use the exact production `__runtime_*` annotation keys.
-
-Missing metadata never reduces the deterministic confirmation requirement.
-
-### P8-004 — Accepted fallback inventory and scanner
-
-Reconciled `docs/BLIND_BROWSER_ACCEPTED_FALLBACKS_2026-08-02.md` into a per-category evidence table covering source/function category, expression class, justification, side-effect impact, user visibility, tests, and replacement plan.
-
-Confirmed permanent machine enforcement:
-
-- `scripts/security-fallback-allowlist.txt`;
-- `scripts/check-security-fallbacks.py`;
-- synthetic scanner self-test;
-- permanent CI invocation.
-
-Removed from the accepted-fallback category:
-
-- API-key-reference defaults;
-- prefix-only external URL validation;
-- implicit confirmation degradation;
-- verified model cleanup failure suppression;
-- raw frontend caught-error logging;
-- full skill-path diagnostics.
-
-### P8-005 — Diagnostics and privacy
-
-Created `docs/BLIND_BROWSER_POST_BATCH8_DIAGNOSTIC_PRIVACY_AUDIT_2026-08-02.md`.
-
-Backend changes/evidence:
-
-- remote planner request failures now retain only provider, model, and normalized base URL;
-- regression verifies no response body, authorization data, or token-shaped content is serialized;
-- remote ASR parse failure regression verifies hostile provider fields are not echoed;
-- remote TTS status/transport paths were audited and retain no provider response body;
-- skill-loading diagnostics now expose only source class, leaf skill directory, and error kind;
-- model-download error regression excludes private target parent paths;
-- API-key result structures are protected from accidental sensitive `Debug` derivation;
-- centralized redacting `ToolError` serialization remains authoritative.
-
-Frontend changes/evidence:
-
-- JWT and common provider-token detection;
-- recursive sensitive-key redaction;
-- URL credentials/query/fragment stripping;
-- nested response-body redaction;
-- generic `Error.message` redaction before classification;
-- raw confirmation-submission console error replaced by classified output;
-- external-link logs and UI guidance use sanitized URLs and classified failures;
-- regression tests cover token shapes, JWTs, nested objects, response bodies, URLs, serialized tool errors, generic errors, and alerts.
-
-Scanner improvements:
-
-- multiline Rust and TypeScript diagnostic parsing;
-- sensitive planner/page/OCR/transcript/credential/response/tool-argument references;
-- raw frontend error-object logging;
-- named sensitive `Debug` derives;
-- centralized serializer/redactor presence;
-- hostile and benign `--self-test` fixtures;
-- permanent CI runs the self-test and repository scan.
+- backend and frontend diagnostic surfaces were audited;
+- response bodies, credentials, token-shaped strings, raw planner/page/OCR/transcript data, and private path components are redacted or omitted;
+- nested sensitive JSON and URL userinfo/query/fragment data are sanitized;
+- raw frontend error logging was replaced by classified/redacted output;
+- diagnostic scanner coverage includes multiline expressions, raw error objects, sensitive `Debug` derivations, planner input serialization, and remote response bodies;
+- permanent CI runs the diagnostic scanner self-test and repository scan.
 
 ### P8-006 — Hostile DOM/OCR corpus
 
-Added deterministic corpus data at:
+Completed and verified:
 
-- `src-tauri/tests/fixtures/post_batch8_hostile_content_corpus.json`
-
-Added completeness/invariant tests at:
-
-- `src-tauri/tests/hostile_content_corpus_manifest.rs`
-
-The corpus explicitly enumerates:
-
-- hidden input injection;
-- off-screen CSS text;
-- malicious ARIA labels;
-- malicious title/alt text;
-- malicious `data-*` content;
-- script/style/comment text;
-- invisible overlay text;
-- malicious form labels;
-- confirmation bypass near buttons;
-- credential-exfiltration instructions near inputs;
-- OCR instruction override;
-- OCR authority impersonation;
-- OCR confirmation bypass;
-- OCR credential exfiltration;
-- OCR high-risk payment/receipt context;
-- mixed benign and hostile OCR regions;
-- OCR attempts to authorize click/submit.
-
-The manifest enforces:
-
-- caution-only telemetry;
-- no lowering confirmation;
-- no creation of click authorization;
-- no marking destructive clicks safe;
-- no high-risk-origin bypass;
-- no entry into trusted runtime prompt sections;
-- only monotonic effects: increase caution, redact, block, require confirmation, abort, or replan;
-- continued presence of the real `hostile_prompt_injection.png` fixture.
-
-Existing planner-redaction/action-policy tests provide behavioral enforcement behind the corpus.
+- deterministic fixtures cover hidden/off-screen DOM text, ARIA/title/alt/data attributes, script/style/comment content, overlays, malicious form labels, nearby click/input instructions, confirmation bypass, credential exfiltration, mixed OCR, and payment/receipt-like OCR;
+- hostile content remains untrusted and can only increase caution, redact, block, require confirmation, abort, or replan;
+- focused regression proves hostile content cannot authorize a click;
+- focused regression proves high-risk OCR/page text blocks network remote planning;
+- hostile content cannot lower confirmation, mint click authorization, mark destructive actions safe, bypass high-risk policy, or enter trusted prompt sections.
 
 ### P8-007 — Reconciliation
 
-Created `docs/BLIND_BROWSER_POST_BATCH8_RECONCILIATION_2026-08-02.md`.
+`docs/BLIND_BROWSER_POST_BATCH8_RECONCILIATION_2026-08-02.md` now records:
 
-It records a distinct status for every `BBCR-001` through `BBCR-021` item and states exactly which residual gaps this pass closes. It also retains the still-open comprehensive work, notably remote-data consent, broader filesystem/persistence/resource limits, Redux secret-draft redesign, CSP, secret scanning, dependency/SAST, cross-platform packaged CI, fuzzing/mutation, and primary architecture/security documentation.
+- final direct-`master` implementation and CI evidence;
+- corrected publication history;
+- status and remaining boundary for every `BBCR-001` through `BBCR-021` item;
+- Batch 7, Batch 8, and post-Batch-8 scope distinctions;
+- the broader remediation items that remain open.
 
-## Changed-file inventory at pre-report snapshot
+### P8-008 — Documentation and handoff
+
+Completed:
+
+- exact implementation SHA and validation run/job recorded;
+- complete changed-file inventory recorded below;
+- tests and scanners recorded;
+- accepted-fallback inventory summarized;
+- unresolved risks retained;
+- temporary automation removed;
+- bounded completion statement clearly separated from general release readiness.
+
+## Changed-file inventory
+
+The following files differ between the starting SHA `00d2e5c5cf5cf42f26dd73872fe58ddc7420ea6a` and the cleaned implementation SHA `ad92e5a071784204cc55a370ffc23362de7dc54a`:
 
 | File | Purpose |
 |---|---|
-| `.github/workflows/ci.yml` | Run diagnostic scanner self-test before repository audit. |
-| `docs/BLIND_BROWSER_ACCEPTED_FALLBACKS_2026-08-02.md` | Reconciled accepted fallback inventory. |
+| `.github/workflows/ci.yml` | Adds permanent exact accepted-fallback inventory and diagnostic scanner enforcement. |
+| `docs/BLIND_BROWSER_ACCEPTED_FALLBACKS_2026-08-02.md` | Exact reviewed fallback evidence. |
 | `docs/BLIND_BROWSER_POST_BATCH8_DIAGNOSTIC_PRIVACY_AUDIT_2026-08-02.md` | Backend/frontend privacy audit and residual risks. |
-| `docs/BLIND_BROWSER_POST_BATCH8_RECONCILIATION_2026-08-02.md` | BBCR-001 through BBCR-021 status reconciliation. |
-| `scripts/check-sensitive-diagnostics.py` | Multiline, raw-error, sensitive-name, and `Debug` scanner plus self-test. |
-| `src-tauri/src/app_core/model_management/tests.rs` | Model error local-path privacy regression. |
-| `src-tauri/src/app_core/remote_planner.rs` | Safe planner request-failure helper and regression. |
+| `docs/BLIND_BROWSER_POST_BATCH8_RECONCILIATION_2026-08-02.md` | BBCR status and scope reconciliation. |
+| `docs/BLIND_BROWSER_POST_BATCH8_SECURITY_HARDENING_IMPLEMENTATION_REPORT_2026-08-02.md` | Final implementation and evidence report. |
+| `docs/BLIND_BROWSER_POST_BATCH8_SECURITY_HARDENING_TODO_2026-08-02.md` | Authoritative bounded checklist. |
+| `scripts/check-security-fallback-inventory.py` | Exact metadata/source-function inventory scanner. |
+| `scripts/check-sensitive-diagnostics.py` | Expanded multiline and sensitive diagnostic scanner. |
+| `scripts/security-fallback-allowlist.txt` | Removes converted cleanup fallbacks. |
+| `scripts/security-fallback-inventory.json` | Machine-readable exact accepted-fallback inventory. |
+| `src-tauri/src/app_core/image_cache.rs` | Explicit partial screenshot cleanup failure handling and test. |
+| `src-tauri/src/app_core/model_management/tests.rs` | Model error path-privacy regression. |
+| `src-tauri/src/app_core/planner_redaction.rs` | High-risk page/OCR blocking and hostile-click regression. |
+| `src-tauri/src/app_core/remote_planner.rs` | Safe planner request-failure diagnostics. |
 | `src-tauri/src/asr/remote.rs` | Remote ASR response-body omission regression. |
-| `src-tauri/src/command_handlers/api_key_handlers.rs` | Planner/TTS/ASR key-reference invariants and tests. |
-| `src-tauri/src/command_handlers/url_handlers.rs` | Strict external URL parsing/normalization and tests. |
-| `src-tauri/src/commands/confirmation_manifest.rs` | Structured degraded-summary metadata, visible warnings, digest binding, tests. |
+| `src-tauri/src/command_handlers/api_key_handlers.rs` | Scoped API-key-reference invariants and tests. |
+| `src-tauri/src/command_handlers/model_handlers.rs` | Explicit verified-download handler wiring. |
+| `src-tauri/src/command_handlers/url_handlers.rs` | Strict external HTTPS URL validation and tests. |
+| `src-tauri/src/commands/confirmation_manifest.rs` | Structured degraded-summary warnings and digest binding. |
 | `src-tauri/src/commands/skill_loader.rs` | Path-private diagnostics and regression. |
+| `src-tauri/src/config/persistence.rs` | Explicit failed-temp cleanup handling and tests. |
 | `src-tauri/tests/fixtures/post_batch8_hostile_content_corpus.json` | Deterministic hostile DOM/OCR corpus. |
-| `src-tauri/tests/hostile_content_corpus_manifest.rs` | Corpus completeness and monotonic-security invariant tests. |
-| `src/external-link.test.mjs` | External-link UI/log redaction regressions. |
+| `src-tauri/tests/hostile_content_corpus_manifest.rs` | Corpus completeness and monotonic-security invariants. |
+| `src-tauri/tests/post_batch8_direct_command_policy_evidence.rs` | Exhaustive direct-command security evidence. |
+| `src/external-link.test.mjs` | External-link redaction regressions. |
 | `src/panel-state-setters.ts` | Sanitized external-link error display/logging. |
-| `src/privacy-redaction.test.mjs` | Token/JWT/URL/nested/error redaction matrix. |
-| `src/privacy-redaction.ts` | Expanded diagnostic redaction. |
-| `src/voice-loop.ts` | Classified confirmation-submission console error. |
+| `src/privacy-redaction.test.mjs` | Token, JWT, URL, nested object, response body, and error redaction tests. |
+| `src/privacy-redaction.ts` | Expanded frontend diagnostic redaction. |
+| `src/voice-loop.ts` | Classified confirmation-submission error logging. |
 
-This report itself is an additional documentation file after the listed snapshot.
+The temporary files `.github/post_batch8_ralph_patch.py` and `.github/workflows/post-batch8-ralph-patch.yml` were used only for bounded generation/validation and are absent from the cleaned final tree.
 
-## Permanent validation gate
+## Validation evidence
 
-The permanent workflow runs:
+### Ralph generated-patch validation
+
+- Run: `30836879809`
+- Job: `91764098763`
+- Result: success
+- Published source-evidence commit: `a56c87f8597bbd53db90874658de71164d0c5005`
+
+This run validated the generated source/test/scanner/evidence delta before publication.
+
+### Permanent cleaned-tree validation
+
+- SHA: `ad92e5a071784204cc55a370ffc23362de7dc54a`
+- Run: `30837538008`
+- Job: `91766346922`
+- Result: success
+
+Successful gates:
 
 ```text
 bash scripts/check-silent-fallbacks.sh
 python3 scripts/check-security-fallbacks.py --self-test
 python3 scripts/check-security-fallbacks.py
+python3 scripts/check-security-fallback-inventory.py --self-test
+python3 scripts/check-security-fallback-inventory.py
 python3 scripts/check-sensitive-diagnostics.py --self-test
 python3 scripts/check-sensitive-diagnostics.py
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
@@ -239,36 +188,22 @@ pnpm test:ui
 pnpm build
 ```
 
-## Validation evidence to finalize
+## Remaining risks outside this bounded TODO
 
-The following fields must be replaced after the report-containing head passes and after merge to `master`:
+- generic protected locator re-resolution architecture;
+- explicit remote page-data consent, per-origin controls, local-only mode, and high-risk-origin UX;
+- model provenance/install status, update UX, and whole-directory transactions;
+- planner cancellation and bounded response bodies;
+- config/keyring rollback, durable consistency, cross-instance locking, parent fsync, and fault injection;
+- centralized resource budgets, concurrency/rate limits, and stress tests;
+- removal of raw API-key drafts from global frontend state;
+- production CSP/frontend network-boundary proof;
+- current-tree/history secret scanning and push protection;
+- dependency/license/SAST gates and immutable Action SHA pinning;
+- Windows/macOS/packaged-app CI;
+- fuzzing/property/mutation coverage;
+- primary README/architecture/SECURITY/threat-model/privacy/provenance/resource/platform/operations documentation.
 
-- **Final branch SHA:** pending
-- **Permanent branch CI run:** pending
-- **Permanent branch CI job:** pending
-- **Branch result:** pending
-- **Merged PR:** pending
-- **Final `master` SHA:** pending
-- **Permanent final-`master` CI run:** pending
-- **Permanent final-`master` CI job:** pending
-- **Final result:** pending
+## Completion statement
 
-Because a Git commit cannot contain its own SHA or a workflow run that starts only after that commit exists, exact evidence for the report-publication commit and final `master` commit should also be recorded in PR #12 without mutating the already validated tree.
-
-## Remaining risks
-
-- The broader comprehensive BBCR remediation remains open as listed in the reconciliation document.
-- Regex/static scanners are regression tripwires, not semantic proofs.
-- Third-party libraries may emit diagnostics outside application wrappers; production logging must remain conservative.
-- The current external URL launcher still relies on platform OS opener behavior after strict normalization; future launcher changes require command-injection review on every platform.
-- Model files are verified individually; the broader directory-level transactional update/provenance workflow remains a separate BBCR-007/011 concern.
-- The hostile corpus proves deterministic boundaries and fixture coverage; it does not prove that every remote model will ignore malicious content.
-- Explicit remote page-data consent/per-origin policy remains outside this bounded pass.
-
-## Provisional completion statement
-
-After exact final-`master` permanent CI is green, the permitted statement is:
-
-> The post-Batch-8 security-hardening TODO is complete for its bounded scope. The broader comprehensive remediation remains open, so this is not a general release-readiness or comprehensive-security-completion declaration.
-
-Until the evidence fields above are finalized, even that bounded statement is provisional.
+> The post-Batch-8 security-hardening TODO is complete for its bounded scope. The broader comprehensive remediation remains open, so this is not a general production release-readiness or comprehensive-security-completion declaration.
