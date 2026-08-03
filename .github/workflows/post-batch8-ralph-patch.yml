@@ -1,4 +1,4 @@
-# Temporary bounded runner. Removed after the validated source commit lands.
+# Temporary bounded runner. Retriggered after verified model activation evidence fix.
 name: Post-Batch-8 Ralph Patch
 
 on:
