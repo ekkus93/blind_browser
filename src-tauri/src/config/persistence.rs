@@ -7,7 +7,7 @@ use tauri::AppHandle;
 use super::keyring_store::{keyring_ref_for_remote_api_key, set_keyring_secret};
 use super::loading::{load_document_table_from_path, load_document_table_from_str};
 use super::validation::{
-    normalize_remote_endpoint, normalize_remote_planner_blocked_origins, validate_audio_settings,
+    normalize_remote_endpoint, normalize_remote_planner_privacy_settings, validate_audio_settings,
     validate_model_settings,
 };
 use super::{
@@ -316,8 +316,11 @@ impl AppConfig {
     ) -> Result<Self, ConfigError> {
         let path = path.as_ref();
         let mut normalized = settings.clone();
-        normalized.blocked_origins =
-            normalize_remote_planner_blocked_origins(&settings.blocked_origins)?;
+        let mut issues = Vec::new();
+        normalize_remote_planner_privacy_settings(&mut normalized, &mut issues);
+        if !issues.is_empty() {
+            return Err(ConfigError::Validation(issues.join("\n")));
+        }
 
         let mut document = if path.exists() {
             load_document_table_from_path(path)?

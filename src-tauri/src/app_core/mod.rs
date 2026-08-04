@@ -133,6 +133,7 @@ pub(crate) use replanning_orchestrator::{
 mod tool_executor;
 
 mod narration;
+mod remote_data_consent;
 mod remote_planner;
 mod runtime_config;
 mod state_snapshots;

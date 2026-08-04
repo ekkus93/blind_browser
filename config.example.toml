@@ -26,12 +26,18 @@ allow_click_without_confirmation = false
 always_confirm_submit = true
 
 [remote_planner_privacy]
-# Network remote planning is opt-in. Loopback services such as local Ollama do
-# not leave the machine and remain available without network-data consent.
+# New installations ask before sanitized page-derived context is sent to each
+# non-loopback planner destination. Other values are "local_only" and
+# "allow_sanitized_non_high_risk". High-risk contexts remain non-overridable.
+network_mode = "ask_per_origin"
+origin_rules = []
+policy_schema_version = 1
+migration_notice_pending = false
+high_risk_origin_policy = "block"
+# Legacy compatibility fields remain synchronized for one migration boundary.
 consent_to_remote_page_data = false
 local_only = false
 blocked_origins = []
-high_risk_origin_policy = "block"
 
 [ocr]
 trigger_on_no_extractable_text = true

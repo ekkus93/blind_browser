@@ -158,6 +158,7 @@ impl super::AppCore {
         let value = serde_json::json!({
             "safety": &self.config.safety,
             "planner_provider": &self.config.providers.planner,
+            "remote_planner_privacy": &self.config.remote_planner_privacy,
             "tts_provider": &self.config.providers.tts,
             "asr_provider": &self.config.providers.asr,
             "ocr": &self.config.ocr,

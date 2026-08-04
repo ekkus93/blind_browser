@@ -93,13 +93,53 @@ pub enum HighRiskOriginPolicy {
     Block,
 }
 
+pub const REMOTE_DATA_POLICY_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RemotePlannerNetworkMode {
+    LocalOnly,
+    #[default]
+    AskPerOrigin,
+    AllowSanitizedNonHighRisk,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+pub enum PersistedOriginDecision {
+    Allow,
+    Block,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
-#[serde(default)]
+pub struct RemotePlannerOriginRule {
+    pub page_origin: String,
+    pub decision: PersistedOriginDecision,
+    pub endpoint_scope: Option<String>,
+    pub policy_version: u32,
+    pub created_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct RemotePlannerPrivacySettings {
+    // Legacy fields remain readable for one schema boundary. Normalization migrates
+    // them into `network_mode` and `origin_rules` before runtime use.
+    #[serde(default)]
     pub consent_to_remote_page_data: bool,
+    #[serde(default)]
     pub local_only: bool,
+    #[serde(default)]
     pub blocked_origins: Vec<String>,
+    #[serde(default)]
     pub high_risk_origin_policy: HighRiskOriginPolicy,
+    #[serde(default)]
+    pub network_mode: RemotePlannerNetworkMode,
+    #[serde(default)]
+    pub origin_rules: Vec<RemotePlannerOriginRule>,
+    #[serde(default)]
+    pub policy_schema_version: u32,
+    #[serde(default)]
+    pub migration_notice_pending: bool,
 }
 
 impl Default for RemotePlannerPrivacySettings {
@@ -109,6 +149,10 @@ impl Default for RemotePlannerPrivacySettings {
             local_only: false,
             blocked_origins: Vec::new(),
             high_risk_origin_policy: HighRiskOriginPolicy::Block,
+            network_mode: RemotePlannerNetworkMode::AskPerOrigin,
+            origin_rules: Vec::new(),
+            policy_schema_version: REMOTE_DATA_POLICY_VERSION,
+            migration_notice_pending: false,
         }
     }
 }

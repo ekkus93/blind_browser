@@ -188,12 +188,30 @@ impl AppCore {
         local_only: bool,
         blocked_origins: Vec<String>,
     ) -> Result<(), ConfigError> {
-        let settings = crate::config::RemotePlannerPrivacySettings {
-            consent_to_remote_page_data,
-            local_only,
-            blocked_origins,
-            high_risk_origin_policy: crate::config::HighRiskOriginPolicy::Block,
+        let mut settings = self.config.remote_planner_privacy.clone();
+        settings.network_mode = if local_only {
+            crate::config::RemotePlannerNetworkMode::LocalOnly
+        } else if consent_to_remote_page_data {
+            crate::config::RemotePlannerNetworkMode::AllowSanitizedNonHighRisk
+        } else {
+            crate::config::RemotePlannerNetworkMode::AskPerOrigin
         };
+        settings
+            .origin_rules
+            .retain(|rule| !matches!(rule.decision, crate::config::PersistedOriginDecision::Block));
+        settings
+            .origin_rules
+            .extend(blocked_origins.into_iter().map(|page_origin| {
+                crate::config::RemotePlannerOriginRule {
+                    page_origin,
+                    decision: crate::config::PersistedOriginDecision::Block,
+                    endpoint_scope: None,
+                    policy_version: crate::config::REMOTE_DATA_POLICY_VERSION,
+                    created_at_ms: crate::commands::current_timestamp_ms(),
+                }
+            }));
+        settings.policy_schema_version = crate::config::REMOTE_DATA_POLICY_VERSION;
+        settings.high_risk_origin_policy = crate::config::HighRiskOriginPolicy::Block;
         self.config = AppConfig::persist_remote_planner_privacy_settings_for_app(
             &self.app_handle,
             &settings,

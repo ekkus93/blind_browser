@@ -83,14 +83,153 @@ pub(in crate::config) fn normalize_remote_planner_blocked_origins(
     Ok(normalized.into_iter().collect())
 }
 
+fn normalize_remote_planner_origin(raw: &str) -> Result<String, ConfigError> {
+    let parsed = url::Url::parse(raw.trim()).map_err(|error| {
+        ConfigError::Validation(format!(
+            "remote planner origin rule must use an absolute HTTP(S) origin: {error}"
+        ))
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+        || !matches!(parsed.path(), "" | "/")
+    {
+        return Err(ConfigError::Validation(format!(
+            "remote planner origin rule must contain only scheme, host, and optional port: {raw}"
+        )));
+    }
+    Ok(parsed.origin().ascii_serialization())
+}
+
+fn normalize_remote_planner_origin_rules(
+    rules: &[RemotePlannerOriginRule],
+) -> Result<Vec<RemotePlannerOriginRule>, ConfigError> {
+    if rules.len() > 256 {
+        return Err(ConfigError::Validation(String::from(
+            "remote_planner_privacy.origin_rules must contain at most 256 rules",
+        )));
+    }
+    let mut normalized = Vec::with_capacity(rules.len());
+    for rule in rules {
+        let page_origin = normalize_remote_planner_origin(&rule.page_origin)?;
+        let endpoint_scope = match rule.decision {
+            PersistedOriginDecision::Block => {
+                if rule.endpoint_scope.is_some() {
+                    return Err(ConfigError::Validation(format!(
+                        "origin-wide block for {page_origin} must not contain an endpoint scope"
+                    )));
+                }
+                None
+            }
+            PersistedOriginDecision::Allow => {
+                let raw = rule.endpoint_scope.as_deref().ok_or_else(|| {
+                    ConfigError::Validation(format!(
+                        "persistent allow for {page_origin} requires an endpoint scope"
+                    ))
+                })?;
+                Some(
+                    ProviderEndpointScope::parse(raw)
+                        .map_err(ConfigError::Validation)?
+                        .normalized_base_url()
+                        .to_string(),
+                )
+            }
+        };
+        normalized.push(RemotePlannerOriginRule {
+            page_origin,
+            decision: rule.decision.clone(),
+            endpoint_scope,
+            policy_version: rule.policy_version,
+            created_at_ms: rule.created_at_ms,
+        });
+    }
+    normalized.sort_by(|left, right| {
+        (
+            left.page_origin.as_str(),
+            &left.decision,
+            left.endpoint_scope.as_deref(),
+            left.policy_version,
+            left.created_at_ms,
+        )
+            .cmp(&(
+                right.page_origin.as_str(),
+                &right.decision,
+                right.endpoint_scope.as_deref(),
+                right.policy_version,
+                right.created_at_ms,
+            ))
+    });
+    normalized.dedup_by(|left, right| {
+        left.page_origin == right.page_origin
+            && left.decision == right.decision
+            && left.endpoint_scope == right.endpoint_scope
+            && left.policy_version == right.policy_version
+    });
+    Ok(normalized)
+}
+
 pub(in crate::config) fn normalize_remote_planner_privacy_settings(
     settings: &mut RemotePlannerPrivacySettings,
     issues: &mut Vec<String>,
 ) {
-    match normalize_remote_planner_blocked_origins(&settings.blocked_origins) {
-        Ok(origins) => settings.blocked_origins = origins,
+    let normalized_legacy_origins =
+        match normalize_remote_planner_blocked_origins(&settings.blocked_origins) {
+            Ok(origins) => origins,
+            Err(error) => {
+                issues.push(error.to_string());
+                Vec::new()
+            }
+        };
+
+    if settings.policy_schema_version == 0 {
+        settings.network_mode = if settings.local_only {
+            RemotePlannerNetworkMode::LocalOnly
+        } else if settings.consent_to_remote_page_data {
+            RemotePlannerNetworkMode::AllowSanitizedNonHighRisk
+        } else {
+            RemotePlannerNetworkMode::AskPerOrigin
+        };
+        for page_origin in &normalized_legacy_origins {
+            settings.origin_rules.push(RemotePlannerOriginRule {
+                page_origin: page_origin.clone(),
+                decision: PersistedOriginDecision::Block,
+                endpoint_scope: None,
+                policy_version: REMOTE_DATA_POLICY_VERSION,
+                created_at_ms: 0,
+            });
+        }
+        settings.policy_schema_version = REMOTE_DATA_POLICY_VERSION;
+        settings.migration_notice_pending = true;
+    } else if settings.policy_schema_version > REMOTE_DATA_POLICY_VERSION {
+        issues.push(format!(
+            "remote_planner_privacy.policy_schema_version {} is newer than supported version {}",
+            settings.policy_schema_version, REMOTE_DATA_POLICY_VERSION
+        ));
+    }
+
+    match normalize_remote_planner_origin_rules(&settings.origin_rules) {
+        Ok(rules) => settings.origin_rules = rules,
         Err(error) => issues.push(error.to_string()),
     }
+
+    // Keep legacy fields synchronized while they remain readable. They are never
+    // authoritative after normalization.
+    settings.local_only = matches!(settings.network_mode, RemotePlannerNetworkMode::LocalOnly);
+    settings.consent_to_remote_page_data = matches!(
+        settings.network_mode,
+        RemotePlannerNetworkMode::AllowSanitizedNonHighRisk
+    );
+    settings.blocked_origins = settings
+        .origin_rules
+        .iter()
+        .filter(|rule| matches!(rule.decision, PersistedOriginDecision::Block))
+        .map(|rule| rule.page_origin.clone())
+        .collect();
+    settings.blocked_origins.sort();
+    settings.blocked_origins.dedup();
 }
 
 pub(in crate::config) fn validate_model_settings(
@@ -138,5 +277,66 @@ mod privacy_tests {
         ] {
             assert!(normalize_remote_planner_blocked_origins(&[origin.to_string()]).is_err());
         }
+    }
+
+    #[test]
+    fn legacy_privacy_settings_migrate_idempotently() {
+        let mut settings = RemotePlannerPrivacySettings {
+            consent_to_remote_page_data: true,
+            local_only: false,
+            blocked_origins: vec![String::from("https://EXAMPLE.com:443")],
+            high_risk_origin_policy: HighRiskOriginPolicy::Block,
+            network_mode: RemotePlannerNetworkMode::AskPerOrigin,
+            origin_rules: Vec::new(),
+            policy_schema_version: 0,
+            migration_notice_pending: false,
+        };
+        let mut issues = Vec::new();
+        normalize_remote_planner_privacy_settings(&mut settings, &mut issues);
+        assert!(issues.is_empty());
+        assert_eq!(
+            settings.network_mode,
+            RemotePlannerNetworkMode::AllowSanitizedNonHighRisk
+        );
+        assert_eq!(settings.policy_schema_version, REMOTE_DATA_POLICY_VERSION);
+        assert!(settings.migration_notice_pending);
+        assert_eq!(settings.origin_rules.len(), 1);
+        assert_eq!(settings.origin_rules[0].page_origin, "https://example.com");
+        let first = settings.clone();
+        normalize_remote_planner_privacy_settings(&mut settings, &mut issues);
+        assert_eq!(settings, first);
+    }
+
+    #[test]
+    fn destination_bound_allows_and_origin_wide_blocks_are_validated() {
+        let mut settings = RemotePlannerPrivacySettings {
+            network_mode: RemotePlannerNetworkMode::AskPerOrigin,
+            origin_rules: vec![
+                RemotePlannerOriginRule {
+                    page_origin: String::from("https://EXAMPLE.com:443"),
+                    decision: PersistedOriginDecision::Allow,
+                    endpoint_scope: Some(String::from("https://api.example.com:443/v1/")),
+                    policy_version: REMOTE_DATA_POLICY_VERSION,
+                    created_at_ms: 2,
+                },
+                RemotePlannerOriginRule {
+                    page_origin: String::from("https://private.example"),
+                    decision: PersistedOriginDecision::Block,
+                    endpoint_scope: None,
+                    policy_version: REMOTE_DATA_POLICY_VERSION,
+                    created_at_ms: 1,
+                },
+            ],
+            ..Default::default()
+        };
+        let mut issues = Vec::new();
+        normalize_remote_planner_privacy_settings(&mut settings, &mut issues);
+        assert!(issues.is_empty(), "{issues:?}");
+        assert_eq!(settings.origin_rules[0].page_origin, "https://example.com");
+        assert_eq!(
+            settings.origin_rules[0].endpoint_scope.as_deref(),
+            Some("https://api.example.com/v1")
+        );
+        assert_eq!(settings.blocked_origins, vec!["https://private.example"]);
     }
 }

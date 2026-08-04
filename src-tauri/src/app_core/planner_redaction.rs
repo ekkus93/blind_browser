@@ -2,13 +2,14 @@ use std::collections::BTreeSet;
 
 use serde::Serialize;
 
+use super::remote_data_consent::{evaluate_remote_planner_policy, RemotePlannerPolicyResult};
 use crate::audio_io::RuntimeAudioState;
 use crate::browser::BrowserVisibilityMode;
 use crate::commands::{
     AvailableTool, PlannerInput, PlannerSafetySettings, PlannerToolHistoryEntry, SkillSummary,
     ToolError, ToolName,
 };
-use crate::config::{HighRiskOriginPolicy, RemotePlannerPrivacySettings};
+use crate::config::RemotePlannerPrivacySettings;
 use crate::diagnostic_redaction::sanitize_url_for_display;
 use crate::narration::NarrationCursor;
 use crate::page_model::{
@@ -358,56 +359,54 @@ fn enforce_remote_planner_privacy(
     privacy: &RemotePlannerPrivacySettings,
     endpoint_scope: &ProviderEndpointScope,
 ) -> Result<RemoteDataMode, ToolError> {
-    if endpoint_scope.is_loopback() {
-        return Ok(RemoteDataMode::LoopbackLocalService);
-    }
-
-    if privacy.local_only {
-        return Err(privacy_error(
-            "remote_planner_local_only_blocked",
-            "Local-only planner mode blocks network planner endpoints.",
-            "local_only",
-        ));
-    }
-    if !privacy.consent_to_remote_page_data {
-        return Err(privacy_error(
-            "remote_planner_network_consent_required",
-            "Network remote planning is disabled until you explicitly allow sanitized page and OCR context to leave this device in AI assistant settings.",
-            "network_consent_required",
-        ));
-    }
-
-    if let Some(origin) = planner_page_origin(input) {
-        if privacy
-            .blocked_origins
-            .iter()
-            .any(|blocked| blocked == &origin)
-        {
-            return Err(privacy_error(
-                "remote_planner_origin_blocked",
-                "This page origin is configured for local-only processing.",
-                "origin_opt_out",
-            ));
+    let page_origin = planner_page_origin(input);
+    let high_risk_reason = high_risk_context_reason(input);
+    match evaluate_remote_planner_policy(
+        privacy,
+        endpoint_scope,
+        page_origin.as_deref(),
+        high_risk_reason,
+        &[],
+        crate::commands::current_timestamp_ms(),
+    ) {
+        RemotePlannerPolicyResult::Allowed(authorization) => {
+            if matches!(
+                authorization,
+                super::remote_data_consent::RemotePlannerDataAuthorization::Loopback
+            ) {
+                Ok(RemoteDataMode::LoopbackLocalService)
+            } else {
+                Ok(RemoteDataMode::NetworkRemoteWithExplicitConsent)
+            }
         }
-    }
-
-    if matches!(privacy.high_risk_origin_policy, HighRiskOriginPolicy::Block) {
-        if let Some(reason_code) = high_risk_context_reason(input) {
-            return Err(ToolError {
-                code: String::from("remote_planner_high_risk_context_blocked"),
-                message: String::from(
-                    "Network remote planning is unavailable for authentication, payment, identity, health, wallet, or administrative contexts. Use a direct command or a loopback local planner.",
+        RemotePlannerPolicyResult::ConsentRequired => Err(privacy_error(
+            "remote_data_consent_required",
+            "This site requires an explicit remote-data decision before sanitized planner context can leave the device.",
+            "consent_required",
+        )),
+        RemotePlannerPolicyResult::Blocked { code, reason_code } => Err(ToolError {
+            code: code.to_string(),
+            message: match code {
+                "remote_data_local_only" => String::from(
+                    "Local-only planner mode blocks non-loopback planner endpoints.",
                 ),
-                retryable: false,
-                details: Some(serde_json::json!({
-                    "policy": "high_risk_context_blocked",
-                    "reason_code": reason_code,
-                })),
-            });
-        }
+                "remote_data_high_risk_blocked" => String::from(
+                    "Network planning is blocked for this high-risk page context. Use direct commands or a loopback local planner.",
+                ),
+                "remote_data_origin_blocked" => String::from(
+                    "This page origin is configured to remain local for every network planner.",
+                ),
+                _ => String::from(
+                    "The current page origin cannot be safely authorized for network planning.",
+                ),
+            },
+            retryable: false,
+            details: Some(serde_json::json!({
+                "policy": code,
+                "reason_code": reason_code,
+            })),
+        }),
     }
-
-    Ok(RemoteDataMode::NetworkRemoteWithExplicitConsent)
 }
 
 fn privacy_error(code: &str, message: &str, policy: &str) -> ToolError {
@@ -419,7 +418,7 @@ fn privacy_error(code: &str, message: &str, policy: &str) -> ToolError {
     }
 }
 
-fn planner_page_origin(input: &PlannerInput) -> Option<String> {
+pub(crate) fn planner_page_origin(input: &PlannerInput) -> Option<String> {
     [
         input.agent_state.url.as_deref(),
         input
@@ -942,7 +941,7 @@ fn contains_high_risk_page_text(value: &str) -> bool {
         .any(|marker| lower.contains(marker))
 }
 
-fn high_risk_context_reason(input: &PlannerInput) -> Option<&'static str> {
+pub(crate) fn high_risk_context_reason(input: &PlannerInput) -> Option<&'static str> {
     let has_sensitive_element = input
         .page_model
         .iter()
@@ -1128,7 +1127,7 @@ fn detect_prompt_injection(input: &PlannerInput) -> PromptInjectionIndicators {
 mod tests {
     use super::*;
     use crate::commands::*;
-    use crate::config::ProviderMode;
+    use crate::config::{HighRiskOriginPolicy, ProviderMode};
     use crate::page_model::{RegionRole, RegionSource};
 
     fn element(attributes: &[(&str, &str)], value: &str) -> InteractiveElement {
@@ -1285,6 +1284,7 @@ mod tests {
             local_only: false,
             blocked_origins: Vec::new(),
             high_risk_origin_policy: HighRiskOriginPolicy::Block,
+            ..Default::default()
         }
     }
 
