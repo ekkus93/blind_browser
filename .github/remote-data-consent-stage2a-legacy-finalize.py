@@ -109,7 +109,11 @@ if remaining_unqualified:
     raise SystemExit(
         "legacy helper finalizer: planner_redaction.rs retains unqualified ToolError"
     )
-if re.search(r"use crate::commands::\{.*?\bToolError\b", text, re.DOTALL):
+
+refreshed_commands_import = commands_import_pattern.search(text)
+if refreshed_commands_import is None:
+    raise SystemExit("legacy helper finalizer: commands import block disappeared")
+if re.search(r"\bToolError\b", refreshed_commands_import.group("body")):
     raise SystemExit(
         "legacy helper finalizer: planner_redaction.rs retains a grouped ToolError import"
     )
