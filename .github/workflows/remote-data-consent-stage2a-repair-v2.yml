@@ -114,53 +114,44 @@ jobs:
           import re
           from pathlib import Path
 
-          def replace_exact(path: str, old: str, new: str, expected: int, label: str) -> None:
+          def replace_at_most_one(path: str, old: str, new: str, label: str) -> None:
               file_path = Path(path)
               text = file_path.read_text()
               count = text.count(old)
-              if count != expected:
-                  raise SystemExit(f"{label}: expected {expected} occurrence(s), found {count}")
-              file_path.write_text(text.replace(old, new, expected))
+              if count > 1:
+                  raise SystemExit(
+                      f"{label}: expected at most one occurrence, found {count}"
+                  )
+              if count == 1:
+                  file_path.write_text(text.replace(old, new, 1))
 
-          replace_exact(
+          replace_at_most_one(
               "src-tauri/src/app_core/planner_redaction.rs",
               "pub(crate) pub(crate) fn high_risk_context_reason",
               "pub(crate) fn high_risk_context_reason",
-              1,
               "duplicate high-risk helper visibility",
           )
-
-          planner_contracts_path = Path(
-              "src-tauri/src/commands/contracts/planner.rs"
+          replace_at_most_one(
+              "src-tauri/src/commands/contracts/planner.rs",
+              "use crate::app_core::remote_data_consent::RemotePlannerConsentChallenge;\n",
+              "",
+              "duplicate private consent challenge import",
           )
-          planner_contracts = planner_contracts_path.read_text()
-          private_import = (
-              "use crate::app_core::remote_data_consent::"
-              "RemotePlannerConsentChallenge;\n"
-          )
-          private_import_count = planner_contracts.count(private_import)
-          if private_import_count > 1:
-              raise SystemExit(
-                  "duplicate private consent challenge import: "
-                  f"expected at most one occurrence, found {private_import_count}"
-              )
-          if private_import_count == 1:
-              planner_contracts_path.write_text(
-                  planner_contracts.replace(private_import, "", 1)
-              )
 
           consent_path = Path("src-tauri/src/app_core/remote_data_consent.rs")
           consent = consent_path.read_text()
+
           bad_type = consent.count("PersistedRemotePlannerPrivacySettings")
-          if bad_type != 1:
+          if bad_type > 1:
               raise SystemExit(
-                  f"privacy settings type repair: expected one bad type, found {bad_type}"
+                  f"privacy settings type repair: expected at most one bad type, found {bad_type}"
               )
-          consent = consent.replace(
-              "PersistedRemotePlannerPrivacySettings",
-              "RemotePlannerPrivacySettings",
-              1,
-          )
+          if bad_type == 1:
+              consent = consent.replace(
+                  "PersistedRemotePlannerPrivacySettings",
+                  "RemotePlannerPrivacySettings",
+                  1,
+              )
 
           lifetime_pattern = re.compile(
               r"fn matching_grant\(\s*"
@@ -170,30 +161,37 @@ jobs:
               r"now_ms: u64,\s*"
               r"\) -> Option<&RemotePlannerEphemeralGrant> \{"
           )
-          consent, lifetime_count = lifetime_pattern.subn(
-              "fn matching_grant<'a>(\n"
-              "    grants: &'a [RemotePlannerEphemeralGrant],\n"
-              "    draft: &RemotePlannerRequestDraft,\n"
-              "    challenge_digest: Option<&str>,\n"
-              "    now_ms: u64,\n"
-              ") -> Option<&'a RemotePlannerEphemeralGrant> {",
-              consent,
-              count=1,
-          )
-          if lifetime_count != 1:
+          lifetime_matches = list(lifetime_pattern.finditer(consent))
+          if len(lifetime_matches) > 1:
               raise SystemExit(
-                  f"matching grant lifetime repair: expected one signature, found {lifetime_count}"
+                  "matching grant lifetime repair: expected at most one signature, "
+                  f"found {len(lifetime_matches)}"
+              )
+          if len(lifetime_matches) == 1:
+              consent = lifetime_pattern.sub(
+                  "fn matching_grant<'a>(\n"
+                  "    grants: &'a [RemotePlannerEphemeralGrant],\n"
+                  "    draft: &RemotePlannerRequestDraft,\n"
+                  "    challenge_digest: Option<&str>,\n"
+                  "    now_ms: u64,\n"
+                  ") -> Option<&'a RemotePlannerEphemeralGrant> {",
+                  consent,
+                  count=1,
               )
 
           tool_name_pattern = re.compile(
               r"(use crate::commands::\{[^}]*?ToolError),\s*ToolName,([^}]*?\};)",
               re.DOTALL,
           )
-          consent, import_count = tool_name_pattern.subn(r"\1,\2", consent, count=1)
-          if import_count != 1:
+          import_matches = list(tool_name_pattern.finditer(consent))
+          if len(import_matches) > 1:
               raise SystemExit(
-                  f"unused ToolName import repair: expected one import block, found {import_count}"
+                  "unused ToolName import repair: expected at most one import block, "
+                  f"found {len(import_matches)}"
               )
+          if len(import_matches) == 1:
+              consent = tool_name_pattern.sub(r"\1,\2", consent, count=1)
+
           consent_path.write_text(consent)
           PY
           cargo fmt --manifest-path src-tauri/Cargo.toml --all
