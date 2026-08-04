@@ -1,0 +1,131 @@
+name: Remote Data Consent Stage 2A Repair Patcher
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/remote-data-consent-stage2a-repair-patcher.trigger
+
+permissions:
+  contents: write
+
+concurrency:
+  group: remote-data-consent-stage2a-repair-patcher
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace formatting-sensitive guards
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path(".github/workflows/remote-data-consent-stage2a-repair.yml")
+          text = path.read_text()
+
+          old_lifetime = '''          old_signature = """fn matching_grant(
+              grants: &[RemotePlannerEphemeralGrant],
+              draft: &RemotePlannerRequestDraft,
+              challenge_digest: Option<&str>,
+              now_ms: u64,
+          ) -> Option<&RemotePlannerEphemeralGrant> {"""
+          new_signature = """fn matching_grant<'a>(
+              grants: &'a [RemotePlannerEphemeralGrant],
+              draft: &RemotePlannerRequestDraft,
+              challenge_digest: Option<&str>,
+              now_ms: u64,
+          ) -> Option<&'a RemotePlannerEphemeralGrant> {"""
+          signature_count = consent.count(old_signature)
+          if signature_count != 1:
+              raise SystemExit(
+                  f"matching grant lifetime repair: expected one signature, found {signature_count}"
+              )
+          consent = consent.replace(old_signature, new_signature, 1)
+'''
+          new_lifetime = '''          import re
+
+          lifetime_pattern = re.compile(
+              r"fn matching_grant\\(\\s*"
+              r"grants: &\\[RemotePlannerEphemeralGrant\\],\\s*"
+              r"draft: &RemotePlannerRequestDraft,\\s*"
+              r"challenge_digest: Option<&str>,\\s*"
+              r"now_ms: u64,\\s*"
+              r"\\) -> Option<&RemotePlannerEphemeralGrant> \\{"
+          )
+          consent, lifetime_count = lifetime_pattern.subn(
+              "fn matching_grant<'a>(\\n"
+              "    grants: &'a [RemotePlannerEphemeralGrant],\\n"
+              "    draft: &RemotePlannerRequestDraft,\\n"
+              "    challenge_digest: Option<&str>,\\n"
+              "    now_ms: u64,\\n"
+              ") -> Option<&'a RemotePlannerEphemeralGrant> {",
+              consent,
+              count=1,
+          )
+          if lifetime_count != 1:
+              raise SystemExit(
+                  f"matching grant lifetime repair: expected one signature, found {lifetime_count}"
+              )
+'''
+          if text.count(old_lifetime) != 1:
+              raise SystemExit(
+                  f"repair-workflow lifetime block: expected one occurrence, found {text.count(old_lifetime)}"
+              )
+          text = text.replace(old_lifetime, new_lifetime, 1)
+
+          old_import = '''          old_import = """use crate::commands::{
+              current_timestamp_ms, ExecutionOutcome, PlannerInput, PlannerOutput, ToolError, ToolName,
+          };"""
+          new_import = """use crate::commands::{
+              current_timestamp_ms, ExecutionOutcome, PlannerInput, PlannerOutput, ToolError,
+          };"""
+          import_count = consent.count(old_import)
+          if import_count != 1:
+              raise SystemExit(
+                  f"unused ToolName import repair: expected one import block, found {import_count}"
+              )
+          consent_path.write_text(consent.replace(old_import, new_import, 1))
+'''
+          new_import = '''          tool_name_pattern = re.compile(
+              r"(use crate::commands::\\{[^}]*?ToolError),\\s*ToolName,([^}]*?\\};)",
+              re.DOTALL,
+          )
+          consent, import_count = tool_name_pattern.subn(r"\\1,\\2", consent, count=1)
+          if import_count != 1:
+              raise SystemExit(
+                  f"unused ToolName import repair: expected one import block, found {import_count}"
+              )
+          consent_path.write_text(consent)
+'''
+          if text.count(old_import) != 1:
+              raise SystemExit(
+                  f"repair-workflow import block: expected one occurrence, found {text.count(old_import)}"
+              )
+          path.write_text(text.replace(old_import, new_import, 1))
+          PY
+          git diff --check
+          grep -Fq 'lifetime_pattern = re.compile(' .github/workflows/remote-data-consent-stage2a-repair.yml
+          grep -Fq 'tool_name_pattern = re.compile(' .github/workflows/remote-data-consent-stage2a-repair.yml
+
+      - name: Publish patched workflow and self-clean
+        shell: bash
+        run: |
+          rm -f .github/workflows/remote-data-consent-stage2a-repair-patcher.yml
+          rm -f .github/remote-data-consent-stage2a-repair-patcher.trigger
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          test -n "$(git status --porcelain)"
+          test ! -e .github/workflows/remote-data-consent-stage2a-repair-patcher.yml
+          test ! -e .github/remote-data-consent-stage2a-repair-patcher.trigger
+          git commit -m "ci: harden consent backend repair guards"
+          git push origin HEAD:master
