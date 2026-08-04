@@ -78,6 +78,7 @@ jobs:
           '''
           corrected = '''            ..Default::default()
                   }
+              }
           '''
           count = text.count(malformed)
           if count != 1:
