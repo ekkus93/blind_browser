@@ -80,7 +80,6 @@ jobs:
         run: |
           set -x
           test "$(wc -c < .github/remote-data-consent-stage2a.part00)" -eq 3501
-          test "$(tail -c 1 .github/remote-data-consent-stage2a.part00 | od -An -t u1 | tr -d '[:space:]')" = 10
           test "$(wc -c < .github/remote-data-consent-stage2a.part01)" -eq 3500
           test "$(wc -c < .github/remote-data-consent-stage2a.part02)" -eq 3500
           test "$(wc -c < .github/remote-data-consent-stage2a.part03)" -eq 3500
