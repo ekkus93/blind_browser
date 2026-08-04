@@ -10,34 +10,10 @@ HELPERS = (
     ("privacy_error", ""),
 )
 
-
-def find_matching_brace(source: str, open_index: int) -> int:
-    depth = 0
-    in_string = False
-    escaped = False
-    for index in range(open_index, len(source)):
-        char = source[index]
-        if in_string:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == '"':
-                in_string = False
-            continue
-        if char == '"':
-            in_string = True
-        elif char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-            if depth == 0:
-                return index
-    raise SystemExit("legacy helper finalizer: unmatched Rust brace")
-
-
 text = PATH.read_text()
 
+# Make each compatibility helper unambiguously test-only. Rebuild the declaration
+# prefix rather than stacking attributes left by an earlier repair attempt.
 for function_name, expected_visibility in HELPERS:
     declaration_pattern = re.compile(
         rf"(?m)^(?P<indent>[ \t]*)(?P<visibility>pub\(crate\)\s+)?fn {function_name}\("
@@ -48,6 +24,7 @@ for function_name, expected_visibility in HELPERS:
             f"legacy helper finalizer: expected one {function_name} declaration, "
             f"found {len(matches)}"
         )
+
     match = matches[0]
     visibility = match.group("visibility") or ""
     if visibility != expected_visibility:
@@ -58,63 +35,83 @@ for function_name, expected_visibility in HELPERS:
 
     declaration_start = match.start()
     prefix = text[:declaration_start]
-    cfg_pattern = re.compile(r"(?m)^[ \t]*#\[cfg\(test\)\]\n$")
-    cfg_match = cfg_pattern.search(prefix)
-    if cfg_match is not None and cfg_match.end() == len(prefix):
-        prefix = prefix[: cfg_match.start()]
+    adjacent_cfg = re.search(r"(?m)^[ \t]*#\[cfg\(test\)\]\n$", prefix)
+    if adjacent_cfg is not None and adjacent_cfg.end() == len(prefix):
+        prefix = prefix[: adjacent_cfg.start()]
 
-    declaration = (
-        f"#[cfg(test)]\n{expected_visibility}fn {function_name}("
-    )
-    text = prefix + declaration + text[match.end():]
+    declaration = f"#[cfg(test)]\n{expected_visibility}fn {function_name}("
+    text = prefix + declaration + text[match.end() :]
 
-    declaration_start = len(prefix) + len("#[cfg(test)]\n")
-    open_index = text.find("{", declaration_start)
-    if open_index == -1:
-        raise SystemExit(
-            f"legacy helper finalizer: {function_name} body was not found"
-        )
-    close_index = find_matching_brace(text, open_index)
-    function_source = text[declaration_start : close_index + 1]
-    function_source = function_source.replace(
-        "crate::commands::ToolError", "__STAGE2A_TOOL_ERROR__"
+# ToolError is needed only by test-only compatibility code in this module. Remove
+# the grouped import before fully qualifying every standalone use so the default
+# library build cannot depend on a cfg(test)-only import boundary.
+commands_import_pattern = re.compile(
+    r"use crate::commands::\{(?P<body>.*?)\n\};",
+    re.DOTALL,
+)
+commands_import_match = commands_import_pattern.search(text)
+if commands_import_match is None:
+    raise SystemExit("legacy helper finalizer: commands import block was not found")
+
+commands_body = commands_import_match.group("body")
+commands_body, removed_imports = re.subn(
+    r"(?<![A-Za-z0-9_])ToolError\s*,\s*",
+    "",
+    commands_body,
+)
+if removed_imports > 1:
+    raise SystemExit(
+        "legacy helper finalizer: multiple ToolError grouped imports were found"
     )
-    function_source = function_source.replace(
-        "ToolError", "crate::commands::ToolError"
-    )
-    function_source = function_source.replace(
-        "__STAGE2A_TOOL_ERROR__", "crate::commands::ToolError"
-    )
-    text = (
-        text[:declaration_start]
-        + function_source
-        + text[close_index + 1 :]
+text = (
+    text[: commands_import_match.start("body")]
+    + commands_body
+    + text[commands_import_match.end("body") :]
+)
+
+# Qualify the entire module, not merely parsed helper bodies. The previous
+# body-bounded pass could report success while leaving a signature or test helper
+# outside its effective replacement range. A preceding ':' or identifier means
+# the token is already qualified or is part of a different identifier.
+text, qualified_count = re.subn(
+    r"(?<![A-Za-z0-9_:])ToolError\b",
+    "crate::commands::ToolError",
+    text,
+)
+if qualified_count == 0:
+    raise SystemExit(
+        "legacy helper finalizer: no standalone ToolError use was available to qualify"
     )
 
-text = re.sub(
+# Remove any obsolete standalone cfg(test) import left by an earlier repair.
+text, standalone_imports = re.subn(
     r"(?m)^#\[cfg\(test\)\]\nuse crate::commands::ToolError;\n?",
     "",
     text,
 )
+if standalone_imports > 1:
+    raise SystemExit(
+        "legacy helper finalizer: duplicate standalone ToolError imports were found"
+    )
 
 for function_name, expected_visibility in HELPERS:
-    adjacency = (
-        f"#[cfg(test)]\n{expected_visibility}fn {function_name}("
-    )
+    adjacency = f"#[cfg(test)]\n{expected_visibility}fn {function_name}("
     if text.count(adjacency) != 1:
         raise SystemExit(
             f"legacy helper finalizer: {function_name} is not exactly test-only"
         )
-    declaration_start = text.index(adjacency) + len("#[cfg(test)]\n")
-    open_index = text.find("{", declaration_start)
-    close_index = find_matching_brace(text, open_index)
-    function_source = text[declaration_start : close_index + 1]
-    unqualified = re.findall(
-        r"(?<!crate::commands::)\bToolError\b", function_source
+
+remaining_unqualified = re.findall(
+    r"(?<![A-Za-z0-9_:])ToolError\b",
+    text,
+)
+if remaining_unqualified:
+    raise SystemExit(
+        "legacy helper finalizer: planner_redaction.rs retains unqualified ToolError"
     )
-    if unqualified:
-        raise SystemExit(
-            f"legacy helper finalizer: {function_name} retains unqualified ToolError"
-        )
+if re.search(r"use crate::commands::\{.*?\bToolError\b", text, re.DOTALL):
+    raise SystemExit(
+        "legacy helper finalizer: planner_redaction.rs retains a grouped ToolError import"
+    )
 
 PATH.write_text(text)
