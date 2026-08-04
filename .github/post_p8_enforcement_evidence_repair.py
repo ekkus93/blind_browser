@@ -12,6 +12,22 @@ def replace_once(path: Path, old: str, new: str, description: str) -> None:
     path.write_text(content.replace(old, new, 1), encoding="utf-8")
 
 
+def replace_test_function(path: Path, function_name: str, replacement: str) -> None:
+    source = path.read_text(encoding="utf-8")
+    marker = f"#[test]\nfn {function_name}() {{"
+    count = source.count(marker)
+    if count != 1:
+        raise SystemExit(f"{path}: expected one {function_name} test, found {count}")
+    start = source.index(marker)
+    next_test = source.find("\n#[test]\n", start + len(marker))
+    end = len(source) if next_test == -1 else next_test
+    existing = source[start:end].rstrip()
+    desired = replacement.rstrip()
+    if existing != desired:
+        source = source[:start] + desired + source[end:]
+        path.write_text(source, encoding="utf-8")
+
+
 def find_library_evidence_test() -> Path | None:
     function_marker = "direct_command_policy_evidence_is_complete"
     stale_marker = "page_context_resolver_sources"
@@ -44,30 +60,63 @@ def find_library_evidence_test() -> Path | None:
     return None
 
 
-def verify_integration_evidence() -> None:
+def repair_integration_evidence() -> None:
     integration = Path("src-tauri/tests/post_batch8_direct_command_policy_evidence.rs")
     if not integration.is_file():
-        raise SystemExit(
-            "no generated library evidence test and missing integration evidence test: "
-            f"{integration}"
-        )
-    source = integration.read_text(encoding="utf-8")
+        raise SystemExit(f"missing integration evidence test: {integration}")
+
+    desired_test = '''#[test]
+fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
+    let core_handlers = source("src/command_handlers/core_handlers.rs");
+    let voice_handlers = source("src/command_handlers/voice_handlers.rs");
+    let remote_planner = source("src/app_core/remote_planner.rs");
+    let redaction = source("src/app_core/planner_redaction.rs");
+
+    assert!(core_handlers.contains("resolve_command_lock_scoped"));
+    assert!(voice_handlers.contains("run_command_with_lock_scoped_replanning"));
+    assert!(remote_planner
+        .contains("sanitize_remote_planner_input(planner_input, privacy, &endpoint_scope)?"));
+    assert!(redaction.contains("enforce_remote_planner_privacy(input, privacy, endpoint_scope)?"));
+
+    let transmitting = EVIDENCE
+        .iter()
+        .filter(|entry| entry.transmits_page_context)
+        .map(|entry| entry.name)
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        transmitting,
+        BTreeSet::from(["resolve_command", "transcribe_and_execute_command",])
+    );
+}'''
+    replace_test_function(
+        integration,
+        "source_drift_page_context_commands_retain_privacy_sanitizer_wiring",
+        desired_test,
+    )
+
+    repaired = integration.read_text(encoding="utf-8")
     required_markers = (
         "evidence_inventory_matches_registry_and_tauri_surface",
-        "source_drift_page_context_commands_retain_privacy_sanitizer_wiring",
-        "resolve_command_lock_scoped",
-        "run_command_with_lock_scoped_replanning",
+        'source("src/command_handlers/core_handlers.rs")',
+        'source("src/command_handlers/voice_handlers.rs")',
+        'source("src/app_core/remote_planner.rs")',
+        'source("src/app_core/planner_redaction.rs")',
         "sanitize_remote_planner_input(planner_input, privacy, &endpoint_scope)?",
         "enforce_remote_planner_privacy(input, privacy, endpoint_scope)?",
-        "transmits_page_context",
+        '.filter(|entry| entry.transmits_page_context)',
+        'BTreeSet::from(["resolve_command", "transcribe_and_execute_command",])',
     )
-    missing = [marker for marker in required_markers if marker not in source]
+    missing = [marker for marker in required_markers if marker not in repaired]
     if missing:
-        raise SystemExit(f"{integration}: missing authoritative evidence markers: {missing}")
-    print(
-        "No generated library source-drift test was present; verified the integration "
-        "registry and remote-planner privacy evidence instead"
+        raise SystemExit(f"{integration}: missing end-to-end privacy evidence: {missing}")
+    stale_markers = (
+        "handler {handler} must retain the remote-planner privacy sanitizer",
+        "handlers_source.contains(\"sanitize_remote_planner_input(\")",
     )
+    present = [marker for marker in stale_markers if marker in repaired]
+    if present:
+        raise SystemExit(f"{integration}: stale per-handler privacy assertions remain: {present}")
+    print("Restored end-to-end integration privacy source evidence")
 
 
 def repair_library_evidence(evidence: Path) -> None:
@@ -153,10 +202,9 @@ def repair_library_evidence(evidence: Path) -> None:
 
 
 def main() -> int:
+    repair_integration_evidence()
     evidence = find_library_evidence_test()
-    if evidence is None:
-        verify_integration_evidence()
-    else:
+    if evidence is not None:
         repair_library_evidence(evidence)
     return 0
 
