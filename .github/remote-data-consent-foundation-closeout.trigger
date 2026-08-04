@@ -1,2 +1,3 @@
-parent = "c428f64a75504a2fab8499d8e6c0cd120d1e9bef"
-purpose = "Run the bounded Stage 1 TODO reconciliation and remove all temporary closeout machinery."
+parent = "c770771f916caf4f42c6491fbb916e3352c3f7eb"
+sequence = 2
+purpose = "Run the instrumented bounded Stage 1 TODO reconciliation and self-clean all closeout machinery."
