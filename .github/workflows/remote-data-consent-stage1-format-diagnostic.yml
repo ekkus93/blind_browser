@@ -1,0 +1,85 @@
+name: Remote Data Consent Stage 1 Format Diagnostic
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/remote-data-consent-stage1-format.trigger
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust formatter
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Verify and decode transformation payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify_chunk() {
+            path="$1"
+            expected_length="$2"
+            expected_sha="$3"
+            cleaned="$(tr -d '\n\r ' < "$path")"
+            test "${#cleaned}" -eq "$expected_length"
+            test "$(printf '%s' "$cleaned" | sha256sum | cut -d' ' -f1)" = "$expected_sha"
+            printf '%s' "$cleaned"
+          }
+          {
+            verify_chunk .github/remote_data_stage1.part01 2500 04741158419a8377b745c2e9c50546677aa2e182be4dd1f31d9eae7ff6cf9e65
+            verify_chunk .github/remote_data_stage1.part02a 1250 be0ccde475c6136d8a738731d29020d8efe8911d8723f94bd425575c997518c9
+            verify_chunk .github/remote_data_stage1.part02b 1250 08c4fe02152464ec407a0ddbc7812fcf15191b293adfb8888a7aea22bce601cf
+            verify_chunk .github/remote_data_stage1.part03 2500 d3b2e4f798038b0fc678c84cd5515380572b35c6032be6d824b70512819338e9
+            verify_chunk .github/remote_data_stage1.part04 2124 c4de313f71a2da069c00cf8075924024d77ee4664a37c9593013a8df5a3ab9fb
+          } > /tmp/remote_data_stage1.b64
+          test "$(sha256sum /tmp/remote_data_stage1.b64 | cut -d' ' -f1)" = 9628593201373b78af534b3295454d24731e24ee78d4cf7be2cb0b5213973df2
+          base64 -d /tmp/remote_data_stage1.b64 | gzip -d > /tmp/remote_data_stage1.py
+          test "$(sha256sum /tmp/remote_data_stage1.py | cut -d' ' -f1)" = 16b68ddb56abe77920cdbe74d7f49f5be27e373937c2e28933ea54615744817f
+
+      - name: Apply transformation
+        run: python3 /tmp/remote_data_stage1.py
+
+      - name: Capture rustfmt diagnostic
+        id: fmt
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check 2>&1 | tee /tmp/rustfmt.log
+
+      - name: Collect diagnostic files
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p /tmp/remote-data-consent-format-diagnostic
+          cp /tmp/rustfmt.log /tmp/remote-data-consent-format-diagnostic/rustfmt.log
+          cp src-tauri/src/config/types.rs /tmp/remote-data-consent-format-diagnostic/config-types.rs
+          cp src-tauri/src/config/validation.rs /tmp/remote-data-consent-format-diagnostic/config-validation.rs
+          cp src-tauri/src/config/persistence.rs /tmp/remote-data-consent-format-diagnostic/config-persistence.rs
+          cp src-tauri/src/app_core/runtime_config.rs /tmp/remote-data-consent-format-diagnostic/runtime-config.rs
+          cp src-tauri/src/app_core/planner_redaction.rs /tmp/remote-data-consent-format-diagnostic/planner-redaction.rs
+          cp src-tauri/src/app_core/planning_snapshot.rs /tmp/remote-data-consent-format-diagnostic/planning-snapshot.rs
+          cp src-tauri/src/app_core/remote_data_consent.rs /tmp/remote-data-consent-format-diagnostic/remote-data-consent.rs
+          git diff > /tmp/remote-data-consent-format-diagnostic/transformation.diff
+
+      - name: Upload diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-data-consent-stage1-format-diagnostic
+          path: /tmp/remote-data-consent-format-diagnostic
+          if-no-files-found: error
+
+      - name: Fail when rustfmt failed
+        if: steps.fmt.outcome != 'success'
+        run: exit 1
