@@ -182,7 +182,7 @@ impl AppCore {
             .current_page
             .as_ref()
             .and_then(|page| page.url.as_deref())
-            .and_then(|raw| normalize_http_origin(raw).ok())
+            .and_then(page_origin_from_url)
     }
 
     fn current_remote_planner_high_risk_reason(&self) -> Option<&'static str> {
@@ -448,6 +448,22 @@ fn map_policy_status(
     }
 }
 
+fn page_origin_from_url(raw: &str) -> Option<String> {
+    let parsed = match url::Url::parse(raw.trim()) {
+        Ok(parsed) => parsed,
+        Err(_) => return None,
+    };
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.origin().ascii_serialization() == "null"
+    {
+        return None;
+    }
+    Some(parsed.origin().ascii_serialization())
+}
+
 fn normalize_http_origin(raw: &str) -> Result<String, ToolError> {
     let parsed = url::Url::parse(raw.trim()).map_err(|_| {
         privacy_api_error(
@@ -474,15 +490,21 @@ fn normalize_http_origin(raw: &str) -> Result<String, ToolError> {
     Ok(parsed.origin().ascii_serialization())
 }
 
+fn normalized_endpoint_scope(raw: &str) -> Option<String> {
+    match ProviderEndpointScope::parse(raw) {
+        Ok(scope) => Some(scope.normalized_base_url().to_string()),
+        Err(_) => None,
+    }
+}
+
 fn build_rule_status(
     rule: &RemotePlannerOriginRule,
     current_endpoint: Option<&str>,
 ) -> RemotePlannerOriginRuleStatus {
-    let normalized_rule_endpoint = rule.endpoint_scope.as_deref().and_then(|raw| {
-        ProviderEndpointScope::parse(raw)
-            .ok()
-            .map(|scope| scope.normalized_base_url().to_string())
-    });
+    let normalized_rule_endpoint = rule
+        .endpoint_scope
+        .as_deref()
+        .and_then(normalized_endpoint_scope);
     let endpoint_display = match (&rule.endpoint_scope, &normalized_rule_endpoint) {
         (None, _) => None,
         (Some(_), Some(endpoint)) => Some(endpoint.clone()),
@@ -506,11 +528,10 @@ fn rule_is_stale(rule: &RemotePlannerOriginRule, current_endpoint: Option<&str>)
     if rule.policy_version != REMOTE_DATA_POLICY_VERSION {
         return true;
     }
-    let normalized_rule_endpoint = rule.endpoint_scope.as_deref().and_then(|raw| {
-        ProviderEndpointScope::parse(raw)
-            .ok()
-            .map(|scope| scope.normalized_base_url().to_string())
-    });
+    let normalized_rule_endpoint = rule
+        .endpoint_scope
+        .as_deref()
+        .and_then(normalized_endpoint_scope);
     normalized_rule_endpoint.as_deref() != current_endpoint
 }
 
@@ -595,6 +616,16 @@ fn privacy_api_error(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn page_url_origin_extraction_accepts_paths_without_exposing_them() {
+        assert_eq!(
+            page_origin_from_url("https://EXAMPLE.com:443/private?q=secret#fragment"),
+            Some(String::from("https://example.com"))
+        );
+        assert_eq!(page_origin_from_url("file:///tmp/private"), None);
+        assert_eq!(page_origin_from_url("data:text/plain,private"), None);
+    }
 
     #[test]
     fn origin_normalization_is_strict_and_deterministic() {
