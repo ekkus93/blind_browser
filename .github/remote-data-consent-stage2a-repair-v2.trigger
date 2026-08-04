@@ -1,2 +1,3 @@
-parent = "60b37b1198641b3ae483006a518b6c7c92abff33"
-purpose = "Run the robust count-guarded Stage 2A repair, validate the complete repository, publish the backend consent transaction boundary, and remove every temporary Stage 2A artifact."
+workflow_fix_sha = "c1d8d8c9e84f56474e32aac9719390157cc5cc9f"
+sequence = 2
+purpose = "Run the directly corrected Stage 2A V2 workflow through exact payload reconstruction, guarded repairs, scanners, compilation, strict Clippy, focused and full Rust tests, frontend validation, clean publication, and complete temporary-file cleanup."
