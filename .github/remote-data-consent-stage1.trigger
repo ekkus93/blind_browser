@@ -1,3 +1,3 @@
-exact_trigger_sha_parent = "04a991612f4197a78de5f0f90808d4c41250fff4"
-sequence = 9
-purpose = "Run the simplified stage-one runner with the verified two-brace fixture repair, full validation, and complete temporary-file cleanup."
+exact_trigger_sha_parent = "43d3766ef791c823cbce062c27d23401e0917074"
+sequence = 10
+purpose = "Run stage one with the exact four-space malformed fixture match, two-brace correction, full validation, and complete cleanup."
