@@ -118,6 +118,18 @@ jobs:
           test "$(sha256sum /tmp/remote-data-consent-stage2a.py | cut -d' ' -f1)" = eb8e80c60322db6807e31c08db52f2471017c1e0bf03f25959e523198fd9e363
           python3 -m py_compile /tmp/remote-data-consent-stage2a.py
           python3 /tmp/remote-data-consent-stage2a.py
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("src-tauri/src/app_core/planner_redaction.rs")
+          text = path.read_text()
+          old = "pub(crate) pub(crate) fn high_risk_context_reason"
+          new = "pub(crate) fn high_risk_context_reason"
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f"expected one duplicate visibility, found {count}")
+          path.write_text(text.replace(old, new, 1))
+          PY
           cargo fmt --manifest-path src-tauri/Cargo.toml --all
           git diff --check
 
