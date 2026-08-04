@@ -185,12 +185,8 @@ fn resolve_with_ollama_planner(
     let profile_name = prepared.profile_name.as_str();
     let profile = &prepared.profile;
     let endpoint_scope = &prepared.endpoint_scope;
-    let api_key_result = resolve_secret_ref_for_endpoint(
-        &profile.api_key,
-        "planner",
-        profile_name,
-        endpoint_scope,
-    );
+    let api_key_result =
+        resolve_secret_ref_for_endpoint(&profile.api_key, "planner", profile_name, endpoint_scope);
     let api_key = api_key_result.map_err(|reason| {
         planner_interpretation_unavailable_error(
             "planner_secret_unavailable",
