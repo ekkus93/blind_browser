@@ -55,7 +55,8 @@ jobs:
           }
           {
             verify_chunk .github/remote_data_stage1.part01 2500 04741158419a8377b745c2e9c50546677aa2e182be4dd1f31d9eae7ff6cf9e65
-            verify_chunk .github/remote_data_stage1.part02 2500 60fadf385c4e72617194a28a03a7055d1079a567d39e5f1e43d7cb4ac4f4b6da
+            verify_chunk .github/remote_data_stage1.part02a 1250 be0ccde475c6136d8a738731d29020d8efe8911d8723f94bd425575c997518c9
+            verify_chunk .github/remote_data_stage1.part02b 1250 08c4fe02152464ec407a0ddbc7812fcf15191b293adfb8888a7aea22bce601cf
             verify_chunk .github/remote_data_stage1.part03 2500 d3b2e4f798038b0fc678c84cd5515380572b35c6032be6d824b70512819338e9
             verify_chunk .github/remote_data_stage1.part04 2124 c4de313f71a2da069c00cf8075924024d77ee4664a37c9593013a8df5a3ab9fb
           } > /tmp/remote_data_stage1.b64
@@ -158,6 +159,8 @@ jobs:
           rm -f .github/remote_data_stage1.py.gz.b64
           rm -f .github/remote_data_stage1.part01
           rm -f .github/remote_data_stage1.part02
+          rm -f .github/remote_data_stage1.part02a
+          rm -f .github/remote_data_stage1.part02b
           rm -f .github/remote_data_stage1.part03
           rm -f .github/remote_data_stage1.part04
           rm -f /tmp/remote_data_stage1.py /tmp/remote_data_stage1.py.gz /tmp/remote_data_stage1.b64
@@ -170,6 +173,8 @@ jobs:
           test ! -e .github/remote_data_stage1.py.gz.b64
           test ! -e .github/remote_data_stage1.part01
           test ! -e .github/remote_data_stage1.part02
+          test ! -e .github/remote_data_stage1.part02a
+          test ! -e .github/remote_data_stage1.part02b
           test ! -e .github/remote_data_stage1.part03
           test ! -e .github/remote_data_stage1.part04
           git commit -m "feat: add versioned remote data privacy policy foundation"
