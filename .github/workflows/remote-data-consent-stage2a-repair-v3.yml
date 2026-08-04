@@ -145,13 +145,16 @@ jobs:
               "pnpm test:ui": "run_logged frontend-tests pnpm test:ui",
               "pnpm build": "run_logged frontend-build pnpm build",
           }
+          had_trailing_newline = text.endswith("\n")
+          lines = text.splitlines()
           for old, new in validation_commands.items():
-              count = text.count(old)
+              count = lines.count(old)
               if count != 1:
                   raise SystemExit(
-                      f'Stage 2A logged validation insertion: expected one {old!r}, found {count}'
+                      f'Stage 2A logged validation insertion: expected one whole line {old!r}, found {count}'
                   )
-              text = text.replace(old, new, 1)
+              lines = [new if line == old else line for line in lines]
+          text = "\n".join(lines) + ("\n" if had_trailing_newline else "")
 
           cleanup_anchor = "rm -f .github/remote-data-consent-stage2a-v2-run.sh\n"
           if text.count(cleanup_anchor) != 1:
