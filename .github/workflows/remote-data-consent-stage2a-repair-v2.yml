@@ -209,7 +209,17 @@ jobs:
           python3 scripts/check-sensitive-diagnostics.py
 
       - name: Check default feature configuration
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+        shell: bash
+        run: |
+          set +e
+          cargo check --manifest-path src-tauri/Cargo.toml > /tmp/remote-data-stage2a-cargo-check.log 2>&1
+          status=$?
+          set -e
+          echo '--- compiler diagnostics ---'
+          grep -n -E 'error\[E[0-9]+\]|^error:|^[[:space:]]*--> src-tauri/' /tmp/remote-data-stage2a-cargo-check.log | tail -n 500 || true
+          echo '--- terminal compiler output ---'
+          tail -n 500 /tmp/remote-data-stage2a-cargo-check.log
+          exit "${status}"
 
       - name: Run strict Clippy
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
