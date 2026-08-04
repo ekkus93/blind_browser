@@ -320,30 +320,59 @@ planner_tests_path.write_text(planner_tests)
 
 redaction_path = Path("src-tauri/src/app_core/planner_redaction.rs")
 redaction = redaction_path.read_text()
-for function_name in [
+legacy_helper_names = [
     "sanitize_remote_planner_input",
     "enforce_remote_planner_privacy",
     "privacy_error",
-]:
-    definition_token = f"fn {function_name}("
-    definition_count = redaction.count(definition_token)
-    if definition_count != 1:
+]
+
+for function_name in legacy_helper_names:
+    declaration_pattern = re.compile(
+        rf"(?m)^(?P<indent>[ \t]*)(?P<visibility>pub\(crate\)\s+)?fn {function_name}\("
+    )
+    declaration_matches = list(declaration_pattern.finditer(redaction))
+    if len(declaration_matches) != 1:
         raise SystemExit(
-            f"test-only legacy helper repair: expected one {function_name} definition, "
-            f"found {definition_count}"
+            f"test-only legacy helper repair: expected one {function_name} declaration, "
+            f"found {len(declaration_matches)}"
         )
-    definition_index = redaction.index(definition_token)
-    line_start = redaction.rfind("\n", 0, definition_index) + 1
-    previous_line_start = redaction.rfind("\n", 0, max(0, line_start - 1)) + 1
-    previous_line = redaction[previous_line_start:line_start].strip()
-    if previous_line != "#[cfg(test)]":
-        indentation = redaction[line_start:definition_index]
-        indentation = indentation[: len(indentation) - len(indentation.lstrip())]
-        redaction = (
-            redaction[:line_start]
-            + f"{indentation}#[cfg(test)]\n"
-            + redaction[line_start:]
+    declaration = declaration_matches[0]
+    indent = declaration.group("indent")
+    visibility = declaration.group("visibility") or ""
+    declaration_start = declaration.start()
+    cfg_line = f"{indent}#[cfg(test)]\n"
+    prefix = redaction[:declaration_start]
+    if prefix.endswith(cfg_line):
+        prefix = prefix[: -len(cfg_line)]
+    replacement = f"{cfg_line}{indent}{visibility}fn {function_name}("
+    redaction = prefix + replacement + redaction[declaration.end():]
+
+for function_name in legacy_helper_names:
+    declaration_match = re.search(
+        rf"(?m)^[ \t]*(?:pub\(crate\)\s+)?fn {function_name}\(",
+        redaction,
+    )
+    if declaration_match is None:
+        raise SystemExit(
+            f"legacy helper ToolError repair: {function_name} declaration was not found"
         )
+    open_index = redaction.find("{", declaration_match.start())
+    if open_index == -1:
+        raise SystemExit(
+            f"legacy helper ToolError repair: {function_name} body was not found"
+        )
+    close_index = find_matching_brace(redaction, open_index)
+    function_source = redaction[declaration_match.start(): close_index + 1]
+    function_source = re.sub(
+        r"(?<!crate::commands::)\bToolError\b",
+        "crate::commands::ToolError",
+        function_source,
+    )
+    redaction = (
+        redaction[:declaration_match.start()]
+        + function_source
+        + redaction[close_index + 1:]
+    )
 
 for import_line in [
     "use super::remote_data_consent::{evaluate_remote_planner_policy, RemotePlannerPolicyResult};\n",
@@ -377,11 +406,24 @@ if re.search(r"\bToolError\b", commands_body):
         + commands_body
         + redaction[commands_import_match.end("body") :]
     )
-    commands_block_end = redaction.find("\n};", commands_import_match.start()) + 3
-    redaction = (
-        redaction[:commands_block_end]
-        + "\n#[cfg(test)]\nuse crate::commands::ToolError;"
-        + redaction[commands_block_end:]
+
+redaction, test_tool_error_import_count = re.subn(
+    r"(?m)^#\[cfg\(test\)\]\nuse crate::commands::ToolError;\n?",
+    "",
+    redaction,
+)
+if test_tool_error_import_count > 1:
+    raise SystemExit(
+        "test-only legacy helper repair: duplicate ToolError test imports were found"
     )
+
+for function_name in legacy_helper_names:
+    adjacency_pattern = re.compile(
+        rf"(?m)^#\[cfg\(test\)\]\n(?:pub\(crate\)\s+)?fn {function_name}\("
+    )
+    if len(adjacency_pattern.findall(redaction)) != 1:
+        raise SystemExit(
+            f"test-only legacy helper repair: {function_name} lacks one adjacent cfg(test)"
+        )
 
 redaction_path.write_text(redaction)
