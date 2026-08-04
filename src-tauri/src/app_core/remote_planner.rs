@@ -185,20 +185,16 @@ fn resolve_with_ollama_planner(
     let profile_name = prepared.profile_name.as_str();
     let profile = &prepared.profile;
     let endpoint_scope = &prepared.endpoint_scope;
-    let api_key = resolve_secret_ref_for_endpoint(
-        &profile.api_key,
-        "planner",
-        profile_name,
-        endpoint_scope,
-    )
-    .map_err(|reason| {
-        planner_interpretation_unavailable_error(
-            "planner_secret_unavailable",
-            "Ollama planner API key placeholder could not be resolved for the configured endpoint",
-            false,
-            Some(serde_json::json!({ "reason": reason })),
-        )
-    })?;
+    let api_key =
+        resolve_secret_ref_for_endpoint(&profile.api_key, "planner", profile_name, endpoint_scope)
+            .map_err(|reason| {
+                planner_interpretation_unavailable_error(
+                    "planner_secret_unavailable",
+                    "Ollama planner API key placeholder could not be resolved for the configured endpoint",
+                    false,
+                    Some(serde_json::json!({ "reason": reason })),
+                )
+            })?;
     let http_client = credential_async_client(profile.timeout_ms).map_err(|reason| {
         planner_interpretation_unavailable_error(
             "planner_request_build_failed",
