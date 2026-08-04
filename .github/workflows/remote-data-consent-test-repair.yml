@@ -1,0 +1,199 @@
+name: Remote Data Consent Test Repair
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/remote-data-consent-test-repair.yml
+
+permissions:
+  contents: write
+  statuses: write
+
+concurrency:
+  group: remote-data-consent-test-repair
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Publish repair pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state=pending \
+            -f context='ci/remote-data-consent-test-repair' \
+            -f description='Remote data consent test repair is running' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install Ubuntu native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Apply count-guarded fixture migration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("src-tauri/src/app_core/planner_redaction.rs")
+          text = path.read_text()
+
+          def replace_exact(old: str, new: str, expected: int, label: str) -> None:
+              global text
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f"{label}: expected {expected} occurrence(s), found {count}")
+              text = text.replace(old, new)
+
+          replace_exact(
+              "    use crate::config::{HighRiskOriginPolicy, ProviderMode};\n",
+              "    use crate::config::{\n        HighRiskOriginPolicy, PersistedOriginDecision, ProviderMode,\n        RemotePlannerNetworkMode, RemotePlannerOriginRule, REMOTE_DATA_POLICY_VERSION,\n    };\n",
+              1,
+              "planner privacy test imports",
+          )
+
+          replace_exact(
+              "            high_risk_origin_policy: HighRiskOriginPolicy::Block,\n            ..Default::default()\n",
+              "            high_risk_origin_policy: HighRiskOriginPolicy::Block,\n            network_mode: RemotePlannerNetworkMode::AllowSanitizedNonHighRisk,\n            ..Default::default()\n",
+              1,
+              "network privacy fixture",
+          )
+
+          replace_exact(
+              '"remote_planner_high_risk_context_blocked"',
+              '"remote_data_high_risk_blocked"',
+              3,
+              "high-risk canonical error code",
+          )
+          replace_exact(
+              '"remote_planner_network_consent_required"',
+              '"remote_data_consent_required"',
+              1,
+              "consent-required canonical error code",
+          )
+          replace_exact(
+              "        privacy.local_only = true;\n",
+              "        privacy.network_mode = RemotePlannerNetworkMode::LocalOnly;\n",
+              1,
+              "local-only fixture field",
+          )
+          replace_exact(
+              '"remote_planner_local_only_blocked"',
+              '"remote_data_local_only"',
+              1,
+              "local-only canonical error code",
+          )
+          replace_exact(
+              "        privacy.local_only = false;\n        privacy.blocked_origins = vec![String::from(\"https://example.com\")];\n",
+              "        privacy.network_mode = RemotePlannerNetworkMode::AllowSanitizedNonHighRisk;\n        privacy.origin_rules = vec![RemotePlannerOriginRule {\n            page_origin: String::from(\"https://example.com\"),\n            decision: PersistedOriginDecision::Block,\n            endpoint_scope: None,\n            policy_version: REMOTE_DATA_POLICY_VERSION,\n            created_at_ms: 1,\n        }];\n",
+              1,
+              "origin-block fixture migration",
+          )
+          replace_exact(
+              '"remote_planner_origin_blocked"',
+              '"remote_data_origin_blocked"',
+              1,
+              "origin-block canonical error code",
+          )
+
+          path.write_text(text)
+          PY
+
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all
+          git diff --check
+
+      - name: Run security scanners
+        shell: bash
+        run: |
+          bash scripts/check-silent-fallbacks.sh
+          python3 scripts/check-security-fallbacks.py --self-test
+          python3 scripts/check-security-fallbacks.py
+          python3 scripts/check-security-fallback-inventory.py --self-test
+          python3 scripts/check-security-fallback-inventory.py
+          python3 scripts/check-sensitive-diagnostics.py --self-test
+          python3 scripts/check-sensitive-diagnostics.py
+
+      - name: Run strict Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Run focused planner-redaction tests
+        run: xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features app_core::planner_redaction::tests -- --nocapture
+
+      - name: Run full Rust tests
+        run: xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features
+
+      - name: Publish repaired clean implementation
+        shell: bash
+        run: |
+          rm -f .github/workflows/remote-data-consent-test-repair.yml
+          rm -f .github/workflows/remote-data-consent-clippy-diagnostic.yml
+          rm -f .github/workflows/remote-data-consent-rust-test-diagnostic.yml
+          rm -f .github/remote-data-consent-stage1-permanent-ci.trigger
+          rm -f .github/remote-data-consent-rust-test-diagnostic.trigger
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          test -n "$(git status --porcelain)"
+          test ! -e .github/workflows/remote-data-consent-test-repair.yml
+          test ! -e .github/workflows/remote-data-consent-clippy-diagnostic.yml
+          test ! -e .github/workflows/remote-data-consent-rust-test-diagnostic.yml
+          test ! -e .github/remote-data-consent-stage1-permanent-ci.trigger
+          git commit -m "fix: align planner privacy tests with versioned policy"
+          git push origin HEAD:master
+
+      - name: Publish repair conclusion
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          if test "${JOB_STATUS}" = success; then
+            state=success
+            description='Remote data consent test repair passed'
+          else
+            state=failure
+            description='Remote data consent test repair failed'
+          fi
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state="${state}" \
+            -f context='ci/remote-data-consent-test-repair' \
+            -f description="${description}" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
