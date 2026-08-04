@@ -1,7 +1,9 @@
 use std::sync::{Arc, Mutex};
 
 use crate::app_core::AppCore;
-use crate::commands::ToolError;
+use crate::commands::{
+    RemotePlannerPrivacyOperation, RemotePlannerPrivacyOperationResult, ToolError,
+};
 use crate::lock_app_core;
 
 #[derive(serde::Serialize)]
@@ -13,15 +15,6 @@ pub struct SetConfirmationThresholdData {
 #[derive(serde::Serialize)]
 pub struct SetAllowClickWithoutConfirmationData {
     allow_click_without_confirmation: bool,
-    changed: bool,
-}
-
-#[derive(serde::Serialize)]
-pub struct SetRemotePlannerPrivacyData {
-    consent_to_remote_page_data: bool,
-    local_only: bool,
-    blocked_origins: Vec<String>,
-    high_risk_origin_policy: String,
     changed: bool,
 }
 
@@ -94,34 +87,84 @@ pub fn set_allow_click_without_confirmation(
 pub fn set_remote_planner_privacy_settings(
     request_id: String,
     timeout_ms: Option<u64>,
-    consent_to_remote_page_data: bool,
-    local_only: bool,
-    blocked_origins: Vec<String>,
+    consent_to_remote_page_data: Option<bool>,
+    local_only: Option<bool>,
+    blocked_origins: Option<Vec<String>>,
+    operation: Option<RemotePlannerPrivacyOperation>,
     app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
-) -> Result<SetRemotePlannerPrivacyData, ToolError> {
+) -> Result<RemotePlannerPrivacyOperationResult, ToolError> {
     let _ = request_id;
     let _ = timeout_ms;
     let mut app_core = lock_app_core(&app_core)?;
-    let previous = app_core.config.remote_planner_privacy.clone();
-    app_core
-        .set_remote_planner_privacy_settings(
-            consent_to_remote_page_data,
-            local_only,
-            blocked_origins,
-        )
-        .map_err(|error| ToolError {
-            code: String::from("remote_planner_privacy_persist_failed"),
-            message: format!("Failed to persist the remote planner privacy policy: {error}"),
-            retryable: false,
-            details: None,
-        })?;
+    let legacy_requested = consent_to_remote_page_data.is_some()
+        || local_only.is_some()
+        || blocked_origins.is_some();
+
+    let changed = match operation {
+        Some(_) if legacy_requested => {
+            return Err(ToolError {
+                code: String::from("remote_data_privacy_operation_ambiguous"),
+                message: String::from(
+                    "typed remote-data privacy operations cannot be combined with legacy settings fields",
+                ),
+                retryable: false,
+                details: None,
+            });
+        }
+        Some(operation) => app_core.apply_remote_planner_privacy_operation(operation)?,
+        None if !legacy_requested => false,
+        None => {
+            let consent_to_remote_page_data = consent_to_remote_page_data.ok_or_else(|| ToolError {
+                code: String::from("remote_data_privacy_legacy_fields_incomplete"),
+                message: String::from(
+                    "legacy remote-data privacy updates require consent, local-only, and blocked-origin fields",
+                ),
+                retryable: false,
+                details: None,
+            })?;
+            let local_only = local_only.ok_or_else(|| ToolError {
+                code: String::from("remote_data_privacy_legacy_fields_incomplete"),
+                message: String::from(
+                    "legacy remote-data privacy updates require consent, local-only, and blocked-origin fields",
+                ),
+                retryable: false,
+                details: None,
+            })?;
+            let blocked_origins = blocked_origins.ok_or_else(|| ToolError {
+                code: String::from("remote_data_privacy_legacy_fields_incomplete"),
+                message: String::from(
+                    "legacy remote-data privacy updates require consent, local-only, and blocked-origin fields",
+                ),
+                retryable: false,
+                details: None,
+            })?;
+            let previous = app_core.config.remote_planner_privacy.clone();
+            app_core
+                .set_remote_planner_privacy_settings(
+                    consent_to_remote_page_data,
+                    local_only,
+                    blocked_origins,
+                )
+                .map_err(|error| ToolError {
+                    code: String::from("remote_planner_privacy_persist_failed"),
+                    message: format!("Failed to persist the remote planner privacy policy: {error}"),
+                    retryable: false,
+                    details: None,
+                })?;
+            app_core.config.remote_planner_privacy != previous
+        }
+    };
+
     let current = app_core.config.remote_planner_privacy.clone();
-    Ok(SetRemotePlannerPrivacyData {
+    let status = app_core.current_remote_planner_privacy_status();
+    Ok(RemotePlannerPrivacyOperationResult {
+        status,
+        changed,
+        network_mode: current.network_mode,
         consent_to_remote_page_data: current.consent_to_remote_page_data,
         local_only: current.local_only,
-        blocked_origins: current.blocked_origins.clone(),
+        blocked_origins: current.blocked_origins,
         high_risk_origin_policy: String::from("block"),
-        changed: current != previous,
     })
 }
 

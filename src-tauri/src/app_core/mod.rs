@@ -138,6 +138,7 @@ mod tool_executor;
 mod narration;
 mod remote_data_consent;
 mod remote_planner;
+mod remote_privacy_api;
 mod runtime_config;
 mod state_snapshots;
 

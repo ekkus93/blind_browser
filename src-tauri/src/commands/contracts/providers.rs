@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::{PersistedOriginDecision, RemotePlannerNetworkMode};
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct AgentStateData {
@@ -158,6 +159,107 @@ pub struct RemotePlannerSettings {
     pub blocked_origins: Vec<String>,
     pub high_risk_origin_policy: String,
     pub remote_data_notice: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RemotePlannerEffectiveDecision {
+    LoopbackLocal,
+    LocalOnly,
+    HighRiskBlocked,
+    OriginBlocked,
+    AllowedGlobal,
+    AllowedPersistent,
+    AllowedSession,
+    ConsentRequired,
+    OriginUnavailable,
+    PlannerUnavailable,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct RemotePlannerConsentChallengeSummary {
+    pub challenge_id: String,
+    pub request_id: String,
+    pub page_origin: String,
+    pub endpoint_display: String,
+    pub profile_name: String,
+    pub model_label: String,
+    pub policy_version: u32,
+    pub disclosure_classes: Vec<RemotePlannerDisclosureClass>,
+    pub disclosure_counts: RemotePlannerDisclosureCounts,
+    pub expires_at_ms: u64,
+    pub allow_once: bool,
+    pub allow_session: bool,
+    pub allow_persistent: bool,
+    pub block_persistent: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct RemotePlannerOriginRuleStatus {
+    pub page_origin: String,
+    pub decision: PersistedOriginDecision,
+    pub endpoint_scope: Option<String>,
+    pub endpoint_display: Option<String>,
+    pub policy_version: u32,
+    pub created_at_ms: u64,
+    pub stale: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct RemotePlannerPrivacyStatus {
+    pub network_mode: RemotePlannerNetworkMode,
+    pub endpoint_scope: Option<String>,
+    pub endpoint_display: Option<String>,
+    pub endpoint_is_loopback: Option<bool>,
+    pub current_page_origin: Option<String>,
+    pub effective_decision: RemotePlannerEffectiveDecision,
+    pub reason_code: Option<String>,
+    pub persistent_rule: Option<PersistedOriginDecision>,
+    pub session_grant_active: bool,
+    pub pending_challenge: Option<RemotePlannerConsentChallengeSummary>,
+    pub policy_version: u32,
+    pub persistent_rule_count: usize,
+    pub stale_allow_rule_count: usize,
+    pub persistent_rules: Vec<RemotePlannerOriginRuleStatus>,
+    pub migration_notice_pending: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(tag = "operation", rename_all = "snake_case")]
+pub enum RemotePlannerPrivacyOperation {
+    GetStatus,
+    SetNetworkMode {
+        network_mode: RemotePlannerNetworkMode,
+    },
+    UpsertOriginRule {
+        page_origin: String,
+        decision: PersistedOriginDecision,
+    },
+    UpsertCurrentOriginRule {
+        decision: PersistedOriginDecision,
+    },
+    RevokeOriginRule {
+        page_origin: String,
+        decision: PersistedOriginDecision,
+        endpoint_scope: Option<String>,
+    },
+    ClearSessionGrants,
+    ClearPersistentAllows,
+    ClearAllPersistentRules {
+        confirmed: bool,
+    },
+    AcknowledgeMigrationNotice,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct RemotePlannerPrivacyOperationResult {
+    pub status: RemotePlannerPrivacyStatus,
+    pub changed: bool,
+    pub network_mode: RemotePlannerNetworkMode,
+    pub consent_to_remote_page_data: bool,
+    pub local_only: bool,
+    pub blocked_origins: Vec<String>,
+    pub high_risk_origin_policy: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
