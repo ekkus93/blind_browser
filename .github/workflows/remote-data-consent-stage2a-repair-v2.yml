@@ -129,13 +129,25 @@ jobs:
               1,
               "duplicate high-risk helper visibility",
           )
-          replace_exact(
-              "src-tauri/src/commands/contracts/planner.rs",
-              "use crate::app_core::remote_data_consent::RemotePlannerConsentChallenge;\n",
-              "",
-              1,
-              "duplicate private consent challenge import",
+
+          planner_contracts_path = Path(
+              "src-tauri/src/commands/contracts/planner.rs"
           )
+          planner_contracts = planner_contracts_path.read_text()
+          private_import = (
+              "use crate::app_core::remote_data_consent::"
+              "RemotePlannerConsentChallenge;\n"
+          )
+          private_import_count = planner_contracts.count(private_import)
+          if private_import_count > 1:
+              raise SystemExit(
+                  "duplicate private consent challenge import: "
+                  f"expected at most one occurrence, found {private_import_count}"
+              )
+          if private_import_count == 1:
+              planner_contracts_path.write_text(
+                  planner_contracts.replace(private_import, "", 1)
+              )
 
           consent_path = Path("src-tauri/src/app_core/remote_data_consent.rs")
           consent = consent_path.read_text()
@@ -226,10 +238,14 @@ jobs:
           rm -f .github/workflows/remote-data-consent-stage2a-repair.yml
           rm -f .github/workflows/remote-data-consent-stage2a-repair-patcher.yml
           rm -f .github/workflows/remote-data-consent-stage2a-repair-v2.yml
+          rm -f .github/workflows/remote-data-consent-stage2a-v2-guard-fix.yml
+          rm -f .github/workflows/remote-data-consent-stage2a-v2-guard-fix-line.yml
           rm -f .github/remote-data-consent-stage2a.trigger
           rm -f .github/remote-data-consent-stage2a-repair.trigger
           rm -f .github/remote-data-consent-stage2a-repair-patcher.trigger
           rm -f .github/remote-data-consent-stage2a-repair-v2.trigger
+          rm -f .github/remote-data-consent-stage2a-v2-guard-fix.trigger
+          rm -f .github/remote-data-consent-stage2a-v2-guard-fix-line.trigger
           rm -f .github/remote-data-consent-stage2a.payload{00..11}
           rm -f /tmp/remote-data-consent-stage2a.py /tmp/remote-data-consent-stage2a.py.gz.b64
           git config user.name github-actions[bot]
@@ -241,10 +257,14 @@ jobs:
             .github/workflows/remote-data-consent-stage2a-repair.yml \
             .github/workflows/remote-data-consent-stage2a-repair-patcher.yml \
             .github/workflows/remote-data-consent-stage2a-repair-v2.yml \
+            .github/workflows/remote-data-consent-stage2a-v2-guard-fix.yml \
+            .github/workflows/remote-data-consent-stage2a-v2-guard-fix-line.yml \
             .github/remote-data-consent-stage2a.trigger \
             .github/remote-data-consent-stage2a-repair.trigger \
             .github/remote-data-consent-stage2a-repair-patcher.trigger \
-            .github/remote-data-consent-stage2a-repair-v2.trigger; do
+            .github/remote-data-consent-stage2a-repair-v2.trigger \
+            .github/remote-data-consent-stage2a-v2-guard-fix.trigger \
+            .github/remote-data-consent-stage2a-v2-guard-fix-line.trigger; do
             test ! -e "${path}"
           done
           for path in .github/remote-data-consent-stage2a.payload{00..11}; do test ! -e "${path}"; done
