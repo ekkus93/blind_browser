@@ -143,6 +143,11 @@ pub(crate) enum DirectCommandArtifactPolicy {
     VerifiedAtomicActivation,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DirectCommandExternalLaunchPolicy {
+    ValidatedHttpUrlWithUserGesture,
+}
+
 pub(crate) const fn direct_command_network_policy(
     name: DirectCommandName,
 ) -> Option<DirectCommandNetworkPolicy> {
@@ -186,6 +191,17 @@ pub(crate) const fn direct_command_page_context_policy(
     match name {
         DirectCommandName::ResolveCommand | DirectCommandName::TranscribeAndExecuteCommand => {
             Some(DirectCommandPageContextPolicy::SanitizedRemotePlanner)
+        }
+        _ => None,
+    }
+}
+
+pub(crate) const fn direct_command_external_launch_policy(
+    name: DirectCommandName,
+) -> Option<DirectCommandExternalLaunchPolicy> {
+    match name {
+        DirectCommandName::OpenExternalUrl => {
+            Some(DirectCommandExternalLaunchPolicy::ValidatedHttpUrlWithUserGesture)
         }
         _ => None,
     }
@@ -482,6 +498,11 @@ pub(crate) fn validate_direct_command_registry() {
             direct_command_artifact_policy(*name).is_some(),
             "artifact direct commands require verified activation mapping"
         );
+        assert_eq!(
+            policy.launches_external_program,
+            direct_command_external_launch_policy(*name).is_some(),
+            "external launch commands require validated URL/user-gesture mapping"
+        );
         std::hint::black_box((policy.class, policy.mutates_runtime_state));
     }
 }
@@ -540,6 +561,12 @@ mod tests {
             assert_eq!(
                 policy.downloads_executable_or_model_artifact,
                 direct_command_artifact_policy(*name).is_some(),
+                "{}",
+                name.as_handler_name()
+            );
+            assert_eq!(
+                policy.launches_external_program,
+                direct_command_external_launch_policy(*name).is_some(),
                 "{}",
                 name.as_handler_name()
             );

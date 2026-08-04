@@ -25,6 +25,7 @@ pub(crate) const MAX_SELECTED_PLANNER_SKILLS: usize = 3;
 pub struct PlannerSkillSelection {
     pub active_skill_names: Vec<String>,
     pub relevant_skill_summaries: Vec<SkillSummary>,
+    pub diagnostics: SkillDiscoveryDiagnostics,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -32,6 +33,51 @@ pub enum SkillSource {
     Project,
     User,
     Bundled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct SkillLoadWarning {
+    pub source: String,
+    pub code: String,
+    pub count: usize,
+    pub skill: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct SkillDiscoveryDiagnostics {
+    pub warnings: Vec<SkillLoadWarning>,
+}
+
+impl SkillDiscoveryDiagnostics {
+    pub(crate) fn push(&mut self, source: &str, code: &str, count: usize, skill: Option<String>) {
+        if count == 0 {
+            return;
+        }
+        if let Some(existing) = self.warnings.iter_mut().find(|warning| {
+            warning.source == source && warning.code == code && warning.skill == skill
+        }) {
+            existing.count = existing.count.saturating_add(count);
+            return;
+        }
+        self.warnings.push(SkillLoadWarning {
+            source: source.to_string(),
+            code: code.to_string(),
+            count,
+            skill,
+        });
+    }
+
+    pub(crate) fn extend(&mut self, other: Self) {
+        for warning in other.warnings {
+            self.push(&warning.source, &warning.code, warning.count, warning.skill);
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DiscoveredSkills {
+    pub(crate) skills: Vec<LoadedSkill>,
+    pub(crate) diagnostics: SkillDiscoveryDiagnostics,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,7 +148,9 @@ pub fn build_planner_skill_selection(
     transcript: &str,
     available_tools: &[AvailableTool],
 ) -> PlannerSkillSelection {
-    let loaded_skills = discover_skills(project_root, user_skill_root, available_tools);
+    let discovery = discover_skills(project_root, user_skill_root, available_tools);
+    let diagnostics = discovery.diagnostics;
+    let loaded_skills = discovery.skills;
     let mut active_skill_names = loaded_skills
         .iter()
         .map(|skill| skill.summary.name.clone())
@@ -137,6 +185,7 @@ pub fn build_planner_skill_selection(
     PlannerSkillSelection {
         active_skill_names,
         relevant_skill_summaries,
+        diagnostics,
     }
 }
 

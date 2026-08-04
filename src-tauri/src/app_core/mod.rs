@@ -8,7 +8,7 @@ static FALLBACK_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 use crate::asr::AsrController;
 use crate::audio_io::AudioPlaybackController;
 use crate::browser::{BrowserController, BrowserError, BrowserSessionConfig};
-use crate::commands::{ToolError, ToolName, ToolResult};
+use crate::commands::{SkillDiscoveryDiagnostics, ToolError, ToolName, ToolResult};
 use crate::config::{AppConfig, AudioSettings, ConfigError};
 use crate::ocr::OcrController;
 use crate::state::AppState;
@@ -74,6 +74,7 @@ pub struct AppCore {
     pub state: AppState,
     pub browser: BrowserController,
     recent_field_context: Option<RecentFieldContext>,
+    last_skill_discovery_diagnostics: SkillDiscoveryDiagnostics,
     image_cache: ImageCache,
     ocr: OcrController,
     tts: TtsController,
@@ -153,6 +154,7 @@ impl AppCore {
             state,
             browser,
             recent_field_context: None,
+            last_skill_discovery_diagnostics: SkillDiscoveryDiagnostics::default(),
             image_cache: ImageCache::default(),
             ocr: OcrController::new(),
             tts: TtsController::new(),

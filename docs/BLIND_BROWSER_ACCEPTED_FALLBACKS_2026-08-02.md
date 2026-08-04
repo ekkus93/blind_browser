@@ -24,25 +24,21 @@ Every accepted fallback must satisfy all of these rules:
 
 ## Disposition policy and counts
 
-- `permanent_accepted`: **21**
-- `temporary_accepted`: **5**
-- converted or removed in this pass: **13**
+- `permanent_accepted`: **23**
+- `temporary_accepted`: **0**
+- converted or removed across post-P8 passes: **17**
 
 `permanent_accepted` is reserved for capability-reducing, presentation-only, checked-conversion, or feature-disabled behavior that does not hide protected-operation failure. These entries must be reconsidered if they begin affecting authority, persistence success, or a public error contract.
 
-`temporary_accepted` requires an actionable `owner_note` and a concrete `review_due` boundary. All five temporary entries are due **before the release-candidate gate**.
+`temporary_accepted` requires an actionable `owner_note` and a concrete `review_due` boundary. This enforcement pass converted the four remaining command/fill temporary fallbacks and reclassified optional skill intent tags as permanently capability-reducing, leaving no temporary accepted fallback entries.
+
+Every accepted occurrence is now identified by **path + function + normalized expression + occurrence index + adjacent normalized context**. A new duplicate `.ok()` or `.unwrap_or_default()` in an already allowlisted function therefore fails CI instead of inheriting approval.
 
 Permanent CI verifies the live source expression, containing function, complete metadata, valid disposition, and temporary-review requirements. It also verifies the counts and temporary-entry summary in this document.
 
 ## Remaining temporary accepted fallbacks
 
-- `src-tauri/src/app_core/command_dispatch.rs` — `.ok()` in `build_planner_resolution`. Optional candidate discovery failure reduces capability. Replace with a typed candidate-rejection reason before the release-candidate gate when the UI can display it safely.
-- `src-tauri/src/app_core/command_dispatch.rs` — `let current_dir = std::env::current_dir().ok();` in `build_planner_resolution`. Missing optional project context reduces skill discovery only. Replace with a bounded typed project-context diagnostic before the release-candidate gate.
-- `src-tauri/src/app_core/fill_correction.rs` — `.ok()` in `resolve_recent_fill_correction_command`. Invalid optional correction discovery is omitted. Replace with a typed correction-rejection reason before the release-candidate gate.
-- `src-tauri/src/app_core/form_fill/field_focus.rs` — `let search_query = build_find_element_query(&query).ok()?;` in `resolve_direct_focus_field_command`. Failed optional focus-query construction aborts that candidate. Replace with a typed query-construction reason before the release-candidate gate.
-- `src-tauri/src/commands/skill_parser.rs` — `.unwrap_or_default()` in `skill_frontmatter_from_parts`. Missing optional frontmatter text reduces descriptive capability. Replace with typed per-entry parser diagnostics before the release-candidate gate if the settings/status UI can expose them without path leakage.
-
-None of these temporary entries can grant tools, authorize an action, lower confirmation, report a protected side effect as successful, or leak sensitive content. Their exact source and metadata remain CI-enforced.
+None. Any future temporary fallback must carry a unique occurrence identity, actionable owner note, and concrete review boundary.
 
 ## Permanent accepted categories
 
@@ -57,14 +53,17 @@ None of these temporary entries can grant tools, authorize an action, lower conf
 
 ## Converted or removed fallbacks
 
-This pass removed thirteen exact accepted expressions:
+The post-P8 passes removed or converted seventeen exact accepted expressions:
 
 - two ignored URL userinfo mutation results in planner sanitization;
 - three settings/model lookup `.ok()` paths;
 - one settings voice `.unwrap_or_default()` path;
 - one quiet skill-directory `filter_map(Result::ok)` skip;
 - one executor policy-detail serialization `.ok()` expression;
-- five validator policy-detail serialization `.ok()` expressions.
+- five validator policy-detail serialization `.ok()` expressions;
+- project-root and user-skill-root discovery `.ok()` fallbacks;
+- direct focus-query construction `.ok()?`;
+- recent fill-correction candidate `.ok()` omission.
 
 They were replaced by:
 

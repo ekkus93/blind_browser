@@ -13,8 +13,8 @@ use crate::commands::{
     resolve_direct_read_title_command, resolve_direct_repeat_command,
     resolve_direct_status_query_command, resolve_direct_voice_input_command,
     validate_planner_output_with_safety, AvailableTool, ExecutionOutcome, PlannerInput,
-    PlannerOutput, PlannerSafetySettings, PlannerToolHistoryEntry, SerializedToolResult, ToolError,
-    ToolName,
+    PlannerOutput, PlannerSafetySettings, PlannerToolHistoryEntry, SerializedToolResult,
+    SkillDiscoveryDiagnostics, ToolError, ToolName,
 };
 use crate::config::{RemotePlannerPrivacySettings, RemotePlannerProfile};
 
@@ -96,19 +96,29 @@ impl super::AppCore {
 
         let available_tools = planner_available_tools();
         let planner_safety = PlannerSafetySettings::from(&self.config.safety);
-        let current_dir = std::env::current_dir().ok();
-        let user_skill_root = self
-            .app_handle
-            .path()
-            .app_config_dir()
-            .ok()
-            .map(|path| path.join("skills"));
-        let skill_selection = build_planner_skill_selection(
+        let mut context_diagnostics = SkillDiscoveryDiagnostics::default();
+        let current_dir = match std::env::current_dir() {
+            Ok(path) => Some(path),
+            Err(_) => {
+                context_diagnostics.push("project", "project_root_unavailable", 1, None);
+                None
+            }
+        };
+        let user_skill_root = match self.app_handle.path().app_config_dir() {
+            Ok(path) => Some(path.join("skills")),
+            Err(_) => {
+                context_diagnostics.push("user", "user_skill_root_unavailable", 1, None);
+                None
+            }
+        };
+        let mut skill_selection = build_planner_skill_selection(
             current_dir.as_deref(),
             user_skill_root.as_deref(),
             transcript,
             &available_tools,
         );
+        skill_selection.diagnostics.extend(context_diagnostics);
+        self.last_skill_discovery_diagnostics = skill_selection.diagnostics.clone();
 
         if let Some(planner_output) = resolve_direct_browser_visibility_command(
             transcript,

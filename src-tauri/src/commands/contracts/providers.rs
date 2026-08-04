@@ -174,6 +174,8 @@ pub struct RemoteTtsSettings {
     pub voice: Option<String>,
     pub audio_format: Option<RemoteTtsAudioFormat>,
     pub timeout_ms: Option<u64>,
+    pub endpoint_is_loopback: Option<bool>,
+    pub availability_reason: Option<CapabilityAbsenceReason>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -190,6 +192,8 @@ pub struct RemoteAsrSettings {
     pub language: Option<String>,
     pub temperature_milli: Option<u16>,
     pub timeout_ms: Option<u64>,
+    pub endpoint_is_loopback: Option<bool>,
+    pub availability_reason: Option<CapabilityAbsenceReason>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -234,4 +238,5 @@ pub struct GetRuntimeStatusData {
     pub pending_confirmation_id: Option<String>,
     pub pending_plan_execution: Option<PendingPlanExecutionState>,
     pub provider_modes: Option<ProviderSelectionStatus>,
+    pub skill_discovery_diagnostics: SkillDiscoveryDiagnostics,
 }

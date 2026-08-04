@@ -480,3 +480,73 @@ fn post_p8_settings_surface_typed_absence_reasons() {
     assert_eq!(valid.local_tts.download_absence_reason, None);
     assert_eq!(valid.local_asr.download_absence_reason, None);
 }
+
+#[test]
+fn post_p8_enforcement_remote_tts_asr_surface_typed_absence_and_sanitized_urls() {
+    use crate::commands::CapabilityAbsenceReason;
+
+    let mut config = AppConfig::default();
+    config
+        .remote_tts_profiles
+        .get_mut("openai-tts-default")
+        .expect("TTS profile")
+        .base_url = String::from("https://user:pass@tts.example.com:8443/v1?token=secret#fragment");
+    config
+        .remote_asr_profiles
+        .get_mut("openai-transcribe-default")
+        .expect("ASR profile")
+        .base_url = String::from("https://user:pass@asr.example.com:9443/v1?code=secret#fragment");
+    let tts = build_remote_tts_settings(&config);
+    let asr = build_remote_asr_settings(&config);
+    assert_eq!(
+        tts.availability_reason,
+        Some(CapabilityAbsenceReason::InvalidEndpoint)
+    );
+    assert_eq!(
+        asr.availability_reason,
+        Some(CapabilityAbsenceReason::InvalidEndpoint)
+    );
+    assert_eq!(
+        tts.base_url.as_deref(),
+        Some("https://tts.example.com:8443/v1")
+    );
+    assert_eq!(
+        asr.base_url.as_deref(),
+        Some("https://asr.example.com:9443/v1")
+    );
+    for displayed in [
+        tts.base_url.as_deref().unwrap(),
+        asr.base_url.as_deref().unwrap(),
+    ] {
+        assert!(!displayed.contains("user:pass@"));
+        assert!(!displayed.contains('@'));
+        assert!(!displayed.contains("token=secret"));
+        assert!(!displayed.contains("code=secret"));
+        assert!(!displayed.contains('?'));
+        assert!(!displayed.contains('#'));
+    }
+
+    let mut none = AppConfig::default();
+    none.providers.tts.remote_profile = None;
+    none.providers.asr.remote_profile = None;
+    assert_eq!(
+        build_remote_tts_settings(&none).availability_reason,
+        Some(CapabilityAbsenceReason::NotConfigured)
+    );
+    assert_eq!(
+        build_remote_asr_settings(&none).availability_reason,
+        Some(CapabilityAbsenceReason::NotConfigured)
+    );
+
+    let mut missing = AppConfig::default();
+    missing.providers.tts.remote_profile = Some(String::from("missing-tts"));
+    missing.providers.asr.remote_profile = Some(String::from("missing-asr"));
+    assert_eq!(
+        build_remote_tts_settings(&missing).availability_reason,
+        Some(CapabilityAbsenceReason::ProfileMissing)
+    );
+    assert_eq!(
+        build_remote_asr_settings(&missing).availability_reason,
+        Some(CapabilityAbsenceReason::ProfileMissing)
+    );
+}

@@ -12,12 +12,13 @@ pub(crate) fn discover_skills(
     project_root: Option<&Path>,
     user_skill_root: Option<&Path>,
     available_tools: &[AvailableTool],
-) -> Vec<LoadedSkill> {
+) -> DiscoveredSkills {
     let available_tool_names = available_tools
         .iter()
         .map(|tool| tool.name.clone())
         .collect::<Vec<_>>();
     let mut discovered = HashMap::<String, LoadedSkill>::new();
+    let mut diagnostics = SkillDiscoveryDiagnostics::default();
 
     if let Some(project_root) = project_root {
         load_skills_from_directory(
@@ -25,6 +26,7 @@ pub(crate) fn discover_skills(
             SkillSource::Project,
             &available_tool_names,
             &mut discovered,
+            &mut diagnostics,
         );
     }
 
@@ -34,6 +36,7 @@ pub(crate) fn discover_skills(
             SkillSource::User,
             &available_tool_names,
             &mut discovered,
+            &mut diagnostics,
         );
     }
 
@@ -50,7 +53,10 @@ pub(crate) fn discover_skills(
             .or_insert(skill);
     }
 
-    discovered.into_values().collect()
+    DiscoveredSkills {
+        skills: discovered.into_values().collect(),
+        diagnostics,
+    }
 }
 
 fn skill_source_label(source: SkillSource) -> &'static str {
@@ -110,12 +116,14 @@ fn load_skills_from_directory(
     source: SkillSource,
     available_tool_names: &[ToolName],
     discovered: &mut HashMap<String, LoadedSkill>,
+    diagnostics: &mut SkillDiscoveryDiagnostics,
 ) {
     let source_label = skill_source_label(source);
     let entries = match fs::read_dir(skill_root) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
         Err(error) => {
+            diagnostics.push(source_label, "directory_unreadable", 1, None);
             tracing::warn!(
                 source = source_label,
                 error_kind = ?error.kind(),
@@ -127,6 +135,9 @@ fn load_skills_from_directory(
 
     let (entries, entry_warnings) = collect_readable_entries(entries);
     if entry_warnings.skipped_entries > 0 {
+        for (category, count) in &entry_warnings.error_categories {
+            diagnostics.push(source_label, category, *count, None);
+        }
         tracing::warn!(
             source = source_label,
             skipped_entries = entry_warnings.skipped_entries,
@@ -147,6 +158,12 @@ fn load_skills_from_directory(
             Ok(content) => content,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
             Err(error) => {
+                diagnostics.push(
+                    source_label,
+                    "manifest_unreadable",
+                    1,
+                    Some(directory_name.clone()),
+                );
                 tracing::warn!(
                     source = source_label,
                     skill = %directory_name,
@@ -160,6 +177,12 @@ fn load_skills_from_directory(
         match parse_skill_document(&content, source, available_tool_names) {
             Ok(skill) => {
                 if directory_name != skill.summary.name {
+                    diagnostics.push(
+                        source_label,
+                        "name_mismatch",
+                        1,
+                        Some(directory_name.clone()),
+                    );
                     tracing::warn!(
                         source = source_label,
                         expected = %directory_name,
@@ -172,11 +195,17 @@ fn load_skills_from_directory(
                     .entry(skill.summary.name.clone())
                     .or_insert(skill);
             }
-            Err(error) => {
+            Err(_error) => {
+                diagnostics.push(
+                    source_label,
+                    "invalid_manifest",
+                    1,
+                    Some(directory_name.clone()),
+                );
                 tracing::warn!(
                     source = source_label,
                     skill = %directory_name,
-                    error = %error,
+                    error_category = "invalid_manifest",
                     "skipping invalid skill document"
                 );
             }
@@ -186,7 +215,10 @@ fn load_skills_from_directory(
 
 #[cfg(test)]
 mod tests {
-    use super::{collect_readable_entries, skill_directory_label, skill_source_label, SkillSource};
+    use super::{
+        collect_readable_entries, skill_directory_label, skill_source_label,
+        SkillDiscoveryDiagnostics, SkillSource,
+    };
     use std::io;
     use std::path::Path;
 
@@ -200,6 +232,24 @@ mod tests {
         assert_eq!(skill_directory_label(path), "navigation");
         assert!(!skill_directory_label(path).contains("private-user"));
         assert!(!skill_directory_label(path).contains("secret-project"));
+    }
+
+    #[test]
+    fn typed_skill_diagnostics_merge_without_private_paths() {
+        let mut diagnostics = SkillDiscoveryDiagnostics::default();
+        diagnostics.push("project", "permission_denied", 1, None);
+        diagnostics.push("project", "permission_denied", 2, None);
+        diagnostics.push(
+            "user",
+            "invalid_manifest",
+            1,
+            Some(String::from("navigation")),
+        );
+        assert_eq!(diagnostics.warnings.len(), 2);
+        assert_eq!(diagnostics.warnings[0].count, 3);
+        let encoded = serde_json::to_string(&diagnostics).expect("diagnostics serialize");
+        assert!(!encoded.contains("/home/"));
+        assert!(!encoded.contains("private-user"));
     }
 
     #[test]

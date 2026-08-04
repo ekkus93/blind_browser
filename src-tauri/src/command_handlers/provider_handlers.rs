@@ -23,6 +23,41 @@ pub struct SetTtsModelSelectionData {
     changed: bool,
 }
 
+fn completed_remote_planner_connection_settings(
+    profile_name: String,
+    settings: crate::commands::RemotePlannerSettings,
+) -> Result<RemotePlannerConnectionSettingsData, ToolError> {
+    let base_url = settings
+        .base_url
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| ToolError {
+            code: String::from("remote_planner_settings_inconsistent"),
+            message: String::from(
+                "Persisted remote planner settings did not produce a usable sanitized endpoint.",
+            ),
+            retryable: false,
+            details: Some(
+                serde_json::json!({ "availability_reason": settings.availability_reason }),
+            ),
+        })?;
+    let model = settings
+        .model
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| ToolError {
+            code: String::from("remote_planner_settings_inconsistent"),
+            message: String::from(
+                "Persisted remote planner settings did not produce a configured model.",
+            ),
+            retryable: false,
+            details: None,
+        })?;
+    Ok(RemotePlannerConnectionSettingsData {
+        profile_name,
+        base_url,
+        model,
+    })
+}
+
 #[tauri::command]
 pub fn set_asr_provider_selection(
     request_id: String,
@@ -148,11 +183,7 @@ pub fn set_remote_planner_connection_settings(
         })?;
 
     let settings = app_core.current_remote_planner_settings();
-    Ok(RemotePlannerConnectionSettingsData {
-        profile_name,
-        base_url: settings.base_url.unwrap_or_default(),
-        model: settings.model.unwrap_or_default(),
-    })
+    completed_remote_planner_connection_settings(profile_name, settings)
 }
 
 #[tauri::command]
@@ -187,9 +218,41 @@ pub fn reset_remote_planner_connection_settings(
         })?;
 
     let settings = app_core.current_remote_planner_settings();
-    Ok(RemotePlannerConnectionSettingsData {
-        profile_name,
-        base_url: settings.base_url.unwrap_or_default(),
-        model: settings.model.unwrap_or_default(),
-    })
+    completed_remote_planner_connection_settings(profile_name, settings)
+}
+
+#[cfg(test)]
+mod post_p8_enforcement_tests {
+    use super::*;
+    use crate::commands::{CapabilityAbsenceReason, RemotePlannerSettings};
+
+    #[test]
+    fn inconsistent_post_persist_settings_are_typed_failures() {
+        let error = completed_remote_planner_connection_settings(
+            String::from("profile"),
+            RemotePlannerSettings {
+                profile_name: Some(String::from("profile")),
+                availability_reason: Some(CapabilityAbsenceReason::InvalidEndpoint),
+                ..RemotePlannerSettings::default()
+            },
+        )
+        .expect_err("missing endpoint/model must fail");
+        assert_eq!(error.code, "remote_planner_settings_inconsistent");
+    }
+
+    #[test]
+    fn complete_post_persist_settings_are_returned() {
+        let result = completed_remote_planner_connection_settings(
+            String::from("profile"),
+            RemotePlannerSettings {
+                profile_name: Some(String::from("profile")),
+                base_url: Some(String::from("https://example.com/v1")),
+                model: Some(String::from("model")),
+                ..RemotePlannerSettings::default()
+            },
+        )
+        .expect("complete settings");
+        assert_eq!(result.base_url, "https://example.com/v1");
+        assert_eq!(result.model, "model");
+    }
 }

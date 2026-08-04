@@ -188,6 +188,17 @@ export interface ProviderSelectionStatus {
   asr_mode: ProviderMode;
 }
 
+export interface SkillLoadWarning {
+  source: string;
+  code: string;
+  count: number;
+  skill: string | null;
+}
+
+export interface SkillDiscoveryDiagnostics {
+  warnings: SkillLoadWarning[];
+}
+
 export interface TtsModelOption {
   profile_name: string;
   model_label: string;
@@ -299,6 +310,8 @@ export interface RemoteTtsSettings {
   voice: string | null;
   audio_format: RemoteTtsAudioFormat | null;
   timeout_ms: number | null;
+  endpoint_is_loopback: boolean | null;
+  availability_reason: CapabilityAbsenceReason | null;
 }
 
 export interface RemoteAsrSettings {
@@ -314,6 +327,8 @@ export interface RemoteAsrSettings {
   language: string | null;
   temperature_milli: number | null;
   timeout_ms: number | null;
+  endpoint_is_loopback: boolean | null;
+  availability_reason: CapabilityAbsenceReason | null;
 }
 
 export interface SetRemoteApiKeyData {

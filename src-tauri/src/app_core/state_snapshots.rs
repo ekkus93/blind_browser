@@ -140,6 +140,7 @@ impl AppCore {
             } else {
                 None
             },
+            skill_discovery_diagnostics: self.last_skill_discovery_diagnostics.clone(),
         }
     }
 

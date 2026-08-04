@@ -18,6 +18,41 @@ use crate::diagnostic_redaction::sanitize_url_for_display;
 use crate::provider_endpoint::ProviderEndpointScope;
 use crate::tts::{KITTEN_TTS_VOICES, OPENAI_TTS_VOICES};
 
+fn remote_endpoint_status(
+    profile_name: Option<&String>,
+    base_url: Option<&str>,
+    secret_error: Option<&String>,
+) -> (
+    Option<String>,
+    Option<bool>,
+    Option<CapabilityAbsenceReason>,
+) {
+    let Some(_) = profile_name else {
+        return (None, None, Some(CapabilityAbsenceReason::NotConfigured));
+    };
+    let Some(base_url) = base_url else {
+        return (None, None, Some(CapabilityAbsenceReason::ProfileMissing));
+    };
+    match ProviderEndpointScope::parse(base_url) {
+        Ok(scope) => (
+            Some(scope.normalized_base_url().to_string()),
+            Some(scope.is_loopback()),
+            secret_error
+                .is_some()
+                .then_some(CapabilityAbsenceReason::CredentialReferenceMissing),
+        ),
+        Err(_) => (
+            Some(
+                sanitize_url_for_display(base_url)
+                    .map(|safe| safe.value)
+                    .unwrap_or_else(|| String::from("[REDACTED INVALID ENDPOINT]")),
+            ),
+            None,
+            Some(CapabilityAbsenceReason::InvalidEndpoint),
+        ),
+    }
+}
+
 fn remote_provider_label(provider: &RemoteProviderKind) -> RemoteProviderLabel {
     match provider {
         RemoteProviderKind::OpenAi => RemoteProviderLabel::OpenAi,
@@ -199,16 +234,20 @@ pub(crate) fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings
     let profile = profile_name
         .as_ref()
         .and_then(|configured_profile| config.remote_tts_profiles.get(configured_profile));
-
     let (api_key_masked_value, api_key_reference_error) = profile
         .map(|p| masked_secret_status(&p.api_key))
         .unwrap_or((None, None));
+    let (base_url, endpoint_is_loopback, availability_reason) = remote_endpoint_status(
+        profile_name.as_ref(),
+        profile.map(|configured_profile| configured_profile.base_url.as_str()),
+        api_key_reference_error.as_ref(),
+    );
 
     RemoteTtsSettings {
         profile_name,
         provider: profile
             .map(|configured_profile| remote_provider_label(&configured_profile.provider)),
-        base_url: profile.map(|configured_profile| configured_profile.base_url.clone()),
+        base_url,
         model: profile.map(|configured_profile| configured_profile.model.clone()),
         api_key_reference: profile
             .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
@@ -221,6 +260,8 @@ pub(crate) fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings
         voice: profile.map(|configured_profile| configured_profile.voice.clone()),
         audio_format: profile.map(|configured_profile| configured_profile.audio_format.clone()),
         timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
+        endpoint_is_loopback,
+        availability_reason,
     }
 }
 
@@ -229,16 +270,20 @@ pub(crate) fn build_remote_asr_settings(config: &AppConfig) -> RemoteAsrSettings
     let profile = profile_name
         .as_ref()
         .and_then(|configured_profile| config.remote_asr_profiles.get(configured_profile));
-
     let (api_key_masked_value, api_key_reference_error) = profile
         .map(|p| masked_secret_status(&p.api_key))
         .unwrap_or((None, None));
+    let (base_url, endpoint_is_loopback, availability_reason) = remote_endpoint_status(
+        profile_name.as_ref(),
+        profile.map(|configured_profile| configured_profile.base_url.as_str()),
+        api_key_reference_error.as_ref(),
+    );
 
     RemoteAsrSettings {
         profile_name,
         provider: profile
             .map(|configured_profile| remote_provider_label(&configured_profile.provider)),
-        base_url: profile.map(|configured_profile| configured_profile.base_url.clone()),
+        base_url,
         model: profile.map(|configured_profile| configured_profile.model.clone()),
         api_key_reference: profile
             .map(|configured_profile| secret_ref_reference(&configured_profile.api_key)),
@@ -251,6 +296,8 @@ pub(crate) fn build_remote_asr_settings(config: &AppConfig) -> RemoteAsrSettings
         language: profile.and_then(|configured_profile| configured_profile.language.clone()),
         temperature_milli: profile.map(|configured_profile| configured_profile.temperature_milli),
         timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
+        endpoint_is_loopback,
+        availability_reason,
     }
 }
 

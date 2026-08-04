@@ -453,3 +453,14 @@ fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
         BTreeSet::from(["resolve_command", "transcribe_and_execute_command",])
     );
 }
+
+#[test]
+fn source_drift_external_launch_retains_validated_url_and_user_gesture_policy() {
+    let handlers = source("src/command_handlers/url_handlers.rs");
+    let frontend = source("../src/panel-state-setters.ts");
+    let policy = source("src/direct_command_policy.rs");
+    assert!(handlers.contains("validate_external_url"));
+    assert!(frontend.contains("http:") || frontend.contains("https:"));
+    assert!(policy.contains("ValidatedHttpUrlWithUserGesture"));
+    assert!(policy.contains("requires_user_gesture"));
+}

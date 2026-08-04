@@ -283,12 +283,11 @@ pub(crate) fn resolve_recent_fill_correction_command(
             let alternate_element_id = context
                 .candidate_element_ids
                 .iter()
-                .find(|candidate_id| candidate_id.as_str() != active_element_id)
-                .and_then(|candidate_id| {
-                    resolve_typeable_element(current_page, candidate_id)
-                        .ok()
-                        .map(|_| candidate_id.clone())
-                });
+                .find(|candidate_id| {
+                    candidate_id.as_str() != active_element_id
+                        && resolve_typeable_element(current_page, candidate_id.as_str()).is_ok()
+                })
+                .cloned();
             let Some(alternate_element_id) = alternate_element_id else {
                 let planner_output = build_direct_follow_up_output(
                     request_id,

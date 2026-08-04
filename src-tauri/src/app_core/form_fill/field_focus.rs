@@ -101,7 +101,31 @@ pub(crate) fn resolve_direct_focus_field_command(
         visibility_filter: ElementVisibilityFilter::VisibleOnly,
         max_candidates: Some(DEFAULT_FIND_ELEMENT_MAX_CANDIDATES),
     };
-    let search_query = build_find_element_query(&query).ok()?;
+    let search_query = match build_find_element_query(&query) {
+        Ok(search_query) => search_query,
+        Err(_) => {
+            let summary = String::from(
+                "I could not build a safe field-search query. Please name the field more specifically.",
+            );
+            return Some(build_direct_follow_up_output(
+                request_id,
+                DirectFollowUpSpec {
+                    intent_name: IntentName::FillInput,
+                    goal: String::from("Focus the requested field."),
+                    target_description: Some(description),
+                    selected_skills,
+                    summary,
+                    next_recommended_action: Some(String::from(
+                        "Use the visible field label or placeholder.",
+                    )),
+                    step_id: String::from("focus-query-construction-failed"),
+                    purpose: String::from(
+                        "Report a bounded deterministic field-query construction failure.",
+                    ),
+                },
+            ));
+        }
+    };
     let candidates = rank_find_element_candidates(
         &field_elements,
         &search_query,
@@ -172,4 +196,37 @@ pub(crate) fn resolve_direct_focus_field_command(
             ),
         },
     ))
+}
+
+#[cfg(test)]
+mod post_p8_enforcement_tests {
+    use super::*;
+    use crate::commands::{ReportStatus, ToolName};
+
+    #[test]
+    fn focus_query_failure_follow_up_is_non_authorizing() {
+        let output = build_direct_follow_up_output(
+            "req-1",
+            DirectFollowUpSpec {
+                intent_name: IntentName::FillInput,
+                goal: String::from("Focus the requested field."),
+                target_description: Some(String::from("email")),
+                selected_skills: Vec::new(),
+                summary: String::from("I could not build a safe field-search query."),
+                next_recommended_action: Some(String::from("Use the visible field label.")),
+                step_id: String::from("focus-query-construction-failed"),
+                purpose: String::from("Report a bounded field-query construction failure."),
+            },
+        );
+        assert_eq!(output.steps.len(), 1);
+        assert_eq!(output.steps[0].tool_name, ToolName::ReportResult);
+        assert_eq!(
+            output.steps[0].arguments.get("status"),
+            Some(&serde_json::json!(ReportStatus::NeedsFollowUp))
+        );
+        assert!(!output.steps.iter().any(|step| matches!(
+            step.tool_name,
+            ToolName::FocusElement | ToolName::TypeIntoElement | ToolName::SubmitActiveForm
+        )));
+    }
 }

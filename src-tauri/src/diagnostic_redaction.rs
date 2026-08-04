@@ -65,7 +65,7 @@ pub(crate) fn redact_diagnostic_text(value: &str) -> String {
     {
         return String::from("[REDACTED SENSITIVE DIAGNOSTIC]");
     }
-    redact_url_query(value)
+    redact_embedded_urls(value)
 }
 
 pub(crate) fn redact_json_value(value: &Value) -> Value {
@@ -89,12 +89,34 @@ pub(crate) fn redact_json_value(value: &Value) -> Value {
     }
 }
 
-fn redact_url_query(value: &str) -> String {
-    match sanitize_url_for_display(value) {
-        Some(safe) => safe.value,
-        None if value.contains("://") => String::from("[REDACTED INVALID URL]"),
-        None => value.to_string(),
+fn redact_embedded_urls(value: &str) -> String {
+    let mut output = String::with_capacity(value.len());
+    let mut remaining = value;
+    loop {
+        let start = match (remaining.find("http://"), remaining.find("https://")) {
+            (Some(left), Some(right)) => left.min(right),
+            (Some(index), None) | (None, Some(index)) => index,
+            (None, None) => {
+                output.push_str(remaining);
+                break;
+            }
+        };
+        output.push_str(&remaining[..start]);
+        let candidate_and_tail = &remaining[start..];
+        let end = candidate_and_tail
+            .find(char::is_whitespace)
+            .unwrap_or(candidate_and_tail.len());
+        let raw_token = &candidate_and_tail[..end];
+        let trimmed = raw_token.trim_end_matches([',', '.', ';', '!', '?', ')', ']', '}', '"']);
+        let trailing = &raw_token[trimmed.len()..];
+        match sanitize_url_for_display(trimmed) {
+            Some(safe) => output.push_str(&safe.value),
+            None => output.push_str("[REDACTED INVALID URL]"),
+        }
+        output.push_str(trailing);
+        remaining = &candidate_and_tail[end..];
     }
+    output
 }
 
 fn is_credential_shaped(token: &str) -> bool {
@@ -138,6 +160,34 @@ mod tests {
         assert!(!safe.contains("user:pass"));
         assert!(!safe.contains("token=secret"));
         assert!(safe.contains("safe reason"));
+    }
+
+    #[test]
+    fn redacts_embedded_urls_in_prose_and_json() {
+        let prose = "failed https://user:pass@example.com/callback?code=abc&state=xyz#frag then https://cdn.example.com/file?signature=signed";
+        let safe = redact_diagnostic_text(prose);
+        assert!(safe.contains("failed https://example.com/callback"));
+        assert!(safe.contains("then https://cdn.example.com/file"));
+        for secret in [
+            "user",
+            "pass",
+            "code=abc",
+            "state=xyz",
+            "signature=signed",
+            "#frag",
+        ] {
+            assert!(!safe.contains(secret));
+        }
+        let nested = serde_json::json!({
+            "message": "callback https://example.com/cb?access_token=secret",
+            "items": ["signed https://example.com/a?sig=secret"]
+        });
+        let encoded = redact_json_value(&nested).to_string();
+        assert!(!encoded.contains("access_token"));
+        assert!(!encoded.contains("sig=secret"));
+        assert_eq!(redact_diagnostic_text("plain text"), "plain text");
+        assert!(redact_diagnostic_text("broken https://[invalid?token=x")
+            .contains("[REDACTED INVALID URL]"));
     }
 
     #[test]
