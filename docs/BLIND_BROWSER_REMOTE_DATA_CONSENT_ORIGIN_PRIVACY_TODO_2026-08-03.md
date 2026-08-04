@@ -6,22 +6,22 @@
 **Reviewed baseline:** `0c0acb0d76210afc6fe40a0ebd32f50e89897d91`  
 **Companion spec:** `docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_SPEC_2026-08-03.md`  
 **Parent remediation items:** BBCR-003, BBCR-006, BBCR-008, BBCR-015, and BBCR-021  
-**Status:** Not started.  
+**Status:** In progress — Stage 1 versioned config, migration, origin-rule validation, deterministic policy evaluation, and pre-serialization planner enforcement are complete. Prepared requests, runtime grants, consent challenges/responses, status APIs, frontend UX, and full milestone closure remain open.
 **Release boundary:** This checklist closes a focused remote-data consent and origin-privacy milestone only. It must not be used to declare the full BBCR program complete or the project production-ready.
 
 ---
 
 ## Completion rules
 
-- [ ] Work directly on `master` unless the user explicitly requests a branch, PR, or worktree.
-- [ ] Preserve this complete checklist through implementation and closure.
+- [x] Work directly on `master` unless the user explicitly requests a branch, PR, or worktree.
+- [x] Preserve this complete checklist through implementation and closure.
 - [ ] Check an item only when source, test, scanner, documentation, or CI evidence exists on `master`.
 - [ ] Do not weaken planner redaction, endpoint scoping, action policy, confirmation, runtime-state binding, prompt-injection handling, or high-risk blocking.
-- [ ] Treat every first-party test, scanner, compiler, Clippy, frontend, and CI failure as a real defect unless evidence proves otherwise.
-- [ ] No non-loopback planner request may occur before deterministic privacy authorization.
+- [x] Treat every first-party test, scanner, compiler, Clippy, frontend, and CI failure as a real defect unless evidence proves otherwise.
+- [x] No non-loopback planner request may occur before deterministic privacy authorization.
 - [ ] No consent decision may authorize or reduce confirmation for a protected action.
 - [ ] Do not persist raw transcript, page, OCR, tool-observation, skill, credential, or planner-payload content.
-- [ ] Remove all temporary workflows, generators, patch scripts, diagnostic helpers, and test bypasses before closure.
+- [x] Remove all temporary workflows, generators, patch scripts, diagnostic helpers, and test bypasses before closure.
 - [ ] Record exact implementation, cleanup, documentation, and final evidence SHAs.
 - [ ] Record exact permanent CI run and job identifiers for the final SHA.
 
@@ -29,17 +29,17 @@
 
 ## 0. Baseline and implementation setup
 
-- [ ] Confirm latest `master` SHA before implementation.
-- [ ] Confirm `ci/permanent` is green for the starting SHA.
-- [ ] Read the companion spec completely.
+- [x] Confirm latest `master` SHA before implementation.
+- [x] Confirm `ci/permanent` is green for the starting SHA.
+- [x] Read the companion spec completely.
 - [ ] Read `docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md`.
 - [ ] Read `docs/BLIND_BROWSER_POST_BATCH8_RECONCILIATION_2026-08-02.md`.
 - [ ] Read the post-P8 fallback hardening spec, TODO, report, and closure.
-- [ ] Confirm no temporary Ralph or repair machinery remains in the starting tree.
-- [ ] Inventory all files expected to change before coding.
-- [ ] Record the expected changed-file scope in the implementation report.
-- [ ] Decide whether implementation needs a bounded temporary workflow.
-  - [ ] If used, make it exact-triggered and self-cleaning.
+- [x] Confirm no temporary Ralph or repair machinery remains in the starting tree.
+- [x] Inventory all files expected to change before coding.
+- [x] Record the expected changed-file scope in the implementation report.
+- [x] Decide whether implementation needs a bounded temporary workflow.
+  - [x] If used, make it exact-triggered and self-cleaning.
   - [ ] If not used, do not add one unnecessarily.
 
 ### Expected source areas
@@ -78,7 +78,7 @@
 
 ### 1.1 Config and settings audit
 
-- [ ] Inspect `RemotePlannerPrivacySettings` and `HighRiskOriginPolicy`.
+- [x] Inspect `RemotePlannerPrivacySettings` and `HighRiskOriginPolicy`.
 - [ ] Confirm current defaults for global consent, local-only, blocked origins, and high-risk policy.
 - [ ] Inspect config normalization for blocked origins.
 - [ ] Inspect config persistence and schema migration behavior.
@@ -91,9 +91,9 @@
 - [ ] Trace `resolve_command` from direct-command matching to `PlannerResolution::Remote`.
 - [ ] Trace `transcribe_and_execute_command` through remote planning.
 - [ ] Trace bounded replanning through the remote planner.
-- [ ] Confirm exactly where sanitization currently occurs.
-- [ ] Confirm exactly where privacy evaluation currently occurs.
-- [ ] Confirm no planner network client is called before privacy evaluation.
+- [x] Confirm exactly where sanitization currently occurs.
+- [x] Confirm exactly where privacy evaluation currently occurs.
+- [x] Confirm no planner network client is called before privacy evaluation.
 - [ ] Identify every function that accepts raw `PlannerInput` and can reach network I/O.
 - [ ] Identify every place the `AppCore` mutex is released for remote work.
 - [ ] Identify every place remote planner errors become `ExecutionOutcome::Aborted` or frontend errors.
@@ -103,7 +103,7 @@
 - [ ] Inspect `AppCore` fields and serializable `AppState` fields.
 - [ ] Identify where a runtime-only pending consent object can live.
 - [ ] Confirm pending confirmation state patterns that can be reused safely.
-- [ ] Confirm runtime-state token composition and invalidation behavior.
+- [x] Confirm runtime-state token composition and invalidation behavior.
 - [ ] Identify state changes that must invalidate consent.
 - [ ] Identify unrelated read-only state changes that should not invalidate consent.
 
@@ -120,9 +120,9 @@
 
 ### 1.5 Document audit conclusions
 
-- [ ] Record the current control/data flow in the implementation report.
-- [ ] Record exact pre-network authorization insertion points.
-- [ ] Record migration risks.
+- [x] Record the current control/data flow in the implementation report.
+- [x] Record exact pre-network authorization insertion points.
+- [x] Record migration risks.
 - [ ] Record the final expected source/test/doc change set before implementation.
 
 ---
@@ -131,14 +131,14 @@
 
 ### 2.1 Global mode
 
-- [ ] Add `RemotePlannerNetworkMode`.
-- [ ] Include `LocalOnly`.
-- [ ] Include `AskPerOrigin`.
-- [ ] Include `AllowSanitizedNonHighRisk`.
-- [ ] Use stable `snake_case` serialization.
-- [ ] Make `AskPerOrigin` the new-install default.
-- [ ] Remove authoritative dependence on the old interacting booleans after migration.
-- [ ] Keep old fields readable only for the declared migration boundary.
+- [x] Add `RemotePlannerNetworkMode`.
+- [x] Include `LocalOnly`.
+- [x] Include `AskPerOrigin`.
+- [x] Include `AllowSanitizedNonHighRisk`.
+- [x] Use stable `snake_case` serialization.
+- [x] Make `AskPerOrigin` the new-install default.
+- [x] Remove authoritative dependence on the old interacting booleans after migration.
+- [x] Keep old fields readable only for the declared migration boundary.
 
 Suggested shape:
 
@@ -154,20 +154,20 @@ pub enum RemotePlannerNetworkMode {
 
 ### 2.2 Persistent origin rules
 
-- [ ] Add `PersistedOriginDecision` with `Allow` and `Block`.
-- [ ] Add `RemotePlannerOriginRule`.
+- [x] Add `PersistedOriginDecision` with `Allow` and `Block`.
+- [x] Add `RemotePlannerOriginRule`.
 - [ ] Include normalized page origin.
 - [ ] Include decision.
 - [ ] Include optional endpoint scope.
 - [ ] Include privacy-policy version.
 - [ ] Include non-sensitive creation timestamp.
-- [ ] Add `REMOTE_DATA_POLICY_VERSION`.
-- [ ] Require `Block` rules to have no endpoint scope.
-- [ ] Require `Allow` rules to have an exact normalized endpoint scope.
-- [ ] Make persistent blocks apply across all non-loopback destinations.
-- [ ] Make persistent allows destination- and policy-version-bound.
-- [ ] Define deterministic rule identity and sort order.
-- [ ] Limit persistent rules to at most 256.
+- [x] Add `REMOTE_DATA_POLICY_VERSION`.
+- [x] Require `Block` rules to have no endpoint scope.
+- [x] Require `Allow` rules to have an exact normalized endpoint scope.
+- [x] Make persistent blocks apply across all non-loopback destinations.
+- [x] Make persistent allows destination- and policy-version-bound.
+- [x] Define deterministic rule identity and sort order.
+- [x] Limit persistent rules to at most 256.
 - [ ] Define stale allow behavior.
 - [ ] Ensure stale allows are visible but non-authorizing.
 
@@ -186,30 +186,30 @@ pub struct RemotePlannerOriginRule {
 ### 2.3 Updated settings structure
 
 - [ ] Replace the current privacy fields with `network_mode` and `origin_rules`.
-- [ ] Retain `high_risk_origin_policy`.
+- [x] Retain `high_risk_origin_policy`.
 - [ ] Keep serialization deterministic.
 - [ ] Keep config debug formatting free of sensitive data.
 - [ ] Update JSON schema expectations.
-- [ ] Update all direct Rust fixture initializers.
-- [ ] Avoid partial fixture publication; search the complete Rust test tree.
+- [x] Update all direct Rust fixture initializers.
+- [x] Avoid partial fixture publication; search the complete Rust test tree.
 
 ### 2.4 Config validation
 
 - [ ] Add one shared normalized HTTP(S) page-origin type/helper.
-- [ ] Reject paths.
-- [ ] Reject queries.
-- [ ] Reject fragments.
-- [ ] Reject username/password.
+- [x] Reject paths.
+- [x] Reject queries.
+- [x] Reject fragments.
+- [x] Reject username/password.
 - [ ] Reject opaque or `null` origins.
-- [ ] Reject non-HTTP(S) schemes.
+- [x] Reject non-HTTP(S) schemes.
 - [ ] Normalize scheme, host, effective port, and IDNA consistently through the URL library.
-- [ ] Validate endpoint scopes using `ProviderEndpointScope`.
-- [ ] Reject allow rules with missing endpoint scope.
-- [ ] Reject block rules with an endpoint scope.
+- [x] Validate endpoint scopes using `ProviderEndpointScope`.
+- [x] Reject allow rules with missing endpoint scope.
+- [x] Reject block rules with an endpoint scope.
 - [ ] Reject zero/future unsupported policy versions.
-- [ ] Deduplicate exact duplicate rules deterministically.
+- [x] Deduplicate exact duplicate rules deterministically.
 - [ ] Define conflict handling for allow and block rules on the same origin.
-  - [ ] Persistent block must win.
+  - [x] Persistent block must win.
   - [ ] Validation must not silently discard a block in favor of allow.
 - [ ] Add bounded, non-secret validation errors.
 
@@ -219,24 +219,24 @@ pub struct RemotePlannerOriginRule {
 
 ### 3.1 Mapping
 
-- [ ] Map legacy `local_only = true` to `LocalOnly`.
-- [ ] Map legacy `local_only = false` and `consent = false` to `AskPerOrigin`.
-- [ ] Map legacy `local_only = false` and `consent = true` to `AllowSanitizedNonHighRisk`.
-- [ ] Convert each legacy blocked origin to an origin-wide persistent `Block` rule.
+- [x] Map legacy `local_only = true` to `LocalOnly`.
+- [x] Map legacy `local_only = false` and `consent = false` to `AskPerOrigin`.
+- [x] Map legacy `local_only = false` and `consent = true` to `AllowSanitizedNonHighRisk`.
+- [x] Convert each legacy blocked origin to an origin-wide persistent `Block` rule.
 - [ ] Preserve `HighRiskOriginPolicy::Block`.
-- [ ] Do not manufacture destination-bound allows from global legacy consent.
+- [x] Do not manufacture destination-bound allows from global legacy consent.
 
 ### 3.2 Migration safety
 
-- [ ] Make migration idempotent.
+- [x] Make migration idempotent.
 - [ ] Validate before durable write.
 - [ ] Ensure failed migration leaves the previous config intact.
 - [ ] Ensure malformed legacy blocked origins fail closed.
-- [ ] Add a migration schema/version marker if needed.
+- [x] Add a migration schema/version marker if needed.
 - [ ] Preserve a safe rollback/read path for the supported migration boundary.
 - [ ] Avoid writing partially migrated settings.
-- [ ] Add a bounded one-time migration notice to runtime/settings status.
-- [ ] Update `config.example.toml`.
+- [x] Add a bounded one-time migration notice to runtime/settings status.
+- [x] Update `config.example.toml`.
 
 ### 3.3 Migration tests
 
@@ -244,10 +244,10 @@ pub struct RemotePlannerOriginRule {
 - [ ] Test legacy blocked-origin conversion.
 - [ ] Test duplicate legacy origins.
 - [ ] Test malformed legacy origin failure.
-- [ ] Test migration idempotence.
+- [x] Test migration idempotence.
 - [ ] Test deterministic serialization order.
 - [ ] Test new-install default.
-- [ ] Test existing broad consent remains broad mode rather than becoming per-destination allow.
+- [x] Test existing broad consent remains broad mode rather than becoming per-destination allow.
 - [ ] Test migration failure preserves old config bytes.
 
 ---
@@ -257,11 +257,11 @@ pub struct RemotePlannerOriginRule {
 ### 4.1 Types
 
 - [ ] Add `RemotePlannerEffectiveDecision`.
-- [ ] Add `RemotePlannerDataAuthorization`.
+- [x] Add `RemotePlannerDataAuthorization`.
 - [ ] Add typed privacy block/ask reasons.
 - [ ] Add safe public reason-code conversion.
-- [ ] Keep evaluator inputs explicit and immutable.
-- [ ] Keep evaluator independent of frontend state.
+- [x] Keep evaluator inputs explicit and immutable.
+- [x] Keep evaluator independent of frontend state.
 
 Suggested effective decisions:
 
@@ -280,17 +280,17 @@ Suggested effective decisions:
 ### 4.2 Precedence
 
 - [ ] Invalid/missing endpoint fails before consent evaluation.
-- [ ] Loopback returns local authorization.
-- [ ] Local-only blocks all non-loopback destinations.
-- [ ] Unknown/opaque/non-HTTP(S) page origin blocks network page-context planning.
-- [ ] High-risk context blocks before all grants/allows.
-- [ ] Persistent block overrides global allow.
+- [x] Loopback returns local authorization.
+- [x] Local-only blocks all non-loopback destinations.
+- [x] Unknown/opaque/non-HTTP(S) page origin blocks network page-context planning.
+- [x] High-risk context blocks before all grants/allows.
+- [x] Persistent block overrides global allow.
 - [ ] One-shot grant requires exact challenge binding.
-- [ ] Session grant requires exact origin/destination/version match.
-- [ ] Persistent allow requires exact origin/destination/version match.
-- [ ] Broad global allow permits only sanitized non-high-risk context.
-- [ ] Ask mode returns a challenge requirement.
-- [ ] No fallback path silently authorizes transmission.
+- [x] Session grant requires exact origin/destination/version match.
+- [x] Persistent allow requires exact origin/destination/version match.
+- [x] Broad global allow permits only sanitized non-high-risk context.
+- [x] Ask mode returns a challenge requirement.
+- [x] No fallback path silently authorizes transmission.
 
 ### 4.3 Pure evaluator tests
 
@@ -983,10 +983,10 @@ Suggested effective decisions:
 
 ### 19.3 Fallback inventory
 
-- [ ] Run exact fallback scanner after refactor.
+- [x] Run exact fallback scanner after refactor.
 - [ ] Inventory any new reviewed fallback.
-- [ ] Prefer typed errors over new privacy fallbacks.
-- [ ] Ensure no `.ok()`/default path can authorize a request.
+- [x] Prefer typed errors over new privacy fallbacks.
+- [x] Ensure no `.ok()`/default path can authorize a request.
 
 ### 19.4 Focused CI target
 
@@ -1002,7 +1002,7 @@ Suggested effective decisions:
 - [ ] Update `docs/SPECS.md`.
 - [ ] Update planner setup documentation.
 - [ ] Update privacy disclosure documentation.
-- [ ] Update `config.example.toml` comments.
+- [x] Update `config.example.toml` comments.
 - [ ] Document migration.
 - [ ] Document data categories.
 - [ ] Document sanitization limitations.
@@ -1016,7 +1016,7 @@ Suggested effective decisions:
 - [ ] Update threat model for consent spoofing and stale consent.
 - [ ] Reconcile BBCR-003 checkboxes and acceptance criteria accurately.
 - [ ] Update post-Batch-8 reconciliation if its remaining-boundary statement changes.
-- [ ] Create implementation report at:
+- [x] Create implementation report at:
   - [ ] `docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_IMPLEMENTATION_REPORT_2026-08-03.md`
 
 ---
@@ -1070,19 +1070,53 @@ Suggested effective decisions:
 
 ## 22. Cleanup and final closure
 
-- [ ] Remove temporary workflows.
-- [ ] Remove patch generators.
-- [ ] Remove diagnostic-only helpers.
+- [x] Remove temporary workflows.
+- [x] Remove patch generators.
+- [x] Remove diagnostic-only helpers.
 - [ ] Remove test bypasses and broad allow flags.
 - [ ] Remove sensitive test artifacts.
-- [ ] Confirm no temporary files remain through repository search.
+- [x] Confirm no temporary files remain through repository search.
 - [ ] Confirm final diff contains only intended source/test/doc changes.
 - [ ] Complete every applicable checkbox.
 - [ ] Mark non-selected alternatives explicitly rather than deleting them.
-- [ ] Append exact evidence without replacing this task tree.
+- [x] Append exact evidence without replacing this task tree.
 - [ ] Commit final documentation/evidence.
 - [ ] Require `ci/permanent` success on the exact final SHA.
 - [ ] Do not mutate the final validated SHA after signoff.
+
+---
+
+## 22A. Stage 1 foundation closeout — 2026-08-04
+
+This is a bounded partial closeout. It does **not** complete the full remote-data consent and origin-privacy milestone.
+
+### Completed scope
+
+- Versioned global network modes and migration-compatible privacy settings.
+- Destination- and policy-version-bound persistent allows.
+- Origin-wide persistent blocks with block-first precedence.
+- Normalized HTTP(S) origin and endpoint validation, deterministic sorting/deduplication, and a 256-rule limit.
+- Idempotent legacy migration and bounded migration notice.
+- Pure deterministic policy evaluation for loopback, local-only, unknown origin, high-risk context, persistent block, session grant, persistent allow, broad allow, and ask mode.
+- Enforcement before remote planner serialization progression.
+- Privacy settings included in the relevant runtime configuration fingerprint.
+- Repository-wide fixture repair and complete permanent validation.
+
+### Exact Stage 1 evidence
+
+- Starting baseline: `043c788346cc9b39942f4198f11c199aaea69ddf`
+- Starting CI: run `30886133291`, job `91917696317`, `success`
+- Primary implementation: `e6210ae423fb0c5fe08cea9ddc68f463e96b823f`
+- Strict-Clippy repair: `14216226b223c092e1a4ff5da5b29c8129f67527`
+- Fixture repair: `158672218048f4482879232d7ffc0ea779e9bd07`
+- Trigger-free implementation SHA: `ee967b2fb0d23a762bb8316f369d72c987f31df6`
+- Guarded repair workflow: run `30900135542`, job `91962264055`, `success`
+- Permanent validation trigger: run `30927205924`, job `92052482518`, `success`
+- Permanent CI on exact trigger-free implementation SHA: run `30928002322`, job `92055223608`, `success`
+
+### Remaining milestone boundary
+
+Runtime grant storage, one-shot authorization, prepared-request-only networking, disclosure manifests, consent challenges, pending consent state, `NeedsRemoteDataConsent`, consent-response commands, runtime status/settings APIs, frontend state and accessible UI, and their adversarial integration tests remain open.
 
 ---
 
