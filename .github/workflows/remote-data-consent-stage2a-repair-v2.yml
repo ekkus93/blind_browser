@@ -148,6 +148,228 @@ jobs:
           consent_path.write_text(consent)
           '''
           text = text.replace(sanitizer_anchor, sanitizer_repair, 1)
+
+          validation_anchor = "\nPY\n\ncargo fmt --manifest-path src-tauri/Cargo.toml --all\n"
+          validation_count = text.count(validation_anchor)
+          if validation_count != 1:
+              raise SystemExit(
+                  "Stage 2A integration repair: expected one validation anchor, "
+                  f"found {validation_count}"
+              )
+          integration_repair = r'''
+
+          # Adapt the replanning test double to the transaction-aware trait while
+          # keeping existing test fixtures expressed as PlannerOutput values.
+          replanning_path = Path("src-tauri/src/app_core/replanning.rs")
+          replanning = replanning_path.read_text()
+          outcome_match = re.search(
+              r"pub\(crate\) enum ResolvePlanOutcome\s*\{(?P<body>.*?)\n\}",
+              replanning,
+              re.DOTALL,
+          )
+          if outcome_match is None:
+              raise SystemExit("replanning test repair: ResolvePlanOutcome enum was not found")
+          planner_variant_matches = re.findall(
+              r"([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*PlannerOutput\s*\)",
+              outcome_match.group("body"),
+          )
+          if len(planner_variant_matches) != 1:
+              raise SystemExit(
+                  "replanning test repair: expected one PlannerOutput variant, "
+                  f"found {planner_variant_matches}"
+              )
+          planner_variant = planner_variant_matches[0]
+
+          planner_tests_path = Path("src-tauri/src/app_core/tests/planner_tests.rs")
+          planner_tests = planner_tests_path.read_text()
+          old_test_return = ") -> Result<PlannerOutput, crate::commands::ToolError> {"
+          new_test_return = (
+              ") -> Result<crate::app_core::replanning::ResolvePlanOutcome, "
+              "crate::commands::ToolError> {"
+          )
+          test_return_count = planner_tests.count(old_test_return)
+          if test_return_count > 1:
+              raise SystemExit(
+                  "replanning test return repair: expected at most one old signature, "
+                  f"found {test_return_count}"
+              )
+          if test_return_count == 1:
+              planner_tests = planner_tests.replace(old_test_return, new_test_return, 1)
+
+          old_test_result = "        self.resolve_results.remove(0)\n"
+          new_test_result = (
+              "        self.resolve_results\n"
+              "            .remove(0)\n"
+              "            .map(crate::app_core::replanning::ResolvePlanOutcome::"
+              + planner_variant
+              + ")\n"
+          )
+          test_result_count = planner_tests.count(old_test_result)
+          if test_result_count > 1:
+              raise SystemExit(
+                  "replanning test result repair: expected at most one old return, "
+                  f"found {test_result_count}"
+              )
+          if test_result_count == 1:
+              planner_tests = planner_tests.replace(old_test_result, new_test_result, 1)
+          planner_tests_path.write_text(planner_tests)
+
+          # Remove the superseded policy-enforcing serializer. Stage 2A prepares a
+          # sanitized draft first and authorizes it separately; retaining the old
+          # combined helper would create two competing transaction boundaries.
+          redaction_path = Path("src-tauri/src/app_core/planner_redaction.rs")
+          redaction = redaction_path.read_text()
+          legacy_start = redaction.find("pub(crate) fn sanitize_remote_planner_input(")
+          if legacy_start != -1:
+              legacy_end = redaction.find("pub(crate) fn planner_page_origin(", legacy_start)
+              if legacy_end == -1:
+                  raise SystemExit(
+                      "legacy planner redaction repair: planner_page_origin boundary was not found"
+                  )
+              redaction = redaction[:legacy_start] + redaction[legacy_end:]
+
+          stale_redaction_imports = [
+              "use super::remote_data_consent::{evaluate_remote_planner_policy, RemotePlannerPolicyResult};\n",
+              "use crate::config::RemotePlannerPrivacySettings;\n",
+              "use crate::provider_endpoint::ProviderEndpointScope;\n",
+          ]
+          for stale_import in stale_redaction_imports:
+              import_count = redaction.count(stale_import)
+              if import_count > 1:
+                  raise SystemExit(
+                      "legacy planner redaction import repair: duplicate import "
+                      f"{stale_import.strip()!r}"
+                  )
+              if import_count == 1:
+                  redaction = redaction.replace(stale_import, "", 1)
+
+          if redaction.count("ToolError") == 1:
+              redaction, tool_error_count = re.subn(
+                  r"(use crate::commands::\{[^}]*?),\s*ToolError(,?[^}]*?\};)",
+                  r"\1\2",
+                  redaction,
+                  count=1,
+                  flags=re.DOTALL,
+              )
+              if tool_error_count != 1:
+                  raise SystemExit(
+                      "legacy planner redaction repair: ToolError import could not be removed"
+                  )
+          redaction_path.write_text(redaction)
+
+          # Box the largest owned payload inside each request aggregate. This
+          # removes the enum size amplification without suppressing Clippy or
+          # changing the consent-state variants.
+          consent_path = Path("src-tauri/src/app_core/remote_data_consent.rs")
+          consent = consent_path.read_text()
+
+          def find_matching_brace(source: str, open_index: int) -> int:
+              depth = 0
+              in_string = False
+              escaped = False
+              for index in range(open_index, len(source)):
+                  char = source[index]
+                  if in_string:
+                      if escaped:
+                          escaped = False
+                      elif char == "\\":
+                          escaped = True
+                      elif char == '"':
+                          in_string = False
+                      continue
+                  if char == '"':
+                      in_string = True
+                  elif char == "{":
+                      depth += 1
+                  elif char == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return index
+              raise SystemExit("boxed field repair: unmatched Rust brace")
+
+          def box_struct_field(source: str, struct_name: str, target_type: str) -> str:
+              definition = re.search(
+                  rf"pub\(crate\) struct {re.escape(struct_name)}\s*\{{",
+                  source,
+              )
+              if definition is None:
+                  raise SystemExit(f"boxed field repair: {struct_name} definition was not found")
+              definition_open = source.find("{", definition.start())
+              definition_close = find_matching_brace(source, definition_open)
+              definition_body = source[definition_open + 1 : definition_close]
+              field_matches = list(
+                  re.finditer(
+                      rf"(?m)^\s*(?:pub\(crate\)\s+)?([A-Za-z_][A-Za-z0-9_]*):\s*({re.escape(target_type)}),\s*$",
+                      definition_body,
+                  )
+              )
+              if len(field_matches) != 1:
+                  raise SystemExit(
+                      f"boxed field repair: expected one {target_type} field in {struct_name}, "
+                      f"found {len(field_matches)}"
+                  )
+              field_name = field_matches[0].group(1)
+              old_type = field_matches[0].group(2)
+              absolute_type_start = definition_open + 1 + field_matches[0].start(2)
+              absolute_type_end = definition_open + 1 + field_matches[0].end(2)
+              source = (
+                  source[:absolute_type_start]
+                  + f"Box<{old_type}>"
+                  + source[absolute_type_end:]
+              )
+
+              search_from = definition_close + len("Box<>")
+              constructor_count = 0
+              needle = f"{struct_name} {{"
+              while True:
+                  occurrence = source.find(needle, search_from)
+                  if occurrence == -1:
+                      break
+                  open_index = source.find("{", occurrence)
+                  close_index = find_matching_brace(source, open_index)
+                  block = source[open_index + 1 : close_index]
+                  shorthand = re.compile(rf"(?m)^(\s*){re.escape(field_name)},\s*$")
+                  explicit_simple = re.compile(
+                      rf"(?m)^(\s*){re.escape(field_name)}:\s*([A-Za-z_][A-Za-z0-9_]*),\s*$"
+                  )
+                  if shorthand.search(block):
+                      block, changed = shorthand.subn(
+                          rf"\1{field_name}: Box::new({field_name}),",
+                          block,
+                          count=1,
+                      )
+                      constructor_count += changed
+                  elif explicit_simple.search(block):
+                      block, changed = explicit_simple.subn(
+                          lambda match: (
+                              f"{match.group(1)}{field_name}: Box::new({match.group(2)}),"
+                          ),
+                          block,
+                          count=1,
+                      )
+                      constructor_count += changed
+                  source = source[: open_index + 1] + block + source[close_index:]
+                  search_from = open_index + 1 + len(block) + 1
+
+              if constructor_count == 0:
+                  raise SystemExit(
+                      f"boxed field repair: no {struct_name}.{field_name} constructor was updated"
+                  )
+              return source
+
+          consent = box_struct_field(
+              consent,
+              "RemotePlannerRequestDraft",
+              "RemotePlannerInput",
+          )
+          consent = box_struct_field(
+              consent,
+              "AuthorizedPendingRemotePlannerRequest",
+              "PreparedRemotePlannerRequest",
+          )
+          consent_path.write_text(consent)
+          '''
+          text = text.replace(validation_anchor, integration_repair + validation_anchor, 1)
           path.write_text(text)
           PY
           bash .github/remote-data-consent-stage2a-v2-run.sh
