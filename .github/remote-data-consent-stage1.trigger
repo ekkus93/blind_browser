@@ -1,3 +1,3 @@
-exact_trigger_sha_parent = "cbb25a6a8231d9c44b009b8fcba577da2c5f9fde"
-sequence = 4
-purpose = "Run the chunk-verified stage-one transformation. Workflow, payload chunks, legacy payload, and marker are removed before publishing production source."
+exact_trigger_sha_parent = "357ac88035caf4d47b12fef000739d478623ae17"
+sequence = 5
+purpose = "Run the hash-verified stage-one transformation. Workflow, payload chunks, legacy payload, and marker are removed before publishing production source."
