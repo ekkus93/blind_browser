@@ -53,16 +53,20 @@ def verify_integration_evidence() -> None:
         )
     source = integration.read_text(encoding="utf-8")
     required_markers = (
-        "DirectCommandPageContextPolicy::SanitizedSnapshot",
-        "direct_command_policy",
-        "redact_page_snapshot_for_remote",
+        "evidence_inventory_matches_registry_and_tauri_surface",
+        "source_drift_page_context_commands_retain_privacy_sanitizer_wiring",
+        "resolve_command_lock_scoped",
+        "run_command_with_lock_scoped_replanning",
+        "sanitize_remote_planner_input(planner_input, privacy, &endpoint_scope)?",
+        "enforce_remote_planner_privacy(input, privacy, endpoint_scope)?",
+        "transmits_page_context",
     )
     missing = [marker for marker in required_markers if marker not in source]
     if missing:
         raise SystemExit(f"{integration}: missing authoritative evidence markers: {missing}")
     print(
         "No generated library source-drift test was present; verified the integration "
-        "semantic evidence gate instead"
+        "registry and remote-planner privacy evidence instead"
     )
 
 
