@@ -113,6 +113,8 @@ fn resolve_direct_read_page_command_reads_from_first_region_when_available() {
             voice: Some(String::from("alloy")),
             audio_format: Some(RemoteTtsAudioFormat::Wav),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         remote_asr_settings: RemoteAsrSettings {
             profile_name: Some(String::from("openai-transcribe-default")),
@@ -127,6 +129,8 @@ fn resolve_direct_read_page_command_reads_from_first_region_when_available() {
             language: Some(String::from("en")),
             temperature_milli: Some(0),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         provider_failover_settings: ProviderFailoverSettings {
             planner_available: false,
@@ -269,6 +273,8 @@ fn resolve_direct_read_page_command_extracts_then_reads_when_regions_missing() {
             voice: Some(String::from("alloy")),
             audio_format: Some(RemoteTtsAudioFormat::Wav),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         remote_asr_settings: RemoteAsrSettings {
             profile_name: Some(String::from("openai-transcribe-default")),
@@ -283,6 +289,8 @@ fn resolve_direct_read_page_command_extracts_then_reads_when_regions_missing() {
             language: Some(String::from("en")),
             temperature_milli: Some(0),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         provider_failover_settings: ProviderFailoverSettings {
             planner_available: false,
@@ -418,6 +426,8 @@ fn resolve_direct_read_page_command_reports_missing_active_page() {
             voice: Some(String::from("alloy")),
             audio_format: Some(RemoteTtsAudioFormat::Wav),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         remote_asr_settings: RemoteAsrSettings {
             profile_name: Some(String::from("openai-transcribe-default")),
@@ -432,6 +442,8 @@ fn resolve_direct_read_page_command_reports_missing_active_page() {
             language: Some(String::from("en")),
             temperature_milli: Some(0),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         provider_failover_settings: ProviderFailoverSettings {
             planner_available: false,

@@ -327,6 +327,8 @@ fn planner_input_serializes_safety_settings_for_click_policy() {
                 voice: Some(String::from("alloy")),
                 audio_format: Some(RemoteTtsAudioFormat::Wav),
                 timeout_ms: Some(30_000),
+                endpoint_is_loopback: None,
+                availability_reason: None,
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: Some(String::from("openai-transcribe-default")),
@@ -341,6 +343,8 @@ fn planner_input_serializes_safety_settings_for_click_policy() {
                 language: Some(String::from("en")),
                 temperature_milli: Some(0),
                 timeout_ms: Some(30_000),
+                endpoint_is_loopback: None,
+                availability_reason: None,
             },
             provider_failover_settings: ProviderFailoverSettings {
                 planner_available: false,

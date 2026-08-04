@@ -1242,6 +1242,8 @@ mod tests {
                 voice: None,
                 audio_format: None,
                 timeout_ms: None,
+                endpoint_is_loopback: None,
+                availability_reason: None,
             },
             remote_asr_settings: RemoteAsrSettings {
                 profile_name: None,
@@ -1256,6 +1258,8 @@ mod tests {
                 language: None,
                 temperature_milli: None,
                 timeout_ms: None,
+                endpoint_is_loopback: None,
+                availability_reason: None,
             },
             provider_failover_settings: ProviderFailoverSettings {
                 planner_available: false,

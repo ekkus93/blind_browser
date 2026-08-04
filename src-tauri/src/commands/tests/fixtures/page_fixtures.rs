@@ -117,6 +117,8 @@ pub fn fixture_agent_state() -> AgentStateData {
             voice: Some(String::from("alloy")),
             audio_format: Some(RemoteTtsAudioFormat::Wav),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         remote_asr_settings: RemoteAsrSettings {
             profile_name: Some(String::from("openai-transcribe-default")),
@@ -131,6 +133,8 @@ pub fn fixture_agent_state() -> AgentStateData {
             language: Some(String::from("en")),
             temperature_milli: Some(0),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         provider_failover_settings: ProviderFailoverSettings {
             planner_available: false,
@@ -165,6 +169,7 @@ pub fn fixture_runtime_status(agent_state: &AgentStateData) -> GetRuntimeStatusD
         pending_confirmation_id: agent_state.pending_confirmation_id.clone(),
         pending_plan_execution: agent_state.pending_plan_execution.clone(),
         provider_modes: None,
+        skill_discovery_diagnostics: Default::default(),
     }
 }
 

@@ -17,6 +17,7 @@ fn tool_result_success_populates_common_envelope_fields() {
             pending_confirmation_id: None,
             pending_plan_execution: None,
             provider_modes: None,
+            skill_discovery_diagnostics: Default::default(),
         },
         vec![String::from("runtime status read")],
     );

@@ -90,6 +90,8 @@ fn resolve_direct_status_query_command_reports_current_url() {
             voice: Some(String::from("alloy")),
             audio_format: Some(RemoteTtsAudioFormat::Wav),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         remote_asr_settings: RemoteAsrSettings {
             profile_name: Some(String::from("openai-transcribe-default")),
@@ -104,6 +106,8 @@ fn resolve_direct_status_query_command_reports_current_url() {
             language: Some(String::from("en")),
             temperature_milli: Some(0),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         provider_failover_settings: ProviderFailoverSettings {
             planner_available: false,
@@ -135,6 +139,7 @@ fn resolve_direct_status_query_command_reports_current_url() {
         pending_confirmation_id: None,
         pending_plan_execution: None,
         provider_modes: None,
+        skill_discovery_diagnostics: Default::default(),
     };
 
     let planner_output = resolve_direct_status_query_command(
@@ -255,6 +260,8 @@ fn resolve_direct_status_query_command_reports_back_history_availability() {
             voice: Some(String::from("alloy")),
             audio_format: Some(RemoteTtsAudioFormat::Wav),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         remote_asr_settings: RemoteAsrSettings {
             profile_name: Some(String::from("openai-transcribe-default")),
@@ -269,6 +276,8 @@ fn resolve_direct_status_query_command_reports_back_history_availability() {
             language: Some(String::from("en")),
             temperature_milli: Some(0),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         provider_failover_settings: ProviderFailoverSettings {
             planner_available: false,
@@ -300,6 +309,7 @@ fn resolve_direct_status_query_command_reports_back_history_availability() {
         pending_confirmation_id: None,
         pending_plan_execution: None,
         provider_modes: None,
+        skill_discovery_diagnostics: Default::default(),
     };
 
     let planner_output = resolve_direct_status_query_command(
@@ -415,6 +425,8 @@ fn resolve_direct_status_query_command_reports_listening_state() {
             voice: Some(String::from("alloy")),
             audio_format: Some(RemoteTtsAudioFormat::Wav),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         remote_asr_settings: RemoteAsrSettings {
             profile_name: Some(String::from("openai-transcribe-default")),
@@ -429,6 +441,8 @@ fn resolve_direct_status_query_command_reports_listening_state() {
             language: Some(String::from("en")),
             temperature_milli: Some(0),
             timeout_ms: Some(30_000),
+            endpoint_is_loopback: None,
+            availability_reason: None,
         },
         provider_failover_settings: ProviderFailoverSettings {
             planner_available: false,
@@ -460,6 +474,7 @@ fn resolve_direct_status_query_command_reports_listening_state() {
         pending_confirmation_id: None,
         pending_plan_execution: None,
         provider_modes: None,
+        skill_discovery_diagnostics: Default::default(),
     };
 
     let planner_output = resolve_direct_status_query_command(

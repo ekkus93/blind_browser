@@ -99,6 +99,7 @@ User skills should lose to project-local copies."#,
         &available_tools,
     );
     let matching_skills = loaded_skills
+        .skills
         .iter()
         .filter(|skill| skill.summary.name == "open_url")
         .collect::<Vec<_>>();
