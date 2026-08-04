@@ -63,6 +63,30 @@ jobs:
       - name: Apply transformation
         run: python3 /tmp/remote_data_stage1.py
 
+      - name: Repair generated privacy fixture placement
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("src-tauri/src/app_core/planner_redaction.rs")
+          text = path.read_text()
+          malformed = '''        },
+              
+              ..Default::default()
+              }
+          '''
+          corrected = '''            ..Default::default()
+                  }
+          '''
+          count = text.count(malformed)
+          if count != 1:
+              raise SystemExit(
+                  f"planner_redaction.rs: expected one malformed privacy fixture, found {count}"
+              )
+          path.write_text(text.replace(malformed, corrected, 1))
+          PY
+
       - name: Capture rustfmt diagnostic
         id: fmt
         continue-on-error: true
