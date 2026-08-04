@@ -65,6 +65,13 @@ def repair_integration_evidence() -> None:
     if not integration.is_file():
         raise SystemExit(f"missing integration evidence test: {integration}")
 
+    replace_once(
+        integration,
+        'let frontend = source("../src/external-link.ts");',
+        'let frontend = source("../src/panel-state-setters.ts");',
+        "external-link frontend evidence source",
+    )
+
     desired_test = '''#[test]
 fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
     let core_handlers = source("src/command_handlers/core_handlers.rs");
@@ -97,6 +104,7 @@ fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
     repaired = integration.read_text(encoding="utf-8")
     required_markers = (
         "evidence_inventory_matches_registry_and_tauri_surface",
+        'source("../src/panel-state-setters.ts")',
         'source("src/command_handlers/core_handlers.rs")',
         'source("src/command_handlers/voice_handlers.rs")',
         'source("src/app_core/remote_planner.rs")',
@@ -110,12 +118,13 @@ fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
     if missing:
         raise SystemExit(f"{integration}: missing end-to-end privacy evidence: {missing}")
     stale_markers = (
+        'source("../src/external-link.ts")',
         "handler {handler} must retain the remote-planner privacy sanitizer",
         "handlers_source.contains(\"sanitize_remote_planner_input(\")",
     )
     present = [marker for marker in stale_markers if marker in repaired]
     if present:
-        raise SystemExit(f"{integration}: stale per-handler privacy assertions remain: {present}")
+        raise SystemExit(f"{integration}: stale evidence assertions remain: {present}")
     print("Restored end-to-end integration privacy source evidence")
 
 
