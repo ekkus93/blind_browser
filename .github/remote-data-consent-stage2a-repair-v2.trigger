@@ -1,3 +1,3 @@
-workflow_fix_sha = "6ac89321de5a02e8e0792dded705361dc3cafacd"
-sequence = 3
-purpose = "Run the Stage 2A V2 workflow with zero-or-one compiler repairs, reject duplicate defects, execute the complete validation matrix, publish the consent transaction boundary only on success, and remove every temporary Stage 2A artifact."
+workflow_fix_sha = "ad5bb0a90f286518e8621b7c6b1ce33b8e53ac95"
+sequence = 4
+purpose = "Run the unchanged Stage 2A generator and idempotent repairs, then emit concise fail-closed Rust compiler diagnostics before continuing through the complete validation and clean publication matrix."
