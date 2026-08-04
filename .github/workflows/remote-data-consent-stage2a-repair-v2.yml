@@ -77,7 +77,57 @@ jobs:
 
       - name: Run exact Stage 2A repair and full validation matrix
         shell: bash
-        run: bash .github/remote-data-consent-stage2a-v2-run.sh
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path(".github/remote-data-consent-stage2a-v2-run.sh")
+          text = path.read_text()
+          pattern = re.compile(
+              r"if profile_helper_count == 0:\n"
+              r".*?"
+              r"    remote_planner_path\.write_text\(remote_planner\)\n",
+              re.DOTALL,
+          )
+          replacement = r"""if profile_helper_count == 0:
+              helper = '''impl AppCore {
+              /// Snapshot the configured remote planner profile under the `AppCore` lock so
+              /// network preparation can run against an owned, immutable copy.
+              pub(crate) fn remote_planner_profile_snapshot(
+                  &self,
+              ) -> Result<(String, RemotePlannerProfile), ToolError> {
+                  let Some(profile_name) = self.config.providers.planner.remote_profile.as_deref() else {
+                      return Err(planner_interpretation_unavailable_error(
+                          "planner_profile_unavailable",
+                          "remote planner mode requires a configured planner profile",
+                          false,
+                          None,
+                      ));
+                  };
+                  let Some(profile) = self.config.remote_planner_profiles.get(profile_name) else {
+                      return Err(planner_interpretation_unavailable_error(
+                          "planner_profile_unavailable",
+                          format!("configured remote planner profile '{profile_name}' was not found"),
+                          false,
+                          None,
+                      ));
+                  };
+                  Ok((profile_name.to_string(), profile.clone()))
+              }
+          }
+
+          '''
+              remote_planner_path.write_text(remote_planner.rstrip() + "\n\n" + helper)
+          """
+          text, count = pattern.subn(lambda _: replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(
+                  f"Stage 2A helper append repair: expected one marker-based block, found {count}"
+              )
+          path.write_text(text)
+          PY
+          bash .github/remote-data-consent-stage2a-v2-run.sh
 
       - name: Publish repair conclusion
         if: always()
