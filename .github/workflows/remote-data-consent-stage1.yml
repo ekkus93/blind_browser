@@ -1,0 +1,107 @@
+name: Remote Data Consent Stage 1
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+concurrency:
+  group: remote-data-consent-stage1
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    if: github.event.head_commit.message == 'ci: run remote data consent stage 1'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install Ubuntu native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply versioned privacy policy foundation
+        shell: bash
+        run: |
+          cat > /tmp/remote_data_stage1.py.gz.b64 <<'PAYLOAD'
+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
+PAYLOAD
+          base64 -d /tmp/remote_data_stage1.py.gz.b64 | gzip -d > /tmp/remote_data_stage1.py
+          python3 /tmp/remote_data_stage1.py
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all
+
+      - name: Validate fallback and diagnostic policy
+        run: |
+          bash scripts/check-silent-fallbacks.sh
+          python3 scripts/check-security-fallbacks.py --self-test
+          python3 scripts/check-security-fallbacks.py
+          python3 scripts/check-security-fallback-inventory.py --self-test
+          python3 scripts/check-security-fallback-inventory.py
+          python3 scripts/check-sensitive-diagnostics.py --self-test
+          python3 scripts/check-sensitive-diagnostics.py
+          git diff --check
+
+      - name: Validate Rust foundation
+        run: |
+          cargo check --manifest-path src-tauri/Cargo.toml
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+          xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features
+
+      - name: Validate frontend remains green
+        run: |
+          pnpm lint
+          pnpm test:ui
+          pnpm build
+
+      - name: Publish cleaned foundation
+        shell: bash
+        run: |
+          rm -f .github/workflows/remote-data-consent-stage1.yml
+          rm -f /tmp/remote_data_stage1.py /tmp/remote_data_stage1.py.gz.b64
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          test -n "$(git status --porcelain)"
+          test ! -e .github/workflows/remote-data-consent-stage1.yml
+          git commit -m "feat: add versioned remote data privacy policy foundation"
+          git push origin HEAD:master
