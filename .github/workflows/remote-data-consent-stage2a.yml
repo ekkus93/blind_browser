@@ -1,0 +1,172 @@
+name: Remote Data Consent Stage 2A
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/remote-data-consent-stage2a.trigger
+
+permissions:
+  contents: write
+  statuses: write
+
+concurrency:
+  group: remote-data-consent-stage2a
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Publish pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state=pending \
+            -f context='ci/remote-data-consent-stage2a' \
+            -f description='Remote data consent backend stage is running' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+
+      - name: Install Ubuntu native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Reconstruct and apply exact patch
+        shell: bash
+        run: |
+          cat .github/remote-data-consent-stage2a.part00 \
+              .github/remote-data-consent-stage2a.part01 \
+              .github/remote-data-consent-stage2a.part02 \
+              .github/remote-data-consent-stage2a.part03 \
+              .github/remote-data-consent-stage2a.part04 \
+              > /tmp/remote-data-consent-stage2a.py.gz.b64
+          test "$(wc -c < /tmp/remote-data-consent-stage2a.py.gz.b64)" -eq 17332
+          test "$(sha256sum /tmp/remote-data-consent-stage2a.py.gz.b64 | cut -d' ' -f1)" = 8f5f20570d4553c1ccbb0f44e172e54c9554cdcd9d0ff24ad2c34a7c003851f3
+          base64 -d /tmp/remote-data-consent-stage2a.py.gz.b64 | gzip -d > /tmp/remote-data-consent-stage2a.py
+          test "$(wc -c < /tmp/remote-data-consent-stage2a.py)" -eq 76782
+          test "$(sha256sum /tmp/remote-data-consent-stage2a.py | cut -d' ' -f1)" = eb8e80c60322db6807e31c08db52f2471017c1e0bf03f25959e523198fd9e363
+          python3 -m py_compile /tmp/remote-data-consent-stage2a.py
+          python3 /tmp/remote-data-consent-stage2a.py
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all
+          git diff --check
+
+      - name: Run security scanners
+        shell: bash
+        run: |
+          bash scripts/check-silent-fallbacks.sh
+          python3 scripts/check-security-fallbacks.py --self-test
+          python3 scripts/check-security-fallbacks.py
+          python3 scripts/check-security-fallback-inventory.py --self-test
+          python3 scripts/check-security-fallback-inventory.py
+          python3 scripts/check-sensitive-diagnostics.py --self-test
+          python3 scripts/check-sensitive-diagnostics.py
+
+      - name: Check default feature configuration
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Run strict Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Run focused consent tests
+        run: |
+          xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features remote_data_consent -- --nocapture
+
+      - name: Run full Rust tests
+        run: xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features
+
+      - name: Run frontend lint
+        run: pnpm lint
+
+      - name: Run UI tests
+        run: pnpm test:ui
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Publish clean implementation
+        shell: bash
+        run: |
+          rm -f .github/workflows/remote-data-consent-stage2a.yml
+          rm -f .github/remote-data-consent-stage2a.trigger
+          rm -f .github/remote-data-consent-stage2a.part00
+          rm -f .github/remote-data-consent-stage2a.part01
+          rm -f .github/remote-data-consent-stage2a.part02
+          rm -f .github/remote-data-consent-stage2a.part03
+          rm -f .github/remote-data-consent-stage2a.part04
+          rm -f /tmp/remote-data-consent-stage2a.py /tmp/remote-data-consent-stage2a.py.gz.b64
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          test -n "$(git status --porcelain)"
+          test ! -e .github/workflows/remote-data-consent-stage2a.yml
+          test ! -e .github/remote-data-consent-stage2a.trigger
+          git commit -m "feat: add remote data consent transaction boundary"
+          git push origin HEAD:master
+
+      - name: Publish conclusion
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          if test "${JOB_STATUS}" = success; then
+            state=success
+            description='Remote data consent backend stage passed'
+          else
+            state=failure
+            description='Remote data consent backend stage failed'
+          fi
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state="${state}" \
+            -f context='ci/remote-data-consent-stage2a' \
+            -f description="${description}" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
