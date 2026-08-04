@@ -1,3 +1,3 @@
-parent = "043d380d608e1e3bde2b7d8cdfd0c4f611358c81"
-sequence = 2
-purpose = "Apply, validate, and self-clean the unchanged remote data consent backend transaction boundary using the repository-pinned pnpm version."
+parent = "01946f55998a4acb396bee0a60818812c389c6b4"
+sequence = 3
+purpose = "Diagnose the exact reconstructed payload bytes, then apply and validate the unchanged remote data consent backend transaction boundary."
