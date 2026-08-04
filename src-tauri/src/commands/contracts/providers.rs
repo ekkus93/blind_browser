@@ -225,6 +225,28 @@ pub struct RemotePlannerPrivacyStatus {
     pub migration_notice_pending: bool,
 }
 
+impl Default for RemotePlannerPrivacyStatus {
+    fn default() -> Self {
+        Self {
+            network_mode: RemotePlannerNetworkMode::AskPerOrigin,
+            endpoint_scope: None,
+            endpoint_display: None,
+            endpoint_is_loopback: None,
+            current_page_origin: None,
+            effective_decision: RemotePlannerEffectiveDecision::PlannerUnavailable,
+            reason_code: Some(String::from("planner_not_configured")),
+            persistent_rule: None,
+            session_grant_active: false,
+            pending_challenge: None,
+            policy_version: crate::config::REMOTE_DATA_POLICY_VERSION,
+            persistent_rule_count: 0,
+            stale_allow_rule_count: 0,
+            persistent_rules: Vec::new(),
+            migration_notice_pending: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(tag = "operation", rename_all = "snake_case")]
 pub enum RemotePlannerPrivacyOperation {

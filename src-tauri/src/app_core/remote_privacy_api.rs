@@ -557,6 +557,13 @@ fn persistent_rule_for_origin(
         .map(|rule| rule.decision.clone())
 }
 
+fn decision_sort_key(decision: &PersistedOriginDecision) -> u8 {
+    match decision {
+        PersistedOriginDecision::Block => 0,
+        PersistedOriginDecision::Allow => 1,
+    }
+}
+
 fn prepare_privacy_settings_for_comparison(settings: &mut RemotePlannerPrivacySettings) {
     settings.policy_schema_version = REMOTE_DATA_POLICY_VERSION;
     settings.local_only = matches!(settings.network_mode, RemotePlannerNetworkMode::LocalOnly);
@@ -567,14 +574,14 @@ fn prepare_privacy_settings_for_comparison(settings: &mut RemotePlannerPrivacySe
     settings.origin_rules.sort_by(|left, right| {
         (
             left.page_origin.as_str(),
-            &left.decision,
+            decision_sort_key(&left.decision),
             left.endpoint_scope.as_deref(),
             left.policy_version,
             left.created_at_ms,
         )
             .cmp(&(
                 right.page_origin.as_str(),
-                &right.decision,
+                decision_sort_key(&right.decision),
                 right.endpoint_scope.as_deref(),
                 right.policy_version,
                 right.created_at_ms,

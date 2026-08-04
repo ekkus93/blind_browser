@@ -1244,6 +1244,7 @@ mod tests {
                 high_risk_origin_policy: String::from("block"),
                 remote_data_notice: String::from("notice"),
             },
+            remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: None,
                 provider: None,

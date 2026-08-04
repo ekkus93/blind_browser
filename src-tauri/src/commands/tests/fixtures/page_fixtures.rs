@@ -104,6 +104,7 @@ pub fn fixture_agent_state() -> AgentStateData {
             timeout_ms: Some(30_000),
             ..RemotePlannerSettings::default()
         },
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -169,6 +170,7 @@ pub fn fixture_runtime_status(agent_state: &AgentStateData) -> GetRuntimeStatusD
         pending_confirmation_id: agent_state.pending_confirmation_id.clone(),
         pending_plan_execution: agent_state.pending_plan_execution.clone(),
         provider_modes: None,
+        remote_planner_privacy_status: agent_state.remote_planner_privacy_status.clone(),
         skill_discovery_diagnostics: Default::default(),
     }
 }

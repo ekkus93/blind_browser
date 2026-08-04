@@ -314,6 +314,7 @@ fn planner_input_serializes_safety_settings_for_click_policy() {
                 timeout_ms: Some(30_000),
                 ..RemotePlannerSettings::default()
             },
+            remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
                 provider: Some(RemoteProviderLabel::OpenAi),
