@@ -101,6 +101,58 @@ jobs:
                   f'explicit Stage 2A repair insertion: expected one block, found {repair_count}'
               )
 
+          shell_prelude = "set -euo pipefail\n\n"
+          if text.count(shell_prelude) != 1:
+              raise SystemExit(
+                  'Stage 2A logged validation insertion: shell prelude mismatch'
+              )
+          logged_runner = '''set -euo pipefail
+
+          run_logged() {
+            local label="$1"
+            shift
+            local log="/tmp/remote-data-consent-stage2a-${label}.log"
+            local status
+
+            set +e
+            "$@" >"${log}" 2>&1
+            status=$?
+            set -e
+
+            if test "${status}" -ne 0; then
+              echo "::error::${label} failed with exit ${status}"
+              tail -n 300 "${log}" || true
+              return "${status}"
+            fi
+
+            echo "${label} passed"
+            tail -n 40 "${log}" || true
+          }
+
+          '''
+          text = text.replace(shell_prelude, logged_runner, 1)
+
+          validation_commands = {
+              "cargo check --manifest-path src-tauri/Cargo.toml":
+                  "run_logged cargo-check cargo check --manifest-path src-tauri/Cargo.toml",
+              "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings":
+                  "run_logged cargo-clippy cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings",
+              "xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features remote_data_consent -- --nocapture":
+                  "run_logged focused-consent-tests xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features remote_data_consent -- --nocapture",
+              "xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features":
+                  "run_logged full-rust-tests xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features",
+              "pnpm lint": "run_logged frontend-lint pnpm lint",
+              "pnpm test:ui": "run_logged frontend-tests pnpm test:ui",
+              "pnpm build": "run_logged frontend-build pnpm build",
+          }
+          for old, new in validation_commands.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(
+                      f'Stage 2A logged validation insertion: expected one {old!r}, found {count}'
+                  )
+              text = text.replace(old, new, 1)
+
           cleanup_anchor = "rm -f .github/remote-data-consent-stage2a-v2-run.sh\n"
           if text.count(cleanup_anchor) != 1:
               raise SystemExit('V3 cleanup insertion: runner cleanup anchor mismatch')
