@@ -41,6 +41,16 @@ jobs:
         shell: bash
         run: |
           python3 .github/remote-data-consent-foundation-closeout.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_TODO_2026-08-03.md")
+          lines = path.read_text().splitlines()
+          matches = [index for index, line in enumerate(lines) if line.startswith("**Status:** In progress — Stage 1")]
+          if len(matches) != 1:
+              raise SystemExit(f"expected one reconciled status line, found {len(matches)}")
+          lines[matches[0]] = lines[matches[0]].rstrip()
+          path.write_text("\n".join(lines) + "\n")
+          PY
           git diff --check
           grep -Fq '**Status:** In progress — Stage 1' docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_TODO_2026-08-03.md
           grep -Fq '## 22A. Stage 1 foundation closeout' docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_TODO_2026-08-03.md
