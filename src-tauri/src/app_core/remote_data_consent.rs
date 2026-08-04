@@ -255,7 +255,7 @@ mod tests {
                 &endpoint("https://api.example.com/v1"),
                 Some("https://example.com"),
                 None,
-                &[grant.clone()],
+                std::slice::from_ref(&grant),
                 99,
             ),
             RemotePlannerPolicyResult::Allowed(RemotePlannerDataAuthorization::SessionAllow)
