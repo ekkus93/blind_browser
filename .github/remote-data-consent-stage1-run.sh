@@ -40,9 +40,9 @@ from pathlib import Path
 path = Path("src-tauri/src/app_core/planner_redaction.rs")
 text = path.read_text()
 malformed = '''        },
-      
-      ..Default::default()
-      }
+    
+    ..Default::default()
+    }
 '''
 corrected = '''        ..Default::default()
     }
