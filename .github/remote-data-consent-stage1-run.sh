@@ -15,6 +15,23 @@ verify_chunk() {
   printf '%s' "$cleaned"
 }
 
+run_logged() {
+  local label="$1"
+  shift
+  local log="/tmp/remote-data-stage1-${label}.log"
+  echo "::group::${label}"
+  if "$@" >"${log}" 2>&1; then
+    tail -n 40 "${log}" || true
+    echo "::endgroup::"
+    return 0
+  fi
+  local status=$?
+  echo "::error::${label} failed with exit ${status}"
+  tail -n 200 "${log}" || true
+  echo "::endgroup::"
+  return "${status}"
+}
+
 {
   verify_chunk .github/remote_data_stage1.part01 2500 04741158419a8377b745c2e9c50546677aa2e182be4dd1f31d9eae7ff6cf9e65
   verify_chunk .github/remote_data_stage1.part02a 1250 be0ccde475c6136d8a738731d29020d8efe8911d8723f94bd425575c997518c9
@@ -82,12 +99,12 @@ python3 scripts/check-security-fallback-inventory.py
 python3 scripts/check-sensitive-diagnostics.py --self-test
 python3 scripts/check-sensitive-diagnostics.py
 
-cargo check --manifest-path src-tauri/Cargo.toml
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
-xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features
-pnpm lint
-pnpm test:ui
-pnpm build
+run_logged cargo-check cargo check --manifest-path src-tauri/Cargo.toml
+run_logged cargo-clippy cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+run_logged cargo-test xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features
+run_logged pnpm-lint pnpm lint
+run_logged pnpm-ui-tests pnpm test:ui
+run_logged pnpm-build pnpm build
 
 rm -f .github/workflows/remote-data-consent-stage1.yml
 rm -f .github/workflows/remote-data-consent-stage1-format-diagnostic.yml
@@ -102,6 +119,7 @@ rm -f .github/remote_data_stage1.part02b
 rm -f .github/remote_data_stage1.part03
 rm -f .github/remote_data_stage1.part04
 rm -f /tmp/remote_data_stage1.py /tmp/remote_data_stage1.py.gz /tmp/remote_data_stage1.b64
+rm -f /tmp/remote-data-stage1-*.log
 
 git config user.name github-actions[bot]
 git config user.email 41898282+github-actions[bot]@users.noreply.github.com
