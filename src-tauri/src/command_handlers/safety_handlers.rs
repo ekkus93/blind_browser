@@ -96,9 +96,8 @@ pub fn set_remote_planner_privacy_settings(
     let _ = request_id;
     let _ = timeout_ms;
     let mut app_core = lock_app_core(&app_core)?;
-    let legacy_requested = consent_to_remote_page_data.is_some()
-        || local_only.is_some()
-        || blocked_origins.is_some();
+    let legacy_requested =
+        consent_to_remote_page_data.is_some() || local_only.is_some() || blocked_origins.is_some();
 
     let changed = match operation {
         Some(_) if legacy_requested => {
@@ -147,7 +146,9 @@ pub fn set_remote_planner_privacy_settings(
                 )
                 .map_err(|error| ToolError {
                     code: String::from("remote_planner_privacy_persist_failed"),
-                    message: format!("Failed to persist the remote planner privacy policy: {error}"),
+                    message: format!(
+                        "Failed to persist the remote planner privacy policy: {error}"
+                    ),
                     retryable: false,
                     details: None,
                 })?;

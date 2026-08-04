@@ -51,9 +51,7 @@ impl AppCore {
             .collect::<Vec<_>>();
         let stale_allow_rule_count = persistent_rules
             .iter()
-            .filter(|rule| {
-                rule.stale && matches!(rule.decision, PersistedOriginDecision::Allow)
-            })
+            .filter(|rule| rule.stale && matches!(rule.decision, PersistedOriginDecision::Allow))
             .count();
         let persistent_rule = current_page_origin.as_deref().and_then(|page_origin| {
             persistent_rule_for_origin(
@@ -386,17 +384,15 @@ impl AppCore {
         if settings == self.config.remote_planner_privacy {
             return Ok(false);
         }
-        let updated = AppConfig::persist_remote_planner_privacy_settings_for_app(
-            &self.app_handle,
-            &settings,
-        )
-        .map_err(|error| {
-            privacy_api_error(
-                "remote_planner_privacy_persist_failed",
-                "failed to persist the remote planner privacy policy",
-                Some(serde_json::json!({ "reason": error.to_string() })),
-            )
-        })?;
+        let updated =
+            AppConfig::persist_remote_planner_privacy_settings_for_app(&self.app_handle, &settings)
+                .map_err(|error| {
+                    privacy_api_error(
+                        "remote_planner_privacy_persist_failed",
+                        "failed to persist the remote planner privacy policy",
+                        Some(serde_json::json!({ "reason": error.to_string() })),
+                    )
+                })?;
         self.config = updated;
         if invalidate_runtime {
             self.clear_remote_planner_consent_runtime();
@@ -424,7 +420,9 @@ fn map_policy_status(
             }
             RemotePlannerDataAuthorization::AllowOnce => (
                 RemotePlannerEffectiveDecision::ConsentRequired,
-                Some(String::from("one_shot_authorization_requires_pending_challenge")),
+                Some(String::from(
+                    "one_shot_authorization_requires_pending_challenge",
+                )),
             ),
         },
         RemotePlannerPolicyResult::ConsentRequired => (
@@ -434,9 +432,7 @@ fn map_policy_status(
         RemotePlannerPolicyResult::Blocked { code, reason_code } => {
             let decision = match code {
                 "remote_data_local_only" => RemotePlannerEffectiveDecision::LocalOnly,
-                "remote_data_high_risk_blocked" => {
-                    RemotePlannerEffectiveDecision::HighRiskBlocked
-                }
+                "remote_data_high_risk_blocked" => RemotePlannerEffectiveDecision::HighRiskBlocked,
                 "remote_data_origin_blocked" => RemotePlannerEffectiveDecision::OriginBlocked,
                 "remote_data_opaque_origin_blocked" => {
                     RemotePlannerEffectiveDecision::OriginUnavailable
@@ -600,11 +596,7 @@ fn prepare_privacy_settings_for_comparison(settings: &mut RemotePlannerPrivacySe
     settings.blocked_origins.dedup();
 }
 
-fn privacy_api_error(
-    code: &str,
-    message: &str,
-    details: Option<serde_json::Value>,
-) -> ToolError {
+fn privacy_api_error(code: &str, message: &str, details: Option<serde_json::Value>) -> ToolError {
     ToolError {
         code: code.to_string(),
         message: message.to_string(),
@@ -653,14 +645,8 @@ mod tests {
             policy_version: REMOTE_DATA_POLICY_VERSION,
             created_at_ms: 1,
         };
-        assert!(!rule_is_stale(
-            &active,
-            Some("https://api.example.com/v1")
-        ));
-        assert!(rule_is_stale(
-            &active,
-            Some("https://api.example.com/v2")
-        ));
+        assert!(!rule_is_stale(&active, Some("https://api.example.com/v1")));
+        assert!(rule_is_stale(&active, Some("https://api.example.com/v2")));
         let mut stale_version = active.clone();
         stale_version.policy_version = REMOTE_DATA_POLICY_VERSION + 1;
         assert!(rule_is_stale(
