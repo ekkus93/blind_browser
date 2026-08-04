@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 jobs:
   diagnose:
@@ -16,6 +17,19 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Publish diagnostic pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state=pending \
+            -f context='ci/remote-data-consent-format-diagnostic' \
+            -f description='Remote data consent format diagnostic is running' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 
       - name: Set up Rust formatter
         uses: dtolnay/rust-toolchain@stable
@@ -83,3 +97,25 @@ jobs:
       - name: Fail when rustfmt failed
         if: steps.fmt.outcome != 'success'
         run: exit 1
+
+      - name: Publish diagnostic conclusion
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          if test "${JOB_STATUS}" = success; then
+            state=success
+            description='Remote data consent format diagnostic passed'
+          else
+            state=failure
+            description='Remote data consent format diagnostic captured failure'
+          fi
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state="${state}" \
+            -f context='ci/remote-data-consent-format-diagnostic' \
+            -f description="${description}" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
