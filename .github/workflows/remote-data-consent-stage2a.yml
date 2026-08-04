@@ -78,18 +78,39 @@ jobs:
       - name: Reconstruct and apply exact patch
         shell: bash
         run: |
-          set -x
-          test "$(wc -c < .github/remote-data-consent-stage2a.part00)" -eq 3501
-          test "$(wc -c < .github/remote-data-consent-stage2a.part01)" -eq 3500
-          test "$(wc -c < .github/remote-data-consent-stage2a.part02)" -eq 3500
-          test "$(wc -c < .github/remote-data-consent-stage2a.part03)" -eq 3500
-          test "$(wc -c < .github/remote-data-consent-stage2a.part04)" -eq 3332
-          head -c 3500 .github/remote-data-consent-stage2a.part00 > /tmp/remote-data-consent-stage2a.py.gz.b64
-          cat .github/remote-data-consent-stage2a.part01 \
-              .github/remote-data-consent-stage2a.part02 \
-              .github/remote-data-consent-stage2a.part03 \
-              .github/remote-data-consent-stage2a.part04 \
-              >> /tmp/remote-data-consent-stage2a.py.gz.b64
+          set -euo pipefail
+          verify_chunk() {
+            local path="$1"
+            local size="$2"
+            local expected_sha="$3"
+            test "$(wc -c < "${path}")" -eq "${size}"
+            test "$(sha256sum "${path}" | cut -d' ' -f1)" = "${expected_sha}"
+          }
+          verify_chunk .github/remote-data-consent-stage2a.payload00 800 cfabde7cf79d48a089d0588d6262c3c53e4e57e98085102ffc6ef646a0b23bc4
+          verify_chunk .github/remote-data-consent-stage2a.payload01 1600 56079316cfbced688bcba678a54491d941ff8b3b1d68c875c2cbba0e798b9bcd
+          verify_chunk .github/remote-data-consent-stage2a.payload02 1600 cb71c3f14b76959bc88ad63aefaf620ad23efe5781e00ad729a3e96082da2570
+          verify_chunk .github/remote-data-consent-stage2a.payload03 1600 e29d97d4129948b4fe2530d9b12ceb558578047520892bb10dfdd9b06e6ada8c
+          verify_chunk .github/remote-data-consent-stage2a.payload04 1600 efba2f6aeff76e44f3c3991c2b9c34a47ae6fe885096baa91337b1732fb14df5
+          verify_chunk .github/remote-data-consent-stage2a.payload05 1600 2d2605fa58fdd1331419cced79396eff51d6a4e555fff20041ff5b041a42fba4
+          verify_chunk .github/remote-data-consent-stage2a.payload06 1600 617745012c50abcc3ab3c6cfdb89d9ed8f81c918d5acb104418e50ea7a63d4a0
+          verify_chunk .github/remote-data-consent-stage2a.payload07 1600 beda467f9d47a53cff3257ec8f1bf5b3fff74683a6808b98119f006f534f6ea0
+          verify_chunk .github/remote-data-consent-stage2a.payload08 1600 dff9e9fdabbcd7af8a45c9350534e70aaca2d8d7d314d268ab0435e641cb79e5
+          verify_chunk .github/remote-data-consent-stage2a.payload09 1600 5e5c762192dabbff049318f07551e523aab2412352c7c6cb5c72c57088ecc5b8
+          verify_chunk .github/remote-data-consent-stage2a.payload10 1600 3f7db90a94b40fe8fb5c370a9538f83c5c34883e9d61afc448dda0a8c5bba3e7
+          verify_chunk .github/remote-data-consent-stage2a.payload11 532 3653edbe4685ead4d7d123cdc0a0f2f99e1eb7429f8ab3253dbc340409d4263d
+          cat .github/remote-data-consent-stage2a.payload00 \
+              .github/remote-data-consent-stage2a.payload01 \
+              .github/remote-data-consent-stage2a.payload02 \
+              .github/remote-data-consent-stage2a.payload03 \
+              .github/remote-data-consent-stage2a.payload04 \
+              .github/remote-data-consent-stage2a.payload05 \
+              .github/remote-data-consent-stage2a.payload06 \
+              .github/remote-data-consent-stage2a.payload07 \
+              .github/remote-data-consent-stage2a.payload08 \
+              .github/remote-data-consent-stage2a.payload09 \
+              .github/remote-data-consent-stage2a.payload10 \
+              .github/remote-data-consent-stage2a.payload11 \
+              > /tmp/remote-data-consent-stage2a.py.gz.b64
           test "$(wc -c < /tmp/remote-data-consent-stage2a.py.gz.b64)" -eq 17332
           test "$(sha256sum /tmp/remote-data-consent-stage2a.py.gz.b64 | cut -d' ' -f1)" = 8f5f20570d4553c1ccbb0f44e172e54c9554cdcd9d0ff24ad2c34a7c003851f3
           base64 -d /tmp/remote-data-consent-stage2a.py.gz.b64 | gzip -d > /tmp/remote-data-consent-stage2a.py
@@ -118,8 +139,7 @@ jobs:
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
 
       - name: Run focused consent tests
-        run: |
-          xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features remote_data_consent -- --nocapture
+        run: xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features remote_data_consent -- --nocapture
 
       - name: Run full Rust tests
         run: xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features
@@ -138,11 +158,7 @@ jobs:
         run: |
           rm -f .github/workflows/remote-data-consent-stage2a.yml
           rm -f .github/remote-data-consent-stage2a.trigger
-          rm -f .github/remote-data-consent-stage2a.part00
-          rm -f .github/remote-data-consent-stage2a.part01
-          rm -f .github/remote-data-consent-stage2a.part02
-          rm -f .github/remote-data-consent-stage2a.part03
-          rm -f .github/remote-data-consent-stage2a.part04
+          rm -f .github/remote-data-consent-stage2a.payload{00..11}
           rm -f /tmp/remote-data-consent-stage2a.py /tmp/remote-data-consent-stage2a.py.gz.b64
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
@@ -150,6 +166,7 @@ jobs:
           test -n "$(git status --porcelain)"
           test ! -e .github/workflows/remote-data-consent-stage2a.yml
           test ! -e .github/remote-data-consent-stage2a.trigger
+          for path in .github/remote-data-consent-stage2a.payload{00..11}; do test ! -e "${path}"; done
           git commit -m "feat: add remote data consent transaction boundary"
           git push origin HEAD:master
 
