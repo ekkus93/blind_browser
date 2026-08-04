@@ -91,12 +91,12 @@ jobs:
               re.DOTALL,
           )
           replacement = r"""if profile_helper_count == 0:
-              helper = '''impl AppCore {
+              helper = '''impl crate::AppCore {
               /// Snapshot the configured remote planner profile under the `AppCore` lock so
               /// network preparation can run against an owned, immutable copy.
               pub(crate) fn remote_planner_profile_snapshot(
                   &self,
-              ) -> Result<(String, RemotePlannerProfile), ToolError> {
+              ) -> Result<(String, crate::config::RemotePlannerProfile), ToolError> {
                   let Some(profile_name) = self.config.providers.planner.remote_profile.as_deref() else {
                       return Err(planner_interpretation_unavailable_error(
                           "planner_profile_unavailable",
@@ -125,6 +125,29 @@ jobs:
               raise SystemExit(
                   f"Stage 2A helper append repair: expected one marker-based block, found {count}"
               )
+
+          sanitizer_anchor = "consent_path.write_text(consent)\n"
+          sanitizer_count = text.count(sanitizer_anchor)
+          if sanitizer_count != 1:
+              raise SystemExit(
+                  "Stage 2A sanitizer import repair: expected one consent write anchor, "
+                  f"found {sanitizer_count}"
+              )
+          sanitizer_repair = '''stale_sanitizer_import = (
+              "use crate::diagnostic_redaction::sanitize_url_for_display;\\n"
+          )
+          stale_sanitizer_import_count = consent.count(stale_sanitizer_import)
+          if stale_sanitizer_import_count > 1:
+              raise SystemExit(
+                  "stale sanitizer import repair: expected at most one import, "
+                  f"found {stale_sanitizer_import_count}"
+              )
+          if stale_sanitizer_import_count == 1:
+              consent = consent.replace(stale_sanitizer_import, "", 1)
+
+          consent_path.write_text(consent)
+          '''
+          text = text.replace(sanitizer_anchor, sanitizer_repair, 1)
           path.write_text(text)
           PY
           bash .github/remote-data-consent-stage2a-v2-run.sh
