@@ -23,6 +23,7 @@ pub struct AgentStateData {
     pub asr_provider_settings: AsrProviderSettings,
     pub local_asr_model_settings: LocalAsrModelSettings,
     pub remote_planner_settings: RemotePlannerSettings,
+    pub remote_planner_privacy_status: RemotePlannerPrivacyStatus,
     pub remote_tts_settings: RemoteTtsSettings,
     pub remote_asr_settings: RemoteAsrSettings,
     pub provider_failover_settings: ProviderFailoverSettings,
@@ -340,5 +341,6 @@ pub struct GetRuntimeStatusData {
     pub pending_confirmation_id: Option<String>,
     pub pending_plan_execution: Option<PendingPlanExecutionState>,
     pub provider_modes: Option<ProviderSelectionStatus>,
+    pub remote_planner_privacy_status: RemotePlannerPrivacyStatus,
     pub skill_discovery_diagnostics: SkillDiscoveryDiagnostics,
 }

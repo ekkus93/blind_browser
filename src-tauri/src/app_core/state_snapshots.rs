@@ -100,6 +100,7 @@ impl AppCore {
             asr_provider_settings: self.current_asr_provider_settings(),
             local_asr_model_settings: self.current_local_asr_model_settings(),
             remote_planner_settings: self.current_remote_planner_settings(),
+            remote_planner_privacy_status: self.current_remote_planner_privacy_status(),
             remote_tts_settings: self.current_remote_tts_settings(),
             remote_asr_settings: self.current_remote_asr_settings(),
             provider_failover_settings: self.current_provider_failover_settings(),
@@ -140,6 +141,7 @@ impl AppCore {
             } else {
                 None
             },
+            remote_planner_privacy_status: self.current_remote_planner_privacy_status(),
             skill_discovery_diagnostics: self.last_skill_discovery_diagnostics.clone(),
         }
     }
