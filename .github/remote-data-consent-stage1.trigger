@@ -1,3 +1,3 @@
-exact_trigger_sha_parent = "91f62cf06edfa32464bc5611fdc5a2d1e51ca870"
-sequence = 3
-purpose = "Run the simplified path-bound stage-one transformation. Workflow, payload, and marker are removed before publishing production source."
+exact_trigger_sha_parent = "cbb25a6a8231d9c44b009b8fcba577da2c5f9fde"
+sequence = 4
+purpose = "Run the chunk-verified stage-one transformation. Workflow, payload chunks, legacy payload, and marker are removed before publishing production source."
