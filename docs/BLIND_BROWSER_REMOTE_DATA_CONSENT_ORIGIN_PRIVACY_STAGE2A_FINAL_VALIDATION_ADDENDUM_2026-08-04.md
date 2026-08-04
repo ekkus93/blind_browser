@@ -4,19 +4,30 @@
 **Repository:** `ekkus93/blind_browser`  
 **Branch:** `master`  
 **Primary reconciliation:** `docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_STAGE2A_RECONCILIATION_2026-08-04.md`  
-**Status:** Corrected validation chronology; exact final permanent-CI result must be taken from the final reconciliation SHA's GitHub Actions run.
+**Implementation report:** `docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_IMPLEMENTATION_REPORT_2026-08-03.md`  
+**Status:** Stage 2A backend reconciliation code is permanently validated; final documentation-only SHA still requires its own permanent CI result.
 
 ## Purpose and precedence
 
-This addendum corrects the formatting-repair chronology in the primary Stage 2A reconciliation. Where the primary reconciliation describes commit `aa5136b99de6e10f42547a3de699ecea5b9773db` as the completed stable-`rustfmt` repair, this addendum supersedes that statement.
+This addendum is the authoritative chronology for the Stage 2A cleanup and formatting reconciliation. It supersedes earlier statements in the primary reconciliation that identify `aa5136b99de6e10f42547a3de699ecea5b9773db` as the final formatter repair, and it supersedes this addendum's earlier statement that `94c01bbbe72fb40d1fcc5e6088876cc0d5de5837` was the final repair.
 
-No backend behavior, authorization rule, credential scope, privacy decision, network boundary, or consent contract changed during these formatting repairs.
+No reconciliation formatting repair changed authorization behavior, credential scope, privacy precedence, consent binding, request preparation, network I/O, or protected-action confirmation.
 
-## Permanent-CI discoveries
+## Original Stage 2A implementation evidence
 
-### Cleanup defect
+- Trigger/baseline SHA: `166814c048e5c11b9200243ea6cb7bbe23c9bd78`
+- Published backend implementation SHA: `8ef7f5710daa76061806692a37cc2a13b05710c8`
+- Temporary repair/validation run: `30954014288`
+- Temporary repair/validation job: `92142680353`
+- Conclusion: `success`
 
-The first later human-authored reconciliation push exposed temporary Stage 2A machinery that had survived the original repair workflow:
+Job `92142680353` passed scanners, compilation, strict Clippy, focused remote-data-consent tests, the complete Rust suite, hostile-content tests, direct-command policy evidence, frontend lint, UI tests, and the production build. It then published the backend implementation.
+
+That temporary job was not equivalent to permanent CI. It omitted the repository's Rust-formatting gate, and its cleanup checks did not detect every temporary Stage 2A artifact.
+
+## Cleanup defect and repair
+
+The first later human-authored reconciliation push exposed temporary machinery that had survived the original repair workflow:
 
 - stale workflow: `.github/workflows/remote-data-consent-stage2a-v2-guard-fix2.yml`
 - stale trigger: `.github/remote-data-consent-stage2a-v2-guard-fix2.trigger`
@@ -24,60 +35,92 @@ The first later human-authored reconciliation push exposed temporary Stage 2A ma
 - workflow removal commit: `8c51835a2ba60e2b96c99217497f955614dbf653`
 - trigger removal commit: `d9274f69f8feb76c780f29382d86c2aa4edcf35f`
 
-After those removals, only permanent workflows remain in `.github/workflows`, and no Stage 2A trigger, payload, repair script, or helper remains in `.github`.
+After those removals:
 
-### First formatting failure
+- `.github/workflows` contains only `ci.yml`, `publish-ci-status.yml`, and `ralph-loop-apply.yml`;
+- `.github` contains no Stage 2A trigger, payload, repair script, generator, or helper.
 
-Permanent CI on reconciliation SHA `53bf88bf68164e655ef6dd4b9eba3472e9a45cad` failed the repository formatting gate:
+## Formatting defect chronology
 
+Permanent CI exposed an unformatted Ollama API-key-resolution expression in `src-tauri/src/app_core/remote_planner.rs`.
+
+### Initial failure
+
+- reconciliation SHA: `53bf88bf68164e655ef6dd4b9eba3472e9a45cad`
 - run: `30956246911`
 - job: `92149918326`
-- failing command: `cargo fmt --manifest-path src-tauri/Cargo.toml --check`
-- affected file: `src-tauri/src/app_core/remote_planner.rs`
-- affected expression: Ollama planner API-key resolution
+- failing gate: `cargo fmt --manifest-path src-tauri/Cargo.toml --check`
 
-Commit `aa5136b99de6e10f42547a3de699ecea5b9773db` attempted to repair the expression, but it used the wrong stable-`rustfmt` layout.
+### Superseded chained-expression attempts
 
-### Second formatting failure
+The following commits attempted opposite formatter layouts around the same chained expression and are not final evidence:
 
-Permanent CI on SHA `e1ee77e137cd0e7aa837293af5448d79bc920071` proved that `aa5136b99de6e10f42547a3de699ecea5b9773db` was not formatter-stable:
+- `aa5136b99de6e10f42547a3de699ecea5b9773db`
+- `94c01bbbe72fb40d1fcc5e6088876cc0d5de5837`
 
-- run: `30956648708`
-- job: `92151242479`
-- scanners before formatting: success
-- Rust formatting: failure
-- later compilation, Clippy, tests, and frontend gates: skipped after the formatting failure
+Related failed permanent runs included:
 
-The CI-emitted diff required the `resolve_secret_ref_for_endpoint` arguments to be split across lines before the chained `map_err` call.
+- run `30956648708`, job `92151242479`;
+- run `30956942798`, job `92152160901`.
 
-### Correct formatting repair
+The conflicting chained layouts were removed rather than toggled again.
 
-Commit `94c01bbbe72fb40d1fcc5e6088876cc0d5de5837` applies exactly the layout emitted by stable `rustfmt` 1.97.1:
+### Structurally stable repair
+
+Commit `a4f69970ae3d9888fbf6aec51be9a1adf1ce0577` split secret resolution from error mapping into two statements. Permanent run `30957226755`, job `92153012579`, then supplied one deterministic formatting adjustment to the first statement.
+
+Commit `007fdc2075dd5d4ea1ca6ba72b5a135e2bb4a3a3` applied that exact adjustment:
 
 ```rust
-let api_key = resolve_secret_ref_for_endpoint(
-    &profile.api_key,
-    "planner",
-    profile_name,
-    endpoint_scope,
-)
-.map_err(|reason| {
+let api_key_result =
+    resolve_secret_ref_for_endpoint(&profile.api_key, "planner", profile_name, endpoint_scope);
+let api_key = api_key_result.map_err(|reason| {
     // Existing bounded error mapping remains unchanged.
 })?;
 ```
 
-The commit changes only formatting in the Ollama credential-resolution expression. The OpenAI and Ollama endpoint-bound secret resolution, bounded error mapping, credential-bearing HTTP client, and prepared-request-only network boundary remain unchanged.
+This is the final Stage 2A reconciliation code SHA.
 
-## Correct interpretation of Stage 2A evidence
+## Exact permanent validation of the reconciliation code
 
-The temporary Stage 2A job `92142680353` remains substantive implementation evidence because it passed scanners, compilation, strict Clippy, focused consent tests, the complete Rust suite, direct-command policy evidence, frontend lint/UI tests/build, and then published the backend implementation.
+- Exact code SHA: `007fdc2075dd5d4ea1ca6ba72b5a135e2bb4a3a3`
+- Permanent CI run: `30957459755`
+- Permanent CI job: `92153724735`
+- Run conclusion: `success`
+- Job conclusion: `success`
 
-It was not equivalent to permanent CI because it omitted the repository formatting gate and did not remove every temporary Stage 2A artifact. Permanent CI exposed both omissions.
+The exact SHA passed every permanent pipeline gate:
 
-Stage 2A may be called complete only under its bounded backend definition after:
+- repository checkout and permanent pending-status publication;
+- silent-fallback scanner;
+- reviewed security-fallback scanner;
+- exact accepted-fallback inventory;
+- sensitive-diagnostics scanner;
+- Rust formatting;
+- default feature compilation;
+- strict Rust Clippy;
+- focused direct-command semantic evidence;
+- complete Rust tests;
+- frontend lint;
+- UI tests;
+- frontend production build;
+- permanent success-status publication.
 
-1. removal of the stale workflow and trigger;
-2. application of the exact stable-`rustfmt` repair;
-3. permanent CI success on the exact final reconciliation SHA.
+## Correct bounded conclusion
 
-The full remote-data-consent/origin-privacy milestone remains open. Stage 2B status/settings APIs, TypeScript/frontend integration, accessible consent UI, the full adversarial test matrix, scanner extensions, privacy documentation, BBCR reconciliation, and final milestone signoff are not completed by this addendum.
+Stage 2A is reconciled and complete only under its bounded backend definition:
+
+- runtime session and one-shot grants;
+- prepared-request-only network sending;
+- disclosure summaries and challenge binding;
+- runtime-only bounded pending consent;
+- typed consent-required outcomes;
+- consent-response command and exact sanitized-request resume;
+- lock release before network I/O;
+- temporary Stage 2A machinery removed;
+- formatting repaired;
+- exact reconciliation code SHA permanently validated.
+
+The full remote-data-consent/origin-privacy milestone remains open. Stage 2B status/settings APIs, TypeScript contracts, safe frontend state, accessible consent UI, structured rule management, the full request-count/replay/concurrency/invalidation/accessibility/adversarial test matrix, scanner extensions, privacy documentation, BBCR reconciliation, and final milestone signoff are not completed by Stage 2A.
+
+This documentation update is intentionally separate from the validated code SHA. Its exact commit must receive permanent CI before the documentation reconciliation itself is called closed.
