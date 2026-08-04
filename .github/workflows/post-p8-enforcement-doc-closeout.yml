@@ -1,0 +1,55 @@
+name: Post-P8 Enforcement Documentation Closeout
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/post-p8-enforcement-doc-closeout.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: post-p8-enforcement-documentation-closeout
+  cancel-in-progress: false
+
+jobs:
+  closeout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact trigger commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Confirm exact trigger SHA
+        run: test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+
+      - name: Reconcile authoritative TODO
+        run: python3 .github/post_p8_enforcement_doc_closeout.py
+
+      - name: Verify report and reconciled checklist
+        run: |
+          test -s docs/BLIND_BROWSER_POST_P8_FALLBACK_ENFORCEMENT_HARDENING_IMPLEMENTATION_REPORT_2026-08-03.md
+          test -s docs/BLIND_BROWSER_POST_P8_FALLBACK_ENFORCEMENT_HARDENING_TODO_2026-08-03.md
+          ! grep -F -- '- [ ]' docs/BLIND_BROWSER_POST_P8_FALLBACK_ENFORCEMENT_HARDENING_TODO_2026-08-03.md
+          grep -F '**Status:** Complete for the bounded post-P8 fallback-enforcement scope' docs/BLIND_BROWSER_POST_P8_FALLBACK_ENFORCEMENT_HARDENING_TODO_2026-08-03.md
+          grep -F '30881345809' docs/BLIND_BROWSER_POST_P8_FALLBACK_ENFORCEMENT_HARDENING_TODO_2026-08-03.md
+          grep -F 'bea5d223475b6e754f7235dbe1b96e312bef5b5e' docs/BLIND_BROWSER_POST_P8_FALLBACK_ENFORCEMENT_HARDENING_TODO_2026-08-03.md
+
+      - name: Remove temporary closeout machinery
+        run: |
+          git rm .github/post_p8_enforcement_doc_closeout.py
+          git rm .github/workflows/post-p8-enforcement-doc-closeout.yml
+
+      - name: Commit reconciled documentation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/BLIND_BROWSER_POST_P8_FALLBACK_ENFORCEMENT_HARDENING_TODO_2026-08-03.md
+          test -n "$(git status --porcelain)"
+          git commit -m 'docs: close post-P8 fallback enforcement hardening'
+          git push origin HEAD:master
