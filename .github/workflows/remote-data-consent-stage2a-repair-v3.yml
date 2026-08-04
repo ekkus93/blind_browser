@@ -92,7 +92,8 @@ jobs:
           )
           text, repair_count = repair_block.subn(
               "python3 .github/remote-data-consent-stage2a-repair-v3.py\n"
-              "python3 .github/remote-data-consent-stage2a-legacy-finalize.py\n\n"
+              "python3 .github/remote-data-consent-stage2a-legacy-finalize.py\n"
+              "python3 .github/remote-data-consent-stage2a-evidence-finalize.py\n\n"
               "cargo fmt --manifest-path src-tauri/Cargo.toml --all",
               text,
               count=1,
@@ -166,6 +167,7 @@ jobs:
               "rm -f .github/remote-data-consent-stage2a-repair-v3.trigger\n"
               "rm -f .github/remote-data-consent-stage2a-repair-v3.py\n"
               "rm -f .github/remote-data-consent-stage2a-legacy-finalize.py\n"
+              "rm -f .github/remote-data-consent-stage2a-evidence-finalize.py\n"
               + cleanup_anchor,
               1,
           )
@@ -179,6 +181,7 @@ jobs:
               "  .github/remote-data-consent-stage2a-repair-v3.trigger \\\n"
               "  .github/remote-data-consent-stage2a-repair-v3.py \\\n"
               "  .github/remote-data-consent-stage2a-legacy-finalize.py \\\n"
+              "  .github/remote-data-consent-stage2a-evidence-finalize.py \\\n"
               + absence_anchor,
               1,
           )
