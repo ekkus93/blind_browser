@@ -1,0 +1,68 @@
+name: Remote Data Consent Stage 2A V2 Guard Fix
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/remote-data-consent-stage2a-v2-guard-fix.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Make private-import repair idempotent
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/remote-data-consent-stage2a-repair-v2.yml')
+          text = path.read_text()
+          old = '''          replace_exact(
+              "src-tauri/src/commands/contracts/planner.rs",
+              "use crate::app_core::remote_data_consent::RemotePlannerConsentChallenge;\\n",
+              "",
+              1,
+              "duplicate private consent challenge import",
+          )
+'''
+          new = '''          planner_contracts_path = Path("src-tauri/src/commands/contracts/planner.rs")
+          planner_contracts = planner_contracts_path.read_text()
+          private_import = "use crate::app_core::remote_data_consent::RemotePlannerConsentChallenge;\\n"
+          private_import_count = planner_contracts.count(private_import)
+          if private_import_count > 1:
+              raise SystemExit(
+                  f"duplicate private consent challenge import: expected at most one occurrence, found {private_import_count}"
+              )
+          if private_import_count == 1:
+              planner_contracts_path.write_text(planner_contracts.replace(private_import, "", 1))
+'''
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'expected one private-import repair block, found {count}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          git diff --check
+
+      - name: Publish patched workflow and self-clean
+        shell: bash
+        run: |
+          rm -f .github/workflows/remote-data-consent-stage2a-v2-guard-fix.yml
+          rm -f .github/remote-data-consent-stage2a-v2-guard-fix.trigger
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          test -n "$(git status --porcelain)"
+          test ! -e .github/workflows/remote-data-consent-stage2a-v2-guard-fix.yml
+          test ! -e .github/remote-data-consent-stage2a-v2-guard-fix.trigger
+          git commit -m "ci: make consent import repair idempotent"
+          git push origin HEAD:master
