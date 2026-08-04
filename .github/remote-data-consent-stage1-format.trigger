@@ -1,3 +1,3 @@
-parent = "57634263b44a0c2d8e44cd54e2e9496bad749af7"
-sequence = 2
-purpose = "Capture the exact rustfmt parser diagnostic and transformed files for stage one with an exposed status context."
+parent = "fe4169f1f459b2539abb20cf7392b66f1800afcf"
+sequence = 3
+purpose = "Capture the next rustfmt parser diagnostic after applying the known exact fixture repair."
