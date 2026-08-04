@@ -1127,7 +1127,10 @@ fn detect_prompt_injection(input: &PlannerInput) -> PromptInjectionIndicators {
 mod tests {
     use super::*;
     use crate::commands::*;
-    use crate::config::{HighRiskOriginPolicy, ProviderMode};
+    use crate::config::{
+        HighRiskOriginPolicy, PersistedOriginDecision, ProviderMode, RemotePlannerNetworkMode,
+        RemotePlannerOriginRule, REMOTE_DATA_POLICY_VERSION,
+    };
     use crate::page_model::{RegionRole, RegionSource};
 
     fn element(attributes: &[(&str, &str)], value: &str) -> InteractiveElement {
@@ -1284,6 +1287,7 @@ mod tests {
             local_only: false,
             blocked_origins: Vec::new(),
             high_risk_origin_policy: HighRiskOriginPolicy::Block,
+            network_mode: RemotePlannerNetworkMode::AllowSanitizedNonHighRisk,
             ..Default::default()
         }
     }
@@ -1410,7 +1414,7 @@ mod tests {
         sensitive.page_model.as_mut().unwrap().interactive_elements =
             vec![element(&[("type", "password")], "hunter2")];
         let error = sanitize_for_network(&sensitive).unwrap_err();
-        assert_eq!(error.code, "remote_planner_high_risk_context_blocked");
+        assert_eq!(error.code, "remote_data_high_risk_blocked");
 
         let mut login_path = fixture_planner_input();
         login_path.agent_state.url = Some(String::from("https://example.com/login"));
@@ -1418,7 +1422,7 @@ mod tests {
             Some(String::from("https://example.com/login"));
         login_path.page_snapshot.as_mut().unwrap().url = String::from("https://example.com/login");
         let error = sanitize_for_network(&login_path).unwrap_err();
-        assert_eq!(error.code, "remote_planner_high_risk_context_blocked");
+        assert_eq!(error.code, "remote_data_high_risk_blocked");
     }
 
     #[test]
@@ -1440,7 +1444,7 @@ mod tests {
 
         let error = sanitize_for_network(&payment)
             .expect_err("high-risk OCR payment text must block network planning");
-        assert_eq!(error.code, "remote_planner_high_risk_context_blocked");
+        assert_eq!(error.code, "remote_data_high_risk_blocked");
         assert_eq!(
             error
                 .details
@@ -1651,7 +1655,7 @@ mod tests {
         let privacy = RemotePlannerPrivacySettings::default();
         let network = ProviderEndpointScope::parse("https://api.example.com/v1").unwrap();
         let error = sanitize_remote_planner_input(&input, &privacy, &network).unwrap_err();
-        assert_eq!(error.code, "remote_planner_network_consent_required");
+        assert_eq!(error.code, "remote_data_consent_required");
 
         let loopback = ProviderEndpointScope::parse("http://127.0.0.1:11434/v1").unwrap();
         let safe = sanitize_remote_planner_input(&input, &privacy, &loopback).unwrap();
@@ -1666,21 +1670,27 @@ mod tests {
         let input = fixture_planner_input();
         let endpoint = network_endpoint();
         let mut privacy = network_privacy();
-        privacy.local_only = true;
+        privacy.network_mode = RemotePlannerNetworkMode::LocalOnly;
         assert_eq!(
             sanitize_remote_planner_input(&input, &privacy, &endpoint)
                 .unwrap_err()
                 .code,
-            "remote_planner_local_only_blocked"
+            "remote_data_local_only"
         );
 
-        privacy.local_only = false;
-        privacy.blocked_origins = vec![String::from("https://example.com")];
+        privacy.network_mode = RemotePlannerNetworkMode::AllowSanitizedNonHighRisk;
+        privacy.origin_rules = vec![RemotePlannerOriginRule {
+            page_origin: String::from("https://example.com"),
+            decision: PersistedOriginDecision::Block,
+            endpoint_scope: None,
+            policy_version: REMOTE_DATA_POLICY_VERSION,
+            created_at_ms: 1,
+        }];
         assert_eq!(
             sanitize_remote_planner_input(&input, &privacy, &endpoint)
                 .unwrap_err()
                 .code,
-            "remote_planner_origin_blocked"
+            "remote_data_origin_blocked"
         );
     }
 
