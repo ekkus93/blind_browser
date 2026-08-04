@@ -78,7 +78,14 @@ jobs:
       - name: Decode transformation
         shell: bash
         run: |
-          base64 -d .github/remote_data_stage1.py.gz.b64 | gzip -d > /tmp/remote_data_stage1.py
+          cat .github/remote_data_stage1.part01 \
+              .github/remote_data_stage1.part02 \
+              .github/remote_data_stage1.part03 \
+              .github/remote_data_stage1.part04 \
+            | tr -d '\n\r ' \
+            | base64 -d \
+            | gzip -d > /tmp/remote_data_stage1.py
+          test "$(wc -c < /tmp/remote_data_stage1.py)" -eq 36790
           python3 -m py_compile /tmp/remote_data_stage1.py
 
       - name: Apply versioned privacy policy foundation
@@ -131,6 +138,10 @@ jobs:
           rm -f .github/workflows/remote-data-consent-stage1.yml
           rm -f .github/remote-data-consent-stage1.trigger
           rm -f .github/remote_data_stage1.py.gz.b64
+          rm -f .github/remote_data_stage1.part01
+          rm -f .github/remote_data_stage1.part02
+          rm -f .github/remote_data_stage1.part03
+          rm -f .github/remote_data_stage1.part04
           rm -f /tmp/remote_data_stage1.py
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
@@ -139,6 +150,10 @@ jobs:
           test ! -e .github/workflows/remote-data-consent-stage1.yml
           test ! -e .github/remote-data-consent-stage1.trigger
           test ! -e .github/remote_data_stage1.py.gz.b64
+          test ! -e .github/remote_data_stage1.part01
+          test ! -e .github/remote_data_stage1.part02
+          test ! -e .github/remote_data_stage1.part03
+          test ! -e .github/remote_data_stage1.part04
           git commit -m "feat: add versioned remote data privacy policy foundation"
           git push origin HEAD:master
 
