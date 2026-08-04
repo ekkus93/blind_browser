@@ -110,6 +110,30 @@ jobs:
       - name: Apply versioned privacy policy foundation
         run: python3 /tmp/remote_data_stage1.py
 
+      - name: Repair generated privacy fixture placement
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("src-tauri/src/app_core/planner_redaction.rs")
+          text = path.read_text()
+          malformed = '''        },
+              
+              ..Default::default()
+              }
+          '''
+          corrected = '''            ..Default::default()
+                  }
+          '''
+          count = text.count(malformed)
+          if count != 1:
+              raise SystemExit(
+                  f"planner_redaction.rs: expected one malformed privacy fixture, found {count}"
+              )
+          path.write_text(text.replace(malformed, corrected, 1))
+          PY
+
       - name: Format transformed Rust tree
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all
 
@@ -121,7 +145,7 @@ jobs:
           test -n "$(git status --porcelain)"
           test -f src-tauri/src/app_core/remote_data_consent.rs
           grep -q 'RemotePlannerNetworkMode' src-tauri/src/config/types.rs
-          grep -q 'evaluate_remote_data_policy' src-tauri/src/app_core/remote_data_consent.rs
+          grep -q 'evaluate_remote_planner_policy' src-tauri/src/app_core/remote_data_consent.rs
 
       - name: Validate fallback and diagnostic policy
         run: |
@@ -155,7 +179,9 @@ jobs:
         shell: bash
         run: |
           rm -f .github/workflows/remote-data-consent-stage1.yml
+          rm -f .github/workflows/remote-data-consent-stage1-format-diagnostic.yml
           rm -f .github/remote-data-consent-stage1.trigger
+          rm -f .github/remote-data-consent-stage1-format.trigger
           rm -f .github/remote_data_stage1.py.gz.b64
           rm -f .github/remote_data_stage1.part01
           rm -f .github/remote_data_stage1.part02
@@ -169,7 +195,9 @@ jobs:
           git add -A
           test -n "$(git status --porcelain)"
           test ! -e .github/workflows/remote-data-consent-stage1.yml
+          test ! -e .github/workflows/remote-data-consent-stage1-format-diagnostic.yml
           test ! -e .github/remote-data-consent-stage1.trigger
+          test ! -e .github/remote-data-consent-stage1-format.trigger
           test ! -e .github/remote_data_stage1.py.gz.b64
           test ! -e .github/remote_data_stage1.part01
           test ! -e .github/remote_data_stage1.part02
