@@ -14,6 +14,22 @@ def replace_once(source: str, old: str, new: str, label: str) -> str:
     return source.replace(old, new, 1)
 
 
+def replace_exact_count(
+    source: str,
+    old: str,
+    new: str,
+    expected_count: int,
+    label: str,
+) -> str:
+    count = source.count(old)
+    if count != expected_count:
+        raise SystemExit(
+            "Stage 2A evidence finalizer: expected "
+            f"{expected_count} {label} occurrences, found {count}"
+        )
+    return source.replace(old, new, expected_count)
+
+
 text = PATH.read_text()
 
 text = replace_once(
@@ -45,20 +61,19 @@ text = replace_once(
 )
 
 # The same adjacent pair appears once in the networked inventory and once in the
-# credential-bearing inventory. Replace them sequentially and fail closed if the
-# evidence layout drifts again.
-for label in ("networked", "credential-bearing"):
-    text = replace_once(
-        text,
-        '''            "resolve_command",
+# credential-bearing inventory. Require and replace both occurrences atomically.
+text = replace_exact_count(
+    text,
+    '''            "resolve_command",
             "transcribe_command",
 ''',
-        '''            "resolve_command",
+    '''            "resolve_command",
             "submit_remote_planner_consent_response",
             "transcribe_command",
 ''',
-        f"{label} remote planner consent evidence",
-    )
+    2,
+    "networked/credential-bearing remote planner consent evidence",
+)
 
 text = replace_once(
     text,
