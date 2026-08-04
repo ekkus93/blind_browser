@@ -1,3 +1,3 @@
-parent = "fe4169f1f459b2539abb20cf7392b66f1800afcf"
-sequence = 3
-purpose = "Capture the next rustfmt parser diagnostic after applying the known exact fixture repair."
+parent = "65f13de46eb070b0ed680114591be580bbf25c5f"
+sequence = 4
+purpose = "Verify rustfmt after the exact repair closes both the generated struct literal and helper function."
