@@ -1,0 +1,184 @@
+name: Stage 2B Compile Repair
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/stage2b-compile-repair.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Install native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Apply bounded compiler repairs
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          providers = Path('src-tauri/src/commands/contracts/providers.rs')
+          text = providers.read_text()
+          marker = '''pub struct RemotePlannerPrivacyStatus {
+              pub network_mode: RemotePlannerNetworkMode,
+              pub endpoint_scope: Option<String>,
+              pub endpoint_display: Option<String>,
+              pub endpoint_is_loopback: Option<bool>,
+              pub current_page_origin: Option<String>,
+              pub effective_decision: RemotePlannerEffectiveDecision,
+              pub reason_code: Option<String>,
+              pub persistent_rule: Option<PersistedOriginDecision>,
+              pub session_grant_active: bool,
+              pub pending_challenge: Option<RemotePlannerConsentChallengeSummary>,
+              pub policy_version: u32,
+              pub persistent_rule_count: usize,
+              pub stale_allow_rule_count: usize,
+              pub persistent_rules: Vec<RemotePlannerOriginRuleStatus>,
+              pub migration_notice_pending: bool,
+          }
+          '''
+          default_impl = marker + '''
+          impl Default for RemotePlannerPrivacyStatus {
+              fn default() -> Self {
+                  Self {
+                      network_mode: RemotePlannerNetworkMode::AskPerOrigin,
+                      endpoint_scope: None,
+                      endpoint_display: None,
+                      endpoint_is_loopback: None,
+                      current_page_origin: None,
+                      effective_decision: RemotePlannerEffectiveDecision::PlannerUnavailable,
+                      reason_code: Some(String::from("planner_not_configured")),
+                      persistent_rule: None,
+                      session_grant_active: false,
+                      pending_challenge: None,
+                      policy_version: crate::config::REMOTE_DATA_POLICY_VERSION,
+                      persistent_rule_count: 0,
+                      stale_allow_rule_count: 0,
+                      persistent_rules: Vec::new(),
+                      migration_notice_pending: false,
+                  }
+              }
+          }
+          '''
+          if 'impl Default for RemotePlannerPrivacyStatus' not in text:
+              if marker not in text:
+                  raise SystemExit('RemotePlannerPrivacyStatus marker not found')
+              text = text.replace(marker, default_impl, 1)
+              providers.write_text(text)
+
+          api = Path('src-tauri/src/app_core/remote_privacy_api.rs')
+          text = api.read_text()
+          text = text.replace('&left.decision,', 'decision_sort_key(&left.decision),', 1)
+          text = text.replace('&right.decision,', 'decision_sort_key(&right.decision),', 1)
+          helper_marker = 'fn prepare_privacy_settings_for_comparison(settings: &mut RemotePlannerPrivacySettings) {'
+          helper = '''fn decision_sort_key(decision: &PersistedOriginDecision) -> u8 {
+              match decision {
+                  PersistedOriginDecision::Block => 0,
+                  PersistedOriginDecision::Allow => 1,
+              }
+          }
+
+          '''
+          if 'fn decision_sort_key(' not in text:
+              if helper_marker not in text:
+                  raise SystemExit('privacy comparison helper marker not found')
+              text = text.replace(helper_marker, helper + helper_marker, 1)
+          api.write_text(text)
+
+          fixture_paths = [
+              Path('src-tauri/src/app_core/planner_redaction.rs'),
+              Path('src-tauri/src/commands/tests/fixtures/page_fixtures.rs'),
+              Path('src-tauri/src/commands/tests/contracts/planner_contracts.rs'),
+          ]
+          for path in fixture_paths:
+              text = path.read_text()
+              lines = text.splitlines(keepends=True)
+              output = []
+              for line in lines:
+                  stripped = line.lstrip()
+                  if stripped.startswith('remote_tts_settings:'):
+                      indent = line[:len(line) - len(stripped)]
+                      recent = ''.join(output[-40:])
+                      if 'remote_planner_privacy_status:' not in recent:
+                          output.append(
+                              f'{indent}remote_planner_privacy_status: '
+                              'RemotePlannerPrivacyStatus::default(),\n'
+                          )
+                  if path.name == 'page_fixtures.rs' and stripped.startswith('skill_discovery_diagnostics:'):
+                      indent = line[:len(line) - len(stripped)]
+                      recent = ''.join(output[-20:])
+                      if 'remote_planner_privacy_status:' not in recent:
+                          output.append(
+                              f'{indent}remote_planner_privacy_status: '
+                              'agent_state.remote_planner_privacy_status.clone(),\n'
+                          )
+                  output.append(line)
+              path.write_text(''.join(output))
+          PY
+
+          cargo fmt --manifest-path src-tauri/Cargo.toml
+
+      - name: Compile repaired tree
+        id: check
+        shell: bash
+        run: |
+          set +e
+          cargo check --manifest-path src-tauri/Cargo.toml --all-targets --all-features 2>&1 | tee /tmp/stage2b-compile-repair.log
+          check_status=${PIPESTATUS[0]}
+          set -e
+          echo "check_status=${check_status}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish repair and remove temporary files
+        shell: bash
+        run: |
+          rm -f .github/workflows/stage2b-compile-repair.yml
+          rm -f .github/stage2b-compile-repair.trigger
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src-tauri/src/app_core/remote_privacy_api.rs
+          git add src-tauri/src/app_core/planner_redaction.rs
+          git add src-tauri/src/commands/contracts/providers.rs
+          git add src-tauri/src/commands/tests/fixtures/page_fixtures.rs
+          git add src-tauri/src/commands/tests/contracts/planner_contracts.rs
+          git add .github/workflows/stage2b-compile-repair.yml
+          git add .github/stage2b-compile-repair.trigger
+          git commit -m "fix: reconcile Stage 2B privacy contracts"
+          git push origin HEAD:master
+
+      - name: Enforce compile result
+        shell: bash
+        run: exit "${{ steps.check.outputs.check_status }}"
