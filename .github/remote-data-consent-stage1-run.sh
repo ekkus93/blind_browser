@@ -53,7 +53,16 @@ if count != 1:
     raise SystemExit(
         f"planner_redaction.rs: expected one malformed privacy fixture, found {count}"
     )
-path.write_text(text.replace(malformed, corrected, 1))
+text = text.replace(malformed, corrected, 1)
+
+old_import = "    use crate::config::ProviderMode;\n"
+new_import = "    use crate::config::{HighRiskOriginPolicy, ProviderMode};\n"
+count = text.count(old_import)
+if count != 1:
+    raise SystemExit(
+        f"planner_redaction.rs: expected one ProviderMode test import, found {count}"
+    )
+path.write_text(text.replace(old_import, new_import, 1))
 PY
 
 cargo fmt --manifest-path src-tauri/Cargo.toml --all
