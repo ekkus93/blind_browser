@@ -1,8 +1,30 @@
-use crate::config::{
-    PersistedOriginDecision, RemotePlannerNetworkMode, RemotePlannerPrivacySettings,
-    REMOTE_DATA_POLICY_VERSION,
+use std::sync::atomic::{AtomicU8, Ordering};
+
+use serde::Serialize;
+use sha2::{Digest, Sha256};
+use uuid::Uuid;
+
+use super::planner_redaction::{
+    high_risk_context_reason, planner_page_origin, sanitize_remote_planner_input_authorized,
+    RemoteDataMode, RemotePlannerInput,
 };
+use super::AppCore;
+use crate::commands::{
+    current_timestamp_ms, PlannerInput, RemotePlannerConsentChallenge,
+    RemotePlannerConsentDecision, RemotePlannerConsentResponseOutcome,
+    RemotePlannerDisclosureClass, RemotePlannerDisclosureCounts, ToolError,
+};
+use crate::config::{
+    AppConfig, PersistedOriginDecision, RemotePlannerNetworkMode, RemotePlannerOriginRule,
+    RemotePlannerPrivacySettings, RemotePlannerProfile, REMOTE_DATA_POLICY_VERSION,
+};
+use crate::page_model::RegionSource;
 use crate::provider_endpoint::ProviderEndpointScope;
+use crate::state::PlanningStateSnapshot;
+
+const CONSENT_CHALLENGE_TTL_MS: u64 = 120_000;
+const SESSION_GRANT_TTL_MS: u64 = 8 * 60 * 60 * 1_000;
+const MAX_EPHEMERAL_GRANTS: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RemotePlannerDataAuthorization {
@@ -10,14 +32,96 @@ pub(crate) enum RemotePlannerDataAuthorization {
     GlobalAllow,
     PersistentAllow,
     SessionAllow,
+    AllowOnce,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct RemotePlannerSessionGrant {
-    pub(crate) page_origin: String,
-    pub(crate) endpoint_scope: String,
-    pub(crate) policy_version: u32,
-    pub(crate) expires_at_ms: u64,
+pub(crate) enum EphemeralConsentKind {
+    Once {
+        challenge_digest: String,
+        remaining_uses: AtomicU8,
+    },
+    Session,
+}
+
+pub(crate) struct RemotePlannerEphemeralGrant {
+    page_origin: String,
+    endpoint_scope: String,
+    policy_version: u32,
+    expires_at_ms: u64,
+    kind: EphemeralConsentKind,
+}
+
+impl RemotePlannerEphemeralGrant {
+    fn session(
+        page_origin: String,
+        endpoint_scope: String,
+        policy_version: u32,
+        expires_at_ms: u64,
+    ) -> Self {
+        Self {
+            page_origin,
+            endpoint_scope,
+            policy_version,
+            expires_at_ms,
+            kind: EphemeralConsentKind::Session,
+        }
+    }
+
+    fn once(
+        page_origin: String,
+        endpoint_scope: String,
+        policy_version: u32,
+        challenge_digest: String,
+        expires_at_ms: u64,
+    ) -> Self {
+        Self {
+            page_origin,
+            endpoint_scope,
+            policy_version,
+            expires_at_ms,
+            kind: EphemeralConsentKind::Once {
+                challenge_digest,
+                remaining_uses: AtomicU8::new(1),
+            },
+        }
+    }
+
+    fn is_matching_session(&self, page_origin: &str, endpoint_scope: &str, now_ms: u64) -> bool {
+        self.expires_at_ms > now_ms
+            && self.page_origin == page_origin
+            && self.endpoint_scope == endpoint_scope
+            && self.policy_version == REMOTE_DATA_POLICY_VERSION
+            && matches!(&self.kind, EphemeralConsentKind::Session)
+    }
+
+    fn consume_matching_once(
+        &self,
+        page_origin: &str,
+        endpoint_scope: &str,
+        challenge_digest: &str,
+        now_ms: u64,
+    ) -> bool {
+        if self.expires_at_ms <= now_ms
+            || self.page_origin != page_origin
+            || self.endpoint_scope != endpoint_scope
+            || self.policy_version != REMOTE_DATA_POLICY_VERSION
+        {
+            return false;
+        }
+        let EphemeralConsentKind::Once {
+            challenge_digest: expected_digest,
+            remaining_uses,
+        } = &self.kind
+        else {
+            return false;
+        };
+        if expected_digest != challenge_digest {
+            return false;
+        }
+        remaining_uses
+            .compare_exchange(1, 0, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,7 +139,7 @@ pub(crate) fn evaluate_remote_planner_policy(
     endpoint_scope: &ProviderEndpointScope,
     page_origin: Option<&str>,
     high_risk_reason: Option<&'static str>,
-    session_grants: &[RemotePlannerSessionGrant],
+    grants: &[RemotePlannerEphemeralGrant],
     now_ms: u64,
 ) -> RemotePlannerPolicyResult {
     if endpoint_scope.is_loopback() {
@@ -68,12 +172,10 @@ pub(crate) fn evaluate_remote_planner_policy(
         };
     }
     let endpoint = endpoint_scope.normalized_base_url();
-    if session_grants.iter().any(|grant| {
-        grant.expires_at_ms > now_ms
-            && grant.page_origin == page_origin
-            && grant.endpoint_scope == endpoint
-            && grant.policy_version == REMOTE_DATA_POLICY_VERSION
-    }) {
+    if grants
+        .iter()
+        .any(|grant| grant.is_matching_session(page_origin, endpoint, now_ms))
+    {
         return RemotePlannerPolicyResult::Allowed(RemotePlannerDataAuthorization::SessionAllow);
     }
     if privacy.origin_rules.iter().any(|rule| {
@@ -93,12 +195,655 @@ pub(crate) fn evaluate_remote_planner_policy(
     RemotePlannerPolicyResult::ConsentRequired
 }
 
+pub(crate) struct RemotePlannerRequestDraft {
+    pub(crate) profile_name: String,
+    pub(crate) profile: RemotePlannerProfile,
+    pub(crate) endpoint_scope: ProviderEndpointScope,
+    pub(crate) sanitized_input: Box<RemotePlannerInput>,
+    pub(crate) payload_digest: String,
+    pub(crate) page_origin: String,
+    pub(crate) runtime_state_token: String,
+    pub(crate) disclosure_classes: Vec<RemotePlannerDisclosureClass>,
+    pub(crate) disclosure_counts: RemotePlannerDisclosureCounts,
+}
+
+pub(crate) struct PreparedRemotePlannerRequest {
+    pub(crate) profile_name: String,
+    pub(crate) profile: RemotePlannerProfile,
+    pub(crate) endpoint_scope: ProviderEndpointScope,
+    pub(crate) sanitized_input: RemotePlannerInput,
+    pub(crate) authorization: RemotePlannerDataAuthorization,
+    pub(crate) page_origin: String,
+    pub(crate) runtime_state_token: String,
+}
+
+impl RemotePlannerRequestDraft {
+    fn authorize(
+        self,
+        authorization: RemotePlannerDataAuthorization,
+    ) -> PreparedRemotePlannerRequest {
+        PreparedRemotePlannerRequest {
+            profile_name: self.profile_name,
+            profile: self.profile,
+            endpoint_scope: self.endpoint_scope,
+            sanitized_input: *self.sanitized_input,
+            authorization,
+            page_origin: self.page_origin,
+            runtime_state_token: self.runtime_state_token,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PendingRemotePlannerContinuation {
+    ResolveOnly,
+    Execute,
+}
+
+pub(crate) struct PendingRemotePlannerConsent {
+    pub(crate) challenge: RemotePlannerConsentChallenge,
+    draft: RemotePlannerRequestDraft,
+    planning_snapshot: PlanningStateSnapshot,
+    continuation: PendingRemotePlannerContinuation,
+}
+
+pub(crate) enum RemotePlannerPreparation {
+    Authorized(Box<PreparedRemotePlannerRequest>),
+    ConsentRequired {
+        challenge: Box<RemotePlannerConsentChallenge>,
+        draft: Box<RemotePlannerRequestDraft>,
+    },
+}
+
+pub(crate) struct AuthorizedPendingRemotePlannerRequest {
+    pub(crate) prepared: PreparedRemotePlannerRequest,
+    pub(crate) planning_snapshot: PlanningStateSnapshot,
+    pub(crate) continuation: PendingRemotePlannerContinuation,
+    pub(crate) request_id: String,
+}
+
+pub(crate) enum PendingConsentResolution {
+    Terminal(RemotePlannerConsentResponseOutcome),
+    Authorized(Box<AuthorizedPendingRemotePlannerRequest>),
+}
+
+impl AppCore {
+    pub(crate) fn prepare_remote_planner_request(
+        &mut self,
+        profile_name: String,
+        profile: RemotePlannerProfile,
+        planner_input: PlannerInput,
+        privacy: &RemotePlannerPrivacySettings,
+    ) -> Result<RemotePlannerPreparation, ToolError> {
+        let endpoint_scope = ProviderEndpointScope::parse(&profile.base_url).map_err(|reason| {
+            consent_error(
+                "planner_endpoint_invalid",
+                "remote planner endpoint is invalid",
+                Some(serde_json::json!({ "reason": reason })),
+            )
+        })?;
+        let now_ms = current_timestamp_ms();
+        self.prune_remote_planner_grants(now_ms);
+        let page_origin = planner_page_origin(&planner_input);
+        let high_risk_reason = high_risk_context_reason(&planner_input);
+        match evaluate_remote_planner_policy(
+            privacy,
+            &endpoint_scope,
+            page_origin.as_deref(),
+            high_risk_reason,
+            &self.remote_planner_ephemeral_grants,
+            now_ms,
+        ) {
+            RemotePlannerPolicyResult::Allowed(authorization) => {
+                let mode = remote_data_mode(authorization);
+                let draft = build_request_draft(
+                    profile_name,
+                    profile,
+                    endpoint_scope,
+                    planner_input,
+                    mode,
+                )?;
+                Ok(RemotePlannerPreparation::Authorized(Box::new(
+                    draft.authorize(authorization),
+                )))
+            }
+            RemotePlannerPolicyResult::ConsentRequired => {
+                let draft = build_request_draft(
+                    profile_name,
+                    profile,
+                    endpoint_scope,
+                    planner_input,
+                    RemoteDataMode::NetworkRemoteWithExplicitConsent,
+                )?;
+                let challenge = build_consent_challenge(&draft, now_ms)?;
+                Ok(RemotePlannerPreparation::ConsentRequired {
+                    challenge: Box::new(challenge),
+                    draft: Box::new(draft),
+                })
+            }
+            RemotePlannerPolicyResult::Blocked { code, reason_code } => {
+                Err(policy_block_error(code, reason_code))
+            }
+        }
+    }
+
+    pub(crate) fn store_pending_remote_planner_consent(
+        &mut self,
+        challenge: RemotePlannerConsentChallenge,
+        draft: RemotePlannerRequestDraft,
+        planning_snapshot: PlanningStateSnapshot,
+        continuation: PendingRemotePlannerContinuation,
+    ) {
+        self.pending_remote_planner_consent = Some(PendingRemotePlannerConsent {
+            challenge,
+            draft,
+            planning_snapshot,
+            continuation,
+        });
+    }
+
+    pub(crate) fn resolve_pending_remote_planner_consent(
+        &mut self,
+        challenge_id: &str,
+        challenge_digest: &str,
+        decision: RemotePlannerConsentDecision,
+    ) -> Result<PendingConsentResolution, ToolError> {
+        let pending = self.pending_remote_planner_consent.take().ok_or_else(|| {
+            consent_error(
+                "remote_data_consent_missing",
+                "no remote-data consent request is pending",
+                None,
+            )
+        })?;
+        let now_ms = current_timestamp_ms();
+        if pending.challenge.challenge_id != challenge_id
+            || pending.challenge.challenge_digest != challenge_digest
+        {
+            return Err(consent_error(
+                "remote_data_consent_mismatch",
+                "remote-data consent response did not match the pending challenge",
+                None,
+            ));
+        }
+        if now_ms >= pending.challenge.expires_at_ms {
+            return Err(consent_error(
+                "remote_data_consent_expired",
+                "remote-data consent challenge expired before it was answered",
+                Some(serde_json::json!({
+                    "expired_at_ms": pending.challenge.expires_at_ms,
+                    "observed_at_ms": now_ms,
+                })),
+            ));
+        }
+        if pending.draft.runtime_state_token != self.current_runtime_state_token() {
+            return Err(consent_error(
+                "remote_data_consent_state_changed",
+                "runtime state changed after the remote-data consent challenge was created",
+                None,
+            ));
+        }
+        let (current_profile_name, current_profile) = self.remote_planner_profile_snapshot()?;
+        if current_profile_name != pending.draft.profile_name
+            || current_profile.base_url != pending.draft.profile.base_url
+            || current_profile.model != pending.draft.profile.model
+        {
+            return Err(consent_error(
+                "remote_data_consent_destination_changed",
+                "remote planner destination changed after the consent challenge was created",
+                None,
+            ));
+        }
+        match evaluate_remote_planner_policy(
+            &self.config.remote_planner_privacy,
+            &pending.draft.endpoint_scope,
+            Some(&pending.draft.page_origin),
+            None,
+            &self.remote_planner_ephemeral_grants,
+            now_ms,
+        ) {
+            RemotePlannerPolicyResult::Blocked { code, reason_code } => {
+                return Err(policy_block_error(code, reason_code));
+            }
+            RemotePlannerPolicyResult::Allowed(_) | RemotePlannerPolicyResult::ConsentRequired => {}
+        }
+
+        match decision {
+            RemotePlannerConsentDecision::Deny => Ok(PendingConsentResolution::Terminal(
+                RemotePlannerConsentResponseOutcome::Denied,
+            )),
+            RemotePlannerConsentDecision::BlockPersistent => {
+                self.persist_origin_rule(
+                    &pending.draft.page_origin,
+                    PersistedOriginDecision::Block,
+                    None,
+                )?;
+                self.remote_planner_ephemeral_grants
+                    .retain(|grant| grant.page_origin != pending.draft.page_origin);
+                Ok(PendingConsentResolution::Terminal(
+                    RemotePlannerConsentResponseOutcome::BlockedPersistent,
+                ))
+            }
+            RemotePlannerConsentDecision::AllowPersistent => {
+                self.persist_origin_rule(
+                    &pending.draft.page_origin,
+                    PersistedOriginDecision::Allow,
+                    Some(
+                        pending
+                            .draft
+                            .endpoint_scope
+                            .normalized_base_url()
+                            .to_string(),
+                    ),
+                )?;
+                Ok(PendingConsentResolution::Authorized(Box::new(
+                    AuthorizedPendingRemotePlannerRequest {
+                        request_id: pending.challenge.request_id,
+                        prepared: pending
+                            .draft
+                            .authorize(RemotePlannerDataAuthorization::PersistentAllow),
+                        planning_snapshot: pending.planning_snapshot,
+                        continuation: pending.continuation,
+                    },
+                )))
+            }
+            RemotePlannerConsentDecision::AllowSession => {
+                self.install_session_grant(
+                    pending.draft.page_origin.clone(),
+                    pending
+                        .draft
+                        .endpoint_scope
+                        .normalized_base_url()
+                        .to_string(),
+                    now_ms.saturating_add(SESSION_GRANT_TTL_MS),
+                );
+                Ok(PendingConsentResolution::Authorized(Box::new(
+                    AuthorizedPendingRemotePlannerRequest {
+                        request_id: pending.challenge.request_id,
+                        prepared: pending
+                            .draft
+                            .authorize(RemotePlannerDataAuthorization::SessionAllow),
+                        planning_snapshot: pending.planning_snapshot,
+                        continuation: pending.continuation,
+                    },
+                )))
+            }
+            RemotePlannerConsentDecision::AllowOnce => {
+                let endpoint = pending
+                    .draft
+                    .endpoint_scope
+                    .normalized_base_url()
+                    .to_string();
+                self.install_once_grant(
+                    pending.draft.page_origin.clone(),
+                    endpoint.clone(),
+                    pending.challenge.challenge_digest.clone(),
+                    pending.challenge.expires_at_ms,
+                );
+                if !self.consume_once_grant(
+                    &pending.draft.page_origin,
+                    &endpoint,
+                    &pending.challenge.challenge_digest,
+                    now_ms,
+                ) {
+                    return Err(consent_error(
+                        "remote_data_consent_replay",
+                        "one-shot remote-data consent was already consumed or expired",
+                        None,
+                    ));
+                }
+                Ok(PendingConsentResolution::Authorized(Box::new(
+                    AuthorizedPendingRemotePlannerRequest {
+                        request_id: pending.challenge.request_id,
+                        prepared: pending
+                            .draft
+                            .authorize(RemotePlannerDataAuthorization::AllowOnce),
+                        planning_snapshot: pending.planning_snapshot,
+                        continuation: pending.continuation,
+                    },
+                )))
+            }
+        }
+    }
+
+    pub(crate) fn clear_remote_planner_consent_runtime(&mut self) {
+        self.pending_remote_planner_consent = None;
+        self.remote_planner_ephemeral_grants.clear();
+    }
+
+    fn prune_remote_planner_grants(&mut self, now_ms: u64) {
+        self.remote_planner_ephemeral_grants
+            .retain(|grant| grant.expires_at_ms > now_ms);
+    }
+
+    fn install_session_grant(
+        &mut self,
+        page_origin: String,
+        endpoint_scope: String,
+        expires_at_ms: u64,
+    ) {
+        self.remote_planner_ephemeral_grants.retain(|grant| {
+            !(grant.page_origin == page_origin
+                && grant.endpoint_scope == endpoint_scope
+                && matches!(&grant.kind, EphemeralConsentKind::Session))
+        });
+        self.remote_planner_ephemeral_grants
+            .push(RemotePlannerEphemeralGrant::session(
+                page_origin,
+                endpoint_scope,
+                REMOTE_DATA_POLICY_VERSION,
+                expires_at_ms,
+            ));
+        self.bound_remote_planner_grants();
+    }
+
+    fn install_once_grant(
+        &mut self,
+        page_origin: String,
+        endpoint_scope: String,
+        challenge_digest: String,
+        expires_at_ms: u64,
+    ) {
+        self.remote_planner_ephemeral_grants
+            .push(RemotePlannerEphemeralGrant::once(
+                page_origin,
+                endpoint_scope,
+                REMOTE_DATA_POLICY_VERSION,
+                challenge_digest,
+                expires_at_ms,
+            ));
+        self.bound_remote_planner_grants();
+    }
+
+    fn consume_once_grant(
+        &self,
+        page_origin: &str,
+        endpoint_scope: &str,
+        challenge_digest: &str,
+        now_ms: u64,
+    ) -> bool {
+        self.remote_planner_ephemeral_grants.iter().any(|grant| {
+            grant.consume_matching_once(page_origin, endpoint_scope, challenge_digest, now_ms)
+        })
+    }
+
+    fn bound_remote_planner_grants(&mut self) {
+        if self.remote_planner_ephemeral_grants.len() > MAX_EPHEMERAL_GRANTS {
+            let remove = self.remote_planner_ephemeral_grants.len() - MAX_EPHEMERAL_GRANTS;
+            self.remote_planner_ephemeral_grants.drain(0..remove);
+        }
+    }
+
+    fn persist_origin_rule(
+        &mut self,
+        page_origin: &str,
+        decision: PersistedOriginDecision,
+        endpoint_scope: Option<String>,
+    ) -> Result<(), ToolError> {
+        let mut settings = self.config.remote_planner_privacy.clone();
+        if matches!(decision, PersistedOriginDecision::Allow)
+            && settings.origin_rules.iter().any(|rule| {
+                rule.page_origin == page_origin
+                    && matches!(rule.decision, PersistedOriginDecision::Block)
+            })
+        {
+            return Err(policy_block_error(
+                "remote_data_origin_blocked",
+                "origin_block",
+            ));
+        }
+        if matches!(decision, PersistedOriginDecision::Block) {
+            settings
+                .origin_rules
+                .retain(|rule| rule.page_origin != page_origin);
+        } else {
+            settings.origin_rules.retain(|rule| {
+                !(rule.page_origin == page_origin
+                    && rule.decision == decision
+                    && rule.endpoint_scope == endpoint_scope)
+            });
+        }
+        settings.origin_rules.push(RemotePlannerOriginRule {
+            page_origin: page_origin.to_string(),
+            decision,
+            endpoint_scope,
+            policy_version: REMOTE_DATA_POLICY_VERSION,
+            created_at_ms: current_timestamp_ms(),
+        });
+        settings.policy_schema_version = REMOTE_DATA_POLICY_VERSION;
+        self.config =
+            AppConfig::persist_remote_planner_privacy_settings_for_app(&self.app_handle, &settings)
+                .map_err(|error| {
+                    consent_error(
+                        "remote_data_consent_persist_failed",
+                        "remote-data consent decision could not be persisted",
+                        Some(serde_json::json!({ "reason": error.to_string() })),
+                    )
+                })?;
+        Ok(())
+    }
+}
+
+fn build_request_draft(
+    profile_name: String,
+    profile: RemotePlannerProfile,
+    endpoint_scope: ProviderEndpointScope,
+    planner_input: PlannerInput,
+    mode: RemoteDataMode,
+) -> Result<RemotePlannerRequestDraft, ToolError> {
+    let page_origin = planner_page_origin(&planner_input).ok_or_else(|| {
+        consent_error(
+            "remote_data_opaque_origin_blocked",
+            "the current page does not have a supported HTTP(S) origin",
+            None,
+        )
+    })?;
+    let runtime_state_token = planner_input.runtime_state_token.clone();
+    let sanitized_input = sanitize_remote_planner_input_authorized(&planner_input, mode)?;
+    let encoded = serde_json::to_vec(&sanitized_input).map_err(|error| {
+        consent_error(
+            "remote_data_payload_serialization_failed",
+            "sanitized remote planner payload could not be serialized",
+            Some(serde_json::json!({ "reason": error.to_string() })),
+        )
+    })?;
+    let payload_digest = format!("{:x}", Sha256::digest(&encoded));
+    let (disclosure_classes, disclosure_counts) =
+        disclosure_summary(&sanitized_input, encoded.len());
+    Ok(RemotePlannerRequestDraft {
+        profile_name,
+        profile,
+        endpoint_scope,
+        sanitized_input: Box::new(sanitized_input),
+        payload_digest,
+        page_origin,
+        runtime_state_token,
+        disclosure_classes,
+        disclosure_counts,
+    })
+}
+
+fn disclosure_summary(
+    input: &RemotePlannerInput,
+    sanitized_serialized_bytes: usize,
+) -> (
+    Vec<RemotePlannerDisclosureClass>,
+    RemotePlannerDisclosureCounts,
+) {
+    let selected_region_count = input
+        .untrusted_data
+        .page_model
+        .as_ref()
+        .map(|page| page.regions.len())
+        .unwrap_or(0);
+    let model_elements = input
+        .untrusted_data
+        .page_model
+        .as_ref()
+        .map(|page| page.interactive_elements.len())
+        .unwrap_or(0);
+    let snapshot_elements = input
+        .untrusted_data
+        .page_snapshot
+        .as_ref()
+        .map(|page| page.interactive_elements.len())
+        .unwrap_or(0);
+    let selected_element_count = model_elements.saturating_add(snapshot_elements);
+    let ocr_derived_region_count = input
+        .untrusted_data
+        .page_model
+        .as_ref()
+        .map(|page| {
+            page.regions
+                .iter()
+                .filter(|region| matches!(region.source, RegionSource::Ocr | RegionSource::Mixed))
+                .count()
+        })
+        .unwrap_or(0);
+    let tool_history_count = input.untrusted_data.recent_tool_results.len();
+    let skill_summary_count = input.untrusted_data.relevant_skill_summaries.len();
+    let counts = RemotePlannerDisclosureCounts {
+        selected_region_count,
+        selected_element_count,
+        ocr_derived_region_count,
+        tool_history_count,
+        skill_summary_count,
+        sanitized_serialized_bytes,
+    };
+    let mut classes = vec![
+        RemotePlannerDisclosureClass::UserTranscript,
+        RemotePlannerDisclosureClass::PageOrigin,
+        RemotePlannerDisclosureClass::TrustedRuntimeContracts,
+    ];
+    if selected_region_count > 0 {
+        classes.push(RemotePlannerDisclosureClass::SelectedPageRegions);
+    }
+    if selected_element_count > 0 {
+        classes.push(RemotePlannerDisclosureClass::SelectedElementMetadata);
+    }
+    if ocr_derived_region_count > 0 {
+        classes.push(RemotePlannerDisclosureClass::OcrDerivedRegions);
+    }
+    if tool_history_count > 0 {
+        classes.push(RemotePlannerDisclosureClass::ToolObservationSummaries);
+    }
+    if skill_summary_count > 0 {
+        classes.push(RemotePlannerDisclosureClass::SkillSummaries);
+    }
+    classes.sort();
+    (classes, counts)
+}
+
+fn build_consent_challenge(
+    draft: &RemotePlannerRequestDraft,
+    now_ms: u64,
+) -> Result<RemotePlannerConsentChallenge, ToolError> {
+    let challenge_id = Uuid::new_v4().to_string();
+    let expires_at_ms = now_ms.saturating_add(CONSENT_CHALLENGE_TTL_MS);
+    #[derive(Serialize)]
+    struct Manifest<'a> {
+        challenge_id: &'a str,
+        request_id: &'a str,
+        page_origin: &'a str,
+        endpoint_scope: &'a str,
+        profile_name: &'a str,
+        model_label: &'a str,
+        policy_version: u32,
+        disclosure_classes: &'a [RemotePlannerDisclosureClass],
+        disclosure_counts: &'a RemotePlannerDisclosureCounts,
+        payload_digest: &'a str,
+        runtime_state_token: &'a str,
+        expires_at_ms: u64,
+    }
+    let endpoint = draft.endpoint_scope.normalized_base_url();
+    let manifest = Manifest {
+        challenge_id: &challenge_id,
+        request_id: &draft.sanitized_input.trusted_runtime.request_id,
+        page_origin: &draft.page_origin,
+        endpoint_scope: endpoint,
+        profile_name: &draft.profile_name,
+        model_label: &draft.profile.model,
+        policy_version: REMOTE_DATA_POLICY_VERSION,
+        disclosure_classes: &draft.disclosure_classes,
+        disclosure_counts: &draft.disclosure_counts,
+        payload_digest: &draft.payload_digest,
+        runtime_state_token: &draft.runtime_state_token,
+        expires_at_ms,
+    };
+    let encoded = serde_json::to_vec(&manifest).map_err(|error| {
+        consent_error(
+            "remote_data_challenge_serialization_failed",
+            "remote-data consent challenge could not be bound",
+            Some(serde_json::json!({ "reason": error.to_string() })),
+        )
+    })?;
+    Ok(RemotePlannerConsentChallenge {
+        challenge_id,
+        challenge_digest: format!("{:x}", Sha256::digest(encoded)),
+        request_id: draft.sanitized_input.trusted_runtime.request_id.clone(),
+        page_origin: draft.page_origin.clone(),
+        endpoint_display: crate::provider_endpoint::ProviderEndpointScope::parse(endpoint)
+            .map(|scope| scope.normalized_base_url().to_string())
+            .unwrap_or_else(|_| String::from("invalid remote endpoint")),
+        endpoint_scope: endpoint.to_string(),
+        profile_name: draft.profile_name.clone(),
+        model_label: draft.profile.model.clone(),
+        policy_version: REMOTE_DATA_POLICY_VERSION,
+        disclosure_classes: draft.disclosure_classes.clone(),
+        disclosure_counts: draft.disclosure_counts.clone(),
+        expires_at_ms,
+        allow_once: true,
+        allow_session: true,
+        allow_persistent: true,
+        block_persistent: true,
+    })
+}
+
+fn remote_data_mode(authorization: RemotePlannerDataAuthorization) -> RemoteDataMode {
+    if matches!(authorization, RemotePlannerDataAuthorization::Loopback) {
+        RemoteDataMode::LoopbackLocalService
+    } else {
+        RemoteDataMode::NetworkRemoteWithExplicitConsent
+    }
+}
+
+fn policy_block_error(code: &str, reason_code: &str) -> ToolError {
+    ToolError {
+        code: code.to_string(),
+        message: match code {
+            "remote_data_local_only" => {
+                String::from("Local-only planner mode blocks non-loopback planner endpoints.")
+            }
+            "remote_data_high_risk_blocked" => String::from(
+                "Network planning is blocked for this high-risk page context. Use direct commands or a loopback local planner.",
+            ),
+            "remote_data_origin_blocked" => String::from(
+                "This page origin is configured to remain local for every network planner.",
+            ),
+            _ => String::from(
+                "The current page origin cannot be safely authorized for network planning.",
+            ),
+        },
+        retryable: false,
+        details: Some(serde_json::json!({
+            "policy": code,
+            "reason_code": reason_code,
+        })),
+    }
+}
+
+fn consent_error(code: &str, message: &str, details: Option<serde_json::Value>) -> ToolError {
+    ToolError {
+        code: code.to_string(),
+        message: message.to_string(),
+        retryable: false,
+        details,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{
-        HighRiskOriginPolicy, RemotePlannerOriginRule, RemotePlannerPrivacySettings,
-    };
+    use crate::config::{HighRiskOriginPolicy, RemotePlannerOriginRule};
 
     fn endpoint(raw: &str) -> ProviderEndpointScope {
         ProviderEndpointScope::parse(raw).expect("test endpoint must be valid")
@@ -195,7 +940,7 @@ mod tests {
     }
 
     #[test]
-    fn persistent_allow_is_exactly_destination_and_version_bound() {
+    fn persistent_allow_is_destination_and_version_bound() {
         let mut privacy = settings(RemotePlannerNetworkMode::AskPerOrigin);
         privacy.origin_rules.push(RemotePlannerOriginRule {
             page_origin: String::from("https://example.com"),
@@ -226,80 +971,44 @@ mod tests {
             ),
             RemotePlannerPolicyResult::ConsentRequired
         );
-        privacy.origin_rules[0].policy_version = 0;
-        assert_eq!(
-            evaluate_remote_planner_policy(
-                &privacy,
-                &endpoint("https://api.example.com/v1"),
-                Some("https://example.com"),
-                None,
-                &[],
-                1,
-            ),
-            RemotePlannerPolicyResult::ConsentRequired
-        );
     }
 
     #[test]
-    fn session_grant_is_scoped_and_expires() {
-        let privacy = settings(RemotePlannerNetworkMode::AskPerOrigin);
-        let grant = RemotePlannerSessionGrant {
-            page_origin: String::from("https://example.com"),
-            endpoint_scope: String::from("https://api.example.com/v1"),
-            policy_version: REMOTE_DATA_POLICY_VERSION,
-            expires_at_ms: 100,
-        };
-        assert_eq!(
-            evaluate_remote_planner_policy(
-                &privacy,
-                &endpoint("https://api.example.com/v1"),
-                Some("https://example.com"),
-                None,
-                std::slice::from_ref(&grant),
-                99,
-            ),
-            RemotePlannerPolicyResult::Allowed(RemotePlannerDataAuthorization::SessionAllow)
+    fn session_and_one_shot_grants_are_scoped_and_bounded() {
+        let session = RemotePlannerEphemeralGrant::session(
+            String::from("https://example.com"),
+            String::from("https://api.example.com/v1"),
+            REMOTE_DATA_POLICY_VERSION,
+            100,
         );
-        assert_eq!(
-            evaluate_remote_planner_policy(
-                &privacy,
-                &endpoint("https://api.example.com/v1"),
-                Some("https://example.com"),
-                None,
-                &[grant],
-                100,
-            ),
-            RemotePlannerPolicyResult::ConsentRequired
+        assert!(session.is_matching_session(
+            "https://example.com",
+            "https://api.example.com/v1",
+            99
+        ));
+        assert!(!session.is_matching_session(
+            "https://other.example",
+            "https://api.example.com/v1",
+            99
+        ));
+        let once = RemotePlannerEphemeralGrant::once(
+            String::from("https://example.com"),
+            String::from("https://api.example.com/v1"),
+            REMOTE_DATA_POLICY_VERSION,
+            String::from("digest"),
+            100,
         );
-    }
-
-    #[test]
-    fn ask_mode_requires_consent_and_unknown_origin_fails_closed() {
-        let privacy = settings(RemotePlannerNetworkMode::AskPerOrigin);
-        assert_eq!(
-            evaluate_remote_planner_policy(
-                &privacy,
-                &endpoint("https://api.example.com/v1"),
-                Some("https://example.com"),
-                None,
-                &[],
-                1,
-            ),
-            RemotePlannerPolicyResult::ConsentRequired
-        );
-        assert!(matches!(
-            evaluate_remote_planner_policy(
-                &privacy,
-                &endpoint("https://api.example.com/v1"),
-                None,
-                None,
-                &[],
-                1,
-            ),
-            RemotePlannerPolicyResult::Blocked {
-                code: "remote_data_opaque_origin_blocked",
-                ..
-            }
+        assert!(once.consume_matching_once(
+            "https://example.com",
+            "https://api.example.com/v1",
+            "digest",
+            99
+        ));
+        assert!(!once.consume_matching_once(
+            "https://example.com",
+            "https://api.example.com/v1",
+            "digest",
+            99
         ));
     }
 }

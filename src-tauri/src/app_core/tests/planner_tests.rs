@@ -43,10 +43,12 @@ impl ReplanningRuntime for MockReplanningRuntime {
         _request_id: String,
         _transcript: &str,
         recent_tool_results: &[PlannerToolHistoryEntry],
-    ) -> Result<PlannerOutput, crate::commands::ToolError> {
+    ) -> Result<crate::app_core::replanning::ResolvePlanOutcome, crate::commands::ToolError> {
         self.resolve_recent_tool_results
             .push(recent_tool_results.to_vec());
-        self.resolve_results.remove(0)
+        self.resolve_results
+            .remove(0)
+            .map(crate::app_core::replanning::ResolvePlanOutcome::Resolved)
     }
 
     fn execute_plan(

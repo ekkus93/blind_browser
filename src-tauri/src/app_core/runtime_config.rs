@@ -216,6 +216,7 @@ impl AppCore {
             &self.app_handle,
             &settings,
         )?;
+        self.clear_remote_planner_consent_runtime();
         Ok(())
     }
 
@@ -244,6 +245,7 @@ impl AppCore {
             base_url,
             model,
         )?;
+        self.clear_remote_planner_consent_runtime();
         Ok(())
     }
 
@@ -255,6 +257,7 @@ impl AppCore {
             &self.app_handle,
             profile_name,
         )?;
+        self.clear_remote_planner_consent_runtime();
         Ok(())
     }
 

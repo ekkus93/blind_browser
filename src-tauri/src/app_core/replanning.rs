@@ -1,6 +1,12 @@
 use crate::commands::{
-    ExecutionOutcome, ExecutionTrace, PlannerOutput, PlannerToolHistoryEntry, ToolError,
+    ExecutionOutcome, ExecutionTrace, PlannerOutput, PlannerToolHistoryEntry,
+    RemotePlannerConsentChallenge, ToolError,
 };
+
+pub(crate) enum ResolvePlanOutcome {
+    Resolved(PlannerOutput),
+    NeedsRemoteDataConsent(RemotePlannerConsentChallenge),
+}
 
 pub(crate) trait ReplanningRuntime {
     fn resolve_plan(
@@ -8,7 +14,7 @@ pub(crate) trait ReplanningRuntime {
         request_id: String,
         transcript: &str,
         recent_tool_results: &[PlannerToolHistoryEntry],
-    ) -> Result<PlannerOutput, ToolError>;
+    ) -> Result<ResolvePlanOutcome, ToolError>;
 
     fn execute_plan(
         &mut self,
@@ -59,6 +65,13 @@ fn merge_execution_outcome_trace(
             append_execution_trace(&mut trace, next_trace);
             ExecutionOutcome::NeedsReplan { trace }
         }
+        ExecutionOutcome::NeedsRemoteDataConsent {
+            trace: next_trace,
+            challenge,
+        } => {
+            append_execution_trace(&mut trace, next_trace);
+            ExecutionOutcome::NeedsRemoteDataConsent { trace, challenge }
+        }
         ExecutionOutcome::Aborted {
             trace: next_trace,
             error,
@@ -95,14 +108,19 @@ pub(crate) fn execute_bounded_replanning_loop<R: ReplanningRuntime>(
             transcript,
             &recent_tool_results,
         ) {
-            Ok(planner_output) => planner_output,
+            Ok(ResolvePlanOutcome::Resolved(planner_output)) => planner_output,
+            Ok(ResolvePlanOutcome::NeedsRemoteDataConsent(challenge)) => {
+                return Ok(ExecutionOutcome::NeedsRemoteDataConsent {
+                    trace: accumulated_trace,
+                    challenge,
+                });
+            }
             Err(error) => {
                 if accumulated_trace.executed_step_ids.is_empty()
                     && accumulated_trace.tool_results.is_empty()
                 {
                     return Err(error);
                 }
-
                 return Ok(ExecutionOutcome::Aborted {
                     trace: accumulated_trace,
                     error,
@@ -118,6 +136,7 @@ pub(crate) fn execute_bounded_replanning_loop<R: ReplanningRuntime>(
             ExecutionOutcome::Complete { trace }
             | ExecutionOutcome::AwaitingConfirmation { trace, .. }
             | ExecutionOutcome::NeedsReplan { trace }
+            | ExecutionOutcome::NeedsRemoteDataConsent { trace, .. }
             | ExecutionOutcome::Aborted { trace, .. } => trace,
         }));
 
@@ -142,13 +161,7 @@ pub(crate) fn execute_bounded_replanning_loop<R: ReplanningRuntime>(
                 }
                 replan_cycle += 1;
             }
-            other => {
-                return Ok(merge_execution_outcome_trace(accumulated_trace, other));
-            }
+            other => return Ok(merge_execution_outcome_trace(accumulated_trace, other)),
         }
     }
 }
-
-// The production `ReplanningRuntime` is `LockScopedReplanningRuntime` (in
-// `replanning_orchestrator`), which releases the `AppCore` lock across the remote
-// LLM round-trip. Tests provide their own `MockReplanningRuntime`.

@@ -195,6 +195,7 @@ impl AppState {
             }
             ExecutionOutcome::Complete { .. }
             | ExecutionOutcome::NeedsReplan { .. }
+            | ExecutionOutcome::NeedsRemoteDataConsent { .. }
             | ExecutionOutcome::Aborted { .. } => {
                 self.clear_pending_execution();
             }
@@ -212,6 +213,7 @@ fn execution_outcome_last_tool_call(outcome: &ExecutionOutcome) -> Option<LastTo
         ExecutionOutcome::Complete { trace }
         | ExecutionOutcome::AwaitingConfirmation { trace, .. }
         | ExecutionOutcome::NeedsReplan { trace }
+        | ExecutionOutcome::NeedsRemoteDataConsent { trace, .. }
         | ExecutionOutcome::Aborted { trace, .. } => trace,
     };
 

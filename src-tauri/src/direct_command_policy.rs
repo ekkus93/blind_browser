@@ -5,6 +5,7 @@ pub(crate) enum DirectCommandName {
     ResolveCommand,
     ExecutePlannerOutput,
     SubmitConfirmationResponse,
+    SubmitRemotePlannerConsentResponse,
     StartListening,
     StopListening,
     TranscribeCommand,
@@ -43,6 +44,7 @@ impl DirectCommandName {
         Self::ResolveCommand,
         Self::ExecutePlannerOutput,
         Self::SubmitConfirmationResponse,
+        Self::SubmitRemotePlannerConsentResponse,
         Self::StartListening,
         Self::StopListening,
         Self::TranscribeCommand,
@@ -81,6 +83,7 @@ impl DirectCommandName {
             Self::ResolveCommand => "resolve_command",
             Self::ExecutePlannerOutput => "execute_planner_output",
             Self::SubmitConfirmationResponse => "submit_confirmation_response",
+            Self::SubmitRemotePlannerConsentResponse => "submit_remote_planner_consent_response",
             Self::StartListening => "start_listening",
             Self::StopListening => "stop_listening",
             Self::TranscribeCommand => "transcribe_command",
@@ -153,7 +156,9 @@ pub(crate) const fn direct_command_network_policy(
 ) -> Option<DirectCommandNetworkPolicy> {
     use DirectCommandName as D;
     match name {
-        D::ResolveCommand => Some(DirectCommandNetworkPolicy::RemotePlanner),
+        D::ResolveCommand | D::SubmitRemotePlannerConsentResponse => {
+            Some(DirectCommandNetworkPolicy::RemotePlanner)
+        }
         D::TranscribeCommand => Some(DirectCommandNetworkPolicy::RemoteAsr),
         D::TranscribeAndExecuteCommand => Some(DirectCommandNetworkPolicy::RemoteAsrAndPlanner),
         D::OpenUrl => Some(DirectCommandNetworkPolicy::BrowserNavigation),
@@ -173,6 +178,7 @@ pub(crate) const fn direct_command_credential_policy(
 ) -> Option<DirectCommandCredentialPolicy> {
     match name {
         DirectCommandName::ResolveCommand
+        | DirectCommandName::SubmitRemotePlannerConsentResponse
         | DirectCommandName::TranscribeCommand
         | DirectCommandName::TranscribeAndExecuteCommand
         | DirectCommandName::ListRemotePlannerModels
@@ -189,7 +195,9 @@ pub(crate) const fn direct_command_page_context_policy(
     name: DirectCommandName,
 ) -> Option<DirectCommandPageContextPolicy> {
     match name {
-        DirectCommandName::ResolveCommand | DirectCommandName::TranscribeAndExecuteCommand => {
+        DirectCommandName::ResolveCommand
+        | DirectCommandName::SubmitRemotePlannerConsentResponse
+        | DirectCommandName::TranscribeAndExecuteCommand => {
             Some(DirectCommandPageContextPolicy::SanitizedRemotePlanner)
         }
         _ => None,
@@ -299,6 +307,18 @@ pub(crate) const fn direct_command_policy(name: DirectCommandName) -> DirectComm
             false,
             false,
             false,
+            false,
+            false,
+        ),
+        D::SubmitRemotePlannerConsentResponse => policy(
+            A::OtherSideEffect,
+            true,
+            true,
+            true,
+            false,
+            true,
+            true,
+            true,
             false,
             false,
         ),

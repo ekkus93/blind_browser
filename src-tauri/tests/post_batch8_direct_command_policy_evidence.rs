@@ -34,6 +34,13 @@ const EVIDENCE: &[Evidence] = &[
         transmits_page_context: false,
     },
     Evidence {
+        name: "submit_remote_planner_consent_response",
+        networked: true,
+        credential_bearing: true,
+        verified_model_download: false,
+        transmits_page_context: true,
+    },
+    Evidence {
         name: "start_listening",
         networked: false,
         credential_bearing: false,
@@ -358,6 +365,7 @@ fn source_drift_networked_direct_commands_retain_timeout_and_redirect_evidence()
         networked,
         BTreeSet::from([
             "resolve_command",
+            "submit_remote_planner_consent_response",
             "transcribe_command",
             "transcribe_and_execute_command",
             "open_url",
@@ -392,6 +400,7 @@ fn source_drift_credential_bearing_commands_retain_endpoint_binding() {
         credential_bearing,
         BTreeSet::from([
             "resolve_command",
+            "submit_remote_planner_consent_response",
             "transcribe_command",
             "transcribe_and_execute_command",
             "list_remote_planner_models",
@@ -434,14 +443,16 @@ fn source_drift_model_downloads_retain_verified_activation_wiring() {
 fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
     let core_handlers = source("src/command_handlers/core_handlers.rs");
     let voice_handlers = source("src/command_handlers/voice_handlers.rs");
-    let remote_planner = source("src/app_core/remote_planner.rs");
+    let replanning = source("src/app_core/replanning_orchestrator.rs");
+    let consent = source("src/app_core/remote_data_consent.rs");
     let redaction = source("src/app_core/planner_redaction.rs");
 
     assert!(core_handlers.contains("resolve_command_lock_scoped"));
     assert!(voice_handlers.contains("run_command_with_lock_scoped_replanning"));
-    assert!(remote_planner
-        .contains("sanitize_remote_planner_input(planner_input, privacy, &endpoint_scope)?"));
-    assert!(redaction.contains("enforce_remote_planner_privacy(input, privacy, endpoint_scope)?"));
+    assert!(replanning.contains("guard.prepare_remote_planner_request("));
+    assert!(consent.contains("match evaluate_remote_planner_policy("));
+    assert!(consent.contains("sanitize_remote_planner_input_authorized(&planner_input, mode)?"));
+    assert!(redaction.contains("pub(crate) fn sanitize_remote_planner_input_authorized("));
 
     let transmitting = EVIDENCE
         .iter()
@@ -450,7 +461,11 @@ fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
         .collect::<BTreeSet<_>>();
     assert_eq!(
         transmitting,
-        BTreeSet::from(["resolve_command", "transcribe_and_execute_command",])
+        BTreeSet::from([
+            "resolve_command",
+            "submit_remote_planner_consent_response",
+            "transcribe_and_execute_command",
+        ])
     );
 }
 

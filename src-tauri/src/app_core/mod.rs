@@ -80,6 +80,8 @@ pub struct AppCore {
     tts: TtsController,
     playback: AudioPlaybackController,
     asr: AsrController,
+    remote_planner_ephemeral_grants: Vec<remote_data_consent::RemotePlannerEphemeralGrant>,
+    pending_remote_planner_consent: Option<remote_data_consent::PendingRemotePlannerConsent>,
 }
 
 mod api_key_tools;
@@ -128,6 +130,7 @@ mod replanning;
 mod replanning_orchestrator;
 pub(crate) use replanning_orchestrator::{
     resolve_command_lock_scoped, run_command_with_lock_scoped_replanning,
+    submit_remote_planner_consent_response_lock_scoped,
 };
 
 mod tool_executor;
@@ -161,6 +164,8 @@ impl AppCore {
             tts: TtsController::new(),
             playback: AudioPlaybackController::new(),
             asr: AsrController::new(),
+            remote_planner_ephemeral_grants: Vec::new(),
+            pending_remote_planner_consent: None,
         })
     }
 

@@ -101,6 +101,68 @@ pub struct ExecutionTrace {
     pub tool_results: Vec<SerializedToolResult>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+pub enum RemotePlannerDisclosureClass {
+    UserTranscript,
+    PageOrigin,
+    SelectedPageRegions,
+    SelectedElementMetadata,
+    OcrDerivedRegions,
+    ToolObservationSummaries,
+    SkillSummaries,
+    TrustedRuntimeContracts,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct RemotePlannerDisclosureCounts {
+    pub selected_region_count: usize,
+    pub selected_element_count: usize,
+    pub ocr_derived_region_count: usize,
+    pub tool_history_count: usize,
+    pub skill_summary_count: usize,
+    pub sanitized_serialized_bytes: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct RemotePlannerConsentChallenge {
+    pub challenge_id: String,
+    pub challenge_digest: String,
+    pub request_id: String,
+    pub page_origin: String,
+    pub endpoint_display: String,
+    pub endpoint_scope: String,
+    pub profile_name: String,
+    pub model_label: String,
+    pub policy_version: u32,
+    pub disclosure_classes: Vec<RemotePlannerDisclosureClass>,
+    pub disclosure_counts: RemotePlannerDisclosureCounts,
+    pub expires_at_ms: u64,
+    pub allow_once: bool,
+    pub allow_session: bool,
+    pub allow_persistent: bool,
+    pub block_persistent: bool,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RemotePlannerConsentDecision {
+    AllowOnce,
+    AllowSession,
+    AllowPersistent,
+    BlockPersistent,
+    Deny,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(untagged)]
+pub enum ResolveCommandOutcome {
+    Resolved(PlannerOutput),
+    NeedsRemoteDataConsent {
+        needs_remote_data_consent: RemotePlannerConsentChallenge,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub enum ExecutionOutcome {
     Complete {
@@ -113,6 +175,10 @@ pub enum ExecutionOutcome {
     },
     NeedsReplan {
         trace: ExecutionTrace,
+    },
+    NeedsRemoteDataConsent {
+        trace: ExecutionTrace,
+        challenge: RemotePlannerConsentChallenge,
     },
     Aborted {
         trace: ExecutionTrace,
@@ -159,4 +225,13 @@ pub struct PendingPlanExecutionState {
     #[serde(skip_serializing, default)]
     #[schemars(skip)]
     pub queued_steps: Vec<PlannedStep>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum RemotePlannerConsentResponseOutcome {
+    Denied,
+    BlockedPersistent,
+    Resolved { planner_output: PlannerOutput },
+    Executed { outcome: Box<ExecutionOutcome> },
 }

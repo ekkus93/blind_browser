@@ -2,19 +2,22 @@ use std::collections::BTreeSet;
 
 use serde::Serialize;
 
+#[cfg(test)]
 use super::remote_data_consent::{evaluate_remote_planner_policy, RemotePlannerPolicyResult};
 use crate::audio_io::RuntimeAudioState;
 use crate::browser::BrowserVisibilityMode;
 use crate::commands::{
     AvailableTool, PlannerInput, PlannerSafetySettings, PlannerToolHistoryEntry, SkillSummary,
-    ToolError, ToolName,
+    ToolName,
 };
+#[cfg(test)]
 use crate::config::RemotePlannerPrivacySettings;
 use crate::diagnostic_redaction::sanitize_url_for_display;
 use crate::narration::NarrationCursor;
 use crate::page_model::{
     ElementRole, InteractiveElement, PageModel, PageRegion, Rect, RegionRole, RegionSource,
 };
+#[cfg(test)]
 use crate::provider_endpoint::ProviderEndpointScope;
 use crate::state::{BrowserHistoryState, ListeningState};
 
@@ -176,7 +179,7 @@ pub(crate) struct RemoteTrustedRuntime {
     pub(crate) remote_data_mode: RemoteDataMode,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 pub(crate) enum RemoteDataMode {
     LoopbackLocalService,
     NetworkRemoteWithExplicitConsent,
@@ -305,12 +308,20 @@ pub(crate) struct SanitizationMetadata {
     pub(crate) query_values_removed: usize,
 }
 
+#[cfg(test)]
 pub(crate) fn sanitize_remote_planner_input(
     input: &PlannerInput,
     privacy: &RemotePlannerPrivacySettings,
     endpoint_scope: &ProviderEndpointScope,
-) -> Result<RemotePlannerInput, ToolError> {
+) -> Result<RemotePlannerInput, crate::commands::ToolError> {
     let remote_data_mode = enforce_remote_planner_privacy(input, privacy, endpoint_scope)?;
+    sanitize_remote_planner_input_authorized(input, remote_data_mode)
+}
+
+pub(crate) fn sanitize_remote_planner_input_authorized(
+    input: &PlannerInput,
+    remote_data_mode: RemoteDataMode,
+) -> Result<RemotePlannerInput, crate::commands::ToolError> {
     let mut metadata = SanitizationMetadata::default();
     let prompt_injection_indicators = detect_prompt_injection(input);
 
@@ -354,11 +365,12 @@ pub(crate) fn sanitize_remote_planner_input(
     Ok(safe)
 }
 
+#[cfg(test)]
 fn enforce_remote_planner_privacy(
     input: &PlannerInput,
     privacy: &RemotePlannerPrivacySettings,
     endpoint_scope: &ProviderEndpointScope,
-) -> Result<RemoteDataMode, ToolError> {
+) -> Result<RemoteDataMode, crate::commands::ToolError> {
     let page_origin = planner_page_origin(input);
     let high_risk_reason = high_risk_context_reason(input);
     match evaluate_remote_planner_policy(
@@ -384,7 +396,7 @@ fn enforce_remote_planner_privacy(
             "This site requires an explicit remote-data decision before sanitized planner context can leave the device.",
             "consent_required",
         )),
-        RemotePlannerPolicyResult::Blocked { code, reason_code } => Err(ToolError {
+        RemotePlannerPolicyResult::Blocked { code, reason_code } => Err(crate::commands::ToolError {
             code: code.to_string(),
             message: match code {
                 "remote_data_local_only" => String::from(
@@ -409,8 +421,9 @@ fn enforce_remote_planner_privacy(
     }
 }
 
-fn privacy_error(code: &str, message: &str, policy: &str) -> ToolError {
-    ToolError {
+#[cfg(test)]
+fn privacy_error(code: &str, message: &str, policy: &str) -> crate::commands::ToolError {
+    crate::commands::ToolError {
         code: code.to_string(),
         message: message.to_string(),
         retryable: false,
@@ -1296,7 +1309,9 @@ mod tests {
         ProviderEndpointScope::parse("https://api.example.com/v1").unwrap()
     }
 
-    fn sanitize_for_network(input: &PlannerInput) -> Result<RemotePlannerInput, ToolError> {
+    fn sanitize_for_network(
+        input: &PlannerInput,
+    ) -> Result<RemotePlannerInput, crate::commands::ToolError> {
         sanitize_remote_planner_input(input, &network_privacy(), &network_endpoint())
     }
 

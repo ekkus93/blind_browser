@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use crate::app_core::AppCore;
 use crate::commands::{
     AgentStateData, ConfirmActionResolution, ExecutionOutcome, GetAgentStateInput, PlannerOutput,
+    RemotePlannerConsentDecision, RemotePlannerConsentResponseOutcome, ResolveCommandOutcome,
     ToolError, ToolResult,
 };
 use crate::{join_error_to_tool_error, lock_app_core};
@@ -33,7 +34,7 @@ pub async fn resolve_command(
     request_id: String,
     transcript: String,
     app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
-) -> Result<PlannerOutput, ToolError> {
+) -> Result<ResolveCommandOutcome, ToolError> {
     let core = Arc::clone(&app_core);
     tauri::async_runtime::spawn_blocking(move || {
         crate::app_core::resolve_command_lock_scoped(&core, request_id, transcript)
@@ -44,6 +45,26 @@ pub async fn resolve_command(
 
 // Runs in `spawn_blocking` so resume-after-confirmation's side-effecting browser
 // `block_on` calls are safe off the async worker threads.
+#[tauri::command]
+pub async fn submit_remote_planner_consent_response(
+    challenge_id: String,
+    challenge_digest: String,
+    decision: RemotePlannerConsentDecision,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
+) -> Result<RemotePlannerConsentResponseOutcome, ToolError> {
+    let core = Arc::clone(&app_core);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::app_core::submit_remote_planner_consent_response_lock_scoped(
+            &core,
+            challenge_id,
+            challenge_digest,
+            decision,
+        )
+    })
+    .await
+    .map_err(join_error_to_tool_error)?
+}
+
 #[tauri::command]
 pub async fn submit_confirmation_response(
     confirmation_id: String,
