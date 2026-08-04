@@ -79,29 +79,21 @@ jobs:
         shell: bash
         run: |
           set -x
-          wc -c .github/remote-data-consent-stage2a.part00 \
-                .github/remote-data-consent-stage2a.part01 \
-                .github/remote-data-consent-stage2a.part02 \
-                .github/remote-data-consent-stage2a.part03 \
-                .github/remote-data-consent-stage2a.part04
-          sha256sum .github/remote-data-consent-stage2a.part00 \
-                    .github/remote-data-consent-stage2a.part01 \
-                    .github/remote-data-consent-stage2a.part02 \
-                    .github/remote-data-consent-stage2a.part03 \
-                    .github/remote-data-consent-stage2a.part04
-          cat .github/remote-data-consent-stage2a.part00 \
-              .github/remote-data-consent-stage2a.part01 \
+          test "$(wc -c < .github/remote-data-consent-stage2a.part00)" -eq 3501
+          test "$(tail -c 1 .github/remote-data-consent-stage2a.part00 | od -An -t u1 | tr -d '[:space:]')" = 10
+          test "$(wc -c < .github/remote-data-consent-stage2a.part01)" -eq 3500
+          test "$(wc -c < .github/remote-data-consent-stage2a.part02)" -eq 3500
+          test "$(wc -c < .github/remote-data-consent-stage2a.part03)" -eq 3500
+          test "$(wc -c < .github/remote-data-consent-stage2a.part04)" -eq 3332
+          head -c 3500 .github/remote-data-consent-stage2a.part00 > /tmp/remote-data-consent-stage2a.py.gz.b64
+          cat .github/remote-data-consent-stage2a.part01 \
               .github/remote-data-consent-stage2a.part02 \
               .github/remote-data-consent-stage2a.part03 \
               .github/remote-data-consent-stage2a.part04 \
-              > /tmp/remote-data-consent-stage2a.py.gz.b64
-          wc -c /tmp/remote-data-consent-stage2a.py.gz.b64
-          sha256sum /tmp/remote-data-consent-stage2a.py.gz.b64
+              >> /tmp/remote-data-consent-stage2a.py.gz.b64
           test "$(wc -c < /tmp/remote-data-consent-stage2a.py.gz.b64)" -eq 17332
           test "$(sha256sum /tmp/remote-data-consent-stage2a.py.gz.b64 | cut -d' ' -f1)" = 8f5f20570d4553c1ccbb0f44e172e54c9554cdcd9d0ff24ad2c34a7c003851f3
           base64 -d /tmp/remote-data-consent-stage2a.py.gz.b64 | gzip -d > /tmp/remote-data-consent-stage2a.py
-          wc -c /tmp/remote-data-consent-stage2a.py
-          sha256sum /tmp/remote-data-consent-stage2a.py
           test "$(wc -c < /tmp/remote-data-consent-stage2a.py)" -eq 76782
           test "$(sha256sum /tmp/remote-data-consent-stage2a.py | cut -d' ' -f1)" = eb8e80c60322db6807e31c08db52f2471017c1e0bf03f25959e523198fd9e363
           python3 -m py_compile /tmp/remote-data-consent-stage2a.py
