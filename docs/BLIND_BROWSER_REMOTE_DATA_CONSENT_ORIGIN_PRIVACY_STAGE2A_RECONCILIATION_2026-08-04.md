@@ -5,7 +5,7 @@
 **Branch:** `master`  
 **Governing checklist:** `docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_TODO_2026-08-03.md`  
 **Stage 2A implementation SHA:** `8ef7f5710daa76061806692a37cc2a13b05710c8`  
-**Status:** Backend consent transaction boundary implemented and validated; cleanup defect repaired during reconciliation; full milestone remains open.
+**Status:** Backend consent transaction boundary implemented and validated; cleanup and formatting defects repaired during reconciliation; full milestone remains open.
 
 ## Purpose
 
@@ -26,9 +26,9 @@ This is a bounded backend closeout. It does not declare the full remote-data-con
 - Initial reconciliation commit: `3c0709e6e84801ab22beec2751889f5f17ef9ab2`
 - Initial implementation-report correction: `b074db0ae4d31cbe505f614db678772687ac15b1`
 
-Job `92142680353` generated the final Stage 2A backend tree, validated it, and committed it as `8ef7f5710daa76061806692a37cc2a13b05710c8`.
+Job `92142680353` generated the Stage 2A backend tree, validated the checks included in that temporary job, and committed it as `8ef7f5710daa76061806692a37cc2a13b05710c8`.
 
-Because that implementation commit was authored and pushed by GitHub Actions, GitHub did not start a separate workflow on the output SHA. The authoritative implementation evidence is therefore the successful job that validated the generated tree immediately before committing it.
+Because that implementation commit was authored and pushed by GitHub Actions, GitHub did not start a separate workflow on the output SHA. The successful generating job is implementation evidence, but later permanent CI exposed that its validation sequence had omitted the repository's Rust-formatting gate. The original Stage 2A job therefore must not be represented as complete permanent-CI equivalence.
 
 ## Cleanup defect discovered during reconciliation
 
@@ -43,6 +43,20 @@ The initial reconciliation incorrectly accepted the repair job's cleanup output 
 After `d9274f69f8feb76c780f29382d86c2aa4edcf35f`, the `.github/workflows` directory contains only the permanent `ci.yml`, `publish-ci-status.yml`, and `ralph-loop-apply.yml` workflows. The `.github` root contains no Stage 2A trigger, payload, repair script, or helper file.
 
 Therefore, temporary Stage 2A machinery is now removed, but that cleanup was completed by the reconciliation commits—not solely by `8ef7f5710daa76061806692a37cc2a13b05710c8`.
+
+## Formatting defect discovered by permanent CI
+
+The first clean permanent-CI run on the reconciled tree exposed an unformatted expression in `src-tauri/src/app_core/remote_planner.rs`:
+
+- failed reconciliation SHA: `53bf88bf68164e655ef6dd4b9eba3472e9a45cad`
+- failed permanent CI run: `30956246911`
+- failed permanent CI job: `92149918326`
+- failing gate: `cargo fmt --manifest-path src-tauri/Cargo.toml --check`
+- formatter-only repair commit: `aa5136b99de6e10f42547a3de699ecea5b9773db`
+
+The repair applies exactly the stable `rustfmt` transformation to the Ollama credential-resolution expression. It changes no behavior, policy, authorization, credential scope, error mapping, or network logic.
+
+This failure proves that the temporary Stage 2A repair workflow did not execute the exact permanent repository validation sequence even though it passed compilation, strict Clippy, tests, scanners, and frontend checks. Permanent CI remains authoritative.
 
 ## Validation recorded by job 92142680353
 
@@ -61,7 +75,7 @@ The Stage 2A job passed:
 - frontend UI tests: 2 passed, 0 failed;
 - frontend production build.
 
-These results validate the implemented backend stage. They do not replace the checklist's still-open request-count, replay, concurrency, invalidation, serialization-privacy, accessibility, and adversarial integration tests.
+The job did not run the permanent Rust-formatting gate. Its results validate the substantive backend implementation but do not replace permanent CI or the checklist's still-open request-count, replay, concurrency, invalidation, serialization-privacy, accessibility, and adversarial integration tests.
 
 ## Section 5 — Runtime-only ephemeral grants
 
@@ -208,6 +222,6 @@ The following remain open and must not be inferred complete from Stage 2A:
 
 ## Correct bounded conclusion
 
-Stage 2A is complete as a backend implementation stage after reconciliation cleanup: the runtime grant model, prepared-request-only sender boundary, disclosure/challenge contracts, pending transaction, consent-required outcomes, response command, exact request resume, and lock-safe orchestration are present and passed the recorded Stage 2A validation.
+Stage 2A is complete as a backend implementation stage after reconciliation repairs: the runtime grant model, prepared-request-only sender boundary, disclosure/challenge contracts, pending transaction, consent-required outcomes, response command, exact request resume, and lock-safe orchestration are present. The stale temporary workflow/trigger and formatting defect found by later permanent validation have been repaired.
 
 The full remote-data-consent/origin-privacy milestone remains open. The next bounded stage is Stage 2B: typed runtime privacy status/settings APIs, TypeScript contracts, safe frontend state, and accessible consent UX, followed by the missing test/scanner/documentation/final-signoff work.
