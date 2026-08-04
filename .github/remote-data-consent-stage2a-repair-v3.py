@@ -211,6 +211,19 @@ consent = box_struct_field(
     "RemotePlannerRequestDraft",
     "RemotePlannerInput",
 )
+boxed_input_move = "sanitized_input: self.sanitized_input,"
+boxed_input_move_count = consent.count(boxed_input_move)
+if boxed_input_move_count > 1:
+    raise SystemExit(
+        "boxed input move repair: expected at most one prepared-request move, "
+        f"found {boxed_input_move_count}"
+    )
+if boxed_input_move_count == 1:
+    consent = consent.replace(
+        boxed_input_move,
+        "sanitized_input: *self.sanitized_input,",
+        1,
+    )
 consent_path.write_text(consent)
 
 remote_planner_path = Path("src-tauri/src/app_core/remote_planner.rs")
@@ -312,20 +325,24 @@ for function_name in [
     "enforce_remote_planner_privacy",
     "privacy_error",
 ]:
-    signature_pattern = re.compile(
-        rf"(?m)^(?!#\[cfg\(test\)\]\n)(?P<indent>\s*)(?P<visibility>pub\(crate\)\s+)?fn {function_name}\("
-    )
-    redaction, count = signature_pattern.subn(
-        lambda match: (
-            f"{match.group('indent')}#[cfg(test)]\n"
-            f"{match.group('indent')}{match.group('visibility') or ''}fn {function_name}("
-        ),
-        redaction,
-        count=1,
-    )
-    if count > 1:
+    definition_token = f"fn {function_name}("
+    definition_count = redaction.count(definition_token)
+    if definition_count != 1:
         raise SystemExit(
-            f"test-only legacy helper repair: duplicate function {function_name}"
+            f"test-only legacy helper repair: expected one {function_name} definition, "
+            f"found {definition_count}"
+        )
+    definition_index = redaction.index(definition_token)
+    line_start = redaction.rfind("\n", 0, definition_index) + 1
+    previous_line_start = redaction.rfind("\n", 0, max(0, line_start - 1)) + 1
+    previous_line = redaction[previous_line_start:line_start].strip()
+    if previous_line != "#[cfg(test)]":
+        indentation = redaction[line_start:definition_index]
+        indentation = indentation[: len(indentation) - len(indentation.lstrip())]
+        redaction = (
+            redaction[:line_start]
+            + f"{indentation}#[cfg(test)]\n"
+            + redaction[line_start:]
         )
 
 for import_line in [
