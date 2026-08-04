@@ -1,2 +1,3 @@
-exact_trigger_sha_parent = "49fe5a2bc3597a2d1221f274f46b4326c0960ccd"
-purpose = "Run the diagnosable remote-data-consent stage-one transformation. Remove this marker before publishing production source."
+exact_trigger_sha_parent = "d515507621b5a17e7f81ac2fa17387d13954b6d9"
+sequence = 2
+purpose = "Run the path-bound diagnosable remote-data-consent stage-one transformation. The workflow removes this marker before publishing production source."
