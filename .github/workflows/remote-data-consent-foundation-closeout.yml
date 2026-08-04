@@ -1,0 +1,513 @@
+name: Remote Data Consent Foundation Closeout
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/remote-data-consent-foundation-closeout.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: remote-data-consent-foundation-closeout
+  cancel-in-progress: false
+
+jobs:
+  closeout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reconcile Stage 1 evidence
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          todo_path = Path("docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_TODO_2026-08-03.md")
+          report_path = Path("docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_IMPLEMENTATION_REPORT_2026-08-03.md")
+          closure_path = Path("docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_FOUNDATION_CLOSURE_2026-08-04.md")
+
+          text = todo_path.read_text()
+          old_status = "**Status:** Not started."
+          new_status = (
+              "**Status:** In progress — Stage 1 versioned config, migration, origin-rule validation, "
+              "deterministic policy evaluation, and pre-serialization planner enforcement are complete. "
+              "Prepared requests, runtime grants, consent challenges/responses, status APIs, frontend UX, "
+              "and full milestone closure remain open."
+          )
+          if text.count(old_status) != 1:
+              raise SystemExit(f"expected one original status line, found {text.count(old_status)}")
+          text = text.replace(old_status, new_status, 1)
+
+          completed = [
+              "Work directly on `master` unless the user explicitly requests a branch, PR, or worktree.",
+              "Preserve this complete checklist through implementation and closure.",
+              "Check an item only when source, test, scanner, documentation, or CI evidence exists on `master`.",
+              "Do not weaken planner redaction, endpoint scoping, action policy, confirmation, runtime-state binding, prompt-injection handling, or high-risk blocking.",
+              "Treat every first-party test, scanner, compiler, Clippy, frontend, and CI failure as a real defect unless evidence proves otherwise.",
+              "No non-loopback planner request may occur before deterministic privacy authorization.",
+              "No consent decision may authorize or reduce confirmation for a protected action.",
+              "Do not persist raw transcript, page, OCR, tool-observation, skill, credential, or planner-payload content.",
+              "Remove all temporary workflows, generators, patch scripts, diagnostic helpers, and test bypasses before closure.",
+              "Confirm latest `master` SHA before implementation.",
+              "Confirm `ci/permanent` is green for the starting SHA.",
+              "Read the companion spec completely.",
+              "Read `docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md`.",
+              "Read `docs/BLIND_BROWSER_POST_BATCH8_RECONCILIATION_2026-08-02.md`.",
+              "Read the post-P8 fallback hardening spec, TODO, report, and closure.",
+              "Confirm no temporary Ralph or repair machinery remains in the starting tree.",
+              "Inventory all files expected to change before coding.",
+              "Record the expected changed-file scope in the implementation report.",
+              "Decide whether implementation needs a bounded temporary workflow.",
+              "If used, make it exact-triggered and self-cleaning.",
+              "`src-tauri/src/config/types.rs`",
+              "`src-tauri/src/config/validation.rs`",
+              "`src-tauri/src/config/persistence.rs`",
+              "`src-tauri/src/app_core/planner_redaction.rs`",
+              "`src-tauri/src/app_core/runtime_config.rs`",
+              "focused Rust unit/integration tests",
+              "`config.example.toml`",
+              "Inspect `RemotePlannerPrivacySettings` and `HighRiskOriginPolicy`.",
+              "Confirm current defaults for global consent, local-only, blocked origins, and high-risk policy.",
+              "Inspect config normalization for blocked origins.",
+              "Inspect config persistence and schema migration behavior.",
+              "Confirm how unknown config fields and missing legacy fields are handled.",
+              "Identify every test fixture that constructs `RemotePlannerPrivacySettings` directly.",
+              "Identify every TypeScript fixture that assumes the current booleans/list contract.",
+              "Trace `resolve_command` from direct-command matching to `PlannerResolution::Remote`.",
+              "Trace `transcribe_and_execute_command` through remote planning.",
+              "Trace bounded replanning through the remote planner.",
+              "Confirm exactly where sanitization currently occurs.",
+              "Confirm exactly where privacy evaluation currently occurs.",
+              "Confirm no planner network client is called before privacy evaluation.",
+              "Identify every function that accepts raw `PlannerInput` and can reach network I/O.",
+              "Identify every place the `AppCore` mutex is released for remote work.",
+              "Identify every place remote planner errors become `ExecutionOutcome::Aborted` or frontend errors.",
+              "Inspect `AppCore` fields and serializable `AppState` fields.",
+              "Identify where a runtime-only pending consent object can live.",
+              "Confirm pending confirmation state patterns that can be reused safely.",
+              "Confirm runtime-state token composition and invalidation behavior.",
+              "Identify state changes that must invalidate consent.",
+              "Identify unrelated read-only state changes that should not invalidate consent.",
+              "Inspect current planner privacy settings UI.",
+              "Inspect current manual blocked-origin textarea behavior.",
+              "Inspect planner action error handling.",
+              "Inspect voice command outcome handling.",
+              "Inspect current modal/focus-management patterns.",
+              "Inspect Redux/panel state persistence boundaries.",
+              "Confirm whether raw transcript or planner payload data enters global frontend state.",
+              "Identify current accessibility test helpers.",
+              "Record the current control/data flow in the implementation report.",
+              "Record exact pre-network authorization insertion points.",
+              "Record migration risks.",
+              "Record the final expected source/test/doc change set before implementation.",
+              "Add `RemotePlannerNetworkMode`.",
+              "Include `LocalOnly`.",
+              "Include `AskPerOrigin`.",
+              "Include `AllowSanitizedNonHighRisk`.",
+              "Use stable `snake_case` serialization.",
+              "Make `AskPerOrigin` the new-install default.",
+              "Remove authoritative dependence on the old interacting booleans after migration.",
+              "Keep old fields readable only for the declared migration boundary.",
+              "Add `PersistedOriginDecision` with `Allow` and `Block`.",
+              "Add `RemotePlannerOriginRule`.",
+              "Include normalized page origin.",
+              "Include decision.",
+              "Include optional endpoint scope.",
+              "Include privacy-policy version.",
+              "Include non-sensitive creation timestamp.",
+              "Add `REMOTE_DATA_POLICY_VERSION`.",
+              "Require `Block` rules to have no endpoint scope.",
+              "Require `Allow` rules to have an exact normalized endpoint scope.",
+              "Make persistent blocks apply across all non-loopback destinations.",
+              "Make persistent allows destination- and policy-version-bound.",
+              "Define deterministic rule identity and sort order.",
+              "Limit persistent rules to at most 256.",
+              "Define stale allow behavior.",
+              "Replace the current privacy fields with `network_mode` and `origin_rules`.",
+              "Retain `high_risk_origin_policy`.",
+              "Keep serialization deterministic.",
+              "Keep config debug formatting free of sensitive data.",
+              "Update JSON schema expectations.",
+              "Update all direct Rust fixture initializers.",
+              "Avoid partial fixture publication; search the complete Rust test tree.",
+              "Add one shared normalized HTTP(S) page-origin type/helper.",
+              "Reject paths.",
+              "Reject queries.",
+              "Reject fragments.",
+              "Reject username/password.",
+              "Reject opaque or `null` origins.",
+              "Reject non-HTTP(S) schemes.",
+              "Normalize scheme, host, effective port, and IDNA consistently through the URL library.",
+              "Validate endpoint scopes using `ProviderEndpointScope`.",
+              "Reject allow rules with missing endpoint scope.",
+              "Reject block rules with an endpoint scope.",
+              "Deduplicate exact duplicate rules deterministically.",
+              "Define conflict handling for allow and block rules on the same origin.",
+              "Persistent block must win.",
+              "Validation must not silently discard a block in favor of allow.",
+              "Add bounded, non-secret validation errors.",
+              "Map legacy `local_only = true` to `LocalOnly`.",
+              "Map legacy `local_only = false` and `consent = false` to `AskPerOrigin`.",
+              "Map legacy `local_only = false` and `consent = true` to `AllowSanitizedNonHighRisk`.",
+              "Convert each legacy blocked origin to an origin-wide persistent `Block` rule.",
+              "Preserve `HighRiskOriginPolicy::Block`.",
+              "Do not manufacture destination-bound allows from global legacy consent.",
+              "Make migration idempotent.",
+              "Malformed legacy blocked origins fail closed.",
+              "Add a migration schema/version marker if needed.",
+              "Preserve a safe rollback/read path for the supported migration boundary.",
+              "Avoid writing partially migrated settings.",
+              "Add a bounded one-time migration notice to runtime/settings status.",
+              "Update `config.example.toml`.",
+              "Test legacy blocked-origin conversion.",
+              "Test migration idempotence.",
+              "Test new-install default.",
+              "Test existing broad consent remains broad mode rather than becoming per-destination allow.",
+              "Add `RemotePlannerDataAuthorization`.",
+              "Add safe public reason-code conversion.",
+              "Keep evaluator inputs explicit and immutable.",
+              "Keep evaluator independent of frontend state.",
+              "`LoopbackLocal`",
+              "`LocalOnly`",
+              "`HighRiskBlocked`",
+              "`OriginBlocked`",
+              "`AllowedGlobal`",
+              "`AllowedPersistent`",
+              "`AllowedSession`",
+              "`ConsentRequired`",
+              "`OriginUnavailable`",
+              "Invalid/missing endpoint fails before consent evaluation.",
+              "Loopback returns local authorization.",
+              "Local-only blocks all non-loopback destinations.",
+              "Unknown/opaque/non-HTTP(S) page origin blocks network page-context planning.",
+              "High-risk context blocks before all grants/allows.",
+              "Persistent block overrides global allow.",
+              "Session grant requires exact origin/destination/version match.",
+              "Persistent allow requires exact origin/destination/version match.",
+              "Broad global allow permits only sanitized non-high-risk context.",
+              "Ask mode returns a challenge requirement.",
+              "No fallback path silently authorizes transmission.",
+              "Test local-only versus persistent allow.",
+              "Test high-risk versus every allow type.",
+              "Test persistent block versus broad global allow.",
+              "Test exact persistent allow.",
+              "Test endpoint path-prefix change.",
+              "Test policy-version change.",
+              "Test expired grant.",
+              "Test no-rule ask behavior.",
+              "Test unknown origin.",
+              "Bind page origin.",
+              "Bind endpoint scope.",
+              "Bind policy version.",
+              "Add expiry.",
+              "Run exact fallback scanner after refactor.",
+              "Prefer typed errors over new privacy fallbacks.",
+              "Ensure no `.ok()`/default path can authorize a request.",
+              "Update `config.example.toml` comments.",
+              "Create implementation report at:",
+              "`docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_IMPLEMENTATION_REPORT_2026-08-03.md`",
+              "Pure policy evaluator tests.",
+              "Origin normalization tests.",
+              "`python3 scripts/check-security-fallbacks.py`",
+              "`python3 scripts/check-security-fallback-inventory.py --self-test`",
+              "`python3 scripts/check-security-fallback-inventory.py`",
+              "`python3 scripts/check-sensitive-diagnostics.py`",
+              "`cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check`",
+              "`cargo check --manifest-path src-tauri/Cargo.toml`",
+              "`cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`",
+              "`cargo test --manifest-path src-tauri/Cargo.toml --all-features`",
+              "`source ./fix-node-version.sh && pnpm lint`",
+              "`source ./fix-node-version.sh && pnpm test:ui`",
+              "`source ./fix-node-version.sh && pnpm build`",
+              "whitespace/diff validation",
+              "High-risk page cannot display a usable allow control.",
+              "Persistent allow cannot authorize another destination.",
+              "Persistent block applies after destination change.",
+              "Malformed origin cannot create a rule.",
+              "Remove temporary workflows.",
+              "Remove patch generators.",
+              "Remove diagnostic-only helpers.",
+              "Remove test bypasses and broad allow flags.",
+              "Confirm no temporary files remain through repository search.",
+              "Confirm final diff contains only intended source/test/doc changes.",
+              "Append exact evidence without replacing this task tree."
+          ]
+
+          for item in completed:
+              old = f"- [ ] {item}"
+              new = f"- [x] {item}"
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"checkbox '{item}' expected once, found {count}")
+              text = text.replace(old, new, 1)
+
+          marker = "---\n\n## 23. Final evidence"
+          stage_section = """---
+
+## 22A. Stage 1 foundation closeout — 2026-08-04
+
+This is a bounded partial closeout. It does **not** complete the full remote-data consent and origin-privacy milestone.
+
+### Stage 1 completed scope
+
+- Versioned `RemotePlannerNetworkMode` with `LocalOnly`, `AskPerOrigin`, and `AllowSanitizedNonHighRisk`.
+- Destination- and policy-version-bound persistent allows and origin-wide persistent blocks.
+- Legacy boolean/list migration with an idempotent schema marker and migration notice.
+- Normalized HTTP(S) origin and endpoint-scope validation, deterministic sorting/deduplication, and a 256-rule bound.
+- Pure deterministic policy precedence for loopback, local-only, unknown origin, high-risk contexts, persistent blocks, session grants, persistent allows, broad allow, and ask mode.
+- Privacy enforcement before remote planner serialization/network progression.
+- Privacy settings included in the relevant runtime configuration fingerprint.
+- Updated configuration example, focused policy/migration/redaction tests, and repaired repository-wide fixtures.
+
+### Exact evidence
+
+- Starting implementation baseline: `043c788346cc9b39942f4198f11c199aaea69ddf`
+- Starting permanent CI: run `30886133291`, job `91917696317`, result `success`
+- Primary foundation implementation: `e6210ae423fb0c5fe08cea9ddc68f463e96b823f`
+- Strict-Clippy repair: `14216226b223c092e1a4ff5da5b29c8129f67527`
+- Fixture migration repair: `158672218048f4482879232d7ffc0ea779e9bd07`
+- Final implementation/cleanup SHA before documentation: `ee967b2fb0d23a762bb8316f369d72c987f31df6`
+- Guarded fixture-repair workflow: run `30900135542`, job `91962264055`, result `success`
+- Permanent validation trigger: run `30927205924`, job `92052482518`, result `success`
+- Permanent CI on the exact trigger-free implementation SHA: run `30928002322`, job `92055223608`, result `success`
+
+### Still open
+
+Sections 5–18 remain substantially open: runtime grant storage, one-shot authorization, prepared-request-only networking, disclosure manifests, consent challenges, pending consent state, `NeedsRemoteDataConsent`, consent-response commands, full invalidation, typed runtime status/settings APIs, frontend state, accessible consent UI, structured rule management, and the corresponding integration/adversarial tests.
+
+"""
+          if text.count(marker) != 1:
+              raise SystemExit("final evidence marker not found exactly once")
+          text = text.replace(marker, stage_section + marker, 1)
+          todo_path.write_text(text)
+
+          report_path.write_text("""# Blind Browser Remote Data Consent and Origin Privacy Implementation Report
+
+**Report date:** 2026-08-04  
+**Repository:** `ekkus93/blind_browser`  
+**Branch:** `master`  
+**Companion spec:** `docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_SPEC_2026-08-03.md`  
+**Authoritative TODO:** `docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_TODO_2026-08-03.md`  
+**Status:** Stage 1 foundation complete; full milestone remains in progress.
+
+## 1. Bounded conclusion
+
+Stage 1 establishes the configuration and deterministic policy foundation for remote planner data transmission. It does not yet implement the complete just-in-time consent product flow.
+
+The final trigger-free implementation SHA is `ee967b2fb0d23a762bb8316f369d72c987f31df6`. Permanent CI passed on that exact SHA in run `30928002322`, job `92055223608`.
+
+## 2. Baseline
+
+- Starting SHA: `043c788346cc9b39942f4198f11c199aaea69ddf`
+- Starting permanent CI run: `30886133291`
+- Starting permanent CI job: `91917696317`
+- Result: `success`
+
+The starting tree contained the approved spec and TODO and no temporary post-P8 closeout machinery.
+
+## 3. Implemented architecture
+
+### 3.1 Versioned privacy configuration
+
+`RemotePlannerPrivacySettings` now has authoritative `network_mode`, `origin_rules`, `policy_schema_version`, and `migration_notice_pending` fields. Legacy consent, local-only, and blocked-origin fields remain readable only across the migration boundary and are synchronized from the new authoritative model after normalization.
+
+The new-install default is `AskPerOrigin`.
+
+### 3.2 Persistent origin decisions
+
+Persistent blocks are origin-wide and carry no planner endpoint. Persistent allows require an exact normalized planner endpoint and the current remote-data policy version. Rule normalization uses the URL library, sorts deterministically, deduplicates exact semantic duplicates, and enforces a 256-rule maximum.
+
+### 3.3 Legacy migration
+
+Schema version zero maps as follows:
+
+- legacy `local_only = true` → `LocalOnly`;
+- legacy non-local with consent disabled → `AskPerOrigin`;
+- legacy non-local with consent enabled → `AllowSanitizedNonHighRisk`;
+- each legacy blocked origin → origin-wide persistent block.
+
+Migration is idempotent and sets a bounded migration-notice flag. It does not manufacture destination-bound allows from legacy global consent.
+
+### 3.4 Deterministic policy evaluator
+
+The pure evaluator enforces this precedence:
+
+1. loopback local service;
+2. global local-only mode;
+3. missing/opaque origin block;
+4. high-risk context block;
+5. persistent origin block;
+6. exact unexpired session grant;
+7. exact current-version persistent allow;
+8. broad sanitized non-high-risk allow;
+9. explicit consent required.
+
+No default or fallback branch authorizes transmission.
+
+### 3.5 Planner boundary integration
+
+`sanitize_remote_planner_input` evaluates the deterministic privacy policy before constructing the serialized remote planner input. Network remote requests therefore cannot progress through the remote prompt boundary without an allowed decision. High-risk and blocked outcomes use bounded `remote_data_*` error codes.
+
+The relevant runtime configuration fingerprint now includes the complete privacy settings object, so policy changes alter the runtime-state token used by existing planning-snapshot validation.
+
+## 4. Changed files
+
+The intended implementation diff from `043c788346cc9b39942f4198f11c199aaea69ddf` through `ee967b2fb0d23a762bb8316f369d72c987f31df6` contains:
+
+- `config.example.toml`
+- `src-tauri/src/app_core/mod.rs`
+- `src-tauri/src/app_core/planner_redaction.rs`
+- `src-tauri/src/app_core/planning_snapshot.rs`
+- `src-tauri/src/app_core/remote_data_consent.rs`
+- `src-tauri/src/app_core/runtime_config.rs`
+- `src-tauri/src/config/persistence.rs`
+- `src-tauri/src/config/types.rs`
+- `src-tauri/src/config/validation.rs`
+
+No permanent workflow or diagnostic helper was added.
+
+## 5. Test and validation coverage
+
+Implemented tests cover:
+
+- legacy migration idempotence and blocked-origin conversion;
+- normalized/destination-bound allows and origin-wide blocks;
+- origin rejection for path, credentials, query, and non-HTTP(S) input;
+- loopback precedence;
+- local-only and high-risk precedence;
+- persistent block overriding broad allow;
+- persistent allow destination and policy-version binding;
+- session grant scope and expiry;
+- ask-mode and unknown-origin fail-closed behavior;
+- existing planner redaction, prompt-injection, direct-command safety, and frontend regression suites.
+
+Permanent CI passed scanners, formatting, default compilation, strict all-target/all-feature Clippy, focused direct-command semantic evidence, all-feature Rust tests, frontend lint, UI tests, and production frontend build.
+
+## 6. Failed intermediate evidence and repairs
+
+### 6.1 Invalidated stage-runner evidence
+
+The temporary Stage 1 runner initially used a diagnostic wrapper that read `$?` after the shell `if` compound command. That could convert a failed command into a successful wrapper result. The runner's apparent success was therefore invalidated and was never accepted as final evidence.
+
+### 6.2 Strict-Clippy failure
+
+Permanent CI run `30897812057`, job `91954789324`, failed strict Clippy because a test used `&[grant.clone()]`. Commit `14216226b223c092e1a4ff5da5b29c8129f67527` replaced it with `std::slice::from_ref(&grant)`.
+
+### 6.3 Stale fixture failures
+
+Permanent CI run `30898762353`, job `91957861759`, passed strict Clippy and then failed eight `planner_redaction` tests. The tests still configured legacy fields or expected obsolete `remote_planner_*` errors. A count-guarded repair migrated the fixtures to `network_mode`/`origin_rules` and canonical `remote_data_*` codes.
+
+The guarded repair workflow passed in run `30900135542`, job `91962264055`, and published `158672218048f4482879232d7ffc0ea779e9bd07`.
+
+## 7. Final evidence
+
+- Primary implementation SHA: `e6210ae423fb0c5fe08cea9ddc68f463e96b823f`
+- Clippy repair SHA: `14216226b223c092e1a4ff5da5b29c8129f67527`
+- Fixture migration SHA: `158672218048f4482879232d7ffc0ea779e9bd07`
+- Trigger-free implementation/cleanup SHA: `ee967b2fb0d23a762bb8316f369d72c987f31df6`
+- Permanent validation run: `30927205924`
+- Permanent validation job: `92052482518`
+- Exact trigger-free permanent CI run: `30928002322`
+- Exact trigger-free permanent CI job: `92055223608`
+- Final implementation CI result: `success`
+- Temporary implementation/diagnostic machinery: absent
+
+## 8. Remaining milestone work
+
+The following are deliberately not claimed complete:
+
+- runtime-only once/session grant storage and concurrency-safe consumption;
+- prepared-request-only network sender API;
+- disclosure classes, counts, byte estimate, payload digest, and challenge manifest;
+- runtime-only pending consent state;
+- `ExecutionOutcome::NeedsRemoteDataConsent`;
+- consent-response command, replay protection, persistence compensation, and exact resume;
+- complete privacy invalidation matrix;
+- typed runtime status and rule-management APIs;
+- TypeScript contracts and safe frontend state;
+- accessible just-in-time consent dialog;
+- structured privacy settings and current-origin status UI;
+- request-count, replay, expiry, concurrency, accessibility, and adversarial integration tests;
+- full privacy/threat-model documentation and final BBCR reconciliation.
+
+## 9. Recommended next stage
+
+Implement the backend consent transaction boundary in this order:
+
+1. runtime-only once/session grants;
+2. `PreparedRemotePlannerRequest` and prepared-request-only network sending;
+3. disclosure manifest and challenge digest;
+4. bounded pending consent state;
+5. `NeedsRemoteDataConsent` outcome;
+6. consent-response command with exact validation, persistence, replay prevention, and unlocked network resume.
+
+Frontend consent UX should begin only after those backend contracts and network request-count tests are stable.
+
+## 10. Bounded statement
+
+Stage 1 is complete and green. The complete remote-data consent and origin-privacy milestone is not complete, and the broader BBCR remediation program remains open.
+""")
+
+          closure_path.write_text("""# Remote Data Consent and Origin Privacy Foundation Closure
+
+**Date:** 2026-08-04  
+**Scope:** Stage 1 configuration and deterministic policy foundation  
+**Status:** Complete  
+**Full remote-data consent milestone:** In progress
+
+## Exact implementation evidence
+
+- Baseline: `043c788346cc9b39942f4198f11c199aaea69ddf`
+- Foundation implementation: `e6210ae423fb0c5fe08cea9ddc68f463e96b823f`
+- Strict-Clippy repair: `14216226b223c092e1a4ff5da5b29c8129f67527`
+- Fixture migration repair: `158672218048f4482879232d7ffc0ea779e9bd07`
+- Final trigger-free implementation SHA: `ee967b2fb0d23a762bb8316f369d72c987f31df6`
+
+## Exact validation evidence
+
+- Starting CI: run `30886133291`, job `91917696317`, `success`
+- Guarded fixture repair: run `30900135542`, job `91962264055`, `success`
+- Permanent validation trigger: run `30927205924`, job `92052482518`, `success`
+- Permanent CI on exact trigger-free implementation SHA: run `30928002322`, job `92055223608`, `success`
+
+## Closure conditions met
+
+- authoritative versioned privacy model exists;
+- legacy configuration migration is deterministic and idempotent;
+- persistent blocks are origin-wide;
+- persistent allows are endpoint- and policy-version-bound;
+- high-risk and local-only precedence is fail-closed;
+- ask mode cannot silently authorize transmission;
+- planner redaction enforces policy before remote serialization progression;
+- scanners, compilation, strict Clippy, Rust tests, frontend tests, and build pass;
+- temporary implementation and diagnostic machinery is absent.
+
+## Remaining boundary
+
+This closure does not claim the prepared-request, consent-challenge, response-command, runtime-status, frontend-dialog, accessibility, or final adversarial-test portions of the milestone. It is not a full BBCR or production-readiness declaration.
+""")
+          PY
+
+          git diff --check
+          grep -Fq '**Status:** In progress — Stage 1' docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_TODO_2026-08-03.md
+          grep -Fq 'Stage 1 foundation complete; full milestone remains in progress.' docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_IMPLEMENTATION_REPORT_2026-08-03.md
+          test -f docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_FOUNDATION_CLOSURE_2026-08-04.md
+
+      - name: Publish clean documentation closeout
+        shell: bash
+        run: |
+          rm -f .github/workflows/remote-data-consent-foundation-closeout.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          test -n "$(git status --porcelain)"
+          test ! -e .github/workflows/remote-data-consent-foundation-closeout.yml
+          git commit -m "docs: close remote data privacy foundation stage"
+          git push origin HEAD:master
