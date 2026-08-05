@@ -1,1 +1,1 @@
-test: serialize real Wry AppCore fixtures
+test: isolate real Wry fixtures by process
