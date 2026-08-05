@@ -1,5 +1,6 @@
 import {
   Fragment,
+  createElement,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
@@ -81,26 +82,26 @@ function WorkspaceDecisionPanels(props: {
     () => appShellStore.getState(),
   );
 
-  return (
-    <Fragment>
-      {renderRemotePlannerPrivacyWorkspaceNode(
-        state.remotePlannerPrivacy,
-        state.executionUi.remoteDataConsent,
-        {
-          onOpenSettings: () => {
-            setSettingsView("planner");
-            setAppView("settings");
-          },
-          onConsentDecision: (decision, challengeId) => {
-            void submitRemotePlannerConsentDecision(decision, challengeId);
-          },
+  return createElement(
+    Fragment,
+    null,
+    renderRemotePlannerPrivacyWorkspaceNode(
+      state.remotePlannerPrivacy,
+      state.executionUi.remoteDataConsent,
+      {
+        onOpenSettings: () => {
+          setSettingsView("planner");
+          setAppView("settings");
         },
-      )}
-      {renderActionConfirmationPanelNode(
-        props.confirmationState,
-        props.confirmationHandlers,
-      )}
-    </Fragment>
+        onConsentDecision: (decision, challengeId) => {
+          void submitRemotePlannerConsentDecision(decision, challengeId);
+        },
+      },
+    ),
+    renderActionConfirmationPanelNode(
+      props.confirmationState,
+      props.confirmationHandlers,
+    ),
   );
 }
 
@@ -108,10 +109,8 @@ export function renderConfirmationPanelNode(
   confirmationState: ActionConfirmationState,
   handlers?: ActionConfirmationHandlers,
 ): ReactNode {
-  return (
-    <WorkspaceDecisionPanels
-      confirmationState={confirmationState}
-      confirmationHandlers={handlers}
-    />
-  );
+  return createElement(WorkspaceDecisionPanels, {
+    confirmationState,
+    confirmationHandlers: handlers,
+  });
 }
