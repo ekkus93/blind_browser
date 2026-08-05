@@ -1,0 +1,12 @@
+import subprocess
+
+subprocess.run(
+    [
+        "cargo",
+        "fmt",
+        "--manifest-path",
+        "src-tauri/Cargo.toml",
+        "--all",
+    ],
+    check=True,
+)
