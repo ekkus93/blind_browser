@@ -431,7 +431,8 @@ fn privacy_status_challenge_summary_serialization_excludes_digest_and_payload_co
     assert!(!serialized.contains("challenge_digest"));
     assert!(!serialized.contains("payload_digest"));
     assert!(!serialized.contains("sanitized_input"));
-    assert!(!serialized.contains("transcript"));
     assert!(!serialized.contains("page_model"));
+    assert!(!serialized.contains("page_snapshot"));
+    assert!(!serialized.contains("recent_tool_results"));
     assert!(!serialized.contains("ocr_text"));
 }
