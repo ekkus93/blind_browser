@@ -28,8 +28,13 @@ import {
   describeAudioControlFailure,
   describeScopedRuntimeRefreshFailure,
 } from "./main-errors";
+import {
+  remotePlannerPrivacyRefreshFailed,
+  remotePlannerPrivacyRefreshStarted,
+  remotePlannerPrivacyRefreshSucceeded,
+} from "./remote-planner-privacy-state";
 import { registerShellEventHandlers } from "./shell-event-handlers";
-import { createRuntimeRefreshHandlers } from "./runtime-refresh";
+import { createRuntimeRefreshHandlersWithPrivacy } from "./runtime-refresh-with-privacy";
 import { setRuntimeRefreshHandle } from "./refresh-handle";
 import { ensureContinuousListeningLoop } from "./voice-loop";
 import { BlindBrowserApp } from "./app.tsx";
@@ -77,7 +82,7 @@ const appRoot: HTMLDivElement = app;
 const h = createElement;
 const runtimeRoot = createRoot(appRoot);
 
-const { refreshRuntimePanelsFromRuntime } = createRuntimeRefreshHandlers({
+const { refreshRuntimePanelsFromRuntime } = createRuntimeRefreshHandlersWithPrivacy({
   createRequestId,
   describeAudioControlFailure,
   describeScopedRuntimeRefreshFailure,
@@ -100,6 +105,15 @@ const { refreshRuntimePanelsFromRuntime } = createRuntimeRefreshHandlers({
   setTtsVoicePanelState,
   setStatusPanelState,
   setUrlInputPanelState,
+  markRemotePlannerPrivacyRefreshStarted: () => {
+    appShellStore.dispatch(remotePlannerPrivacyRefreshStarted());
+  },
+  applyRemotePlannerPrivacyRefreshSuccess: (status) => {
+    appShellStore.dispatch(remotePlannerPrivacyRefreshSucceeded(status));
+  },
+  applyRemotePlannerPrivacyRefreshFailure: (message) => {
+    appShellStore.dispatch(remotePlannerPrivacyRefreshFailed(message));
+  },
 });
 
 setRuntimeRefreshHandle(refreshRuntimePanelsFromRuntime);

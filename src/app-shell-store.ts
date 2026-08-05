@@ -9,6 +9,11 @@ import {
   type ConfirmationSubmissionFailure,
   type ExecutionUiState,
 } from "./planner-orchestration.ts";
+import {
+  createInitialRemotePlannerPrivacyState,
+  remotePlannerPrivacyReducer,
+  type RemotePlannerPrivacyState,
+} from "./remote-planner-privacy-state.ts";
 import type { ExecutionOutcome } from "./tauri-api.ts";
 
 interface AppShellViewState {
@@ -20,6 +25,7 @@ export interface AppShellState {
   shellView: AppShellViewState;
   panelStates: PanelStates;
   executionUi: ExecutionUiState;
+  remotePlannerPrivacy: RemotePlannerPrivacyState;
 }
 
 const initialViewState: AppShellViewState = {
@@ -29,6 +35,7 @@ const initialViewState: AppShellViewState = {
 
 const initialPanelStates = createInitialPanelStates();
 const initialExecutionUiState = createInitialExecutionUiState();
+const initialRemotePlannerPrivacyState = createInitialRemotePlannerPrivacyState();
 
 const appShellViewSlice = createSlice({
   name: "appShellView",
@@ -194,6 +201,7 @@ export function createAppShellStore(preloadedState?: Partial<AppShellState>) {
       shellView: appShellViewSlice.reducer,
       panelStates: panelStateSlice.reducer,
       executionUi: executionUiSlice.reducer,
+      remotePlannerPrivacy: remotePlannerPrivacyReducer,
     },
     preloadedState: {
       shellView: {
@@ -205,6 +213,10 @@ export function createAppShellStore(preloadedState?: Partial<AppShellState>) {
         ...preloadedState?.panelStates,
       },
       executionUi: preloadedState?.executionUi ?? initialExecutionUiState,
+      remotePlannerPrivacy: {
+        ...initialRemotePlannerPrivacyState,
+        ...preloadedState?.remotePlannerPrivacy,
+      },
     },
   });
 }
