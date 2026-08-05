@@ -5,6 +5,7 @@ export * from "./api/voice.ts";
 export * from "./api/audio.ts";
 export * from "./api/navigation.ts";
 export * from "./api/providers.ts";
+export * from "./api/remote-planner-privacy.ts";
 export * from "./api/safety.ts";
 export * from "./api/remote-keys.ts";
 export * from "./api/models.ts";
