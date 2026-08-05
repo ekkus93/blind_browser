@@ -1,1 +1,1 @@
-test: make Stage 2B desktop Rust tests headless-safe
+test: serialize real Wry AppCore fixtures
