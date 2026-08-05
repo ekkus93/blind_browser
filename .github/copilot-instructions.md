@@ -25,12 +25,11 @@ You are an expert Rust developer, systems designer, and code reviewer. Your goal
 ```
 
 ## Scope & Environment
-- Language: **Python 3.10+** (type-hinted, `from __future__ import annotations` when useful)
-- Packaging: prefer **pyproject.toml** with **uv/poetry/pip-tools** (match repo; do not introduce new tools unless asked)
-- Lint/format: respect existing (e.g., **ruff**, **flake8**, **black**, **isort**); do **not** relax rules to hide warnings
-- Tests: **pytest** by default; prefer **SQLite** for DB-backed tests; avoid mocks when realistic fakes/fixtures are easy
-- Runtime: avoid blocking I/O in async code; for async HTTP prefer **httpx**/**aiohttp**; for sync prefer **requests**
-- Config: environment variables via a thin settings layer (e.g., pydantic-settings if project already uses Pydantic)
+- Backend: **Rust stable**, **Tauri 2**, in `src-tauri/`
+- Frontend: **React 19**, Redux Toolkit, MUI, TypeScript, Vite, in `src/`
+- Lint/format: `cargo fmt`, `cargo clippy --all-targets --all-features -- -D warnings`, `pnpm lint` (ESLint flat config)
+- Tests: Rust built-in test framework; Node built-in test runner via `pnpm test:ui`
+- Config: TOML via `config.toml`; secrets via OS keyring (`SecretRef`)
 
 > If the repo already has `.github/copilot-instructions.md`, **merge** with these rules instead of replacing. Prefer the repo’s specifics when in conflict.
 

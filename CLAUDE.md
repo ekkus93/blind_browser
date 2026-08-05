@@ -48,7 +48,19 @@ pnpm test:ui
 pnpm build
 ```
 
-If Node version issues arise: `source ./fix-node-version.sh` (requires Node 20.19+ or 22.12+).
+If Node version issues arise: `source ./fix-node-version.sh` (installs/switches to Node 22.12.0 via nvm; manual setups may instead use any Node 20.19+ or 22.12+ per the README).
+
+CI also runs these gates beyond the commands above — run them for non-trivial changes so CI doesn't surprise you:
+```bash
+bash scripts/check-silent-fallbacks.sh
+python3 scripts/check-security-fallbacks.py
+python3 scripts/check-security-fallback-inventory.py
+python3 scripts/check-sensitive-diagnostics.py
+cargo test --manifest-path src-tauri/Cargo.toml --all-features --test post_batch8_direct_command_policy_evidence
+xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features
+```
+
+A packaged skill (`.claude/skills/lint-n-test`) wraps the standard `fix-node-version.sh` + `pnpm lint` + `pnpm test:ui` + `cargo test` loop — invoke it instead of running each command by hand.
 
 ---
 
@@ -74,7 +86,10 @@ User directives override convenience. When the user explicitly states constraint
 Frontend shell:      ALLOWED = Tauri;            BANNED = replacing with a different app shell
 Browser backend:     ALLOWED = chromiumoxide;    BANNED = substituting without approval
 Command execution:   ALLOWED = deterministic Rust tools; BANNED = free-form LLM action execution
+Remote planner data: ALLOWED = per `[remote_planner_privacy]` config (network_mode, origin_rules, high_risk_origin_policy); BANNED = sending origin/page data to a remote planner outside those consent rules
 ```
+
+The remote-planner privacy/consent layer (`app_core/remote_data_consent.rs`, `remote_planner.rs`, `remote_privacy_api.rs`) is active, current-focus work — see `docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_*` spec/TODO files and recent git log before making changes in this area.
 
 If a different approach is believed to be superior, propose it in a comment only, but still implement the directive as requested unless approved.
 
@@ -145,7 +160,7 @@ If a different approach is believed to be superior, propose it in a comment only
 ---
 
 ## Runtime, models, and config
-- Respect the TOML config schema documented in `docs/SPECS.md` and `config.example.toml`.
+- Respect the TOML config schema documented in `docs/SPECS.md` and `config.example.toml`, including the `[remote_planner_privacy]` section (`network_mode`, `origin_rules`, `high_risk_origin_policy`).
 - Keep planner, TTS, and ASR provider selection consistent with configured local/remote profiles.
 - Missing required models or credentials must surface clear errors and a clear path to resolution.
 - Audio settings, confirmation settings, OCR thresholds, and model-management settings must remain persisted and configurable.
