@@ -7,7 +7,9 @@
 **Source implementation SHA:** `d5a06f9ef23bcd2dc3c4e8b4851163024a254f8b`  
 **Source permanent CI:** run `31006899810`, job `92308939648`, conclusion `success`  
 **Legacy adapter cleanup SHA:** `429f211b9d792155de7dc7ee820bfbc10fc8fa67`  
-**Cleanup permanent CI:** run `31010141799`, job `92319933305`, conclusion `success`
+**Cleanup permanent CI:** run `31010141799`, job `92319933305`, conclusion `success`  
+**Consent evidence source SHA:** `247717dd25372b05110b6fe6d382954d88c10a9f`  
+**Consent evidence permanent CI:** run `31043067601`, job `92431872883`, conclusion `success`
 
 ## Bounded conclusion
 
@@ -15,7 +17,9 @@ The Stage 2B planner-privacy settings and rule-management surface is implemented
 
 The previous boolean/list frontend save adapter and its compatibility-shaped callback path have been removed. Frontend planner-privacy mutation is now reachable only through the typed operation controller.
 
-This addendum closes the settings/rule-management subsection of Stage 2B. It does not, by itself, close the complete remote-data-consent milestone, the complete privacy TODO, or the broader BBCR program.
+The dedicated backend milestone-evidence batch for request counts, replay, concurrency, expiry, invalidation, persistence failure, and hostile serialized state is also implemented and validated in permanent CI.
+
+This addendum closes the settings/rule-management subsection of Stage 2B and records the supplemental backend evidence batch. It does not, by itself, close the complete remote-data-consent milestone, the complete privacy TODO, or the broader BBCR program.
 
 ## Implemented settings behavior
 
@@ -126,6 +130,12 @@ Legacy adapter cleanup:
 - `src/legacy-planner-privacy-adapter-removal.test.mjs`
 - removed `src/planner-privacy-actions.test.mjs`
 
+Supplemental backend milestone evidence:
+
+- `src-tauri/src/app_core/tests/remote_data_consent_evidence_tests.rs`
+- `src-tauri/src/app_core/tests/mod.rs`
+- `scripts/run-rust-tests-linux.sh`
+
 ## Focused frontend evidence
 
 The settings tests verify:
@@ -149,13 +159,42 @@ The cleanup test verifies that the public frontend modules no longer export:
 
 TypeScript compilation also verifies that `app.tsx` cannot pass the removed legacy callback properties to the planner panel.
 
+## Supplemental backend milestone evidence
+
+The two process-isolated Wry evidence tests verify:
+
+- deny consumes the pending challenge and sends zero requests;
+- a consumed challenge cannot be replayed;
+- two concurrent allow-once responses produce exactly one authorization and one missing-challenge failure;
+- the authorized request is dispatched exactly once;
+- creating a later consent requirement does not send an earlier request;
+- expired consent fails closed and is consumed;
+- page-generation changes invalidate pending consent;
+- planner destination/model changes invalidate pending consent;
+- network-mode changes and new persistent blocks invalidate pending consent;
+- persistent-rule write failure returns `remote_data_consent_persist_failed`, leaves no in-memory rule, does not authorize, and consumes the pending transaction;
+- hostile transcript content and its sentinel do not appear in `AppState`, privacy status, runtime status, agent-state snapshots, or the explicit consent challenge;
+- internal sanitized request content is not serialized into those surfaces;
+- the challenge digest is absent from ambient state/status snapshots but remains present in the explicit challenge object required for replay-safe response binding.
+
+The evidence source sequence was:
+
+- initial evidence implementation: `e5ebd20e40bddc592f5e5d5daec012e6857f8939`;
+- formatter repair: `f699256bd68698874379aee3085d55a6c7d3d5ff`;
+- async-runtime dispatch-harness repair: `31edfd5df370c3490f133681afd373281bd969bf`;
+- final digest-scope repair: `247717dd25372b05110b6fe6d382954d88c10a9f`.
+
+The two repairs corrected test-harness assumptions. They did not weaken the production consent boundary or introduce fallback behavior.
+
 ## Permanent CI evidence
 
 Permanent CI run `31006899810`, job `92308939648`, passed on exact source SHA `d5a06f9ef23bcd2dc3c4e8b4851163024a254f8b`.
 
 Permanent CI run `31010141799`, job `92319933305`, passed on exact cleanup SHA `429f211b9d792155de7dc7ee820bfbc10fc8fa67`.
 
-The cleanup run passed:
+Permanent CI run `31043067601`, job `92431872883`, passed on exact consent-evidence SHA `247717dd25372b05110b6fe6d382954d88c10a9f`.
+
+The final consent-evidence run passed:
 
 - silent-fallback scanner;
 - reviewed security-fallback scanner;
@@ -165,9 +204,9 @@ The cleanup run passed:
 - default Rust compilation;
 - strict all-target/all-feature Clippy;
 - focused direct-command semantic evidence;
-- complete Rust/Wry test suite;
+- complete Rust/Wry test suite, including both process-isolated consent evidence tests;
 - frontend lint;
-- frontend UI tests, including the legacy-export removal test;
+- frontend UI tests;
 - production frontend build.
 
 ## Legacy adapter cleanup conclusion
@@ -178,10 +217,9 @@ The backend command name remains in use by the typed operation API, but frontend
 
 ## Remaining milestone work
 
-The following work remains outside this settings addendum:
+The following work remains outside this settings and supplemental evidence addendum:
 
-- broader request-count, replay, concurrency, expiry, invalidation, persistence-failure, and hostile-state evidence required by the full privacy TODO;
-- remaining scanner and serialized-state privacy coverage;
+- remaining scanner extensions and frontend-state privacy coverage;
 - full TODO checkbox reconciliation against exact evidence;
 - privacy/threat-model and user-documentation closure;
 - BBCR/post-Batch-8 reconciliation;
