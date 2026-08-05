@@ -109,7 +109,7 @@ jobs:
           cargo fmt --manifest-path src-tauri/Cargo.toml --check
           cargo check --manifest-path src-tauri/Cargo.toml
           cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
-          bash scripts/run-direct-command-evidence-linux.sh
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features --test post_batch8_direct_command_policy_evidence
           bash scripts/run-rust-tests-linux.sh
 
       - name: Validate frontend
