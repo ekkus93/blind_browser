@@ -34,6 +34,22 @@ jobs:
           echo "e465efe86d24f1ba26ef359593e5c124afc40ded0f0f17da29af69ff8825399d  /tmp/closure.patch" | sha256sum -c -
           git apply --check /tmp/closure.patch
           git apply /tmp/closure.patch
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("src-tauri/src/app_core/remote_data_consent.rs")
+          text = path.read_text(encoding="utf-8")
+          old = "        let mutations: Vec<Box<dyn Fn(&mut RemotePlannerConsentManifest)>> = vec!["
+          new = (
+              "        type ManifestMutation = Box<dyn Fn(&mut RemotePlannerConsentManifest)>;\n\n"
+              "        let mutations: Vec<ManifestMutation> = vec!["
+          )
+          if text.count(old) != 1:
+              raise SystemExit(
+                  "expected exactly one remote consent mutation vector for strict-Clippy repair"
+              )
+          path.write_text(text.replace(old, new), encoding="utf-8")
+          PY
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
