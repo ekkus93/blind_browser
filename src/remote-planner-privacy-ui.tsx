@@ -14,7 +14,6 @@ import type {
   RemotePlannerConsentDisclosureClass,
 } from "./tauri-api.ts";
 import type { RemotePlannerPrivacyState } from "./remote-planner-privacy-state.ts";
-import "./remote-planner-privacy.css";
 
 const DECISION_LABELS = {
   loopback_local: "On-device planner",
