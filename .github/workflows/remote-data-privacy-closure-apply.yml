@@ -1,0 +1,114 @@
+name: Remote Data Privacy Closure Apply
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/remote-data-privacy-closure-apply.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify bounded input
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/remote-data-privacy-closure-batch1.patch.gz.b64
+          test -f .github/remote-data-privacy-closure-apply.trigger
+          base64 --decode .github/remote-data-privacy-closure-batch1.patch.gz.b64 | gzip -dc > /tmp/closure.patch
+          git apply --check /tmp/closure.patch
+          git apply /tmp/closure.patch
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install Ubuntu native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format Rust source
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml
+
+      - name: Run scanners
+        run: |
+          bash scripts/check-silent-fallbacks.sh
+          python3 scripts/check-security-fallbacks.py --self-test
+          python3 scripts/check-security-fallbacks.py
+          python3 scripts/check-security-fallback-inventory.py --self-test
+          python3 scripts/check-security-fallback-inventory.py
+          python3 scripts/check-sensitive-diagnostics.py --self-test
+          python3 scripts/check-sensitive-diagnostics.py
+          python3 scripts/check-remote-planner-privacy-state.py --self-test
+          python3 scripts/check-remote-planner-privacy-state.py
+
+      - name: Validate Rust
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml --check
+          cargo check --manifest-path src-tauri/Cargo.toml
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+          bash scripts/run-direct-command-evidence-linux.sh
+          bash scripts/run-rust-tests-linux.sh
+
+      - name: Validate frontend
+        run: |
+          pnpm lint
+          pnpm test:ui
+          pnpm build
+
+      - name: Remove bounded machinery and publish source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f \
+            .github/workflows/remote-data-privacy-closure-apply.yml \
+            .github/remote-data-privacy-closure-apply.trigger \
+            .github/remote-data-privacy-closure-batch1.patch.gz.b64 \
+            .github/workflows/remote-data-privacy-closure-export.yml \
+            .github/remote-data-privacy-closure-export.trigger
+          git config user.name "Phillip Chin"
+          git config user.email "ekkus93@gmail.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "test: close remote data privacy evidence gaps"
+          git push origin HEAD:master
