@@ -1,6 +1,1 @@
-src-tauri/src/app_core/planner_redaction.rs
-src-tauri/src/app_core/mod.rs
-src-tauri/src/app_core/remote_planner.rs
-src-tauri/src/app_core/planner_prompt.rs
-src-tauri/src/app_core/tests/planner_tests.rs
-src-tauri/src/browser/dom_extraction.rs
+src-tauri/src/app_core/tests/remote_privacy_api_tests.rs
