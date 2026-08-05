@@ -1,1 +1,1 @@
-test: isolate real Wry fixtures by process
+fix: break remote privacy status recursion
