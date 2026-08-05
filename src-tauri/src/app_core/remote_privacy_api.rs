@@ -1,12 +1,12 @@
-use super::planner_redaction::high_risk_context_reason;
+use super::planner_redaction::high_risk_page_context_reason;
 use super::remote_data_consent::{
     evaluate_remote_planner_policy, RemotePlannerDataAuthorization, RemotePlannerPolicyResult,
 };
 use super::AppCore;
 use crate::commands::{
-    current_timestamp_ms, PlannerInput, RemotePlannerConsentChallengeSummary,
-    RemotePlannerEffectiveDecision, RemotePlannerOriginRuleStatus, RemotePlannerPrivacyOperation,
-    RemotePlannerPrivacyStatus, ToolError,
+    current_timestamp_ms, RemotePlannerConsentChallengeSummary, RemotePlannerEffectiveDecision,
+    RemotePlannerOriginRuleStatus, RemotePlannerPrivacyOperation, RemotePlannerPrivacyStatus,
+    ToolError,
 };
 use crate::config::{
     AppConfig, PersistedOriginDecision, RemotePlannerNetworkMode, RemotePlannerOriginRule,
@@ -184,20 +184,15 @@ impl AppCore {
     }
 
     fn current_remote_planner_high_risk_reason(&self) -> Option<&'static str> {
-        let input = PlannerInput {
-            request_id: String::from("remote-planner-privacy-status"),
-            runtime_state_token: self.current_runtime_state_token(),
-            transcript: String::new(),
-            agent_state: self.current_agent_state_snapshot(false),
-            safety: (&self.config.safety).into(),
-            available_tools: Vec::new(),
-            active_skill_names: Vec::new(),
-            relevant_skill_summaries: Vec::new(),
-            page_snapshot: None,
-            page_model: self.state.current_page.clone(),
-            recent_tool_results: Vec::new(),
-        };
-        high_risk_context_reason(&input)
+        high_risk_page_context_reason(
+            self.state
+                .current_page
+                .as_ref()
+                .and_then(|page| page.url.as_deref()),
+            self.state.current_page.as_ref(),
+            None,
+            &[],
+        )
     }
 
     fn current_remote_planner_endpoint_status(
@@ -279,12 +274,7 @@ impl AppCore {
 
         let mut settings = self.config.remote_planner_privacy.clone();
         let endpoint_scope = match decision {
-            PersistedOriginDecision::Block => {
-                settings
-                    .origin_rules
-                    .retain(|rule| rule.page_origin != page_origin);
-                None
-            }
+            PersistedOriginDecision::Block => None,
             PersistedOriginDecision::Allow => {
                 if settings.origin_rules.iter().any(|rule| {
                     rule.page_origin == page_origin
@@ -300,23 +290,37 @@ impl AppCore {
             }
         };
 
-        let exact_rule_exists = settings.origin_rules.iter().any(|rule| {
-            rule.page_origin == page_origin
-                && rule.decision == decision
-                && rule.endpoint_scope == endpoint_scope
-                && rule.policy_version == REMOTE_DATA_POLICY_VERSION
-        });
-        if exact_rule_exists {
-            return Ok(false);
-        }
-
-        settings.origin_rules.push(RemotePlannerOriginRule {
-            page_origin,
-            decision,
-            endpoint_scope,
+        let existing_exact_rule = settings
+            .origin_rules
+            .iter()
+            .find(|rule| {
+                rule.page_origin == page_origin
+                    && rule.decision == decision
+                    && rule.endpoint_scope == endpoint_scope
+                    && rule.policy_version == REMOTE_DATA_POLICY_VERSION
+            })
+            .cloned();
+        let new_rule = RemotePlannerOriginRule {
+            page_origin: page_origin.clone(),
+            decision: decision.clone(),
+            endpoint_scope: endpoint_scope.clone(),
             policy_version: REMOTE_DATA_POLICY_VERSION,
             created_at_ms: current_timestamp_ms(),
-        });
+        };
+
+        if matches!(decision, PersistedOriginDecision::Block) {
+            settings
+                .origin_rules
+                .retain(|rule| rule.page_origin != page_origin);
+            settings
+                .origin_rules
+                .push(existing_exact_rule.unwrap_or(new_rule));
+        } else {
+            if existing_exact_rule.is_some() {
+                return Ok(false);
+            }
+            settings.origin_rules.push(new_rule);
+        }
         if settings.origin_rules.len() > MAX_PERSISTENT_ORIGIN_RULES {
             return Err(privacy_api_error(
                 "remote_data_rule_limit_exceeded",
@@ -381,7 +385,9 @@ impl AppCore {
         invalidate_runtime: bool,
     ) -> Result<bool, ToolError> {
         prepare_privacy_settings_for_comparison(&mut settings);
-        if settings == self.config.remote_planner_privacy {
+        let mut current_settings = self.config.remote_planner_privacy.clone();
+        prepare_privacy_settings_for_comparison(&mut current_settings);
+        if settings == current_settings {
             return Ok(false);
         }
         let updated =

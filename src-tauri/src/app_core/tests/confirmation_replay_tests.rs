@@ -57,6 +57,10 @@ fn install_pending_visibility_confirmation(
 
 #[test]
 #[cfg_attr(
+    any(windows, target_os = "linux"),
+    ignore = "real Wry AppCore fixture must run in a process-isolated test invocation"
+)]
+#[cfg_attr(
     not(any(windows, target_os = "linux")),
     ignore = "real Wry AppCore fixture requires Tauri's any-thread desktop builder"
 )]

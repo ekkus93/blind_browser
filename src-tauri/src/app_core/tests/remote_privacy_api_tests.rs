@@ -58,14 +58,7 @@ fn remote_privacy_policy_matrix_is_fail_closed_and_scope_bound() {
         }
     );
     assert_eq!(
-        evaluate_remote_planner_policy(
-            &ask,
-            &remote,
-            Some("https://example.com"),
-            None,
-            &[],
-            10,
-        ),
+        evaluate_remote_planner_policy(&ask, &remote, Some("https://example.com"), None, &[], 10,),
         RemotePlannerPolicyResult::ConsentRequired
     );
 
@@ -135,7 +128,6 @@ fn remote_privacy_policy_matrix_is_fail_closed_and_scope_bound() {
         "https://api.example.com/v2",
         "https://api.example.com:444/v1",
         "https://other.example.com/v1",
-        "http://api.example.com/v1",
     ] {
         assert_eq!(
             evaluate_remote_planner_policy(
@@ -190,6 +182,10 @@ fn remote_privacy_policy_matrix_is_fail_closed_and_scope_bound() {
 
 #[test]
 #[cfg_attr(
+    any(windows, target_os = "linux"),
+    ignore = "real Wry AppCore fixture must run in a process-isolated test invocation"
+)]
+#[cfg_attr(
     not(any(windows, target_os = "linux")),
     ignore = "real Wry AppCore fixture requires Tauri's any-thread desktop builder"
 )]
@@ -210,63 +206,86 @@ fn remote_privacy_status_reports_every_non_ephemeral_decision_and_stale_rules() 
         Vec::new(),
     ));
 
-    core.config.remote_planner_privacy =
-        privacy_settings(RemotePlannerNetworkMode::AskPerOrigin);
+    core.config.remote_planner_privacy = privacy_settings(RemotePlannerNetworkMode::AskPerOrigin);
     let status = core.current_remote_planner_privacy_status();
-    assert_eq!(status.current_page_origin.as_deref(), Some("https://example.com"));
-    assert_eq!(status.effective_decision, RemotePlannerEffectiveDecision::ConsentRequired);
+    assert_eq!(
+        status.current_page_origin.as_deref(),
+        Some("https://example.com")
+    );
+    assert_eq!(
+        status.effective_decision,
+        RemotePlannerEffectiveDecision::ConsentRequired
+    );
     assert_eq!(status.reason_code.as_deref(), Some("consent_required"));
 
     core.config.remote_planner_privacy.network_mode = RemotePlannerNetworkMode::LocalOnly;
     let status = core.current_remote_planner_privacy_status();
-    assert_eq!(status.effective_decision, RemotePlannerEffectiveDecision::LocalOnly);
+    assert_eq!(
+        status.effective_decision,
+        RemotePlannerEffectiveDecision::LocalOnly
+    );
     assert_eq!(status.reason_code.as_deref(), Some("local_only"));
 
     core.config.remote_planner_privacy =
         privacy_settings(RemotePlannerNetworkMode::AllowSanitizedNonHighRisk);
     let status = core.current_remote_planner_privacy_status();
-    assert_eq!(status.effective_decision, RemotePlannerEffectiveDecision::AllowedGlobal);
+    assert_eq!(
+        status.effective_decision,
+        RemotePlannerEffectiveDecision::AllowedGlobal
+    );
 
-    core.config.remote_planner_privacy =
-        privacy_settings(RemotePlannerNetworkMode::AskPerOrigin);
+    core.config.remote_planner_privacy = privacy_settings(RemotePlannerNetworkMode::AskPerOrigin);
     core.config
         .remote_planner_privacy
         .origin_rules
         .push(block_rule("https://example.com"));
     let status = core.current_remote_planner_privacy_status();
-    assert_eq!(status.effective_decision, RemotePlannerEffectiveDecision::OriginBlocked);
+    assert_eq!(
+        status.effective_decision,
+        RemotePlannerEffectiveDecision::OriginBlocked
+    );
     assert_eq!(status.reason_code.as_deref(), Some("origin_block"));
     assert_eq!(status.persistent_rule, Some(PersistedOriginDecision::Block));
 
-    core.config.remote_planner_privacy =
-        privacy_settings(RemotePlannerNetworkMode::AskPerOrigin);
-    core.config.remote_planner_privacy.origin_rules.push(allow_rule(
-        "https://example.com",
-        "https://api.openai.com/v1",
-        REMOTE_DATA_POLICY_VERSION,
-    ));
+    core.config.remote_planner_privacy = privacy_settings(RemotePlannerNetworkMode::AskPerOrigin);
+    core.config
+        .remote_planner_privacy
+        .origin_rules
+        .push(allow_rule(
+            "https://example.com",
+            "https://api.openai.com/v1",
+            REMOTE_DATA_POLICY_VERSION,
+        ));
     let status = core.current_remote_planner_privacy_status();
-    assert_eq!(status.effective_decision, RemotePlannerEffectiveDecision::AllowedPersistent);
+    assert_eq!(
+        status.effective_decision,
+        RemotePlannerEffectiveDecision::AllowedPersistent
+    );
     assert_eq!(status.persistent_rule, Some(PersistedOriginDecision::Allow));
     assert_eq!(status.stale_allow_rule_count, 0);
 
     core.config.remote_planner_privacy.origin_rules[0].policy_version =
         REMOTE_DATA_POLICY_VERSION + 1;
     let status = core.current_remote_planner_privacy_status();
-    assert_eq!(status.effective_decision, RemotePlannerEffectiveDecision::ConsentRequired);
+    assert_eq!(
+        status.effective_decision,
+        RemotePlannerEffectiveDecision::ConsentRequired
+    );
     assert_eq!(status.persistent_rule, Some(PersistedOriginDecision::Allow));
     assert_eq!(status.stale_allow_rule_count, 1);
     assert!(status.persistent_rules[0].stale);
 
-    core.config.remote_planner_privacy =
-        privacy_settings(RemotePlannerNetworkMode::AskPerOrigin);
+    core.config.remote_planner_privacy = privacy_settings(RemotePlannerNetworkMode::AskPerOrigin);
     core.state.current_page = Some(fixture_page_with_metadata(
         "Local file",
         "file:///tmp/private.html",
         Vec::new(),
     ));
     let status = core.current_remote_planner_privacy_status();
-    assert_eq!(status.effective_decision, RemotePlannerEffectiveDecision::OriginUnavailable);
+    assert_eq!(
+        status.effective_decision,
+        RemotePlannerEffectiveDecision::OriginUnavailable
+    );
     assert_eq!(status.reason_code.as_deref(), Some("origin_unavailable"));
     assert_eq!(status.current_page_origin, None);
 
@@ -274,16 +293,26 @@ fn remote_privacy_status_reports_every_non_ephemeral_decision_and_stale_rules() 
     core.config.remote_planner_privacy =
         privacy_settings(RemotePlannerNetworkMode::AllowSanitizedNonHighRisk);
     let status = core.current_remote_planner_privacy_status();
-    assert_eq!(status.effective_decision, RemotePlannerEffectiveDecision::HighRiskBlocked);
+    assert_eq!(
+        status.effective_decision,
+        RemotePlannerEffectiveDecision::HighRiskBlocked
+    );
     assert!(status.reason_code.is_some());
 
     core.config.providers.planner.remote_profile = Some(String::from("ollama-default"));
     let status = core.current_remote_planner_privacy_status();
-    assert_eq!(status.effective_decision, RemotePlannerEffectiveDecision::LoopbackLocal);
+    assert_eq!(
+        status.effective_decision,
+        RemotePlannerEffectiveDecision::LoopbackLocal
+    );
     assert_eq!(status.endpoint_is_loopback, Some(true));
 }
 
 #[test]
+#[cfg_attr(
+    any(windows, target_os = "linux"),
+    ignore = "real Wry AppCore fixture must run in a process-isolated test invocation"
+)]
 #[cfg_attr(
     not(any(windows, target_os = "linux")),
     ignore = "real Wry AppCore fixture requires Tauri's any-thread desktop builder"

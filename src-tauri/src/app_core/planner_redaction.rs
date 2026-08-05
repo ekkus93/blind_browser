@@ -955,13 +955,25 @@ fn contains_high_risk_page_text(value: &str) -> bool {
 }
 
 pub(crate) fn high_risk_context_reason(input: &PlannerInput) -> Option<&'static str> {
-    let has_sensitive_element = input
-        .page_model
+    high_risk_page_context_reason(
+        input.agent_state.url.as_deref(),
+        input.page_model.as_ref(),
+        input.page_snapshot.as_ref(),
+        &input.recent_tool_results,
+    )
+}
+
+pub(crate) fn high_risk_page_context_reason(
+    agent_url: Option<&str>,
+    page_model: Option<&PageModel>,
+    page_snapshot: Option<&crate::commands::PageSnapshotData>,
+    recent_tool_results: &[PlannerToolHistoryEntry],
+) -> Option<&'static str> {
+    let has_sensitive_element = page_model
         .iter()
         .flat_map(|page| &page.interactive_elements)
         .chain(
-            input
-                .page_snapshot
+            page_snapshot
                 .iter()
                 .flat_map(|snapshot| &snapshot.interactive_elements),
         )
@@ -970,8 +982,7 @@ pub(crate) fn high_risk_context_reason(input: &PlannerInput) -> Option<&'static 
         return Some("sensitive_form_control");
     }
 
-    let has_high_risk_page_text = input
-        .page_model
+    let has_high_risk_page_text = page_model
         .iter()
         .flat_map(|page| {
             page.regions.iter().flat_map(|region| {
@@ -979,14 +990,12 @@ pub(crate) fn high_risk_context_reason(input: &PlannerInput) -> Option<&'static 
             })
         })
         .chain(
-            input
-                .page_snapshot
+            page_snapshot
                 .iter()
                 .map(|snapshot| snapshot.visible_text_excerpt.as_str()),
         )
         .chain(
-            input
-                .recent_tool_results
+            recent_tool_results
                 .iter()
                 .flat_map(|result| result.observation_summary.iter().map(String::as_str)),
         )
@@ -996,15 +1005,9 @@ pub(crate) fn high_risk_context_reason(input: &PlannerInput) -> Option<&'static 
     }
 
     let urls = [
-        input.agent_state.url.as_deref(),
-        input
-            .page_model
-            .as_ref()
-            .and_then(|page| page.url.as_deref()),
-        input
-            .page_snapshot
-            .as_ref()
-            .map(|snapshot| snapshot.url.as_str()),
+        agent_url,
+        page_model.and_then(|page| page.url.as_deref()),
+        page_snapshot.map(|snapshot| snapshot.url.as_str()),
     ];
     if urls.into_iter().flatten().any(is_high_risk_url_path) {
         return Some("high_risk_url_path");
