@@ -103,7 +103,7 @@ jobs:
         run: cargo test --manifest-path src-tauri/Cargo.toml --all-features --test post_batch8_direct_command_policy_evidence
 
       - name: Run Rust tests
-        run: xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features
+        run: bash scripts/run-rust-tests-linux.sh
 
       - name: Run frontend lint
         run: pnpm lint
