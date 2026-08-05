@@ -131,6 +131,145 @@
   margin-block: 0.35rem;
 }
 
+.remote-privacy-settings-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.remote-privacy-settings-card h3,
+.remote-privacy-settings-card h4,
+.remote-privacy-settings-card p {
+  margin-block-start: 0;
+}
+
+.remote-privacy-settings-heading,
+.remote-privacy-section-heading,
+.remote-privacy-rule-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.remote-privacy-settings-heading > div,
+.remote-privacy-section-heading > div,
+.remote-privacy-rule-item > div {
+  min-width: 0;
+}
+
+.remote-privacy-migration-notice,
+.remote-privacy-operation-error,
+.remote-privacy-operation-status,
+.remote-privacy-loopback-status,
+.remote-privacy-current-origin,
+.remote-privacy-rule-management,
+.remote-privacy-clear-controls,
+.remote-privacy-settings-confirmation {
+  border: 2px solid currentColor;
+  border-radius: 0.65rem;
+  padding: 1rem;
+  background: Canvas;
+  color: CanvasText;
+}
+
+.remote-privacy-operation-error,
+.remote-privacy-migration-notice,
+.remote-privacy-operation-status {
+  border-inline-start-width: 0.45rem;
+}
+
+.remote-privacy-mode-selector {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.remote-privacy-mode-selector legend {
+  margin-block-end: 0.5rem;
+  font-weight: 800;
+}
+
+.remote-privacy-mode-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: flex-start;
+  border: 2px solid currentColor;
+  border-radius: 0.65rem;
+  padding: 0.85rem;
+  cursor: pointer;
+}
+
+.remote-privacy-mode-option:focus-within {
+  outline: 0.25rem solid Highlight;
+  outline-offset: 0.15rem;
+}
+
+.remote-privacy-mode-option input {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  margin-block-start: 0.15rem;
+}
+
+.remote-privacy-mode-option > span {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.remote-privacy-inline-status {
+  border-inline-start: 0.35rem solid currentColor;
+  padding-inline-start: 0.75rem;
+}
+
+.remote-privacy-rule-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.remote-privacy-rule-item {
+  border: 1px solid currentColor;
+  border-radius: 0.6rem;
+  padding: 0.85rem;
+}
+
+.remote-privacy-rule-item code,
+.remote-privacy-current-origin code,
+.remote-privacy-loopback-status code {
+  overflow-wrap: anywhere;
+}
+
+.remote-privacy-manual-rule {
+  margin-block-start: 1rem;
+  border-block-start: 1px solid currentColor;
+  padding-block-start: 1rem;
+}
+
+.remote-privacy-manual-rule summary {
+  min-height: 2.5rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.remote-privacy-manual-rule summary:focus-visible,
+.remote-privacy-settings-confirmation:focus-visible {
+  outline: 0.25rem solid Highlight;
+  outline-offset: 0.2rem;
+}
+
+.remote-privacy-settings-confirmation {
+  position: relative;
+  box-shadow: 0 0.5rem 2rem rgb(0 0 0 / 0.25);
+}
+
+.remote-privacy-settings-confirmation .settings-button-row {
+  margin-block-start: 1rem;
+}
+
 @media (max-width: 48rem) {
   .remote-privacy-status {
     display: block;
@@ -145,5 +284,16 @@
   .remote-consent-counts div {
     grid-template-columns: 1fr;
     gap: 0.15rem;
+  }
+
+  .remote-privacy-settings-heading,
+  .remote-privacy-section-heading,
+  .remote-privacy-rule-item {
+    display: grid;
+  }
+
+  .remote-privacy-settings-heading .settings-control-button,
+  .remote-privacy-rule-item .settings-control-button {
+    width: 100%;
   }
 }
