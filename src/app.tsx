@@ -74,7 +74,6 @@ import {
   persistRemoteAsrApiKey,
   persistRemotePlannerApiKey,
   persistRemotePlannerConnection,
-  persistRemotePlannerPrivacyPolicy,
   persistRemoteTtsApiKey,
   resetRemotePlannerConnectionToDefaults,
   testConfiguredRemoteAsrApiKey,
@@ -146,16 +145,6 @@ export function BlindBrowserApp() {
           onOpenExternalLink: openExternalLink,
         }),
         "settings-remote-planner": renderSettingsRemotePlannerPanelNode(panelStates.remotePlannerPanelState, {
-          onConsentChange: (checked) => {
-            setRemotePlannerPanelState({ consentToRemotePageData: checked, error: null });
-          },
-          onLocalOnlyChange: (checked) => {
-            setRemotePlannerPanelState({ localOnly: checked, error: null });
-          },
-          onBlockedOriginsInput: (value) => {
-            setRemotePlannerPanelState({ blockedOriginsDraft: value, error: null });
-          },
-          onSavePrivacy: () => { void persistRemotePlannerPrivacyPolicy(); },
           onApiKeyInput: (value) => {
             setRemotePlannerPanelState({ apiKeyDraft: value, apiKeyTestMessage: null, error: null });
           },
