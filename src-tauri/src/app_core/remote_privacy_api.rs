@@ -87,7 +87,7 @@ impl AppCore {
             endpoint_display,
             endpoint_is_loopback,
             current_page_origin,
-            effective_decision: effective_decision.clone(),
+            effective_decision,
             reason_code,
             persistent_rule,
             session_grant_active: matches!(
