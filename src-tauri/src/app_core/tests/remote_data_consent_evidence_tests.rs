@@ -41,9 +41,7 @@ fn test_app() -> (tauri::App<tauri::Wry>, tempfile::TempDir) {
     (app, config_root)
 }
 
-fn test_core(
-    app: &tauri::App<tauri::Wry>,
-) -> (super::super::AppCore, tempfile::NamedTempFile) {
+fn test_core(app: &tauri::App<tauri::Wry>) -> (super::super::AppCore, tempfile::NamedTempFile) {
     let mut secret = tempfile::NamedTempFile::new().expect("test secret should be created");
     secret
         .write_all(b"blind-browser-test-key")
@@ -374,8 +372,8 @@ fn remote_data_consent_expiry_invalidation_persistence_and_hostile_state_are_fai
 
     let (challenge, draft) = requirement(&mut core, "persist", "analyze this article");
     store(&mut core, challenge.clone(), draft);
-    let config_path = AppConfig::config_path_for_app(&core.app_handle)
-        .expect("test config path should resolve");
+    let config_path =
+        AppConfig::config_path_for_app(&core.app_handle).expect("test config path should resolve");
     replace_parent_with_file(&config_path);
     let failed = error(
         core.resolve_pending_remote_planner_consent(
@@ -422,12 +420,8 @@ fn replace_parent_with_file(config_path: &Path) {
     if parent.exists() {
         fs::remove_dir_all(parent).expect("config parent should be removable");
     }
-    fs::create_dir_all(
-        parent
-            .parent()
-            .expect("config parent should have a parent"),
-    )
-    .expect("config grandparent should exist");
+    fs::create_dir_all(parent.parent().expect("config parent should have a parent"))
+        .expect("config grandparent should exist");
     fs::write(parent, b"not a directory").expect("config parent should become a file");
 }
 
