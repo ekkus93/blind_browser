@@ -1,0 +1,57 @@
+name: Frontend Lint Diagnostic
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  lint:
+    if: ${{ startsWith(github.event.head_commit.message, 'diag:') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run lint and publish exact failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          lint_log="${RUNNER_TEMP}/frontend-lint.log"
+          if pnpm lint >"${lint_log}" 2>&1; then
+            result=success
+          else
+            result=failure
+          fi
+          body_file="${RUNNER_TEMP}/frontend-lint-comment.md"
+          {
+            echo '<!-- frontend-lint-diagnostic -->'
+            echo "## Frontend lint diagnostic for \`${GITHUB_SHA}\`"
+            echo
+            echo "Result: \`${result}\`"
+            echo
+            echo '```text'
+            tail -n 240 "${lint_log}"
+            echo '```'
+          } >"${body_file}"
+          gh issue comment 2 --repo "${GITHUB_REPOSITORY}" --body-file "${body_file}"
+          test "${result}" = success
