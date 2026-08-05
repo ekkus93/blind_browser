@@ -76,9 +76,9 @@ function WorkspaceDecisionPanels(props: {
   confirmationHandlers?: ActionConfirmationHandlers;
 }) {
   const state = useSyncExternalStore(
-    appShellStore.subscribe,
-    appShellStore.getState,
-    appShellStore.getState,
+    (onStoreChange) => appShellStore.subscribe(onStoreChange),
+    () => appShellStore.getState(),
+    () => appShellStore.getState(),
   );
 
   return (
