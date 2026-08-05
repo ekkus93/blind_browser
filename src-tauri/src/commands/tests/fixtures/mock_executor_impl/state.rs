@@ -91,6 +91,7 @@ pub(super) fn execute_get_agent_state(
                 timeout_ms: Some(30_000),
                 ..RemotePlannerSettings::default()
             },
+            remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
             remote_tts_settings: RemoteTtsSettings {
                 profile_name: Some(String::from("openai-tts-default")),
                 provider: Some(RemoteProviderLabel::OpenAi),
@@ -172,6 +173,7 @@ pub(super) fn execute_get_runtime_status(
             } else {
                 None
             },
+            remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
             skill_discovery_diagnostics: Default::default(),
         },
         vec![String::from("runtime status read")],

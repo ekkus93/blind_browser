@@ -100,6 +100,7 @@ fn resolve_direct_read_page_command_reads_from_first_region_when_available() {
             timeout_ms: Some(30_000),
             ..RemotePlannerSettings::default()
         },
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -260,6 +261,7 @@ fn resolve_direct_read_page_command_extracts_then_reads_when_regions_missing() {
             timeout_ms: Some(30_000),
             ..RemotePlannerSettings::default()
         },
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -413,6 +415,7 @@ fn resolve_direct_read_page_command_reports_missing_active_page() {
             timeout_ms: Some(30_000),
             ..RemotePlannerSettings::default()
         },
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
             provider: Some(RemoteProviderLabel::OpenAi),

@@ -81,6 +81,7 @@ fn resolve_direct_repeat_command_replays_current_region() {
             timeout_ms: Some(30_000),
             ..RemotePlannerSettings::default()
         },
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -231,6 +232,7 @@ fn resolve_direct_repeat_command_reports_missing_current_region() {
             timeout_ms: Some(30_000),
             ..RemotePlannerSettings::default()
         },
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -386,6 +388,7 @@ fn resolve_direct_read_title_command_reports_current_title() {
             timeout_ms: Some(30_000),
             ..RemotePlannerSettings::default()
         },
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -535,6 +538,7 @@ fn resolve_direct_read_title_command_reports_missing_title() {
             timeout_ms: Some(30_000),
             ..RemotePlannerSettings::default()
         },
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
             provider: Some(RemoteProviderLabel::OpenAi),

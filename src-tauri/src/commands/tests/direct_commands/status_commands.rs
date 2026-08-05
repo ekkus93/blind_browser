@@ -77,6 +77,7 @@ fn resolve_direct_status_query_command_reports_current_url() {
             timeout_ms: Some(30_000),
             ..RemotePlannerSettings::default()
         },
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -139,6 +140,7 @@ fn resolve_direct_status_query_command_reports_current_url() {
         pending_confirmation_id: None,
         pending_plan_execution: None,
         provider_modes: None,
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         skill_discovery_diagnostics: Default::default(),
     };
 
@@ -247,6 +249,7 @@ fn resolve_direct_status_query_command_reports_back_history_availability() {
             timeout_ms: Some(30_000),
             ..RemotePlannerSettings::default()
         },
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -309,6 +312,7 @@ fn resolve_direct_status_query_command_reports_back_history_availability() {
         pending_confirmation_id: None,
         pending_plan_execution: None,
         provider_modes: None,
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         skill_discovery_diagnostics: Default::default(),
     };
 
@@ -412,6 +416,7 @@ fn resolve_direct_status_query_command_reports_listening_state() {
             timeout_ms: Some(30_000),
             ..RemotePlannerSettings::default()
         },
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         remote_tts_settings: RemoteTtsSettings {
             profile_name: Some(String::from("openai-tts-default")),
             provider: Some(RemoteProviderLabel::OpenAi),
@@ -474,6 +479,7 @@ fn resolve_direct_status_query_command_reports_listening_state() {
         pending_confirmation_id: None,
         pending_plan_execution: None,
         provider_modes: None,
+        remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
         skill_discovery_diagnostics: Default::default(),
     };
 
