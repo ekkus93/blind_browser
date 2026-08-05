@@ -7,6 +7,8 @@ import {
   type ExecutionOutcome,
   type InvokeFailure,
   type PlannerOutput,
+  type RemotePlannerConsentChallenge,
+  type RemotePlannerExecutionOutcome,
 } from "./tauri-api.ts";
 
 export {
@@ -18,13 +20,39 @@ export {
   type ExecutionOutcome,
   type InvokeFailure,
   type PlannerOutput,
+  type RemotePlannerConsentChallenge,
+  type RemotePlannerExecutionOutcome,
   type ToolError,
 } from "./tauri-api.ts";
 
 export type AwaitingConfirmationOutcome = Extract<
-  ExecutionOutcome,
+  RemotePlannerExecutionOutcome,
   { AwaitingConfirmation: unknown }
 >;
+
+export type NeedsRemoteDataConsentOutcome = Extract<
+  RemotePlannerExecutionOutcome,
+  { NeedsRemoteDataConsent: unknown }
+>;
+
+export type DecisionSubmissionFailure =
+  | {
+      kind: "tool-error";
+      title: string;
+      message: string;
+      guidance: string;
+      retryable: boolean;
+      code: string;
+    }
+  | {
+      kind: "transport-error";
+      title: string;
+      message: string;
+      guidance: string;
+    };
+
+export type ConfirmationSubmissionFailure = DecisionSubmissionFailure;
+export type RemoteDataConsentSubmissionFailure = DecisionSubmissionFailure;
 
 export type ConfirmationUiState =
   | {
@@ -43,29 +71,25 @@ export type ConfirmationUiState =
       queuedStepIds: string[];
     };
 
-export type ConfirmationSubmissionFailure =
+export type RemoteDataConsentUiState =
   | {
-      kind: "tool-error";
-      title: string;
-      message: string;
-      guidance: string;
-      retryable: boolean;
-      code: string;
+      kind: "idle";
     }
   | {
-      kind: "transport-error";
-      title: string;
-      message: string;
-      guidance: string;
+      kind: "awaiting-remote-data-consent";
+      isSubmitting: boolean;
+      submissionError: RemoteDataConsentSubmissionFailure | null;
+      challenge: RemotePlannerConsentChallenge;
     };
 
 export interface ExecutionUiState {
-  lastOutcome: ExecutionOutcome | null;
+  lastOutcome: RemotePlannerExecutionOutcome | null;
   confirmation: ConfirmationUiState;
+  remoteDataConsent: RemoteDataConsentUiState;
 }
 
 export interface PlannerExecutionResult {
-  outcome: ExecutionOutcome;
+  outcome: RemotePlannerExecutionOutcome;
   uiState: ExecutionUiState;
 }
 
@@ -77,12 +101,21 @@ export interface ConfirmationResolutionResult {
 export interface ExecutionUiStore {
   getState: () => ExecutionUiState;
   setState: (nextState: ExecutionUiState) => void;
-  applyOutcome: (outcome: ExecutionOutcome) => ExecutionUiState;
+  applyOutcome: (outcome: RemotePlannerExecutionOutcome) => ExecutionUiState;
   setConfirmationSubmitting: (confirmationId: string, isSubmitting: boolean) => ExecutionUiState;
   setConfirmationError: (
     confirmationId: string,
     submissionError: ConfirmationSubmissionFailure | null,
   ) => ExecutionUiState;
+  setRemoteDataConsentSubmitting: (
+    challengeId: string,
+    isSubmitting: boolean,
+  ) => ExecutionUiState;
+  setRemoteDataConsentError: (
+    challengeId: string,
+    submissionError: RemoteDataConsentSubmissionFailure | null,
+  ) => ExecutionUiState;
+  clearRemoteDataConsent: (challengeId: string) => ExecutionUiState;
   subscribe: (listener: (state: ExecutionUiState) => void) => () => void;
 }
 
@@ -90,6 +123,9 @@ export function createInitialExecutionUiState(): ExecutionUiState {
   return {
     lastOutcome: null,
     confirmation: {
+      kind: "idle",
+    },
+    remoteDataConsent: {
       kind: "idle",
     },
   };
@@ -107,18 +143,18 @@ export function createExecutionUiStore(
     }
   };
 
+  const setCurrentState = (nextState: ExecutionUiState) => {
+    currentState = nextState;
+    notify();
+    return currentState;
+  };
+
   return {
     getState: () => currentState,
     setState: (nextState) => {
-      currentState = nextState;
-      notify();
+      setCurrentState(nextState);
     },
-    applyOutcome: (outcome) => {
-      const nextState = applyExecutionOutcomeToUiState(outcome);
-      currentState = nextState;
-      notify();
-      return nextState;
-    },
+    applyOutcome: (outcome) => setCurrentState(applyExecutionOutcomeToUiState(outcome)),
     setConfirmationSubmitting: (confirmationId, isSubmitting) => {
       if (
         currentState.confirmation.kind !== "awaiting-confirmation" ||
@@ -127,16 +163,14 @@ export function createExecutionUiStore(
         return currentState;
       }
 
-      currentState = {
+      return setCurrentState({
         ...currentState,
         confirmation: {
           ...currentState.confirmation,
           isSubmitting,
           submissionError: isSubmitting ? null : currentState.confirmation.submissionError,
         },
-      };
-      notify();
-      return currentState;
+      });
     },
     setConfirmationError: (confirmationId, submissionError) => {
       if (
@@ -146,16 +180,65 @@ export function createExecutionUiStore(
         return currentState;
       }
 
-      currentState = {
+      return setCurrentState({
         ...currentState,
         confirmation: {
           ...currentState.confirmation,
           isSubmitting: false,
           submissionError,
         },
-      };
-      notify();
-      return currentState;
+      });
+    },
+    setRemoteDataConsentSubmitting: (challengeId, isSubmitting) => {
+      if (
+        currentState.remoteDataConsent.kind !== "awaiting-remote-data-consent" ||
+        currentState.remoteDataConsent.challenge.challenge_id !== challengeId
+      ) {
+        return currentState;
+      }
+
+      return setCurrentState({
+        ...currentState,
+        remoteDataConsent: {
+          ...currentState.remoteDataConsent,
+          isSubmitting,
+          submissionError: isSubmitting
+            ? null
+            : currentState.remoteDataConsent.submissionError,
+        },
+      });
+    },
+    setRemoteDataConsentError: (challengeId, submissionError) => {
+      if (
+        currentState.remoteDataConsent.kind !== "awaiting-remote-data-consent" ||
+        currentState.remoteDataConsent.challenge.challenge_id !== challengeId
+      ) {
+        return currentState;
+      }
+
+      return setCurrentState({
+        ...currentState,
+        remoteDataConsent: {
+          ...currentState.remoteDataConsent,
+          isSubmitting: false,
+          submissionError,
+        },
+      });
+    },
+    clearRemoteDataConsent: (challengeId) => {
+      if (
+        currentState.remoteDataConsent.kind !== "awaiting-remote-data-consent" ||
+        currentState.remoteDataConsent.challenge.challenge_id !== challengeId
+      ) {
+        return currentState;
+      }
+
+      return setCurrentState({
+        ...currentState,
+        remoteDataConsent: {
+          kind: "idle",
+        },
+      });
     },
     subscribe: (listener) => {
       listeners.add(listener);
@@ -167,18 +250,42 @@ export function createExecutionUiStore(
 }
 
 export function isAwaitingConfirmationOutcome(
-  outcome: ExecutionOutcome,
+  outcome: RemotePlannerExecutionOutcome,
 ): outcome is AwaitingConfirmationOutcome {
   return "AwaitingConfirmation" in outcome;
 }
 
+export function isNeedsRemoteDataConsentOutcome(
+  outcome: RemotePlannerExecutionOutcome,
+): outcome is NeedsRemoteDataConsentOutcome {
+  return "NeedsRemoteDataConsent" in outcome;
+}
+
 export function applyExecutionOutcomeToUiState(
-  outcome: ExecutionOutcome,
+  outcome: RemotePlannerExecutionOutcome,
 ): ExecutionUiState {
+  if (isNeedsRemoteDataConsentOutcome(outcome)) {
+    return {
+      lastOutcome: outcome,
+      confirmation: {
+        kind: "idle",
+      },
+      remoteDataConsent: {
+        kind: "awaiting-remote-data-consent",
+        isSubmitting: false,
+        submissionError: null,
+        challenge: outcome.NeedsRemoteDataConsent.challenge,
+      },
+    };
+  }
+
   if (!isAwaitingConfirmationOutcome(outcome)) {
     return {
       lastOutcome: outcome,
       confirmation: {
+        kind: "idle",
+      },
+      remoteDataConsent: {
         kind: "idle",
       },
     };
@@ -199,6 +306,9 @@ export function applyExecutionOutcomeToUiState(
       nextStepId: pending.next_step_id,
       queuedStepIds: pending.queued_step_ids,
     },
+    remoteDataConsent: {
+      kind: "idle",
+    },
   };
 }
 
@@ -207,7 +317,7 @@ export async function runPlannerExecution(
   plannerOutput: PlannerOutput,
   store?: ExecutionUiStore,
 ): Promise<PlannerExecutionResult> {
-  const outcome = await executePlannerOutput(requestId, plannerOutput);
+  const outcome: ExecutionOutcome = await executePlannerOutput(requestId, plannerOutput);
   const uiState = store ? store.applyOutcome(outcome) : applyExecutionOutcomeToUiState(outcome);
   return {
     outcome,
@@ -232,6 +342,25 @@ export async function resolveConfirmationResponse(
 export function describeConfirmationSubmissionFailure(
   error: unknown,
 ): ConfirmationSubmissionFailure {
+  return describeDecisionSubmissionFailure(
+    error,
+    "The desktop runtime did not accept the confirmation request. Check that the app is still running, then try again.",
+  );
+}
+
+export function describeRemoteDataConsentSubmissionFailure(
+  error: unknown,
+): RemoteDataConsentSubmissionFailure {
+  return describeDecisionSubmissionFailure(
+    error,
+    "The desktop runtime did not accept the privacy decision. Review the current request and runtime state, then try again.",
+  );
+}
+
+function describeDecisionSubmissionFailure(
+  error: unknown,
+  transportGuidance: string,
+): DecisionSubmissionFailure {
   const failure = classifyInvokeFailure(error);
 
   if (failure.kind === "tool-error") {
@@ -242,18 +371,22 @@ export function describeConfirmationSubmissionFailure(
     kind: "transport-error",
     title: "Connection problem",
     message: failure.message,
-    guidance: "The desktop runtime did not accept the confirmation request. Check that the app is still running, then try again.",
+    guidance: transportGuidance,
   };
 }
 
-function mapToolErrorFailure(failure: InvokeFailure & { kind: "tool-error" }): ConfirmationSubmissionFailure {
+function mapToolErrorFailure(
+  failure: InvokeFailure & { kind: "tool-error" },
+): DecisionSubmissionFailure {
   const { toolError } = failure;
   return {
     kind: "tool-error",
-    title: toolError.retryable ? "Runtime rejected the request" : "Runtime cannot complete this request",
+    title: toolError.retryable
+      ? "Runtime rejected the request"
+      : "Runtime cannot complete this request",
     message: toolError.message,
     guidance: toolError.retryable
-      ? "The backend reported a retryable error. Review the runtime state and try the confirmation again."
+      ? "The backend reported a retryable error. Review the runtime state and try again."
       : "The backend reported a non-retryable tool error. Review the current request or planner state before trying again.",
     retryable: toolError.retryable,
     code: toolError.code,

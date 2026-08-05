@@ -1,6 +1,7 @@
 export * from "./tauri-types.ts";
 export * from "./api/errors.ts";
 export * from "./api/planner.ts";
+export * from "./api/remote-planner-consent.ts";
 export * from "./api/voice.ts";
 export * from "./api/audio.ts";
 export * from "./api/navigation.ts";

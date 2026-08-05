@@ -1,0 +1,254 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { createRemotePlannerPrivacyController } from "./remote-planner-privacy-controller.ts";
+import { createInitialExecutionUiState } from "./planner-orchestration.ts";
+import { createInitialRemotePlannerPrivacyState } from "./remote-planner-privacy-state.ts";
+
+function privacyStatus() {
+  return {
+    network_mode: "ask_per_origin",
+    endpoint_scope: "https://api.example.com:443/v1",
+    endpoint_display: "https://api.example.com/v1",
+    endpoint_is_loopback: false,
+    current_page_origin: "https://example.com",
+    effective_decision: "consent_required",
+    reason_code: "remote_data_consent_required",
+    persistent_rule: null,
+    session_grant_active: false,
+    pending_challenge: null,
+    policy_version: 1,
+    persistent_rule_count: 0,
+    stale_allow_rule_count: 0,
+    persistent_rules: [],
+    migration_notice_pending: false,
+  };
+}
+
+function challenge() {
+  return {
+    challenge_id: "challenge-1",
+    challenge_digest: "digest-1",
+    request_id: "request-1",
+    page_origin: "https://example.com",
+    endpoint_display: "https://api.example.com/v1",
+    endpoint_scope: "https://api.example.com:443/v1",
+    profile_name: "openai-default",
+    model_label: "gpt-test",
+    policy_version: 1,
+    disclosure_classes: ["user_transcript", "page_origin"],
+    disclosure_counts: {
+      selected_region_count: 0,
+      selected_element_count: 0,
+      ocr_derived_region_count: 0,
+      tool_history_count: 0,
+      skill_summary_count: 0,
+      sanitized_serialized_bytes: 64,
+    },
+    expires_at_ms: 123456789,
+    allow_once: true,
+    allow_session: true,
+    allow_persistent: true,
+    block_persistent: true,
+  };
+}
+
+function createHarness(overrides = {}) {
+  const calls = [];
+  const privacyState = createInitialRemotePlannerPrivacyState();
+  const executionState = createInitialExecutionUiState();
+  executionState.remoteDataConsent = {
+    kind: "awaiting-remote-data-consent",
+    isSubmitting: false,
+    submissionError: null,
+    challenge: challenge(),
+  };
+
+  const dependencies = {
+    getPrivacyState: () => privacyState,
+    getExecutionUiState: () => executionState,
+    applyPrivacyOperation: async (input) => {
+      calls.push(["applyPrivacyOperation", input]);
+      return {
+        status: privacyStatus(),
+        changed: true,
+        network_mode: "ask_per_origin",
+        consent_to_remote_page_data: false,
+        local_only: false,
+        blocked_origins: [],
+        high_risk_origin_policy: "block",
+      };
+    },
+    submitConsentResponse: async (input) => {
+      calls.push(["submitConsentResponse", input]);
+      return { status: "denied" };
+    },
+    executePlannerOutput: async (requestId, plannerOutput) => {
+      calls.push(["executePlannerOutput", { requestId, plannerOutput }]);
+      return { Complete: { trace: { executed_step_ids: [], tool_results: [] } } };
+    },
+    createRequestId: () => "privacy-operation-1",
+    markOperationStarted: (operation) => {
+      calls.push(["markOperationStarted", operation]);
+      privacyState.operationBusy = true;
+      privacyState.activeOperation = operation;
+    },
+    applyOperationSuccess: (status) => {
+      calls.push(["applyOperationSuccess", status]);
+      privacyState.operationBusy = false;
+      privacyState.status = status;
+    },
+    applyOperationFailure: (operation, message) => {
+      calls.push(["applyOperationFailure", { operation, message }]);
+      privacyState.operationBusy = false;
+      privacyState.operationError = message;
+    },
+    setConsentSubmitting: (challengeId, isSubmitting) => {
+      calls.push(["setConsentSubmitting", { challengeId, isSubmitting }]);
+      executionState.remoteDataConsent.isSubmitting = isSubmitting;
+    },
+    setConsentError: (challengeId, failure) => {
+      calls.push(["setConsentError", { challengeId, failure }]);
+      executionState.remoteDataConsent.isSubmitting = false;
+      executionState.remoteDataConsent.submissionError = failure;
+    },
+    clearConsent: (challengeId) => {
+      calls.push(["clearConsent", challengeId]);
+      executionState.remoteDataConsent = { kind: "idle" };
+    },
+    applyExecutionOutcome: (outcome) => {
+      calls.push(["applyExecutionOutcome", outcome]);
+    },
+    refreshRuntime: async () => {
+      calls.push(["refreshRuntime"]);
+    },
+    reportGlobalError: (message) => {
+      calls.push(["reportGlobalError", message]);
+    },
+    warn: (message, details) => {
+      calls.push(["warn", { message, details }]);
+    },
+    ...overrides,
+  };
+
+  return {
+    calls,
+    privacyState,
+    executionState,
+    controller: createRemotePlannerPrivacyController(dependencies),
+  };
+}
+
+test("privacy operation controller applies only the authoritative returned status", async () => {
+  const harness = createHarness();
+
+  const result = await harness.controller.runOperation({
+    operation: "set_network_mode",
+    network_mode: "local_only",
+  });
+
+  assert.equal(result.changed, true);
+  assert.deepEqual(harness.calls.slice(0, 3), [
+    ["markOperationStarted", "set_network_mode"],
+    ["applyPrivacyOperation", {
+      requestId: "privacy-operation-1",
+      operation: {
+        operation: "set_network_mode",
+        network_mode: "local_only",
+      },
+    }],
+    ["applyOperationSuccess", privacyStatus()],
+  ]);
+});
+
+test("privacy operation controller refuses a duplicate operation while busy", async () => {
+  const harness = createHarness();
+  harness.privacyState.operationBusy = true;
+  harness.privacyState.activeOperation = "clear_session_grants";
+
+  const result = await harness.controller.runOperation({ operation: "clear_persistent_allows" });
+
+  assert.equal(result, null);
+  assert.equal(harness.calls.some(([name]) => name === "applyPrivacyOperation"), false);
+  assert.equal(harness.calls[0][0], "warn");
+});
+
+test("consent controller binds the exact active challenge digest", async () => {
+  const plannerOutput = {
+    status: "Complete",
+    intent: { name: "ReadPage", goal: "Read", target_description: null },
+    selected_skills: [],
+    steps: [],
+    requires_confirmation: false,
+    confirmation_reason: null,
+    blocked_reason: null,
+    user_message: null,
+  };
+  const harness = createHarness({
+    submitConsentResponse: async (input) => {
+      harness.calls.push(["submitConsentResponse", input]);
+      return { status: "resolved", planner_output: plannerOutput };
+    },
+  });
+
+  const result = await harness.controller.submitConsentDecision("allow_once", "challenge-1");
+
+  assert.equal(result.status, "resolved");
+  assert.deepEqual(
+    harness.calls.find(([name]) => name === "submitConsentResponse")[1],
+    {
+      challengeId: "challenge-1",
+      challengeDigest: "digest-1",
+      decision: "allow_once",
+    },
+  );
+  assert.deepEqual(
+    harness.calls.find(([name]) => name === "executePlannerOutput")[1],
+    { requestId: "request-1", plannerOutput },
+  );
+  assert.equal(harness.executionState.remoteDataConsent.kind, "idle");
+});
+
+test("consent controller disables duplicate submission at the state boundary", async () => {
+  const harness = createHarness();
+  harness.executionState.remoteDataConsent.isSubmitting = true;
+
+  const result = await harness.controller.submitConsentDecision("allow_session", "challenge-1");
+
+  assert.equal(result, null);
+  assert.equal(harness.calls.some(([name]) => name === "submitConsentResponse"), false);
+  assert.equal(harness.calls[0][0], "warn");
+});
+
+test("stale consent button produces a visible error on the active challenge", async () => {
+  const harness = createHarness();
+
+  const result = await harness.controller.submitConsentDecision("deny", "old-challenge");
+
+  assert.equal(result, null);
+  const call = harness.calls.find(([name]) => name === "setConsentError");
+  assert.equal(call[1].challengeId, "challenge-1");
+  assert.match(call[1].failure.message, /no longer the active request/);
+});
+
+test("backend consent rejection leaves the challenge available with an explicit error", async () => {
+  const harness = createHarness({
+    submitConsentResponse: async () => {
+      throw {
+        code: "remote_data_consent_state_changed",
+        message: "The page changed before consent was submitted.",
+        retryable: false,
+        details: null,
+      };
+    },
+  });
+
+  const result = await harness.controller.submitConsentDecision("allow_once", "challenge-1");
+
+  assert.equal(result, null);
+  assert.equal(harness.executionState.remoteDataConsent.kind, "awaiting-remote-data-consent");
+  assert.match(
+    harness.executionState.remoteDataConsent.submissionError.message,
+    /page changed/,
+  );
+});

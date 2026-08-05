@@ -8,13 +8,14 @@ import {
   createInitialExecutionUiState,
   type ConfirmationSubmissionFailure,
   type ExecutionUiState,
+  type RemoteDataConsentSubmissionFailure,
 } from "./planner-orchestration.ts";
 import {
   createInitialRemotePlannerPrivacyState,
   remotePlannerPrivacyReducer,
   type RemotePlannerPrivacyState,
 } from "./remote-planner-privacy-state.ts";
-import type { ExecutionOutcome } from "./tauri-api.ts";
+import type { RemotePlannerExecutionOutcome } from "./tauri-api.ts";
 
 interface AppShellViewState {
   appView: AppView;
@@ -118,7 +119,7 @@ const executionUiSlice = createSlice({
     setExecutionUiState(_state, action: PayloadAction<ExecutionUiState>) {
       return action.payload;
     },
-    applyExecutionOutcome(_state, action: PayloadAction<ExecutionOutcome>) {
+    applyExecutionOutcome(_state, action: PayloadAction<RemotePlannerExecutionOutcome>) {
       return applyExecutionOutcomeToUiState(action.payload);
     },
     setConfirmationSubmitting(
@@ -164,6 +165,66 @@ const executionUiSlice = createSlice({
         },
       };
     },
+    setRemoteDataConsentSubmitting(
+      state,
+      action: PayloadAction<{ challengeId: string; isSubmitting: boolean }>,
+    ) {
+      if (
+        state.remoteDataConsent.kind !== "awaiting-remote-data-consent"
+        || state.remoteDataConsent.challenge.challenge_id !== action.payload.challengeId
+      ) {
+        return state;
+      }
+
+      return {
+        ...state,
+        remoteDataConsent: {
+          ...state.remoteDataConsent,
+          isSubmitting: action.payload.isSubmitting,
+          submissionError: action.payload.isSubmitting
+            ? null
+            : state.remoteDataConsent.submissionError,
+        },
+      };
+    },
+    setRemoteDataConsentError(
+      state,
+      action: PayloadAction<{
+        challengeId: string;
+        submissionError: RemoteDataConsentSubmissionFailure | null;
+      }>,
+    ) {
+      if (
+        state.remoteDataConsent.kind !== "awaiting-remote-data-consent"
+        || state.remoteDataConsent.challenge.challenge_id !== action.payload.challengeId
+      ) {
+        return state;
+      }
+
+      return {
+        ...state,
+        remoteDataConsent: {
+          ...state.remoteDataConsent,
+          isSubmitting: false,
+          submissionError: action.payload.submissionError,
+        },
+      };
+    },
+    clearRemoteDataConsent(state, action: PayloadAction<{ challengeId: string }>) {
+      if (
+        state.remoteDataConsent.kind !== "awaiting-remote-data-consent"
+        || state.remoteDataConsent.challenge.challenge_id !== action.payload.challengeId
+      ) {
+        return state;
+      }
+
+      return {
+        ...state,
+        remoteDataConsent: {
+          kind: "idle",
+        },
+      };
+    },
   },
 });
 
@@ -193,6 +254,9 @@ export const {
   applyExecutionOutcome,
   setConfirmationSubmitting,
   setConfirmationError,
+  setRemoteDataConsentSubmitting,
+  setRemoteDataConsentError,
+  clearRemoteDataConsent,
 } = executionUiSlice.actions;
 
 export function createAppShellStore(preloadedState?: Partial<AppShellState>) {
