@@ -134,6 +134,9 @@ jobs:
       - name: Run Rust tests
         id: tests
         shell: bash
+        env:
+          CARGO_TERM_COLOR: never
+          RUST_BACKTRACE: "1"
         run: |
           set -euo pipefail
           test_log="${RUNNER_TEMP}/rust-tests.log"
@@ -148,6 +151,7 @@ jobs:
             local test_name="$2"
             local case_log="${RUNNER_TEMP}/wry-test-${index}.log"
 
+            echo "BEGIN isolated Wry test: ${test_name}" | tee -a "${test_log}"
             if ! xvfb-run -a cargo test \
               --manifest-path src-tauri/Cargo.toml \
               --all-features \
@@ -158,18 +162,19 @@ jobs:
               --exact \
               --test-threads=1 \
               2>&1 | tee "${case_log}" | tee -a "${test_log}"; then
-              echo "Isolated Wry test command failed: ${test_name}" >&2
+              echo "Isolated Wry test command failed: ${test_name}" | tee -a "${test_log}" >&2
               return 1
             fi
 
-            if ! grep -Fq "test ${test_name} ... ok" "${case_log}"; then
-              echo "Exact isolated Wry test did not report success: ${test_name}" >&2
+            if ! grep -Eq '^running 1 test\r?$' "${case_log}"; then
+              echo "Isolated Wry invocation did not execute one test: ${test_name}" | tee -a "${test_log}" >&2
               return 1
             fi
             if ! grep -Fq "test result: ok. 1 passed; 0 failed; 0 ignored;" "${case_log}"; then
-              echo "Isolated Wry invocation did not execute exactly one passing test: ${test_name}" >&2
+              echo "Isolated Wry invocation did not execute exactly one passing test: ${test_name}" | tee -a "${test_log}" >&2
               return 1
             fi
+            echo "PASS isolated Wry test: ${test_name}" | tee -a "${test_log}"
           }
 
           run_and_log xvfb-run -a cargo test \
@@ -227,7 +232,7 @@ jobs:
           if [[ -s "${RUNNER_TEMP}/rust-tests.log" && "${TESTS_OUTCOME}" == "failure" ]]; then
             summary_file="${RUNNER_TEMP}/rust-test-summary.txt"
             {
-              grep -E '^(test .* FAILED|failures:|---- .* stdout ----|thread .* panicked|test result:|error: test failed|Exact isolated Wry test|Isolated Wry)' \
+              grep -E '^(test .* FAILED|failures:|---- .* stdout ----|thread .* panicked|test result:|error: test failed|BEGIN isolated Wry test|PASS isolated Wry test|Isolated Wry)' \
                 "${RUNNER_TEMP}/rust-tests.log" || true
               tail -n 160 "${RUNNER_TEMP}/rust-tests.log"
             } | tail -n 220 | sed 's/^/    /' >"${summary_file}"
