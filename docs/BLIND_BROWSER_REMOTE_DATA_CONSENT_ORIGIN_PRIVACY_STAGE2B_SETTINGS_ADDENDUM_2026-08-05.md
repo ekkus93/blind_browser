@@ -5,11 +5,15 @@
 **Branch:** `master`  
 **Scope:** Typed frontend privacy settings and structured site-rule management  
 **Source implementation SHA:** `d5a06f9ef23bcd2dc3c4e8b4851163024a254f8b`  
-**Source permanent CI:** run `31006899810`, job `92308939648`, conclusion `success`
+**Source permanent CI:** run `31006899810`, job `92308939648`, conclusion `success`  
+**Legacy adapter cleanup SHA:** `429f211b9d792155de7dc7ee820bfbc10fc8fa67`  
+**Cleanup permanent CI:** run `31010141799`, job `92319933305`, conclusion `success`
 
 ## Bounded conclusion
 
 The Stage 2B planner-privacy settings and rule-management surface is implemented and validated. The UI now consumes the authoritative typed `RemotePlannerPrivacyStatus` and dispatches only typed `RemotePlannerPrivacyOperation` values through the existing fail-closed controller. It does not optimistically mutate privacy policy or persistent rules; every successful operation replaces frontend state with the status returned by Rust.
+
+The previous boolean/list frontend save adapter and its compatibility-shaped callback path have been removed. Frontend planner-privacy mutation is now reachable only through the typed operation controller.
 
 This addendum closes the settings/rule-management subsection of Stage 2B. It does not, by itself, close the complete remote-data-consent milestone, the complete privacy TODO, or the broader BBCR program.
 
@@ -105,11 +109,22 @@ No operation logs or renders raw transcript, page, OCR, tool, skill, challenge d
 
 ## Changed source and test files
 
+Primary settings implementation:
+
 - `src/settings-panels/planner-privacy.tsx`
 - `src/settings-panels/planner-panel.tsx`
 - `src/settings-panels/planner.tsx`
 - `src/settings-panels/planner-privacy.test.mjs`
 - `src/remote-planner-privacy.css`
+
+Legacy adapter cleanup:
+
+- `src/api/providers.ts`
+- `src/app.tsx`
+- `src/planner-actions.ts`
+- `src/settings-panels/planner-panel.tsx`
+- `src/legacy-planner-privacy-adapter-removal.test.mjs`
+- removed `src/planner-privacy-actions.test.mjs`
 
 ## Focused frontend evidence
 
@@ -126,9 +141,21 @@ The settings tests verify:
 - revoke operations preserve exact backend rule identity;
 - clear-all construction always includes explicit confirmation.
 
+The cleanup test verifies that the public frontend modules no longer export:
+
+- `setRemotePlannerPrivacySettings`;
+- `persistRemotePlannerPrivacyPolicy`;
+- `parseBlockedOriginsDraft`.
+
+TypeScript compilation also verifies that `app.tsx` cannot pass the removed legacy callback properties to the planner panel.
+
 ## Permanent CI evidence
 
-Permanent CI run `31006899810`, job `92308939648`, passed on exact source SHA `d5a06f9ef23bcd2dc3c4e8b4851163024a254f8b`:
+Permanent CI run `31006899810`, job `92308939648`, passed on exact source SHA `d5a06f9ef23bcd2dc3c4e8b4851163024a254f8b`.
+
+Permanent CI run `31010141799`, job `92319933305`, passed on exact cleanup SHA `429f211b9d792155de7dc7ee820bfbc10fc8fa67`.
+
+The cleanup run passed:
 
 - silent-fallback scanner;
 - reviewed security-fallback scanner;
@@ -140,14 +167,14 @@ Permanent CI run `31006899810`, job `92308939648`, passed on exact source SHA `d
 - focused direct-command semantic evidence;
 - complete Rust/Wry test suite;
 - frontend lint;
-- frontend UI tests;
+- frontend UI tests, including the legacy-export removal test;
 - production frontend build.
 
-## Compatibility boundary and remaining cleanup
+## Legacy adapter cleanup conclusion
 
-The planner settings renderer retains compatibility-shaped legacy handler properties because `app.tsx` and `planner-actions.ts` still contain the previous boolean/list save adapter. The new settings component never renders or invokes those handlers, so that path is not user-reachable from the Stage 2B UI and is not an authorization fallback.
+The old planner-privacy wrapper that serialized `consentToRemotePageData`, `localOnly`, and `blockedOrigins` has been removed from the frontend API. The old panel callback properties and `app.tsx` handlers have been removed. The old planner action, blocked-origin draft parser, and obsolete parser test have also been removed.
 
-Removing the obsolete adapter and its compatibility props remains a bounded source-cleanup task. It should be performed without changing the typed Rust operation contract or reintroducing the old two-boolean policy as an authoritative path.
+The backend command name remains in use by the typed operation API, but frontend callers can now send only the tagged `RemotePlannerPrivacyOperation` contract. Removing the old adapter did not change or weaken the Rust policy evaluator, destination binding, high-risk blocking, persistent-block precedence, confirmation requirements, or authoritative status refresh.
 
 ## Remaining milestone work
 
