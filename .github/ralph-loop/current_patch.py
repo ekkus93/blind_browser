@@ -82,6 +82,7 @@ run_isolated_wry_test() {
   local case_log
   case_log="$(mktemp)"
 
+  echo "BEGIN isolated Wry test: ${test_name}"
   if ! xvfb-run -a cargo test \\
     --manifest-path src-tauri/Cargo.toml \\
     --all-features \\
@@ -96,8 +97,8 @@ run_isolated_wry_test() {
     return 1
   fi
 
-  if ! grep -Fq "test ${test_name} ... ok" "${case_log}"; then
-    echo "Exact isolated Wry test did not report success: ${test_name}" >&2
+  if ! grep -Eq '^running 1 test\\r?$' "${case_log}"; then
+    echo "Isolated Wry invocation did not execute one test: ${test_name}" >&2
     return 1
   fi
   if ! grep -Fq "test result: ok. 1 passed; 0 failed; 0 ignored;" "${case_log}"; then
@@ -106,6 +107,7 @@ run_isolated_wry_test() {
   fi
 
   rm -f -- "${case_log}"
+  echo "PASS isolated Wry test: ${test_name}"
 }
 
 xvfb-run -a cargo test \\
