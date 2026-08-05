@@ -233,6 +233,117 @@ replace_exact(
 """,
 )
 
+replace_exact(
+    "src-tauri/src/app_core/remote_privacy_api.rs",
+    """        let mut settings = self.config.remote_planner_privacy.clone();
+        let endpoint_scope = match decision {
+            PersistedOriginDecision::Block => {
+                settings
+                    .origin_rules
+                    .retain(|rule| rule.page_origin != page_origin);
+                None
+            }
+            PersistedOriginDecision::Allow => {
+                if settings.origin_rules.iter().any(|rule| {
+                    rule.page_origin == page_origin
+                        && matches!(rule.decision, PersistedOriginDecision::Block)
+                }) {
+                    return Err(privacy_api_error(
+                        "remote_data_origin_blocked",
+                        "the page origin has an origin-wide persistent block",
+                        None,
+                    ));
+                }
+                Some(self.authoritative_remote_planner_allow_endpoint()?)
+            }
+        };
+
+        let exact_rule_exists = settings.origin_rules.iter().any(|rule| {
+            rule.page_origin == page_origin
+                && rule.decision == decision
+                && rule.endpoint_scope == endpoint_scope
+                && rule.policy_version == REMOTE_DATA_POLICY_VERSION
+        });
+        if exact_rule_exists {
+            return Ok(false);
+        }
+
+        settings.origin_rules.push(RemotePlannerOriginRule {
+            page_origin,
+            decision,
+            endpoint_scope,
+            policy_version: REMOTE_DATA_POLICY_VERSION,
+            created_at_ms: current_timestamp_ms(),
+        });
+""",
+    """        let mut settings = self.config.remote_planner_privacy.clone();
+        let endpoint_scope = match decision {
+            PersistedOriginDecision::Block => None,
+            PersistedOriginDecision::Allow => {
+                if settings.origin_rules.iter().any(|rule| {
+                    rule.page_origin == page_origin
+                        && matches!(rule.decision, PersistedOriginDecision::Block)
+                }) {
+                    return Err(privacy_api_error(
+                        "remote_data_origin_blocked",
+                        "the page origin has an origin-wide persistent block",
+                        None,
+                    ));
+                }
+                Some(self.authoritative_remote_planner_allow_endpoint()?)
+            }
+        };
+
+        let existing_exact_rule = settings
+            .origin_rules
+            .iter()
+            .find(|rule| {
+                rule.page_origin == page_origin
+                    && rule.decision == decision
+                    && rule.endpoint_scope == endpoint_scope
+                    && rule.policy_version == REMOTE_DATA_POLICY_VERSION
+            })
+            .cloned();
+        let new_rule = RemotePlannerOriginRule {
+            page_origin: page_origin.clone(),
+            decision: decision.clone(),
+            endpoint_scope: endpoint_scope.clone(),
+            policy_version: REMOTE_DATA_POLICY_VERSION,
+            created_at_ms: current_timestamp_ms(),
+        };
+
+        if matches!(decision, PersistedOriginDecision::Block) {
+            settings
+                .origin_rules
+                .retain(|rule| rule.page_origin != page_origin);
+            settings
+                .origin_rules
+                .push(existing_exact_rule.unwrap_or(new_rule));
+        } else {
+            if existing_exact_rule.is_some() {
+                return Ok(false);
+            }
+            settings.origin_rules.push(new_rule);
+        }
+""",
+)
+
+replace_exact(
+    "src-tauri/src/app_core/remote_privacy_api.rs",
+    """        prepare_privacy_settings_for_comparison(&mut settings);
+        if settings == self.config.remote_planner_privacy {
+            return Ok(false);
+        }
+""",
+    """        prepare_privacy_settings_for_comparison(&mut settings);
+        let mut current_settings = self.config.remote_planner_privacy.clone();
+        prepare_privacy_settings_for_comparison(&mut current_settings);
+        if settings == current_settings {
+            return Ok(false);
+        }
+""",
+)
+
 create_new(
     "scripts/run-rust-tests-linux.sh",
     """#!/usr/bin/env bash
