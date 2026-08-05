@@ -60,4 +60,5 @@ mod ocr_merge_tests;
 mod ocr_threshold_tests;
 mod planner_tests;
 mod regression_tests;
+mod remote_privacy_api_tests;
 mod settings_tests;
