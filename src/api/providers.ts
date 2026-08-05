@@ -1,7 +1,6 @@
 import { invokeCommand } from "./errors.ts";
 import type {
   RemotePlannerConnectionSettingsData,
-  RemotePlannerPrivacySettingsData,
   SelectableProviderMode,
 } from "../tauri-types.ts";
 
@@ -77,25 +76,6 @@ export async function resetRemotePlannerConnectionSettings(input: {
       requestId: input.requestId,
       timeoutMs: input.timeoutMs,
       profileName: input.profileName,
-    },
-  );
-}
-
-export async function setRemotePlannerPrivacySettings(input: {
-  requestId: string;
-  timeoutMs?: number;
-  consentToRemotePageData: boolean;
-  localOnly: boolean;
-  blockedOrigins: string[];
-}): Promise<RemotePlannerPrivacySettingsData> {
-  return invokeCommand<RemotePlannerPrivacySettingsData>(
-    "set_remote_planner_privacy_settings",
-    {
-      requestId: input.requestId,
-      timeoutMs: input.timeoutMs,
-      consentToRemotePageData: input.consentToRemotePageData,
-      localOnly: input.localOnly,
-      blockedOrigins: input.blockedOrigins,
     },
   );
 }
