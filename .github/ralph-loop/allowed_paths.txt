@@ -1,6 +1,0 @@
-.github/workflows/ci.yml
-scripts/run-rust-tests-linux.sh
-src-tauri/src/app_core/planner_redaction.rs
-src-tauri/src/app_core/remote_privacy_api.rs
-src-tauri/src/app_core/tests/confirmation_replay_tests.rs
-src-tauri/src/app_core/tests/remote_privacy_api_tests.rs
