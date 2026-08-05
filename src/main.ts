@@ -1,4 +1,5 @@
 import "./styles.css";
+import "./remote-planner-privacy.css";
 
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
