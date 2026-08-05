@@ -106,7 +106,19 @@ jobs:
         run: bash scripts/run-rust-tests-linux.sh
 
       - name: Run frontend lint
-        run: pnpm lint
+        shell: bash
+        run: |
+          set -o pipefail
+          lint_log="${RUNNER_TEMP}/frontend-lint.log"
+          if ! pnpm lint 2>&1 | tee "${lint_log}"; then
+            {
+              echo '## Frontend lint failure'
+              echo '```text'
+              tail -n 200 "${lint_log}"
+              echo '```'
+            } >> "${GITHUB_STEP_SUMMARY}"
+            exit 1
+          fi
 
       - name: Run UI tests
         run: pnpm test:ui
