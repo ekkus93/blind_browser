@@ -13,15 +13,5 @@ def replace_exact(path: str, old: str, new: str) -> None:
 replace_exact(
     "src-tauri/src/app_core/tests/remote_privacy_api_tests.rs",
     '        "http://api.example.com/v1",\n',
-    '        "http://127.0.0.1:11434/v1",\n',
-)
-replace_exact(
-    ".github/workflows/ralph-loop-apply.yml",
-    "            libtesseract-dev \\\n            tesseract-ocr\n",
-    "            libtesseract-dev \\\n            tesseract-ocr \\\n            xvfb\n",
-)
-replace_exact(
-    ".github/workflows/ralph-loop-apply.yml",
-    "          cargo test --manifest-path src-tauri/Cargo.toml --all-features 2>&1 \\\n",
-    "          xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features 2>&1 \\\n",
+    "",
 )
