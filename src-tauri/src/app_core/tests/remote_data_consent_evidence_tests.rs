@@ -259,8 +259,10 @@ fn remote_data_consent_request_counts_replay_and_concurrency_are_enforced() {
     assert_eq!(request_count.load(Ordering::Acquire), 0);
     authorized.prepared.endpoint_scope =
         ProviderEndpointScope::parse(&base_url).expect("loopback test endpoint should parse");
-    let send_error = super::super::remote_planner::resolve_remote_planner(&authorized.prepared)
-        .expect_err("test server intentionally rejects the request");
+    let send_error = tauri::async_runtime::block_on(async {
+        super::super::remote_planner::resolve_remote_planner(&authorized.prepared)
+    })
+    .expect_err("test server intentionally rejects the request");
     assert_eq!(send_error.code, "planner_request_failed");
     server.join().expect("test server should join");
     assert_eq!(request_count.load(Ordering::Acquire), 1);
