@@ -55,3 +55,7 @@ run_isolated_wry_test \
   app_core::tests::remote_privacy_api_tests::remote_privacy_status_reports_every_non_ephemeral_decision_and_stale_rules
 run_isolated_wry_test \
   app_core::tests::remote_privacy_api_tests::remote_privacy_operations_fail_closed_without_unnecessary_persistence
+run_isolated_wry_test \
+  app_core::tests::remote_data_consent_evidence_tests::remote_data_consent_request_counts_replay_and_concurrency_are_enforced
+run_isolated_wry_test \
+  app_core::tests::remote_data_consent_evidence_tests::remote_data_consent_expiry_invalidation_persistence_and_hostile_state_are_fail_closed
