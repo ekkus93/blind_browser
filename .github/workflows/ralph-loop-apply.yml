@@ -83,7 +83,8 @@ jobs:
             libasound2-dev \
             libleptonica-dev \
             libtesseract-dev \
-            tesseract-ocr
+            tesseract-ocr \
+            xvfb
 
       - name: Apply current bounded patch
         id: apply_patch
@@ -135,7 +136,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          cargo test --manifest-path src-tauri/Cargo.toml --all-features 2>&1 \
+          xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features 2>&1 \
             | tee "${RUNNER_TEMP}/rust-tests.log"
 
       - name: Check patch whitespace
