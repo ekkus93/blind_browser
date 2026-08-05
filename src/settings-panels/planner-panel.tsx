@@ -6,10 +6,6 @@ import { renderConnectedRemotePlannerPrivacySettingsCard } from "./planner-priva
 import { renderSettingsPanelSection } from "./shared-controls.tsx";
 
 export interface RemotePlannerPanelHandlers {
-  onConsentChange?: (checked: boolean) => void;
-  onLocalOnlyChange?: (checked: boolean) => void;
-  onBlockedOriginsInput?: (value: string) => void;
-  onSavePrivacy?: () => void;
   onApiKeyInput?: (value: string) => void;
   onSaveApiKey?: () => void;
   onTestApiKey?: () => void;
