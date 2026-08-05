@@ -93,6 +93,10 @@ jobs:
           set -euo pipefail
           python3 .github/ralph-loop/current_patch.py
           python3 .github/ralph-loop/fix_patch.py
+          # GITHUB_TOKEN cannot publish workflow-file changes. Keep the validated
+          # implementation batch separate; permanent CI is wired afterward via
+          # the user-authorized GitHub connector and validated on that exact SHA.
+          git restore --source=HEAD -- .github/workflows/ci.yml
 
       - name: Refuse changes outside current allowlist
         id: allowlist
