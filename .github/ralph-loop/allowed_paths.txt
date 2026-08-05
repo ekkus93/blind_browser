@@ -1,2 +1,4 @@
 .github/workflows/ralph-loop-apply.yml
+src-tauri/src/app_core/tests/mod.rs
+src-tauri/src/app_core/tests/confirmation_replay_tests.rs
 src-tauri/src/app_core/tests/remote_privacy_api_tests.rs
