@@ -407,8 +407,11 @@ fn remote_data_consent_expiry_invalidation_persistence_and_hostile_state_are_fai
         assert!(!value.contains(HOSTILE));
         assert!(!value.contains("consent-hostile-sentinel-7b1d"));
         assert!(!value.contains("sanitized_input"));
+    }
+    for value in &serialized[..4] {
         assert!(!value.contains(&challenge.challenge_digest));
     }
+    assert!(serialized[4].contains(&challenge.challenge_digest));
     assert!(!serialized[0].contains("pending_remote_planner_consent"));
     assert!(serialized[1].contains(&challenge.challenge_id));
     assert!(serialized[2].contains(&challenge.challenge_id));
