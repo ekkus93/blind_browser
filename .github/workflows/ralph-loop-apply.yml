@@ -135,9 +135,53 @@ jobs:
         id: tests
         shell: bash
         run: |
-          set -o pipefail
-          xvfb-run -a cargo test --manifest-path src-tauri/Cargo.toml --all-features 2>&1 \
-            | tee "${RUNNER_TEMP}/rust-tests.log"
+          set -euo pipefail
+          test_log="${RUNNER_TEMP}/rust-tests.log"
+          : >"${test_log}"
+
+          run_and_log() {
+            "$@" 2>&1 | tee -a "${test_log}"
+          }
+
+          run_isolated_wry_test() {
+            local index="$1"
+            local test_name="$2"
+            local case_log="${RUNNER_TEMP}/wry-test-${index}.log"
+
+            if ! xvfb-run -a cargo test \
+              --manifest-path src-tauri/Cargo.toml \
+              --all-features \
+              --lib \
+              "${test_name}" \
+              -- \
+              --ignored \
+              --exact \
+              --test-threads=1 \
+              2>&1 | tee "${case_log}" | tee -a "${test_log}"; then
+              echo "Isolated Wry test command failed: ${test_name}" >&2
+              return 1
+            fi
+
+            if ! grep -Fq "test ${test_name} ... ok" "${case_log}"; then
+              echo "Exact isolated Wry test did not report success: ${test_name}" >&2
+              return 1
+            fi
+            if ! grep -Fq "test result: ok. 1 passed; 0 failed; 0 ignored;" "${case_log}"; then
+              echo "Isolated Wry invocation did not execute exactly one passing test: ${test_name}" >&2
+              return 1
+            fi
+          }
+
+          run_and_log xvfb-run -a cargo test \
+            --manifest-path src-tauri/Cargo.toml \
+            --all-features
+
+          run_isolated_wry_test 1 \
+            app_core::tests::confirmation_replay_tests::app_core_confirmation_replay_and_runtime_state_binding_are_enforced
+          run_isolated_wry_test 2 \
+            app_core::tests::remote_privacy_api_tests::remote_privacy_status_reports_every_non_ephemeral_decision_and_stale_rules
+          run_isolated_wry_test 3 \
+            app_core::tests::remote_privacy_api_tests::remote_privacy_operations_fail_closed_without_unnecessary_persistence
 
       - name: Check patch whitespace
         id: diff_check
@@ -183,7 +227,7 @@ jobs:
           if [[ -s "${RUNNER_TEMP}/rust-tests.log" && "${TESTS_OUTCOME}" == "failure" ]]; then
             summary_file="${RUNNER_TEMP}/rust-test-summary.txt"
             {
-              grep -E '^(test .* FAILED|failures:|---- .* stdout ----|thread .* panicked|test result:|error: test failed)' \
+              grep -E '^(test .* FAILED|failures:|---- .* stdout ----|thread .* panicked|test result:|error: test failed|Exact isolated Wry test|Isolated Wry)' \
                 "${RUNNER_TEMP}/rust-tests.log" || true
               tail -n 160 "${RUNNER_TEMP}/rust-tests.log"
             } | tail -n 220 | sed 's/^/    /' >"${summary_file}"
