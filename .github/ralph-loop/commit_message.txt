@@ -1,1 +1,1 @@
-style: format Stage 2B remote privacy API tests
+test: make Stage 2B desktop Rust tests headless-safe
