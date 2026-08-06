@@ -79,6 +79,25 @@ jobs:
           test_text = test_text.replace(config_old, config_new)
           test_path.write_text(test_text, encoding="utf-8")
 
+          frontend_path = Path("src/remote-planner-privacy-ui.tsx")
+          frontend_text = frontend_path.read_text(encoding="utf-8")
+          frontend_anchor = '} from "react";\n\n'
+          frontend_import = (
+              '} from "react";\n\n'
+              'import {\n'
+              '  activateConsentDialogFocus,\n'
+              '  handleConsentDialogKeyboard,\n'
+              '} from "./remote-planner-consent-dialog-interactions.ts";\n\n'
+          )
+          if frontend_text.count(frontend_anchor) != 1:
+              raise SystemExit(
+                  "expected exactly one React import boundary for consent helper repair"
+              )
+          frontend_path.write_text(
+              frontend_text.replace(frontend_anchor, frontend_import),
+              encoding="utf-8",
+          )
+
           redaction_path = Path("src-tauri/src/app_core/planner_redaction.rs")
           redaction_text = redaction_path.read_text(encoding="utf-8")
           origin_old = """pub(crate) fn planner_page_origin(input: &PlannerInput) -> Option<String> {
@@ -270,6 +289,8 @@ jobs:
             .github/remote-data-privacy-closure-apply.trigger \
             .github/workflows/remote-data-privacy-closure-origin-fix.yml \
             .github/remote-data-privacy-closure-origin-fix.trigger \
+            .github/workflows/remote-data-privacy-closure-frontend-diagnostic.yml \
+            .github/remote-data-privacy-closure-frontend-diagnostic.trigger \
             .github/remote-data-privacy-closure-batch1.patch.gz.b64 \
             .github/remote-data-privacy-closure-batch1.patch.gz.b64.part-* \
             .github/workflows/remote-data-privacy-closure-export.yml \
