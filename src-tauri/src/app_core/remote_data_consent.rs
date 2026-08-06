@@ -5,8 +5,8 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use super::planner_redaction::{
-    high_risk_context_reason, planner_page_origin, sanitize_remote_planner_input_authorized,
-    RemoteDataMode, RemotePlannerInput,
+    high_risk_context_reason, high_risk_page_context_reason, planner_page_origin,
+    sanitize_remote_planner_input_authorized, RemoteDataMode, RemotePlannerInput,
 };
 use super::AppCore;
 use crate::commands::{
@@ -25,6 +25,35 @@ use crate::state::PlanningStateSnapshot;
 const CONSENT_CHALLENGE_TTL_MS: u64 = 120_000;
 const SESSION_GRANT_TTL_MS: u64 = 8 * 60 * 60 * 1_000;
 const MAX_EPHEMERAL_GRANTS: usize = 64;
+
+#[derive(Debug, Clone, Serialize)]
+struct RemotePlannerConsentManifest {
+    challenge_id: String,
+    request_id: String,
+    page_origin: String,
+    endpoint_scope: String,
+    profile_name: String,
+    model_label: String,
+    policy_version: u32,
+    disclosure_classes: Vec<RemotePlannerDisclosureClass>,
+    disclosure_counts: RemotePlannerDisclosureCounts,
+    payload_digest: String,
+    runtime_state_token: String,
+    expires_at_ms: u64,
+}
+
+fn remote_planner_consent_manifest_digest(
+    manifest: &RemotePlannerConsentManifest,
+) -> Result<String, ToolError> {
+    let encoded = serde_json::to_vec(manifest).map_err(|error| {
+        consent_error(
+            "remote_data_challenge_serialization_failed",
+            "remote-data consent challenge could not be bound",
+            Some(serde_json::json!({ "reason": error.to_string() })),
+        )
+    })?;
+    Ok(format!("{:x}", Sha256::digest(encoded)))
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RemotePlannerDataAuthorization {
@@ -393,11 +422,20 @@ impl AppCore {
                 None,
             ));
         }
+        let current_high_risk_reason = high_risk_page_context_reason(
+            self.state
+                .current_page
+                .as_ref()
+                .and_then(|page| page.url.as_deref()),
+            self.state.current_page.as_ref(),
+            None,
+            &[],
+        );
         match evaluate_remote_planner_policy(
             &self.config.remote_planner_privacy,
             &pending.draft.endpoint_scope,
             Some(&pending.draft.page_origin),
-            None,
+            current_high_risk_reason,
             &self.remote_planner_ephemeral_grants,
             now_ms,
         ) {
@@ -739,57 +777,34 @@ fn build_consent_challenge(
 ) -> Result<RemotePlannerConsentChallenge, ToolError> {
     let challenge_id = Uuid::new_v4().to_string();
     let expires_at_ms = now_ms.saturating_add(CONSENT_CHALLENGE_TTL_MS);
-    #[derive(Serialize)]
-    struct Manifest<'a> {
-        challenge_id: &'a str,
-        request_id: &'a str,
-        page_origin: &'a str,
-        endpoint_scope: &'a str,
-        profile_name: &'a str,
-        model_label: &'a str,
-        policy_version: u32,
-        disclosure_classes: &'a [RemotePlannerDisclosureClass],
-        disclosure_counts: &'a RemotePlannerDisclosureCounts,
-        payload_digest: &'a str,
-        runtime_state_token: &'a str,
-        expires_at_ms: u64,
-    }
-    let endpoint = draft.endpoint_scope.normalized_base_url();
-    let manifest = Manifest {
-        challenge_id: &challenge_id,
-        request_id: &draft.sanitized_input.trusted_runtime.request_id,
-        page_origin: &draft.page_origin,
-        endpoint_scope: endpoint,
-        profile_name: &draft.profile_name,
-        model_label: &draft.profile.model,
-        policy_version: REMOTE_DATA_POLICY_VERSION,
-        disclosure_classes: &draft.disclosure_classes,
-        disclosure_counts: &draft.disclosure_counts,
-        payload_digest: &draft.payload_digest,
-        runtime_state_token: &draft.runtime_state_token,
-        expires_at_ms,
-    };
-    let encoded = serde_json::to_vec(&manifest).map_err(|error| {
-        consent_error(
-            "remote_data_challenge_serialization_failed",
-            "remote-data consent challenge could not be bound",
-            Some(serde_json::json!({ "reason": error.to_string() })),
-        )
-    })?;
-    Ok(RemotePlannerConsentChallenge {
-        challenge_id,
-        challenge_digest: format!("{:x}", Sha256::digest(encoded)),
+    let endpoint = draft.endpoint_scope.normalized_base_url().to_string();
+    let manifest = RemotePlannerConsentManifest {
+        challenge_id: challenge_id.clone(),
         request_id: draft.sanitized_input.trusted_runtime.request_id.clone(),
         page_origin: draft.page_origin.clone(),
-        endpoint_display: crate::provider_endpoint::ProviderEndpointScope::parse(endpoint)
-            .map(|scope| scope.normalized_base_url().to_string())
-            .unwrap_or_else(|_| String::from("invalid remote endpoint")),
-        endpoint_scope: endpoint.to_string(),
+        endpoint_scope: endpoint.clone(),
         profile_name: draft.profile_name.clone(),
         model_label: draft.profile.model.clone(),
         policy_version: REMOTE_DATA_POLICY_VERSION,
         disclosure_classes: draft.disclosure_classes.clone(),
         disclosure_counts: draft.disclosure_counts.clone(),
+        payload_digest: draft.payload_digest.clone(),
+        runtime_state_token: draft.runtime_state_token.clone(),
+        expires_at_ms,
+    };
+    let challenge_digest = remote_planner_consent_manifest_digest(&manifest)?;
+    Ok(RemotePlannerConsentChallenge {
+        challenge_id,
+        challenge_digest,
+        request_id: manifest.request_id,
+        page_origin: manifest.page_origin,
+        endpoint_display: endpoint.clone(),
+        endpoint_scope: endpoint,
+        profile_name: manifest.profile_name,
+        model_label: manifest.model_label,
+        policy_version: manifest.policy_version,
+        disclosure_classes: manifest.disclosure_classes,
+        disclosure_counts: manifest.disclosure_counts,
         expires_at_ms,
         allow_once: true,
         allow_session: true,
@@ -1011,4 +1026,78 @@ mod tests {
             99
         ));
     }
+
+    fn manifest() -> RemotePlannerConsentManifest {
+        RemotePlannerConsentManifest {
+            challenge_id: String::from("challenge-1"),
+            request_id: String::from("request-1"),
+            page_origin: String::from("https://example.com"),
+            endpoint_scope: String::from("https://api.example.com:443/v1"),
+            profile_name: String::from("profile"),
+            model_label: String::from("model"),
+            policy_version: REMOTE_DATA_POLICY_VERSION,
+            disclosure_classes: vec![
+                RemotePlannerDisclosureClass::UserTranscript,
+                RemotePlannerDisclosureClass::PageOrigin,
+            ],
+            disclosure_counts: RemotePlannerDisclosureCounts {
+                selected_region_count: 1,
+                selected_element_count: 2,
+                ocr_derived_region_count: 3,
+                tool_history_count: 4,
+                skill_summary_count: 5,
+                sanitized_serialized_bytes: 512,
+            },
+            payload_digest: String::from("payload-digest"),
+            runtime_state_token: String::from("runtime-state"),
+            expires_at_ms: 123_456,
+        }
+    }
+
+    #[test]
+    fn consent_manifest_digest_binds_every_semantic_field() {
+        let baseline = manifest();
+        let baseline_digest = remote_planner_consent_manifest_digest(&baseline)
+            .expect("baseline manifest should hash");
+        assert_eq!(
+            baseline_digest,
+            remote_planner_consent_manifest_digest(&baseline.clone())
+                .expect("equivalent manifest should hash identically")
+        );
+
+        type ManifestMutation = Box<dyn Fn(&mut RemotePlannerConsentManifest)>;
+
+        let mutations: Vec<ManifestMutation> = vec![
+            Box::new(|value| value.challenge_id.push_str("-changed")),
+            Box::new(|value| value.request_id.push_str("-changed")),
+            Box::new(|value| value.page_origin = String::from("https://other.example")),
+            Box::new(|value| value.endpoint_scope = String::from("https://api.other.example/v1")),
+            Box::new(|value| value.profile_name.push_str("-changed")),
+            Box::new(|value| value.model_label.push_str("-changed")),
+            Box::new(|value| value.policy_version = value.policy_version.saturating_add(1)),
+            Box::new(|value| {
+                value
+                    .disclosure_classes
+                    .push(RemotePlannerDisclosureClass::OcrDerivedRegions)
+            }),
+            Box::new(|value| value.disclosure_counts.selected_region_count += 1),
+            Box::new(|value| value.disclosure_counts.selected_element_count += 1),
+            Box::new(|value| value.disclosure_counts.ocr_derived_region_count += 1),
+            Box::new(|value| value.disclosure_counts.tool_history_count += 1),
+            Box::new(|value| value.disclosure_counts.skill_summary_count += 1),
+            Box::new(|value| value.disclosure_counts.sanitized_serialized_bytes += 1),
+            Box::new(|value| value.payload_digest.push_str("-changed")),
+            Box::new(|value| value.runtime_state_token.push_str("-changed")),
+            Box::new(|value| value.expires_at_ms += 1),
+        ];
+
+        for mutate in mutations {
+            let mut changed = baseline.clone();
+            mutate(&mut changed);
+            let changed_digest = remote_planner_consent_manifest_digest(&changed)
+                .expect("mutated manifest should hash");
+            assert_ne!(baseline_digest, changed_digest);
+        }
+    }
+
 }

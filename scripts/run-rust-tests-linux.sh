@@ -59,3 +59,7 @@ run_isolated_wry_test \
   app_core::tests::remote_data_consent_evidence_tests::remote_data_consent_request_counts_replay_and_concurrency_are_enforced
 run_isolated_wry_test \
   app_core::tests::remote_data_consent_evidence_tests::remote_data_consent_expiry_invalidation_persistence_and_hostile_state_are_fail_closed
+run_isolated_wry_test \
+  app_core::tests::remote_data_consent_evidence_tests::remote_data_privacy_closure_identity_scope_and_restart_are_fail_closed
+run_isolated_wry_test \
+  app_core::tests::remote_data_consent_evidence_tests::remote_data_privacy_closure_policy_and_disclosure_matrix_is_bounded

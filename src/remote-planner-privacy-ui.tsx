@@ -6,6 +6,11 @@ import {
   type ReactNode,
 } from "react";
 
+import {
+  activateConsentDialogFocus,
+  handleConsentDialogKeyboard,
+} from "./remote-planner-consent-dialog-interactions.ts";
+
 import type {
   RemoteDataConsentUiState,
 } from "./planner-orchestration.ts";
@@ -155,14 +160,10 @@ function RemotePlannerConsentDialog(props: {
     returnFocusRef.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
-    cancelRef.current?.focus();
-
-    return () => {
-      const returnTarget = returnFocusRef.current;
-      if (returnTarget?.isConnected) {
-        returnTarget.focus();
-      }
-    };
+    return activateConsentDialogFocus(
+      returnFocusRef.current,
+      cancelRef.current,
+    );
   }, [challenge.challenge_id]);
 
   const submitDecision = (decision: RemotePlannerConsentDecision) => {
@@ -172,36 +173,23 @@ function RemotePlannerConsentDialog(props: {
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      submitDecision("deny");
+    const root = rootRef.current;
+    if (!root) {
       return;
     }
-
-    if (event.key !== "Tab" || !rootRef.current) {
-      return;
-    }
-
-    const focusable = Array.from(
-      rootRef.current.querySelectorAll<HTMLElement>(
-        "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+    handleConsentDialogKeyboard({
+      event,
+      activeElement: document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null,
+      focusableElements: Array.from(
+        root.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+        ),
       ),
-    );
-    if (focusable.length === 0) {
-      event.preventDefault();
-      rootRef.current.focus();
-      return;
-    }
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
+      dialogRoot: root,
+      submitDecision,
+    });
   };
 
   return (

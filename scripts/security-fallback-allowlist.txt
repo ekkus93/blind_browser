@@ -13,7 +13,6 @@ src-tauri/src/app_core/element_scoring.rs|element.href.as_deref().unwrap_or_defa
 src-tauri/src/app_core/element_scoring.rs|element.placeholder.as_deref().unwrap_or_default(),
 src-tauri/src/app_core/element_scoring.rs|element.text.as_deref().unwrap_or_default(),
 src-tauri/src/app_core/element_scoring.rs|element.value.as_deref().unwrap_or_default(),
-src-tauri/src/app_core/planner_redaction.rs|.ok()
 src-tauri/src/asr/wav.rs|.and_then(|size| u32::try_from(size).ok())
 src-tauri/src/commands/action_policy.rs|.and_then(|value| u16::try_from(value).ok());
 src-tauri/src/commands/routing/audio_commands.rs|.and_then(|value| value.parse::<f32>().ok())

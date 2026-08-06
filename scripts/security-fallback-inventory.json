@@ -242,22 +242,6 @@
       "context_after": "]"
     },
     {
-      "path": "src-tauri/src/app_core/planner_redaction.rs",
-      "expression": ".ok()",
-      "justification": "Invalid optional origin or planner metadata is omitted while the privacy gate remains authoritative.",
-      "user_visibility": "Invalid metadata is redacted or shown as unavailable.",
-      "side_effect_impact": "Cannot bypass consent, high-risk blocking, or credential scoping.",
-      "test_coverage": "Remote-planner privacy/redaction tests and scanner enforcement.",
-      "future_replacement": "Use typed parse reasons only if the privacy UI requires them.",
-      "disposition": "permanent_accepted",
-      "review_due": "not_applicable",
-      "owner_note": "Retain as an exact capability-reducing or presentation-only fallback; reevaluate if the expression begins affecting authority, persistence success, or a public error contract.",
-      "function": "planner_page_origin",
-      "occurrence": 1,
-      "context_before": "url::Url::parse(raw)",
-      "context_after": ".map(|url| url.origin().ascii_serialization())"
-    },
-    {
       "path": "src-tauri/src/asr/wav.rs",
       "expression": ".and_then(|size| u32::try_from(size).ok())",
       "justification": "Checked numeric conversion failure selects validation failure or conservative absence.",

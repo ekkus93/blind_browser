@@ -432,24 +432,28 @@ fn privacy_error(code: &str, message: &str, policy: &str) -> crate::commands::To
 }
 
 pub(crate) fn planner_page_origin(input: &PlannerInput) -> Option<String> {
-    [
-        input.agent_state.url.as_deref(),
-        input
-            .page_model
-            .as_ref()
-            .and_then(|page| page.url.as_deref()),
-        input
-            .page_snapshot
-            .as_ref()
-            .map(|snapshot| snapshot.url.as_str()),
-    ]
-    .into_iter()
-    .flatten()
-    .find_map(|raw| {
-        url::Url::parse(raw)
-            .ok()
-            .map(|url| url.origin().ascii_serialization())
-    })
+    let raw = input
+        .agent_state
+        .url
+        .as_deref()
+        .or_else(|| {
+            input
+                .page_model
+                .as_ref()
+                .and_then(|page| page.url.as_deref())
+        })
+        .or_else(|| {
+            input
+                .page_snapshot
+                .as_ref()
+                .map(|snapshot| snapshot.url.as_str())
+        })?;
+    let url = match url::Url::parse(raw) {
+        Ok(url) => url,
+        Err(_) => return None,
+    };
+    let origin = url.origin();
+    origin.is_tuple().then(|| origin.ascii_serialization())
 }
 
 fn relevance_terms(transcript: &str) -> BTreeSet<String> {

@@ -231,7 +231,7 @@ test("stale consent button produces a visible error on the active challenge", as
   assert.match(call[1].failure.message, /no longer the active request/);
 });
 
-test("backend consent rejection leaves the challenge available with an explicit error", async () => {
+test("authoritative backend rejection clears stale controls and refreshes status", async () => {
   const harness = createHarness({
     submitConsentResponse: async () => {
       throw {
@@ -246,9 +246,80 @@ test("backend consent rejection leaves the challenge available with an explicit 
   const result = await harness.controller.submitConsentDecision("allow_once", "challenge-1");
 
   assert.equal(result, null);
+  assert.equal(harness.executionState.remoteDataConsent.kind, "idle");
+  assert.equal(harness.calls.some(([name]) => name === "setConsentError"), false);
+  assert.equal(harness.calls.some(([name]) => name === "clearConsent"), true);
+  assert.equal(harness.calls.some(([name]) => name === "refreshRuntime"), true);
+  const error = harness.calls.find(([name]) => name === "reportGlobalError")[1];
+  assert.match(error, /page changed/);
+});
+
+test("persistence failure remains visible without leaving stale allow controls", async () => {
+  const harness = createHarness({
+    submitConsentResponse: async () => {
+      throw {
+        code: "remote_data_consent_persist_failed",
+        message: "The privacy rule could not be written.",
+        retryable: false,
+        details: null,
+      };
+    },
+  });
+
+  const result = await harness.controller.submitConsentDecision(
+    "allow_persistent",
+    "challenge-1",
+  );
+
+  assert.equal(result, null);
+  assert.equal(harness.executionState.remoteDataConsent.kind, "idle");
+  const error = harness.calls.find(([name]) => name === "reportGlobalError")[1];
+  assert.match(error, /could not be written/);
+  assert.equal(harness.calls.some(([name]) => name === "refreshRuntime"), true);
+});
+
+test("transport failure keeps the bounded challenge visible for explicit retry", async () => {
+  const harness = createHarness({
+    submitConsentResponse: async () => {
+      throw new Error("Tauri transport disconnected");
+    },
+  });
+
+  const result = await harness.controller.submitConsentDecision("allow_once", "challenge-1");
+
+  assert.equal(result, null);
   assert.equal(harness.executionState.remoteDataConsent.kind, "awaiting-remote-data-consent");
+  assert.equal(harness.executionState.remoteDataConsent.isSubmitting, false);
   assert.match(
     harness.executionState.remoteDataConsent.submissionError.message,
-    /page changed/,
+    /transport disconnected/,
   );
+  assert.equal(harness.calls.some(([name]) => name === "clearConsent"), false);
+});
+
+test("backend rejection reports a refresh failure without restoring the challenge", async () => {
+  const harness = createHarness({
+    submitConsentResponse: async () => {
+      throw {
+        code: "remote_data_consent_expired",
+        message: "The privacy request expired.",
+        retryable: false,
+        details: null,
+      };
+    },
+    refreshRuntime: async () => {
+      harness.calls.push(["refreshRuntime"]);
+      throw new Error("refresh unavailable");
+    },
+  });
+
+  const result = await harness.controller.submitConsentDecision("deny", "challenge-1");
+
+  assert.equal(result, null);
+  assert.equal(harness.executionState.remoteDataConsent.kind, "idle");
+  const errors = harness.calls
+    .filter(([name]) => name === "reportGlobalError")
+    .map(([, message]) => message);
+  assert.equal(errors.length, 2);
+  assert.match(errors[1], /runtime status could not be refreshed/);
 });

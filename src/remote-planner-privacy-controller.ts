@@ -158,10 +158,32 @@ export function createRemotePlannerPrivacyController(
           decision,
         });
       } catch (error) {
-        dependencies.setConsentError(
-          challengeId,
-          describeRemoteDataConsentSubmissionFailure(error),
-        );
+        const failure = describeRemoteDataConsentSubmissionFailure(error);
+        if (failure.kind === "tool-error") {
+          // The Rust consent handler atomically takes the pending transaction before
+          // validating or persisting the response. A returned tool error therefore
+          // means this dialog can no longer authorize anything and must not remain
+          // actionable. Transport errors are different: the command may not have
+          // reached Rust, so the bounded challenge remains visible for an explicit
+          // retry and any duplicate is still rejected by the backend.
+          dependencies.clearConsent(challengeId);
+          dependencies.reportGlobalError(
+            `${failure.title}. ${failure.message} ${failure.guidance}`,
+          );
+          try {
+            await dependencies.refreshRuntime();
+          } catch (refreshError) {
+            const refreshFailure = classifyInvokeFailure(refreshError);
+            const message = refreshFailure.kind === "tool-error"
+              ? refreshFailure.toolError.message
+              : refreshFailure.message;
+            dependencies.reportGlobalError(
+              `The privacy request was rejected, but runtime status could not be refreshed. ${message}`,
+            );
+          }
+        } else {
+          dependencies.setConsentError(challengeId, failure);
+        }
         return null;
       }
 

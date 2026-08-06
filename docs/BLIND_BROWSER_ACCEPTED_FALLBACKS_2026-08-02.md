@@ -24,9 +24,9 @@ Every accepted fallback must satisfy all of these rules:
 
 ## Disposition policy and counts
 
-- `permanent_accepted`: **23**
+- `permanent_accepted`: **22**
 - `temporary_accepted`: **0**
-- converted or removed across post-P8 passes: **17**
+- converted or removed across post-P8 passes: **18**
 
 `permanent_accepted` is reserved for capability-reducing, presentation-only, checked-conversion, or feature-disabled behavior that does not hide protected-operation failure. These entries must be reconsidered if they begin affecting authority, persistence success, or a public error contract.
 
@@ -45,15 +45,14 @@ None. Any future temporary fallback must carry a unique occurrence identity, act
 | Category | Current behavior | Why it is accepted | User/diagnostic effect | Replacement boundary |
 |---|---|---|---|---|
 | Optional element scoring and click classification | Missing accessible name, placeholder, text, href, or value contributes empty comparison text | Absence lowers information and confidence; it cannot mint click authorization or mark a destructive target safe | Protected summaries emit target/degradation warnings where user-facing identity matters | Introduce richer typed page-model absence only if diagnostics need the distinction |
-| Optional form destination/origin parsing | Invalid optional URL metadata becomes `None` | Missing destination/origin cannot authorize submission and keeps confirmation conservative | Confirmation warnings identify unavailable destination/page metadata | Retain `Option` unless UI requires typed URL-parse reasons |
+| Optional form destination parsing | Invalid optional form-action URL metadata becomes `None` | Missing destination cannot authorize submission and keeps confirmation conservative | Confirmation warnings identify unavailable destination metadata | Retain `Option` unless UI requires typed URL-parse reasons |
 | Confirmation display-only text | Missing non-authoritative display text becomes empty | Confirmation ID, digest, expiry, runtime binding, and runtime-authored text remain authoritative | Protected confirmation remains visible and validated | Change only if display text becomes contractual |
 | Checked numeric conversion/parsing | Overflow or invalid numeric input becomes validation absence/failure | Checked conversion cannot widen bounds or increase authority | Invalid input is rejected or reported unavailable | Retain checked conversions |
-| Planner page-origin metadata | Invalid optional origin is omitted after privacy controls remain authoritative | Cannot bypass remote-data consent, high-risk blocking, or credential scoping | Origin is unavailable/redacted | Add typed reason only if privacy UI needs it |
 | Feature-disabled remote TTS stub | Parameters are consumed before a typed unavailable error | No network, playback, or successful fallback occurs | Caller receives explicit feature-unavailable failure | Remove only if remote TTS becomes mandatory in every build |
 
 ## Converted or removed fallbacks
 
-The post-P8 passes removed or converted seventeen exact accepted expressions:
+The post-P8 passes removed or converted eighteen exact accepted expressions:
 
 - two ignored URL userinfo mutation results in planner sanitization;
 - three settings/model lookup `.ok()` paths;
@@ -63,14 +62,16 @@ The post-P8 passes removed or converted seventeen exact accepted expressions:
 - five validator policy-detail serialization `.ok()` expressions;
 - project-root and user-skill-root discovery `.ok()` fallbacks;
 - direct focus-query construction `.ok()?`;
-- recent fill-correction candidate `.ok()` omission.
+- recent fill-correction candidate `.ok()` omission;
+- planner page-origin parse `.ok()` fallback and lower-priority URL fallthrough.
 
 They were replaced by:
 
 - URL reconstruction from approved origin/path components;
 - typed settings capability absence reasons;
 - bounded path-private skill-entry warning aggregation;
-- explicit policy-detail serialization failure markers.
+- explicit policy-detail serialization failure markers;
+- authoritative first-present page URL parsing with explicit rejection of parse failures and non-tuple origins.
 
 ## Authoritative exact inventory
 
