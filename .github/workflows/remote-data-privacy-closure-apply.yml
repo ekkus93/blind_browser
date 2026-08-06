@@ -8,24 +8,21 @@ on:
       - .github/remote-data-privacy-closure-apply.trigger
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply-and-validate:
+  inspect-fixture:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Verify bounded input
+      - name: Apply checksum-pinned closure patch
         shell: bash
         run: |
           set -euo pipefail
           parts=(.github/remote-data-privacy-closure-batch1.patch.gz.b64.part-??)
           test "${#parts[@]}" -eq 6
-          test -f .github/remote-data-privacy-closure-apply.trigger
           cat "${parts[@]}" > /tmp/closure.patch.gz.b64
           echo "38fe67435dc1305b2a526d598415e5f25fccc9ba51d1375e07661577d0296a7b  /tmp/closure.patch.gz.b64" | sha256sum -c -
           base64 --decode /tmp/closure.patch.gz.b64 > /tmp/closure.patch.gz
@@ -34,111 +31,11 @@ jobs:
           echo "e465efe86d24f1ba26ef359593e5c124afc40ded0f0f17da29af69ff8825399d  /tmp/closure.patch" | sha256sum -c -
           git apply --check /tmp/closure.patch
           git apply /tmp/closure.patch
-          python3 - <<'PY'
-          from pathlib import Path
 
-          path = Path("src-tauri/src/app_core/remote_data_consent.rs")
-          text = path.read_text(encoding="utf-8")
-          old = "        let mutations: Vec<Box<dyn Fn(&mut RemotePlannerConsentManifest)>> = vec!["
-          new = (
-              "        type ManifestMutation = Box<dyn Fn(&mut RemotePlannerConsentManifest)>;\n\n"
-              "        let mutations: Vec<ManifestMutation> = vec!["
-          )
-          if text.count(old) != 1:
-              raise SystemExit(
-                  "expected exactly one remote consent mutation vector for strict-Clippy repair"
-              )
-          path.write_text(text.replace(old, new), encoding="utf-8")
-          PY
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.12.0
-          cache: pnpm
-
-      - name: Install Ubuntu native dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            libwebkit2gtk-4.1-dev \
-            build-essential \
-            clang \
-            libclang-dev \
-            curl \
-            wget \
-            file \
-            libxdo-dev \
-            libssl-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libasound2-dev \
-            libleptonica-dev \
-            libtesseract-dev \
-            tesseract-ocr \
-            xvfb
-
-      - name: Install JavaScript dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Format Rust source
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml
-
-      - name: Show persistent allow fixture
+      - name: Show persistent allow fixture and stop
         shell: bash
         run: |
           set -euo pipefail
           nl -ba src-tauri/src/app_core/tests/remote_data_consent_evidence_tests.rs \
             | sed -n '660,755p'
-
-      - name: Run scanners
-        run: |
-          bash scripts/check-silent-fallbacks.sh
-          python3 scripts/check-security-fallbacks.py --self-test
-          python3 scripts/check-security-fallbacks.py
-          python3 scripts/check-security-fallback-inventory.py --self-test
-          python3 scripts/check-security-fallback-inventory.py
-          python3 scripts/check-sensitive-diagnostics.py --self-test
-          python3 scripts/check-sensitive-diagnostics.py
-          python3 scripts/check-remote-planner-privacy-state.py --self-test
-          python3 scripts/check-remote-planner-privacy-state.py
-
-      - name: Validate Rust
-        run: |
-          cargo fmt --manifest-path src-tauri/Cargo.toml --check
-          cargo check --manifest-path src-tauri/Cargo.toml
-          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
-          cargo test --manifest-path src-tauri/Cargo.toml --all-features --test post_batch8_direct_command_policy_evidence
-          bash scripts/run-rust-tests-linux.sh
-
-      - name: Validate frontend
-        run: |
-          pnpm lint
-          pnpm test:ui
-          pnpm build
-
-      - name: Remove bounded machinery and publish source
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -f \
-            .github/workflows/remote-data-privacy-closure-apply.yml \
-            .github/remote-data-privacy-closure-apply.trigger \
-            .github/remote-data-privacy-closure-batch1.patch.gz.b64 \
-            .github/remote-data-privacy-closure-batch1.patch.gz.b64.part-* \
-            .github/workflows/remote-data-privacy-closure-export.yml \
-            .github/remote-data-privacy-closure-export.trigger
-          git config user.name "Phillip Chin"
-          git config user.email "ekkus93@gmail.com"
-          git add -A
-          git diff --cached --check
-          git commit -m "test: close remote data privacy evidence gaps"
-          git push origin HEAD:master
+          exit 1
