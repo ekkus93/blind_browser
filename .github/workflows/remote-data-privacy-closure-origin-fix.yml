@@ -119,7 +119,10 @@ jobs:
                           .as_ref()
                           .map(|snapshot| snapshot.url.as_str())
                   })?;
-              let url = url::Url::parse(raw).ok()?;
+              let url = match url::Url::parse(raw) {
+                  Ok(url) => url,
+                  Err(_) => return None,
+              };
               let origin = url.origin();
               origin.is_tuple().then(|| origin.ascii_serialization())
           }
@@ -132,34 +135,55 @@ jobs:
               redaction_text.replace(origin_old, origin_new), encoding="utf-8"
           )
 
+          allowlist_path = Path("scripts/security-fallback-allowlist.txt")
+          allowlist_text = allowlist_path.read_text(encoding="utf-8")
+          allowlist_entry = "src-tauri/src/app_core/planner_redaction.rs|.ok()\n"
+          if allowlist_text.count(allowlist_entry) != 1:
+              raise SystemExit(
+                  "expected exactly one planner_page_origin fallback allowlist entry"
+              )
+          allowlist_path.write_text(
+              allowlist_text.replace(allowlist_entry, ""), encoding="utf-8"
+          )
+
           inventory_path = Path("scripts/security-fallback-inventory.json")
           inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
-          matches = [
-              entry
-              for entry in inventory["entries"]
+          match_indexes = [
+              index
+              for index, entry in enumerate(inventory["entries"])
               if entry.get("path") == "src-tauri/src/app_core/planner_redaction.rs"
               and entry.get("function") == "planner_page_origin"
               and entry.get("expression") == ".ok()"
           ]
-          if len(matches) != 1:
+          if len(match_indexes) != 1:
               raise SystemExit(
-                  "expected exactly one planner_page_origin .ok() inventory entry"
+                  "expected exactly one planner_page_origin fallback inventory entry"
               )
-          entry = matches[0]
-          entry.update(
-              {
-                  "justification": "Failure to parse the authoritative first-present page URL returns no origin; opaque origins are separately rejected by the tuple-origin check.",
-                  "user_visibility": "Malformed or opaque page origins reach the explicit remote_data_opaque_origin_blocked policy path.",
-                  "side_effect_impact": "Parse failure or an opaque origin can only block remote planning; it cannot fall through to a lower-priority URL or authorize network transmission.",
-                  "test_coverage": "Remote-planner privacy/redaction tests, the isolated opaque-origin policy-matrix test, and scanner enforcement.",
-                  "future_replacement": "Use a typed unavailable-origin reason only if the privacy UI requires finer-grained diagnostics.",
-                  "context_before": "let url = url::Url::parse(raw)",
-                  "context_after": "let origin = url.origin();",
-              }
-          )
+          del inventory["entries"][match_indexes[0]]
           inventory_path.write_text(
               json.dumps(inventory, indent=2) + "\n", encoding="utf-8"
           )
+
+          documentation_path = Path(
+              "docs/BLIND_BROWSER_ACCEPTED_FALLBACKS_2026-08-02.md"
+          )
+          documentation = documentation_path.read_text(encoding="utf-8")
+          replacements = {
+              "- `permanent_accepted`: **23**": "- `permanent_accepted`: **22**",
+              "- converted or removed across post-P8 passes: **17**": "- converted or removed across post-P8 passes: **18**",
+              "| Optional form destination/origin parsing | Invalid optional URL metadata becomes `None` | Missing destination/origin cannot authorize submission and keeps confirmation conservative | Confirmation warnings identify unavailable destination/page metadata | Retain `Option` unless UI requires typed URL-parse reasons |": "| Optional form destination parsing | Invalid optional form-action URL metadata becomes `None` | Missing destination cannot authorize submission and keeps confirmation conservative | Confirmation warnings identify unavailable destination metadata | Retain `Option` unless UI requires typed URL-parse reasons |",
+              "| Planner page-origin metadata | Invalid optional origin is omitted after privacy controls remain authoritative | Cannot bypass remote-data consent, high-risk blocking, or credential scoping | Origin is unavailable/redacted | Add typed reason only if privacy UI needs it |\n": "",
+              "The post-P8 passes removed or converted seventeen exact accepted expressions:": "The post-P8 passes removed or converted eighteen exact accepted expressions:",
+              "- recent fill-correction candidate `.ok()` omission.\n": "- recent fill-correction candidate `.ok()` omission;\n- planner page-origin parse `.ok()` fallback and lower-priority URL fallthrough.\n",
+              "- explicit policy-detail serialization failure markers.\n": "- explicit policy-detail serialization failure markers;\n- authoritative first-present page URL parsing with explicit rejection of parse failures and non-tuple origins.\n",
+          }
+          for old, new in replacements.items():
+              if documentation.count(old) != 1:
+                  raise SystemExit(
+                      f"expected exactly one accepted-fallback documentation fragment: {old!r}"
+                  )
+              documentation = documentation.replace(old, new)
+          documentation_path.write_text(documentation, encoding="utf-8")
           PY
 
       - name: Set up Rust
