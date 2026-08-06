@@ -149,6 +149,8 @@ pub struct RunOcrData {
     pub image_id: Option<String>,
     pub extracted_text: String,
     pub text_length: usize,
+    pub original_text_length: usize,
+    pub truncated: bool,
     pub confidence: Option<f32>,
     pub source_bbox: Option<Rect>,
 }

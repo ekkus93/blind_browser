@@ -9,6 +9,8 @@ use reqwest::redirect::{Attempt, Policy};
 use sha2::{Digest, Sha256};
 use url::Url;
 
+use crate::resource_limits::{model_downloads, record_resource_size, MAX_MODEL_DOWNLOAD_BYTES};
+
 use super::manifest::{
     validate_file_manifest, verified_file_for, verified_repository_plan, ModelDownloadError,
     VerifiedModelFile,
@@ -23,6 +25,9 @@ pub(crate) fn download_hugging_face_directory(
     repository: &str,
     files: &[&str],
 ) -> Result<(), String> {
+    let _permit = model_downloads()
+        .try_acquire()
+        .map_err(|limit| format!("Model download was not started: {limit}."))?;
     let plan = verified_repository_plan(repository).map_err(|error| error.to_string())?;
     let requested = files.iter().copied().collect::<BTreeSet<_>>();
     let expected = plan
@@ -55,6 +60,9 @@ pub(crate) fn download_hugging_face_file(
     repository: &str,
     file_name: &str,
 ) -> Result<(), String> {
+    let _permit = model_downloads()
+        .try_acquire()
+        .map_err(|limit| format!("Model download was not started: {limit}."))?;
     let (revision, file) =
         verified_file_for(repository, file_name).map_err(|error| error.to_string())?;
     download_verified_hugging_face_file(target_path, repository, revision, file)
@@ -95,6 +103,19 @@ fn download_verified_hugging_face_file(
         return Err(ModelDownloadError::HttpStatus {
             file_name: file.file_name.to_string(),
             status: response.status().as_u16(),
+        });
+    }
+    let maximum = match file.max_bytes {
+        Some(maximum) => maximum,
+        None => MAX_MODEL_DOWNLOAD_BYTES,
+    };
+    if response
+        .content_length()
+        .is_some_and(|declared| declared > maximum || declared > MAX_MODEL_DOWNLOAD_BYTES)
+    {
+        return Err(ModelDownloadError::TooLarge {
+            file_name: file.file_name.to_string(),
+            maximum: maximum.min(MAX_MODEL_DOWNLOAD_BYTES),
         });
     }
 
@@ -230,6 +251,15 @@ pub(super) fn write_verified_reader_atomically<R: Read>(
             return Err(ModelDownloadError::HashMismatch {
                 file_name: file.file_name.to_string(),
             });
+        }
+        if let Ok(total_bytes) = usize::try_from(total) {
+            record_resource_size("model_download", total_bytes);
+        } else {
+            tracing::debug!(
+                resource = "model_download",
+                bytes = total,
+                "bounded resource size"
+            );
         }
         output
             .sync_all()

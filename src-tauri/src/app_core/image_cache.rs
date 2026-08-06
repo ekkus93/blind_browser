@@ -8,12 +8,13 @@ use tauri::Manager;
 use uuid::Uuid;
 
 use crate::commands::{current_timestamp_ms, normalized_origin, ToolError};
+use crate::resource_limits::{
+    MAX_SCREENSHOT_ENCODED_BYTES, SCREENSHOT_CACHE_MAX_BYTES, SCREENSHOT_CACHE_MAX_COUNT,
+};
 
 const HANDLE_PREFIX: &str = "img_";
 const HANDLE_HEX_LEN: usize = 32;
 const DEFAULT_TTL_MS: u64 = 15 * 60 * 1_000;
-const DEFAULT_MAX_COUNT: usize = 32;
-const DEFAULT_MAX_BYTES: u64 = 128 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct ImageHandle(String);
@@ -71,8 +72,8 @@ impl Default for ImageCache {
         Self {
             records: HashMap::new(),
             ttl_ms: DEFAULT_TTL_MS,
-            max_count: DEFAULT_MAX_COUNT,
-            max_bytes: DEFAULT_MAX_BYTES,
+            max_count: SCREENSHOT_CACHE_MAX_COUNT,
+            max_bytes: SCREENSHOT_CACHE_MAX_BYTES,
         }
     }
 }
@@ -94,6 +95,17 @@ impl ImageCache {
         }
         let size = u64::try_from(bytes.len())
             .map_err(|_| error("screenshot_too_large", "screenshot size overflow", false))?;
+        if size > MAX_SCREENSHOT_ENCODED_BYTES {
+            return Err(ToolError {
+                code: String::from("screenshot_too_large"),
+                message: String::from("screenshot exceeded the encoded-byte resource limit"),
+                retryable: false,
+                details: Some(serde_json::json!({
+                    "actual_bytes": size,
+                    "maximum_bytes": MAX_SCREENSHOT_ENCODED_BYTES,
+                })),
+            });
+        }
         if size > self.max_bytes {
             return Err(error(
                 "screenshot_too_large",

@@ -140,6 +140,10 @@ mod remote_data_consent;
 mod remote_planner;
 mod remote_privacy_api;
 mod runtime_config;
+pub(crate) use runtime_config::{
+    execute_local_model_download, execute_remote_planner_model_list, PreparedLocalModelDownload,
+    PreparedRemotePlannerModelList,
+};
 mod state_snapshots;
 
 mod settings_adapters;

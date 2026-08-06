@@ -7,6 +7,16 @@ use chromiumoxide::page::ScreenshotParams;
 
 use super::{BrowserError, BrowserEvalState, BrowserHtmlState, BrowserScreenshotState};
 use crate::page_model::Rect;
+use crate::resource_limits::{
+    screenshots, validate_image_dimensions, validate_png_resource_limits, ImageLimitExceeded,
+};
+
+#[cfg(feature = "browser")]
+#[derive(serde::Deserialize)]
+struct DocumentScreenshotDimensions {
+    width: u32,
+    height: u32,
+}
 
 impl super::BrowserController {
     pub fn capture_screenshot(
@@ -17,11 +27,29 @@ impl super::BrowserController {
     ) -> Result<BrowserScreenshotState, BrowserError> {
         #[cfg(feature = "browser")]
         {
+            let _permit = screenshots().try_acquire().map_err(|limit| {
+                BrowserError::Screenshot(format!("screenshot capture was not started: {limit}"))
+            })?;
+            if let Some(bbox) = bbox.as_ref() {
+                let width = bbox.width.ceil().max(0.0) as u32;
+                let height = bbox.height.ceil().max(0.0) as u32;
+                validate_image_dimensions(width, height).map_err(image_limit_to_browser_error)?;
+            }
             let session = self.ensure_session()?;
             let page = session.page.clone().ok_or(BrowserError::NoActivePage)?;
             let screenshot_bytes = tauri::async_runtime::block_on(async {
                 let mut builder = ScreenshotParams::builder().format(CaptureScreenshotFormat::Png);
                 if full_page {
+                    let dimensions = page
+                        .evaluate(
+                            "({ width: Math.ceil(Math.max(document.documentElement?.scrollWidth || 0, document.body?.scrollWidth || 0, window.innerWidth || 0)), height: Math.ceil(Math.max(document.documentElement?.scrollHeight || 0, document.body?.scrollHeight || 0, window.innerHeight || 0)) })",
+                        )
+                        .await
+                        .map_err(|error| BrowserError::Screenshot(error.to_string()))?
+                        .into_value::<DocumentScreenshotDimensions>()
+                        .map_err(|error| BrowserError::Screenshot(error.to_string()))?;
+                    validate_image_dimensions(dimensions.width, dimensions.height)
+                        .map_err(image_limit_to_browser_error)?;
                     builder = builder.full_page(true);
                 }
                 if let Some(bbox) = bbox.as_ref() {
@@ -45,7 +73,8 @@ impl super::BrowserController {
 
             super::wait_for_page_settle(timeout_ms);
             let after = tauri::async_runtime::block_on(snapshot_page_state(&page))?;
-            let (width, height) = png_dimensions(&screenshot_bytes)?;
+            let (width, height) = validate_png_resource_limits(&screenshot_bytes)
+                .map_err(image_limit_to_browser_error)?;
 
             Ok(BrowserScreenshotState {
                 url: after.url,
@@ -151,22 +180,32 @@ impl super::BrowserController {
 
 #[cfg(any(feature = "browser", test))]
 pub(super) fn png_dimensions(image_bytes: &[u8]) -> Result<(u32, u32), BrowserError> {
-    const PNG_SIGNATURE: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
-    if image_bytes.len() < 24 || &image_bytes[..8] != PNG_SIGNATURE {
-        return Err(BrowserError::Screenshot(String::from(
+    crate::resource_limits::png_dimensions(image_bytes).ok_or_else(|| {
+        BrowserError::Screenshot(String::from(
             "captured screenshot was not a valid PNG image",
-        )));
-    }
+        ))
+    })
+}
 
-    let width = u32::from_be_bytes(
-        image_bytes[16..20]
-            .try_into()
-            .map_err(|_| BrowserError::Screenshot(String::from("failed to read PNG width")))?,
-    );
-    let height = u32::from_be_bytes(
-        image_bytes[20..24]
-            .try_into()
-            .map_err(|_| BrowserError::Screenshot(String::from("failed to read PNG height")))?,
-    );
-    Ok((width, height))
+fn image_limit_to_browser_error(error: ImageLimitExceeded) -> BrowserError {
+    let message = match error {
+        ImageLimitExceeded::InvalidDimensions { .. } => {
+            String::from("captured screenshot was not a valid positive-size PNG image")
+        }
+        ImageLimitExceeded::Dimensions {
+            width,
+            height,
+            maximum_width,
+            maximum_height,
+        } => format!(
+            "screenshot dimensions {width}x{height} exceed the {maximum_width}x{maximum_height} limit"
+        ),
+        ImageLimitExceeded::Pixels { pixels, maximum } => format!(
+            "screenshot contains {pixels} pixels, exceeding the {maximum}-pixel limit"
+        ),
+        ImageLimitExceeded::EncodedBytes { bytes, maximum } => format!(
+            "screenshot contains {bytes} encoded bytes, exceeding the {maximum}-byte limit"
+        ),
+    };
+    BrowserError::Screenshot(message)
 }

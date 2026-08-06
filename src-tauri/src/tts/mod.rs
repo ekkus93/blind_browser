@@ -10,6 +10,10 @@ use kitten_tts::model::KittenTTS;
 
 use crate::audio_io::RuntimeAudioState;
 use crate::config::{AppConfig, ProviderMode};
+use crate::resource_limits::{
+    tts_requests, MAX_TTS_INPUT_TEXT_BYTES, SYNTHESIZED_SPEECH_CACHE_MAX_BYTES,
+    SYNTHESIZED_SPEECH_CACHE_MAX_COUNT,
+};
 
 mod local;
 mod remote;
@@ -35,7 +39,7 @@ pub const OPENAI_TTS_VOICES: &[&str] = &[
 const OPENAI_REMOTE_TTS_MIN_SPEED: f32 = 0.25;
 #[cfg(any(feature = "remote-openai", test))]
 const OPENAI_REMOTE_TTS_MAX_SPEED: f32 = 4.0;
-const SYNTHESIZED_SPEECH_CACHE_LIMIT: usize = 8;
+const SYNTHESIZED_SPEECH_CACHE_LIMIT: usize = SYNTHESIZED_SPEECH_CACHE_MAX_COUNT;
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum TtsProviderKind {
@@ -73,6 +77,13 @@ pub struct SynthesizedSpeech {
 pub enum TtsRuntimeError {
     #[error("narration text was empty after normalization")]
     EmptyNarrationText,
+    #[error("narration text used {actual_bytes} bytes, exceeding the {maximum_bytes}-byte limit")]
+    NarrationTextTooLarge {
+        actual_bytes: usize,
+        maximum_bytes: usize,
+    },
+    #[error("tts operation was not started: {reason}")]
+    OperationLimited { reason: String },
     #[error("tts local profile is not configured")]
     MissingLocalProfile,
     #[error("tts local profile '{profile_name}' was not found")]
@@ -94,6 +105,12 @@ pub enum TtsRuntimeError {
     RemoteTtsFeatureUnavailable,
     #[error("failed to build the remote tts request: {reason}")]
     RemoteRequestBuildFailed { reason: String },
+    #[error("remote tts request timed out after {timeout_ms} ms")]
+    RemoteRequestTimedOut { timeout_ms: u64 },
+    #[error("remote tts returned HTTP {status}")]
+    RemoteHttpStatus { status: u16 },
+    #[error("remote tts response exceeded the {maximum_bytes}-byte limit")]
+    RemoteResponseTooLarge { maximum_bytes: usize },
     #[error("remote tts request failed: {reason}")]
     RemoteRequestFailed { reason: String },
     #[error("failed to decode the remote tts audio response: {reason}")]
@@ -139,6 +156,18 @@ impl TtsController {
         if normalized_text.is_empty() {
             return Err(TtsRuntimeError::EmptyNarrationText);
         }
+        if normalized_text.len() > MAX_TTS_INPUT_TEXT_BYTES {
+            return Err(TtsRuntimeError::NarrationTextTooLarge {
+                actual_bytes: normalized_text.len(),
+                maximum_bytes: MAX_TTS_INPUT_TEXT_BYTES,
+            });
+        }
+        let _permit =
+            tts_requests()
+                .try_acquire()
+                .map_err(|limit| TtsRuntimeError::OperationLimited {
+                    reason: limit.to_string(),
+                })?;
 
         match config.providers.tts.mode {
             ProviderMode::Local => self.synthesize_local(config, runtime_audio, normalized_text),
@@ -161,6 +190,10 @@ impl TtsController {
     }
 
     fn store_cached_speech(&mut self, key: CachedSpeechKey, speech: SynthesizedSpeech) {
+        let incoming_bytes = synthesized_speech_cache_entry_bytes(&key, &speech);
+        if incoming_bytes > SYNTHESIZED_SPEECH_CACHE_MAX_BYTES {
+            return;
+        }
         if let Some(index) = self
             .synthesized_speech_cache
             .iter()
@@ -170,9 +203,18 @@ impl TtsController {
         }
         self.synthesized_speech_cache
             .push_front(CachedSynthesizedSpeech { key, speech });
-        while self.synthesized_speech_cache.len() > SYNTHESIZED_SPEECH_CACHE_LIMIT {
+        while self.synthesized_speech_cache.len() > SYNTHESIZED_SPEECH_CACHE_LIMIT
+            || self.synthesized_speech_cache_bytes() > SYNTHESIZED_SPEECH_CACHE_MAX_BYTES
+        {
             self.synthesized_speech_cache.pop_back();
         }
+    }
+
+    fn synthesized_speech_cache_bytes(&self) -> usize {
+        self.synthesized_speech_cache
+            .iter()
+            .map(|entry| synthesized_speech_cache_entry_bytes(&entry.key, &entry.speech))
+            .sum()
     }
 }
 
@@ -180,6 +222,23 @@ impl Default for TtsController {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn synthesized_speech_cache_entry_bytes(
+    key: &CachedSpeechKey,
+    speech: &SynthesizedSpeech,
+) -> usize {
+    key.model_identity
+        .len()
+        .saturating_add(key.voice.len())
+        .saturating_add(key.text.len())
+        .saturating_add(speech.voice.len())
+        .saturating_add(
+            speech
+                .samples
+                .len()
+                .saturating_mul(std::mem::size_of::<f32>()),
+        )
 }
 
 #[cfg(feature = "local-tts")]

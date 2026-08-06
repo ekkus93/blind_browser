@@ -158,7 +158,15 @@ impl super::super::AppCore {
                 "OCR completed successfully but did not extract any readable text.",
             ));
         }
+        if ocr_result.truncated {
+            observations.push(format!(
+                "OCR output was deterministically truncated from {} bytes to the configured output limit.",
+                ocr_result.original_text_bytes
+            ));
+        }
 
+        let original_text_length = ocr_result.original_text_bytes;
+        let truncated = ocr_result.truncated;
         let extracted_text = ocr_result.extracted_text;
         let text_length = extracted_text.len();
 
@@ -169,6 +177,8 @@ impl super::super::AppCore {
                 image_id: Some(image_id),
                 extracted_text,
                 text_length,
+                original_text_length,
+                truncated,
                 confidence: ocr_result.confidence,
                 source_bbox: ocr_bbox,
             },

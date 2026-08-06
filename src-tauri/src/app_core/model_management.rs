@@ -6,7 +6,10 @@ mod manifest;
 
 pub(crate) use availability::{local_asr_model_is_available, local_tts_model_is_available};
 pub(crate) use download::{download_hugging_face_directory, download_hugging_face_file};
-pub(crate) use manifest::{kitten_download_plan_for_model_id, whisper_download_plan_for_model_id};
+pub(crate) use manifest::{
+    kitten_download_plan_for_model_id, whisper_download_plan_for_model_id, KittenDownloadPlan,
+    WhisperDownloadPlan,
+};
 
 pub(crate) fn resolved_models_dir_for_app(
     app_handle: &tauri::AppHandle,

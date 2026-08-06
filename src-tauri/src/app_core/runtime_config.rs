@@ -1,23 +1,23 @@
+use std::path::PathBuf;
+
 use super::api_key_tools::{
     fetch_openai_compatible_models, test_remote_openai_profile_api_key, RemoteApiKeyTarget,
     RemoteOpenAiApiKeyTestProfile,
 };
 use super::model_management::{
     download_hugging_face_directory, download_hugging_face_file, kitten_download_plan_for_model_id,
-    resolved_models_dir_for_app, whisper_download_plan_for_model_id,
+    resolved_models_dir_for_app, whisper_download_plan_for_model_id, KittenDownloadPlan,
+    WhisperDownloadPlan,
 };
 use super::settings_adapters::{
     active_local_asr_profile, active_local_tts_profile, build_model_management_settings,
 };
 use super::{AppCore, DownloadedLocalModelData, ModelManagementSettingsData};
 use crate::browser::BrowserVisibilityMode;
-#[cfg(feature = "remote-openai")]
 use crate::config::resolve_secret_ref_for_endpoint;
 use crate::config::{AppConfig, ConfigError, ModelManagementSettings};
-#[cfg(feature = "remote-openai")]
 use crate::provider_endpoint::ProviderEndpointScope;
 
-#[cfg(feature = "remote-openai")]
 #[derive(Debug, PartialEq, Eq)]
 struct RemotePlannerModelCredentials {
     api_key: Option<String>,
@@ -25,7 +25,24 @@ struct RemotePlannerModelCredentials {
     project: Option<String>,
 }
 
-#[cfg(feature = "remote-openai")]
+pub(crate) struct PreparedRemotePlannerModelList {
+    endpoint_scope: ProviderEndpointScope,
+    credentials: RemotePlannerModelCredentials,
+    timeout_ms: u64,
+}
+
+pub(crate) fn execute_remote_planner_model_list(
+    prepared: PreparedRemotePlannerModelList,
+) -> Result<Vec<String>, String> {
+    fetch_openai_compatible_models(
+        &prepared.endpoint_scope,
+        prepared.credentials.api_key.as_deref(),
+        prepared.credentials.organization.as_deref(),
+        prepared.credentials.project.as_deref(),
+        prepared.timeout_ms,
+    )
+}
+
 fn resolve_remote_planner_model_credentials(
     profile_name: &str,
     profile: &crate::config::RemotePlannerProfile,
@@ -111,6 +128,35 @@ fn resolve_remote_planner_model_credentials(
         organization,
         project: profile.project.clone(),
     })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LocalModelDownloadTarget {
+    Tts(KittenDownloadPlan),
+    Asr(WhisperDownloadPlan),
+}
+
+pub(crate) struct PreparedLocalModelDownload {
+    profile_name: String,
+    model_id: String,
+    model_path: String,
+    source_url: String,
+    target_path: PathBuf,
+    target: LocalModelDownloadTarget,
+}
+
+pub(crate) fn execute_local_model_download(
+    prepared: PreparedLocalModelDownload,
+) -> Result<PreparedLocalModelDownload, String> {
+    match prepared.target {
+        LocalModelDownloadTarget::Tts(plan) => {
+            download_hugging_face_directory(&prepared.target_path, plan.repository, plan.files)?;
+        }
+        LocalModelDownloadTarget::Asr(plan) => {
+            download_hugging_face_file(&prepared.target_path, plan.repository, plan.file_name)?;
+        }
+    }
+    Ok(prepared)
 }
 
 impl AppCore {
@@ -307,36 +353,41 @@ impl AppCore {
         )
     }
 
-    pub fn list_remote_planner_models(
+    pub(crate) fn prepare_remote_planner_model_list(
         &self,
         profile_name: &str,
         base_url_override: Option<&str>,
         api_key_override: Option<&str>,
         timeout_ms_override: Option<u64>,
-    ) -> Result<Vec<String>, String> {
+    ) -> Result<PreparedRemotePlannerModelList, String> {
         let profile = self
             .config
             .remote_planner_profiles
             .get(profile_name)
             .ok_or_else(|| format!("unknown remote planner profile '{profile_name}'"))?;
 
-        let requested_scope =
-            ProviderEndpointScope::parse(base_url_override.unwrap_or(&profile.base_url))
-                .map_err(|reason| format!("Remote planner model endpoint is invalid: {reason}"))?;
+        let requested_base_url = match base_url_override {
+            Some(base_url) => base_url,
+            None => &profile.base_url,
+        };
+        let requested_scope = ProviderEndpointScope::parse(requested_base_url)
+            .map_err(|reason| format!("Remote planner model endpoint is invalid: {reason}"))?;
         let credentials = resolve_remote_planner_model_credentials(
             profile_name,
             profile,
             &requested_scope,
             api_key_override,
         )?;
+        let timeout_ms = match timeout_ms_override {
+            Some(timeout_ms) => timeout_ms,
+            None => profile.timeout_ms,
+        };
 
-        fetch_openai_compatible_models(
-            &requested_scope,
-            credentials.api_key.as_deref(),
-            credentials.organization.as_deref(),
-            credentials.project.as_deref(),
-            timeout_ms_override.unwrap_or(profile.timeout_ms),
-        )
+        Ok(PreparedRemotePlannerModelList {
+            endpoint_scope: requested_scope,
+            credentials,
+            timeout_ms,
+        })
     }
 
     pub fn test_remote_tts_api_key(
@@ -411,50 +462,15 @@ impl AppCore {
         Ok(())
     }
 
-    pub fn download_active_local_tts_model(&mut self) -> Result<DownloadedLocalModelData, String> {
+    pub(crate) fn prepare_active_local_tts_model_download(
+        &self,
+    ) -> Result<PreparedLocalModelDownload, String> {
         let (profile_name, profile) = active_local_tts_profile(&self.config)?;
         let model_id = profile.model_id.clone();
         let plan = kitten_download_plan_for_model_id(&model_id)?;
         let models_dir =
             resolved_models_dir_for_app(&self.app_handle, &self.config.models.models_dir)?;
-        let target_dir = models_dir.join(plan.directory_name);
-
-        download_hugging_face_directory(&target_dir, plan.repository, plan.files)?;
-
-        let model_path = target_dir
-            .to_str()
-            .ok_or_else(|| {
-                format!(
-                    "downloaded model path is not valid UTF-8: {}",
-                    target_dir.display()
-                )
-            })?
-            .to_string();
-        self.config = AppConfig::persist_local_tts_model_path_for_app(
-            &self.app_handle,
-            &profile_name,
-            &model_path,
-        )
-        .map_err(|error| error.to_string())?;
-
-        Ok(DownloadedLocalModelData {
-            profile_name,
-            model_id,
-            model_path,
-            source_url: format!("https://huggingface.co/{}", plan.repository),
-        })
-    }
-
-    pub fn download_active_local_asr_model(&mut self) -> Result<DownloadedLocalModelData, String> {
-        let (profile_name, profile) = active_local_asr_profile(&self.config)?;
-        let model_id = profile.model_id.clone();
-        let plan = whisper_download_plan_for_model_id(&model_id)?;
-        let models_dir =
-            resolved_models_dir_for_app(&self.app_handle, &self.config.models.models_dir)?;
-        let target_path = models_dir.join("whisper").join(plan.file_name);
-
-        download_hugging_face_file(&target_path, plan.repository, plan.file_name)?;
-
+        let target_path = models_dir.join(plan.directory_name);
         let model_path = target_path
             .to_str()
             .ok_or_else(|| {
@@ -464,14 +480,37 @@ impl AppCore {
                 )
             })?
             .to_string();
-        self.config = AppConfig::persist_local_asr_model_path_for_app(
-            &self.app_handle,
-            &profile_name,
-            &model_path,
-        )
-        .map_err(|error| error.to_string())?;
 
-        Ok(DownloadedLocalModelData {
+        Ok(PreparedLocalModelDownload {
+            profile_name,
+            model_id,
+            model_path,
+            source_url: format!("https://huggingface.co/{}", plan.repository),
+            target_path,
+            target: LocalModelDownloadTarget::Tts(plan),
+        })
+    }
+
+    pub(crate) fn prepare_active_local_asr_model_download(
+        &self,
+    ) -> Result<PreparedLocalModelDownload, String> {
+        let (profile_name, profile) = active_local_asr_profile(&self.config)?;
+        let model_id = profile.model_id.clone();
+        let plan = whisper_download_plan_for_model_id(&model_id)?;
+        let models_dir =
+            resolved_models_dir_for_app(&self.app_handle, &self.config.models.models_dir)?;
+        let target_path = models_dir.join("whisper").join(plan.file_name);
+        let model_path = target_path
+            .to_str()
+            .ok_or_else(|| {
+                format!(
+                    "downloaded model path is not valid UTF-8: {}",
+                    target_path.display()
+                )
+            })?
+            .to_string();
+
+        Ok(PreparedLocalModelDownload {
             profile_name,
             model_id,
             model_path,
@@ -479,6 +518,34 @@ impl AppCore {
                 "https://huggingface.co/{}/resolve/main/{}",
                 plan.repository, plan.file_name
             ),
+            target_path,
+            target: LocalModelDownloadTarget::Asr(plan),
+        })
+    }
+
+    pub(crate) fn finalize_local_model_download(
+        &mut self,
+        prepared: PreparedLocalModelDownload,
+    ) -> Result<DownloadedLocalModelData, String> {
+        self.config = match prepared.target {
+            LocalModelDownloadTarget::Tts(_) => AppConfig::persist_local_tts_model_path_for_app(
+                &self.app_handle,
+                &prepared.profile_name,
+                &prepared.model_path,
+            ),
+            LocalModelDownloadTarget::Asr(_) => AppConfig::persist_local_asr_model_path_for_app(
+                &self.app_handle,
+                &prepared.profile_name,
+                &prepared.model_path,
+            ),
+        }
+        .map_err(|error| error.to_string())?;
+
+        Ok(DownloadedLocalModelData {
+            profile_name: prepared.profile_name,
+            model_id: prepared.model_id,
+            model_path: prepared.model_path,
+            source_url: prepared.source_url,
         })
     }
 

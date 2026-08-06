@@ -21,16 +21,11 @@ use crate::page_model::{
 use crate::provider_endpoint::ProviderEndpointScope;
 use crate::state::{BrowserHistoryState, ListeningState};
 
-const MAX_REMOTE_REGIONS: usize = 64;
-const MAX_REMOTE_ELEMENTS: usize = 128;
-const MAX_REMOTE_HISTORY_ENTRIES: usize = 32;
-const MAX_REMOTE_SKILLS: usize = 32;
-const MAX_REGION_TEXT_CHARS: usize = 2_000;
-const MAX_ELEMENT_TEXT_CHARS: usize = 512;
-const MAX_OBSERVATION_CHARS: usize = 512;
-const MAX_IDENTIFIER_CHARS: usize = 128;
-const MAX_URL_CHARS: usize = 2_048;
-const MAX_INTENT_TAGS: usize = 16;
+use crate::resource_limits::{
+    MAX_ELEMENT_TEXT_CHARS, MAX_IDENTIFIER_CHARS, MAX_INTENT_TAGS, MAX_OBSERVATION_CHARS,
+    MAX_REGION_TEXT_CHARS, MAX_REMOTE_ELEMENTS, MAX_REMOTE_HISTORY_BYTES,
+    MAX_REMOTE_HISTORY_ENTRIES, MAX_REMOTE_REGIONS, MAX_REMOTE_SKILLS, MAX_URL_CHARS,
+};
 
 const SENSITIVE_MARKERS: &[&str] = &[
     "password=",
@@ -755,12 +750,10 @@ fn sanitize_history(
     history: &[PlannerToolHistoryEntry],
     metadata: &mut SanitizationMetadata,
 ) -> Vec<RemoteToolObservation> {
-    metadata.omitted_history_entries += history.len().saturating_sub(MAX_REMOTE_HISTORY_ENTRIES);
-
-    history
-        .iter()
-        .take(MAX_REMOTE_HISTORY_ENTRIES)
-        .map(|entry| RemoteToolObservation {
+    let mut sanitized = Vec::new();
+    let mut serialized_bytes = 2_usize;
+    for entry in history.iter().take(MAX_REMOTE_HISTORY_ENTRIES) {
+        let candidate = RemoteToolObservation {
             tool_name: entry.tool_name.clone(),
             ok: entry.ok,
             observation_summary: entry
@@ -769,8 +762,19 @@ fn sanitize_history(
                 .take(16)
                 .map(|value| sanitize_text(value, MAX_OBSERVATION_CHARS, metadata))
                 .collect(),
-        })
-        .collect()
+        };
+        let candidate_bytes = match serde_json::to_vec(&candidate) {
+            Ok(bytes) => bytes.len().saturating_add(1),
+            Err(_) => break,
+        };
+        if serialized_bytes.saturating_add(candidate_bytes) > MAX_REMOTE_HISTORY_BYTES {
+            break;
+        }
+        serialized_bytes = serialized_bytes.saturating_add(candidate_bytes);
+        sanitized.push(candidate);
+    }
+    metadata.omitted_history_entries += history.len().saturating_sub(sanitized.len());
+    sanitized
 }
 
 fn sanitize_skills(

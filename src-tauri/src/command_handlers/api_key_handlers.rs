@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::app_core::{AppCore, RemotePlannerModelListData};
+use crate::app_core::{execute_remote_planner_model_list, AppCore, RemotePlannerModelListData};
 use crate::commands::ToolError;
 use crate::provider_endpoint::ProviderEndpointScope;
 use crate::{join_error_to_tool_error, lock_app_core};
@@ -175,7 +175,6 @@ pub async fn list_remote_planner_models(
     let _ = request_id;
     let core = Arc::clone(&app_core);
     tauri::async_runtime::spawn_blocking(move || {
-        let app_core = lock_app_core(&core)?;
         let profile_name = profile_name.trim().to_string();
         let base_url = base_url.trim().to_string();
         if profile_name.is_empty() {
@@ -207,19 +206,28 @@ pub async fn list_remote_planner_models(
                 details: None,
             })?;
         let normalized_base_url = endpoint_scope.normalized_base_url().to_string();
-        let models = app_core
-            .list_remote_planner_models(
-                &profile_name,
-                Some(&normalized_base_url),
-                (!api_key.trim().is_empty()).then_some(api_key.as_str()),
-                timeout_ms,
-            )
-            .map_err(|error| ToolError {
-                code: String::from("remote_planner_models_load_failed"),
-                message: error,
-                retryable: false,
-                details: None,
-            })?;
+        let prepared = {
+            let app_core = lock_app_core(&core)?;
+            app_core
+                .prepare_remote_planner_model_list(
+                    &profile_name,
+                    Some(&normalized_base_url),
+                    (!api_key.trim().is_empty()).then_some(api_key.as_str()),
+                    timeout_ms,
+                )
+                .map_err(|error| ToolError {
+                    code: String::from("remote_planner_models_prepare_failed"),
+                    message: error,
+                    retryable: false,
+                    details: None,
+                })?
+        };
+        let models = execute_remote_planner_model_list(prepared).map_err(|error| ToolError {
+            code: String::from("remote_planner_models_load_failed"),
+            message: error,
+            retryable: true,
+            details: None,
+        })?;
 
         Ok(RemotePlannerModelListData {
             profile_name,

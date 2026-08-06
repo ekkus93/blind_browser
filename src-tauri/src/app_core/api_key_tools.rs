@@ -5,6 +5,10 @@ use crate::provider_endpoint::ProviderEndpointScope;
 use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
 
+use crate::resource_limits::{
+    model_list_requests, read_bounded_response, record_resource_size, MAX_MODEL_LIST_RESPONSE_BYTES,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RemoteApiKeyTarget {
     Planner,
@@ -160,6 +164,9 @@ pub(crate) fn fetch_openai_compatible_models(
     project: Option<&str>,
     timeout_ms: u64,
 ) -> Result<Vec<String>, String> {
+    let _permit = model_list_requests()
+        .try_acquire()
+        .map_err(|limit| format!("Remote model-list request was not started: {limit}."))?;
     let client = credential_client(timeout_ms, "remote model list")?;
 
     let mut request = client.get(endpoint_scope.models_url());
@@ -197,9 +204,12 @@ pub(crate) fn fetch_openai_compatible_models(
         });
     }
 
-    let mut models = response
-        .json::<OpenAiCompatibleModelsResponse>()
-        .map_err(|error| format!("failed to parse the remote model list response: {error}"))?
+    let body = read_bounded_response(response, MAX_MODEL_LIST_RESPONSE_BYTES).map_err(|error| {
+        format!("remote model list response exceeded or failed its byte budget: {error}")
+    })?;
+    record_resource_size("remote_model_list_response", body.len());
+    let mut models = serde_json::from_slice::<OpenAiCompatibleModelsResponse>(&body)
+        .map_err(|_| String::from("failed to parse the remote model list response"))?
         .data
         .into_iter()
         .map(|entry| entry.id.trim().to_string())
@@ -225,7 +235,7 @@ pub(crate) fn credential_async_client(timeout_ms: u64) -> Result<reqwest::Client
         .map_err(|error| format!("failed to build credential-bearing HTTP client: {error}"))
 }
 
-fn credential_client(timeout_ms: u64, purpose: &str) -> Result<Client, String> {
+pub(crate) fn credential_client(timeout_ms: u64, purpose: &str) -> Result<Client, String> {
     Client::builder()
         .timeout(Duration::from_millis(timeout_ms.max(1)))
         .redirect(Policy::none())

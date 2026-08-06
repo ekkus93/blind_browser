@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::page_model::Rect;
+use crate::resource_limits::{
+    ocr_requests, png_dimensions, truncate_utf8_bytes, validate_image_dimensions,
+    MAX_OCR_INPUT_BYTES, MAX_OCR_OUTPUT_BYTES,
+};
 
 #[cfg(feature = "ocr")]
 use leptess::LepTess;
@@ -37,6 +41,8 @@ const TESSERACT_LANGUAGE: &str = "eng";
 pub struct OcrExtraction {
     pub extracted_text: String,
     pub confidence: Option<f32>,
+    pub original_text_bytes: usize,
+    pub truncated: bool,
 }
 
 #[derive(Debug, Error)]
@@ -47,6 +53,15 @@ pub enum OcrRuntimeError {
     EngineInitFailed { reason: String },
     #[error("failed to load OCR image from {image_path}: {reason}")]
     ImageLoadFailed { image_path: String, reason: String },
+    #[error("OCR image used {actual_bytes} bytes, exceeding the {maximum_bytes}-byte limit")]
+    ImageTooLarge {
+        actual_bytes: u64,
+        maximum_bytes: u64,
+    },
+    #[error("OCR image dimensions are invalid or exceed the configured image budget")]
+    ImageDimensionsExceeded,
+    #[error("OCR operation was not started: {reason}")]
+    OperationLimited { reason: String },
     #[error("ocr bbox coordinates must be finite and positive")]
     InvalidBbox,
     #[error("failed to extract OCR text: {reason}")]
@@ -73,6 +88,12 @@ impl OcrController {
     ) -> Result<OcrExtraction, OcrRuntimeError> {
         #[cfg(feature = "ocr")]
         {
+            let _permit = ocr_requests().try_acquire().map_err(|limit| {
+                OcrRuntimeError::OperationLimited {
+                    reason: limit.to_string(),
+                }
+            })?;
+            validate_ocr_image(image_path)?;
             let mut engine = LepTess::new(None, TESSERACT_LANGUAGE).map_err(|error| {
                 OcrRuntimeError::EngineInitFailed {
                     reason: error.to_string(),
@@ -96,10 +117,15 @@ impl OcrController {
                     reason: error.to_string(),
                 }
             })?);
+            let original_text_bytes = extracted_text.len();
+            let (bounded_text, truncated) =
+                truncate_utf8_bytes(&extracted_text, MAX_OCR_OUTPUT_BYTES);
 
             Ok(OcrExtraction {
-                extracted_text,
+                extracted_text: bounded_text.to_string(),
                 confidence: normalize_ocr_confidence(engine.mean_text_conf()),
+                original_text_bytes,
+                truncated,
             })
         }
 
@@ -110,6 +136,37 @@ impl OcrController {
             Err(OcrRuntimeError::FeatureUnavailable)
         }
     }
+}
+
+#[cfg(feature = "ocr")]
+fn validate_ocr_image(image_path: &Path) -> Result<(), OcrRuntimeError> {
+    use std::io::Read;
+
+    let metadata =
+        std::fs::metadata(image_path).map_err(|error| OcrRuntimeError::ImageLoadFailed {
+            image_path: image_path.display().to_string(),
+            reason: error.to_string(),
+        })?;
+    if metadata.len() > MAX_OCR_INPUT_BYTES {
+        return Err(OcrRuntimeError::ImageTooLarge {
+            actual_bytes: metadata.len(),
+            maximum_bytes: MAX_OCR_INPUT_BYTES,
+        });
+    }
+    let mut header = [0_u8; 24];
+    let mut file =
+        std::fs::File::open(image_path).map_err(|error| OcrRuntimeError::ImageLoadFailed {
+            image_path: image_path.display().to_string(),
+            reason: error.to_string(),
+        })?;
+    file.read_exact(&mut header)
+        .map_err(|error| OcrRuntimeError::ImageLoadFailed {
+            image_path: image_path.display().to_string(),
+            reason: error.to_string(),
+        })?;
+    let (width, height) =
+        png_dimensions(&header).ok_or(OcrRuntimeError::ImageDimensionsExceeded)?;
+    validate_image_dimensions(width, height).map_err(|_| OcrRuntimeError::ImageDimensionsExceeded)
 }
 
 #[cfg(any(feature = "ocr", test))]
@@ -155,6 +212,10 @@ mod tests {
         OcrSettings,
     };
     use crate::page_model::Rect;
+    use crate::resource_limits::{
+        ocr_requests, png_dimensions, truncate_utf8_bytes, validate_image_dimensions,
+        MAX_OCR_INPUT_BYTES, MAX_OCR_OUTPUT_BYTES,
+    };
 
     #[test]
     fn default_ocr_settings_use_shipped_sparse_text_thresholds() {

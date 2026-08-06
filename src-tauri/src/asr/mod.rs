@@ -26,6 +26,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::config::{AppConfig, ProviderMode};
+use crate::resource_limits::asr_requests;
 
 pub const DEFAULT_TRANSCRIBE_DURATION_MS: u64 = 3_000;
 pub const MAX_TRANSCRIBE_DURATION_MS: u64 = 10_000;
@@ -109,6 +110,17 @@ pub enum AsrRuntimeError {
     RemoteRequestBuildFailed { reason: String },
     #[error("remote asr request timed out after {timeout_ms}ms")]
     RemoteRequestTimedOut { timeout_ms: u64 },
+    #[error("remote asr returned HTTP {status}")]
+    RemoteHttpStatus { status: u16 },
+    #[error("remote asr response exceeded the {maximum_bytes}-byte limit")]
+    RemoteResponseTooLarge { maximum_bytes: usize },
+    #[error("remote asr audio upload used {actual_bytes} bytes, exceeding the {maximum_bytes}-byte limit")]
+    RemoteAudioTooLarge {
+        actual_bytes: usize,
+        maximum_bytes: usize,
+    },
+    #[error("asr operation was not started: {reason}")]
+    OperationLimited { reason: String },
     #[error("remote asr request failed: {reason}")]
     RemoteRequestFailed { reason: String },
     #[error("failed to transcribe captured audio: {reason}")]
@@ -294,6 +306,12 @@ pub(crate) fn transcribe_captured_audio(
     config: &AppConfig,
     captured_audio: &CapturedAudio,
 ) -> Result<String, AsrRuntimeError> {
+    let _permit =
+        asr_requests()
+            .try_acquire()
+            .map_err(|limit| AsrRuntimeError::OperationLimited {
+                reason: limit.to_string(),
+            })?;
     match config.providers.asr.mode {
         ProviderMode::Local => transcribe_local(config, captured_audio),
         ProviderMode::Remote => transcribe_remote(config, captured_audio),

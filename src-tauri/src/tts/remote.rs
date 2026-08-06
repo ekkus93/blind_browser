@@ -10,6 +10,10 @@ use crate::config::{
 };
 #[cfg(feature = "remote-openai")]
 use crate::provider_endpoint::ProviderEndpointScope;
+#[cfg(feature = "remote-openai")]
+use crate::resource_limits::{
+    read_bounded_response, record_resource_size, BoundedResponseError, MAX_TTS_RESPONSE_BYTES,
+};
 
 #[cfg(feature = "remote-openai")]
 use super::wav::decode_wav_samples;
@@ -124,22 +128,40 @@ impl TtsController {
             request = request.header("OpenAI-Project", project);
         }
 
-        let response = request
-            .send()
-            .and_then(reqwest::blocking::Response::error_for_status)
-            .map_err(|error| TtsRuntimeError::RemoteRequestFailed {
-                reason: error.to_string(),
-            })?;
-        let response_bytes =
-            response
-                .bytes()
-                .map_err(|error| TtsRuntimeError::RemoteRequestFailed {
+        let response = request.send().map_err(|error| {
+            if error.is_timeout() {
+                TtsRuntimeError::RemoteRequestTimedOut {
+                    timeout_ms: profile.timeout_ms.max(1),
+                }
+            } else {
+                TtsRuntimeError::RemoteRequestFailed {
                     reason: error.to_string(),
-                })?;
+                }
+            }
+        })?;
+        if !response.status().is_success() {
+            return Err(TtsRuntimeError::RemoteHttpStatus {
+                status: response.status().as_u16(),
+            });
+        }
+        let response_bytes = read_bounded_response(response, MAX_TTS_RESPONSE_BYTES).map_err(
+            |error| match error {
+                BoundedResponseError::DeclaredTooLarge { maximum, .. }
+                | BoundedResponseError::BodyTooLarge { maximum } => {
+                    TtsRuntimeError::RemoteResponseTooLarge {
+                        maximum_bytes: maximum,
+                    }
+                }
+                BoundedResponseError::ReadFailed(error) => TtsRuntimeError::RemoteRequestFailed {
+                    reason: error.to_string(),
+                },
+            },
+        )?;
+        record_resource_size("remote_tts_response", response_bytes.len());
 
         match profile.audio_format {
             RemoteTtsAudioFormat::Wav => {
-                let decoded = decode_wav_samples(response_bytes.as_ref())
+                let decoded = decode_wav_samples(&response_bytes)
                     .map_err(|reason| TtsRuntimeError::RemoteResponseDecodeFailed { reason })?;
                 let speech = SynthesizedSpeech {
                     provider: TtsProviderKind::Remote,

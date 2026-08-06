@@ -1,6 +1,8 @@
 use std::sync::{Arc, Mutex};
 
-use crate::app_core::{AppCore, DownloadedLocalModelData, ModelManagementSettingsData};
+use crate::app_core::{
+    execute_local_model_download, AppCore, DownloadedLocalModelData, ModelManagementSettingsData,
+};
 use crate::commands::ToolError;
 use crate::{join_error_to_tool_error, lock_app_core};
 
@@ -73,14 +75,32 @@ pub async fn download_active_local_tts_model(
     let _ = timeout_ms;
     let core = Arc::clone(&app_core);
     tauri::async_runtime::spawn_blocking(move || {
-        let mut guard = lock_app_core(&core)?;
-        let download_result = guard.download_active_local_tts_model();
-        download_result.map_err(|message| ToolError {
+        let prepared = {
+            let guard = lock_app_core(&core)?;
+            guard
+                .prepare_active_local_tts_model_download()
+                .map_err(|message| ToolError {
+                    code: String::from("local_tts_model_download_prepare_failed"),
+                    message,
+                    retryable: false,
+                    details: None,
+                })?
+        };
+        let completed = execute_local_model_download(prepared).map_err(|message| ToolError {
             code: String::from("local_tts_model_download_failed"),
             message,
-            retryable: false,
+            retryable: true,
             details: None,
-        })
+        })?;
+        let mut guard = lock_app_core(&core)?;
+        guard
+            .finalize_local_model_download(completed)
+            .map_err(|message| ToolError {
+                code: String::from("local_tts_model_download_finalize_failed"),
+                message,
+                retryable: false,
+                details: None,
+            })
     })
     .await
     .map_err(join_error_to_tool_error)?
@@ -96,14 +116,32 @@ pub async fn download_active_local_asr_model(
     let _ = timeout_ms;
     let core = Arc::clone(&app_core);
     tauri::async_runtime::spawn_blocking(move || {
-        let mut guard = lock_app_core(&core)?;
-        let download_result = guard.download_active_local_asr_model();
-        download_result.map_err(|message| ToolError {
+        let prepared = {
+            let guard = lock_app_core(&core)?;
+            guard
+                .prepare_active_local_asr_model_download()
+                .map_err(|message| ToolError {
+                    code: String::from("local_asr_model_download_prepare_failed"),
+                    message,
+                    retryable: false,
+                    details: None,
+                })?
+        };
+        let completed = execute_local_model_download(prepared).map_err(|message| ToolError {
             code: String::from("local_asr_model_download_failed"),
             message,
-            retryable: false,
+            retryable: true,
             details: None,
-        })
+        })?;
+        let mut guard = lock_app_core(&core)?;
+        guard
+            .finalize_local_model_download(completed)
+            .map_err(|message| ToolError {
+                code: String::from("local_asr_model_download_finalize_failed"),
+                message,
+                retryable: false,
+                details: None,
+            })
     })
     .await
     .map_err(join_error_to_tool_error)?

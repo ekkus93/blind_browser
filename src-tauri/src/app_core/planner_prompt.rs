@@ -10,7 +10,7 @@ use crate::commands::{
     ToolError,
 };
 
-const MAX_REMOTE_PLANNER_PROMPT_BYTES: usize = 256 * 1024;
+use crate::resource_limits::MAX_REMOTE_PLANNER_PROMPT_BYTES;
 
 #[derive(Serialize)]
 pub(crate) struct PlannerPromptPayload<'a> {

@@ -7,6 +7,11 @@ use crate::config::{AppConfig, RemoteAsrProfile, RemoteProviderKind};
 use crate::config::resolve_secret_ref_for_endpoint;
 #[cfg(feature = "remote-openai")]
 use crate::provider_endpoint::ProviderEndpointScope;
+#[cfg(feature = "remote-openai")]
+use crate::resource_limits::{
+    read_bounded_response, record_resource_size, BoundedResponseError, MAX_ASR_AUDIO_UPLOAD_BYTES,
+    MAX_ASR_RESPONSE_BYTES,
+};
 
 use super::processing::CapturedAudio;
 use super::AsrRuntimeError;
@@ -67,6 +72,12 @@ fn transcribe_with_openai_remote(
         resolve_secret_ref_for_endpoint(&profile.api_key, "asr", profile_name, &endpoint_scope)
             .map_err(|reason| AsrRuntimeError::RemoteSecretUnavailable { reason })?;
     let audio_bytes = captured_audio.to_remote_wav_bytes()?;
+    if audio_bytes.len() > MAX_ASR_AUDIO_UPLOAD_BYTES {
+        return Err(AsrRuntimeError::RemoteAudioTooLarge {
+            actual_bytes: audio_bytes.len(),
+            maximum_bytes: MAX_ASR_AUDIO_UPLOAD_BYTES,
+        });
+    }
 
     let part = reqwest::blocking::multipart::Part::bytes(audio_bytes)
         .file_name("command.wav")
@@ -102,27 +113,37 @@ fn transcribe_with_openai_remote(
         request = request.header("OpenAI-Project", project);
     }
 
-    let response = request
-        .send()
-        .and_then(reqwest::blocking::Response::error_for_status)
-        .map_err(|error| {
-            if error.is_timeout() {
-                AsrRuntimeError::RemoteRequestTimedOut { timeout_ms }
-            } else {
-                AsrRuntimeError::RemoteRequestFailed {
-                    reason: error.to_string(),
+    let response = request.send().map_err(|error| {
+        if error.is_timeout() {
+            AsrRuntimeError::RemoteRequestTimedOut { timeout_ms }
+        } else {
+            AsrRuntimeError::RemoteRequestFailed {
+                reason: error.to_string(),
+            }
+        }
+    })?;
+    if !response.status().is_success() {
+        return Err(AsrRuntimeError::RemoteHttpStatus {
+            status: response.status().as_u16(),
+        });
+    }
+
+    let body =
+        read_bounded_response(response, MAX_ASR_RESPONSE_BYTES).map_err(|error| match error {
+            BoundedResponseError::DeclaredTooLarge { maximum, .. }
+            | BoundedResponseError::BodyTooLarge { maximum } => {
+                AsrRuntimeError::RemoteResponseTooLarge {
+                    maximum_bytes: maximum,
                 }
             }
+            BoundedResponseError::ReadFailed(error) => AsrRuntimeError::RemoteRequestFailed {
+                reason: error.to_string(),
+            },
         })?;
-
-    let body = response
-        .text()
-        .map_err(|error| AsrRuntimeError::RemoteRequestFailed {
-            reason: error.to_string(),
-        })?;
+    record_resource_size("remote_asr_response", body.len());
     let parsed: serde_json::Value =
-        serde_json::from_str(&body).map_err(|error| AsrRuntimeError::RemoteRequestFailed {
-            reason: format!("failed to parse remote transcription response: {error}"),
+        serde_json::from_slice(&body).map_err(|_| AsrRuntimeError::RemoteRequestFailed {
+            reason: String::from("failed to parse remote transcription response"),
         })?;
 
     parse_remote_transcription_text(&parsed)

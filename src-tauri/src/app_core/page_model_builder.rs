@@ -9,6 +9,9 @@ pub(crate) fn ocr_runtime_error_to_tool_error(error: &OcrRuntimeError) -> ToolEr
         OcrRuntimeError::FeatureUnavailable => "ocr_backend_unavailable",
         OcrRuntimeError::EngineInitFailed { .. } => "ocr_engine_init_failed",
         OcrRuntimeError::ImageLoadFailed { .. } => "ocr_image_load_failed",
+        OcrRuntimeError::ImageTooLarge { .. } => "ocr_image_too_large",
+        OcrRuntimeError::ImageDimensionsExceeded => "ocr_image_dimensions_exceeded",
+        OcrRuntimeError::OperationLimited { .. } => "ocr_operation_limited",
         OcrRuntimeError::InvalidBbox => "invalid_ocr_bbox",
         OcrRuntimeError::TextExtractionFailed { .. } => "ocr_text_extraction_failed",
     };
@@ -18,7 +21,9 @@ pub(crate) fn ocr_runtime_error_to_tool_error(error: &OcrRuntimeError) -> ToolEr
         message: error.to_string(),
         retryable: matches!(
             error,
-            OcrRuntimeError::EngineInitFailed { .. } | OcrRuntimeError::TextExtractionFailed { .. }
+            OcrRuntimeError::EngineInitFailed { .. }
+                | OcrRuntimeError::TextExtractionFailed { .. }
+                | OcrRuntimeError::OperationLimited { .. }
         ),
         details: None,
     }

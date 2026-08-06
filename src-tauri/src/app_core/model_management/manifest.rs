@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::resource_limits::MAX_MODEL_DOWNLOAD_BYTES;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KittenDownloadPlan {
     pub(crate) repository: &'static str,
@@ -379,6 +381,19 @@ pub(super) fn validate_file_manifest(file: &VerifiedModelFile) -> Result<(), Mod
         return Err(ModelDownloadError::InvalidManifest {
             file_name: file.file_name.to_string(),
             reason: String::from("minimum byte size must be greater than zero"),
+        });
+    }
+    if file.min_bytes > MAX_MODEL_DOWNLOAD_BYTES
+        || file
+            .max_bytes
+            .is_some_and(|maximum| maximum > MAX_MODEL_DOWNLOAD_BYTES)
+    {
+        return Err(ModelDownloadError::InvalidManifest {
+            file_name: file.file_name.to_string(),
+            reason: format!(
+                "model byte bounds exceed the global {}-byte resource limit",
+                MAX_MODEL_DOWNLOAD_BYTES
+            ),
         });
     }
     if file
