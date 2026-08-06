@@ -1,1 +1,1 @@
-remote-data-privacy-closure-origin-fix-v1
+remote-data-privacy-closure-origin-fix-v2
