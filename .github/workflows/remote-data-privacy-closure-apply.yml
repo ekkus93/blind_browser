@@ -32,10 +32,10 @@ jobs:
           git apply --check /tmp/closure.patch
           git apply /tmp/closure.patch
 
-      - name: Show closure test helpers and stop
+      - name: Show closure profile usage and stop
         shell: bash
         run: |
           set -euo pipefail
-          nl -ba src-tauri/src/app_core/tests/remote_data_consent_evidence_tests.rs \
-            | sed -n '1,240p'
+          grep -n -C 3 -E 'PROFILE|remote-consent-evidence|api\.example\.com' \
+            src-tauri/src/app_core/tests/remote_data_consent_evidence_tests.rs
           exit 1
