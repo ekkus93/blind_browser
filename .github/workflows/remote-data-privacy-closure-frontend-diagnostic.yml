@@ -11,13 +11,13 @@ permissions:
   contents: read
 
 jobs:
-  inspect-validated-change-set:
+  inspect-permanent-workflow-diff:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Reproduce validated transformation and list changes
+      - name: Reproduce validated transformation and print CI diff
         shell: bash
         run: |
           set -euo pipefail
@@ -38,9 +38,8 @@ jobs:
           ]
           if not run_indexes:
               raise SystemExit("validated transformation step has no run block")
-          run_index = run_indexes[0]
           body = []
-          for line in workflow[run_index + 1 :]:
+          for line in workflow[run_indexes[0] + 1 :]:
               if line.startswith("      - name: "):
                   break
               if line and not line.startswith("          "):
@@ -53,9 +52,6 @@ jobs:
           )
           PY
           bash /tmp/apply-validated-closure.sh
-          echo 'BEGIN validated changed files'
-          git status --short
-          echo 'END validated changed files'
-          echo 'BEGIN validated workflow changes'
-          git diff --name-status -- .github/workflows
-          echo 'END validated workflow changes'
+          echo 'BEGIN permanent CI workflow diff'
+          git diff -- .github/workflows/ci.yml
+          echo 'END permanent CI workflow diff'
