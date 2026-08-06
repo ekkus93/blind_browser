@@ -37,14 +37,13 @@ jobs:
           path = Path("src/remote-planner-privacy-ui.tsx")
           text = path.read_text(encoding="utf-8")
           anchor = '} from "react";\n\n'
-          replacement = '''} from "react";
-
-import {
-  activateConsentDialogFocus,
-  handleConsentDialogKeyboard,
-} from "./remote-planner-consent-dialog-interactions.ts";
-
-'''
+          replacement = (
+              '} from "react";\n\n'
+              'import {\n'
+              '  activateConsentDialogFocus,\n'
+              '  handleConsentDialogKeyboard,\n'
+              '} from "./remote-planner-consent-dialog-interactions.ts";\n\n'
+          )
           if text.count(anchor) != 1:
               raise SystemExit("expected exactly one React import boundary")
           path.write_text(text.replace(anchor, replacement), encoding="utf-8")
