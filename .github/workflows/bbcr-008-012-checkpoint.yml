@@ -1,0 +1,70 @@
+name: BBCR-008-012 Checkpoint
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/bbcr-008-012-checkpoint.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  checkpoint:
+    if: "${{ github.event.head_commit.message == 'ci: checkpoint BBCR-008-012 worktree' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact trigger SHA
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reconstruct BBCR worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(cat .github/bbcr-008-012-checkpoint.trigger)" = "bbcr-008-012-checkpoint-v1"
+
+          find .github -maxdepth 1 -type f \
+            -name 'bbcr-008-012-compile.patch.gz.part-*' \
+            -print | sort > /tmp/patch-parts.txt
+          test "$(wc -l < /tmp/patch-parts.txt)" -eq 5
+          mapfile -t patch_parts < /tmp/patch-parts.txt
+          cat "${patch_parts[@]}" > /tmp/bbcr-008-012-compile.patch.gz
+          echo "0bdb02214a9dd48cdaef170201ccbf1b91d9fe0acf60405a79294ab1762b9b34  /tmp/bbcr-008-012-compile.patch.gz" | sha256sum --check --strict
+          gzip --test /tmp/bbcr-008-012-compile.patch.gz
+          gzip --decompress --stdout /tmp/bbcr-008-012-compile.patch.gz > /tmp/bbcr-008-012-compile.patch
+          echo "c900a9f41c7540fba4255b127c6610c4e02274ed9905e3fd6955a12a8d962ce2  /tmp/bbcr-008-012-compile.patch" | sha256sum --check --strict
+          git apply --check /tmp/bbcr-008-012-compile.patch
+          git apply /tmp/bbcr-008-012-compile.patch
+
+          test -f .github/bbcr-008-012-resource-limits.rs.gz
+          echo "21e9bc79ba4f461d23f4d003cc15c640e9f76f76bfc1da1aad5f786a56593c9a  .github/bbcr-008-012-resource-limits.rs.gz" | sha256sum --check --strict
+          gzip --test .github/bbcr-008-012-resource-limits.rs.gz
+          test ! -e src-tauri/src/resource_limits.rs
+          gzip --decompress --stdout .github/bbcr-008-012-resource-limits.rs.gz > src-tauri/src/resource_limits.rs
+          echo "1d2757b7ad8ba52bc95dcd0e359333e0dd97a994da2950fb6e1bd919a7e7d107  src-tauri/src/resource_limits.rs" | sha256sum --check --strict
+
+      - name: Set up Rust formatter
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Apply deterministic formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml
+
+      - name: Verify and commit checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git add -- src-tauri/src
+          test "$(git diff --cached --name-only | wc -l)" -eq 23
+          git diff --cached --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "checkpoint: BBCR-008 and BBCR-012 work in progress"
+          git push origin HEAD:master
