@@ -35,6 +35,7 @@ jobs:
           git apply /tmp/closure.patch
 
           python3 - <<'PY'
+          import json
           from pathlib import Path
 
           consent_path = Path("src-tauri/src/app_core/remote_data_consent.rs")
@@ -129,6 +130,35 @@ jobs:
               )
           redaction_path.write_text(
               redaction_text.replace(origin_old, origin_new), encoding="utf-8"
+          )
+
+          inventory_path = Path("scripts/security-fallback-inventory.json")
+          inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+          matches = [
+              entry
+              for entry in inventory["entries"]
+              if entry.get("path") == "src-tauri/src/app_core/planner_redaction.rs"
+              and entry.get("function") == "planner_page_origin"
+              and entry.get("expression") == ".ok()"
+          ]
+          if len(matches) != 1:
+              raise SystemExit(
+                  "expected exactly one planner_page_origin .ok() inventory entry"
+              )
+          entry = matches[0]
+          entry.update(
+              {
+                  "justification": "Failure to parse the authoritative first-present page URL returns no origin; opaque origins are separately rejected by the tuple-origin check.",
+                  "user_visibility": "Malformed or opaque page origins reach the explicit remote_data_opaque_origin_blocked policy path.",
+                  "side_effect_impact": "Parse failure or an opaque origin can only block remote planning; it cannot fall through to a lower-priority URL or authorize network transmission.",
+                  "test_coverage": "Remote-planner privacy/redaction tests, the isolated opaque-origin policy-matrix test, and scanner enforcement.",
+                  "future_replacement": "Use a typed unavailable-origin reason only if the privacy UI requires finer-grained diagnostics.",
+                  "context_before": "let url = url::Url::parse(raw)",
+                  "context_after": "let origin = url.origin();",
+              }
+          )
+          inventory_path.write_text(
+              json.dumps(inventory, indent=2) + "\n", encoding="utf-8"
           )
           PY
 
