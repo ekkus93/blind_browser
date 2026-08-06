@@ -92,6 +92,13 @@ jobs:
       - name: Format Rust source
         run: cargo fmt --manifest-path src-tauri/Cargo.toml
 
+      - name: Show persistent allow fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          nl -ba src-tauri/src/app_core/tests/remote_data_consent_evidence_tests.rs \
+            | sed -n '660,755p'
+
       - name: Run scanners
         run: |
           bash scripts/check-silent-fallbacks.sh
