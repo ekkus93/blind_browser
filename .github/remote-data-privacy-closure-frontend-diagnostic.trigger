@@ -1,1 +1,1 @@
-remote-data-privacy-closure-frontend-diagnostic-v4
+remote-data-privacy-closure-frontend-diagnostic-v5
