@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-          test "$(cat .github/remote-data-privacy-closure-doc-export.trigger)" = "remote-data-privacy-closure-doc-publish-v2"
+          test "$(cat .github/remote-data-privacy-closure-doc-export.trigger)" = "remote-data-privacy-closure-doc-publish-v3"
 
           find .github -maxdepth 1 -type f \
             -name 'remote-data-privacy-closure-docs.patch.gz.b64.part-*' \
@@ -76,6 +76,8 @@ jobs:
           EOF
           sed -i 's/^          //' /tmp/expected-source-paths.txt
           sort -u /tmp/expected-source-paths.txt -o /tmp/expected-source-paths.txt
+          mapfile -t source_paths < /tmp/expected-source-paths.txt
+          git add --intent-to-add -- "${source_paths[@]}"
           git diff --name-only | sort -u > /tmp/actual-source-paths.txt
           diff -u /tmp/expected-source-paths.txt /tmp/actual-source-paths.txt
           test "$(wc -l < /tmp/actual-source-paths.txt)" -eq 18
