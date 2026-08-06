@@ -1,0 +1,158 @@
+name: BBCR-008-012 Compile Gate
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/bbcr-008-012-compile.trigger
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    if: "${{ github.event.head_commit.message == 'ci: trigger BBCR-008-012 compile gate' }}"
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Check out exact trigger SHA
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct and verify bounded patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(cat .github/bbcr-008-012-compile.trigger)" = "bbcr-008-012-compile-v1"
+          find .github -maxdepth 1 -type f \
+            -name 'bbcr-008-012-compile.patch.gz.part-*' \
+            -print | sort > /tmp/patch-parts.txt
+          test "$(wc -l < /tmp/patch-parts.txt)" -eq 5
+          mapfile -t patch_parts < /tmp/patch-parts.txt
+          cat "${patch_parts[@]}" > /tmp/bbcr-008-012-compile.patch.gz
+          echo "0bdb02214a9dd48cdaef170201ccbf1b91d9fe0acf60405a79294ab1762b9b34  /tmp/bbcr-008-012-compile.patch.gz" | sha256sum --check --strict
+          gzip --test /tmp/bbcr-008-012-compile.patch.gz
+          gzip --decompress --stdout /tmp/bbcr-008-012-compile.patch.gz > /tmp/bbcr-008-012-compile.patch
+          echo "c900a9f41c7540fba4255b127c6610c4e02274ed9905e3fd6955a12a8d962ce2  /tmp/bbcr-008-012-compile.patch" | sha256sum --check --strict
+          git apply --check /tmp/bbcr-008-012-compile.patch
+          git apply /tmp/bbcr-008-012-compile.patch
+
+          cat > /tmp/expected-source-paths.txt <<'PATHS'
+          src-tauri/src/app_core/api_key_tools.rs
+          src-tauri/src/app_core/extraction_tools/ocr_tools.rs
+          src-tauri/src/app_core/image_cache.rs
+          src-tauri/src/app_core/mod.rs
+          src-tauri/src/app_core/model_management.rs
+          src-tauri/src/app_core/model_management/download.rs
+          src-tauri/src/app_core/model_management/manifest.rs
+          src-tauri/src/app_core/page_model_builder.rs
+          src-tauri/src/app_core/planner_prompt.rs
+          src-tauri/src/app_core/planner_redaction.rs
+          src-tauri/src/app_core/remote_planner.rs
+          src-tauri/src/app_core/runtime_config.rs
+          src-tauri/src/asr/mod.rs
+          src-tauri/src/asr/remote.rs
+          src-tauri/src/browser/page_inspection.rs
+          src-tauri/src/command_handlers/api_key_handlers.rs
+          src-tauri/src/command_handlers/model_handlers.rs
+          src-tauri/src/commands/contracts/tools.rs
+          src-tauri/src/lib.rs
+          src-tauri/src/ocr.rs
+          src-tauri/src/resource_limits.rs
+          src-tauri/src/tts/mod.rs
+          src-tauri/src/tts/remote.rs
+          PATHS
+          sed -i 's/^          //' /tmp/expected-source-paths.txt
+          sort -u /tmp/expected-source-paths.txt -o /tmp/expected-source-paths.txt
+          mapfile -t source_paths < /tmp/expected-source-paths.txt
+          git add --intent-to-add -- "${source_paths[@]}"
+          git diff --name-only | sort -u > /tmp/actual-source-paths.txt
+          diff -u /tmp/expected-source-paths.txt /tmp/actual-source-paths.txt
+          test "$(wc -l < /tmp/actual-source-paths.txt)" -eq 23
+          git diff --check
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install Ubuntu native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Apply deterministic Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml
+
+      - name: Recheck source inventory and whitespace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only | sort -u > /tmp/actual-source-paths-after-fmt.txt
+          diff -u /tmp/expected-source-paths.txt /tmp/actual-source-paths-after-fmt.txt
+          git diff --check
+
+      - name: Run permanent privacy and fallback scanners
+        run: |
+          bash scripts/check-silent-fallbacks.sh
+          python3 scripts/check-security-fallbacks.py --self-test
+          python3 scripts/check-security-fallbacks.py
+          python3 scripts/check-security-fallback-inventory.py --self-test
+          python3 scripts/check-security-fallback-inventory.py
+          python3 scripts/check-sensitive-diagnostics.py --self-test
+          python3 scripts/check-sensitive-diagnostics.py
+          python3 scripts/check-remote-planner-privacy-state.py --self-test
+          python3 scripts/check-remote-planner-privacy-state.py
+
+      - name: Check default feature configuration
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Run strict Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Run focused budget and planner tests
+        run: |
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features resource_limits::tests
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features remote_planner::tests
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features app_core::tests::planner_tests
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features app_core::model_management::tests
+
+      - name: Export formatted diagnostic patch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --binary > /tmp/bbcr-008-012-formatted.patch
+          sha256sum /tmp/bbcr-008-012-formatted.patch > /tmp/bbcr-008-012-formatted.patch.sha256
+
+      - name: Upload formatted diagnostic patch
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bbcr-008-012-formatted-${{ github.sha }}
+          path: |
+            /tmp/bbcr-008-012-formatted.patch
+            /tmp/bbcr-008-012-formatted.patch.sha256
+          if-no-files-found: error
+          retention-days: 1
