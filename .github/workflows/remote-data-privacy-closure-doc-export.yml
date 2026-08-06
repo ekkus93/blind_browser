@@ -27,12 +27,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Reconstruct and verify bounded patch
+      - name: Reconstruct and verify bounded patches
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-          test "$(cat .github/remote-data-privacy-closure-doc-export.trigger)" = "remote-data-privacy-closure-doc-publish-v3"
+          test "$(cat .github/remote-data-privacy-closure-doc-export.trigger)" = "remote-data-privacy-closure-doc-publish-v4"
 
           find .github -maxdepth 1 -type f \
             -name 'remote-data-privacy-closure-docs.patch.gz.b64.part-*' \
@@ -54,7 +54,25 @@ jobs:
           git apply --check /tmp/remote-data-privacy-closure-docs.patch
           git apply /tmp/remote-data-privacy-closure-docs.patch
 
-          cat > /tmp/expected-source-paths.txt <<'EOF'
+          find .github -maxdepth 1 -type f \
+            -name 'remote-data-privacy-closure-new-files.patch.gz.part-*' \
+            -print | sort > /tmp/new-payload-paths.txt
+          test "$(wc -l < /tmp/new-payload-paths.txt)" -eq 8
+          mapfile -t new_parts < /tmp/new-payload-paths.txt
+          for part in "${new_parts[@]}"; do
+            test -f "${part}"
+            test -s "${part}"
+          done
+
+          cat "${new_parts[@]}" > /tmp/remote-data-privacy-closure-new-files.patch.gz
+          echo "cd136224416eb33c72f5877307a8e2bd5c100b0c05ca9cb4e59434fa99fedbb8  /tmp/remote-data-privacy-closure-new-files.patch.gz" | sha256sum --check --strict
+          gzip --test /tmp/remote-data-privacy-closure-new-files.patch.gz
+          gzip --decompress --stdout /tmp/remote-data-privacy-closure-new-files.patch.gz > /tmp/remote-data-privacy-closure-new-files.patch
+          echo "4326dfdc4f0d27c1181dc8bae34f9b83f733db884571f4e1f7b5a3498f593899  /tmp/remote-data-privacy-closure-new-files.patch" | sha256sum --check --strict
+          git apply --check /tmp/remote-data-privacy-closure-new-files.patch
+          git apply /tmp/remote-data-privacy-closure-new-files.patch
+
+          cat > /tmp/expected-source-paths.txt <<'PATHS'
           docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md
           docs/BLIND_BROWSER_POST_BATCH8_RECONCILIATION_2026-08-02.md
           docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_IMPLEMENTATION_REPORT_2026-08-03.md
@@ -73,7 +91,7 @@ jobs:
           src/settings-panels/planner-privacy-confirmation-interactions.ts
           src/settings-panels/planner-privacy.test.mjs
           src/settings-panels/planner-privacy.tsx
-          EOF
+          PATHS
           sed -i 's/^          //' /tmp/expected-source-paths.txt
           sort -u /tmp/expected-source-paths.txt -o /tmp/expected-source-paths.txt
           mapfile -t source_paths < /tmp/expected-source-paths.txt
@@ -163,17 +181,23 @@ jobs:
 
           mapfile -t source_paths < /tmp/expected-source-paths.txt
           mapfile -t payload_paths < /tmp/payload-paths.txt
+          mapfile -t new_payload_paths < /tmp/new-payload-paths.txt
           test "${#payload_paths[@]}" -eq 14
+          test "${#new_payload_paths[@]}" -eq 8
           git add -- "${source_paths[@]}"
-          git rm -- .github/remote-data-privacy-closure-doc-export.trigger "${payload_paths[@]}"
+          git rm -- \
+            .github/remote-data-privacy-closure-doc-export.trigger \
+            "${payload_paths[@]}" \
+            "${new_payload_paths[@]}"
 
           cat /tmp/expected-source-paths.txt > /tmp/expected-publish-paths.txt
           printf '%s\n' .github/remote-data-privacy-closure-doc-export.trigger >> /tmp/expected-publish-paths.txt
           cat /tmp/payload-paths.txt >> /tmp/expected-publish-paths.txt
+          cat /tmp/new-payload-paths.txt >> /tmp/expected-publish-paths.txt
           sort -u /tmp/expected-publish-paths.txt -o /tmp/expected-publish-paths.txt
           git diff --cached --name-only | sort -u > /tmp/actual-publish-paths.txt
           diff -u /tmp/expected-publish-paths.txt /tmp/actual-publish-paths.txt
-          test "$(wc -l < /tmp/actual-publish-paths.txt)" -eq 33
+          test "$(wc -l < /tmp/actual-publish-paths.txt)" -eq 41
           git diff --cached --check
           test -z "$(git diff --name-only)"
           test -z "$(git status --short --untracked-files=all | grep '^??' || true)"
