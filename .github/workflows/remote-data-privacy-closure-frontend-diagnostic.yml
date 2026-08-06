@@ -8,75 +8,54 @@ on:
       - .github/remote-data-privacy-closure-frontend-diagnostic.trigger
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  wire-validated-frontend-repair:
+  inspect-validated-change-set:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Update bounded publishing workflow
+      - name: Reproduce validated transformation and list changes
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path(".github/workflows/remote-data-privacy-closure-origin-fix.yml")
-          text = path.read_text(encoding="utf-8")
-
-          frontend_anchor = (
-              '          redaction_path = Path("src-tauri/src/app_core/planner_redaction.rs")\n'
+          workflow = Path(
+              ".github/workflows/remote-data-privacy-closure-origin-fix.yml"
+          ).read_text(encoding="utf-8").splitlines()
+          step_name = "      - name: Verify and apply bounded closure source"
+          starts = [index for index, line in enumerate(workflow) if line == step_name]
+          if len(starts) != 1:
+              raise SystemExit("expected exactly one validated transformation step")
+          run_indexes = [
+              index
+              for index in range(starts[0] + 1, len(workflow))
+              if workflow[index] == "        run: |"
+          ]
+          if not run_indexes:
+              raise SystemExit("validated transformation step has no run block")
+          run_index = run_indexes[0]
+          body = []
+          for line in workflow[run_index + 1 :]:
+              if line.startswith("      - name: "):
+                  break
+              if line and not line.startswith("          "):
+                  raise SystemExit(f"unexpected run-block indentation: {line!r}")
+              body.append(line[10:] if line else "")
+          if not body:
+              raise SystemExit("validated transformation run block is empty")
+          Path("/tmp/apply-validated-closure.sh").write_text(
+              "\n".join(body) + "\n", encoding="utf-8"
           )
-          frontend_insert = (
-              '          frontend_path = Path("src/remote-planner-privacy-ui.tsx")\n'
-              '          frontend_text = frontend_path.read_text(encoding="utf-8")\n'
-              '          frontend_anchor = \'} from "react";\\n\\n\'\n'
-              '          frontend_import = (\n'
-              '              \'} from "react";\\n\\n\'\n'
-              '              \'import {\\n\'\n'
-              '              \'  activateConsentDialogFocus,\\n\'\n'
-              '              \'  handleConsentDialogKeyboard,\\n\'\n'
-              '              \'} from "./remote-planner-consent-dialog-interactions.ts";\\n\\n\'\n'
-              '          )\n'
-              '          if frontend_text.count(frontend_anchor) != 1:\n'
-              '              raise SystemExit(\n'
-              '                  "expected exactly one React import boundary for consent helper repair"\n'
-              '              )\n'
-              '          frontend_path.write_text(\n'
-              '              frontend_text.replace(frontend_anchor, frontend_import),\n'
-              '              encoding="utf-8",\n'
-              '          )\n\n'
-              '          redaction_path = Path("src-tauri/src/app_core/planner_redaction.rs")\n'
-          )
-          if text.count(frontend_anchor) != 1:
-              raise SystemExit("expected exactly one frontend transform insertion point")
-          text = text.replace(frontend_anchor, frontend_insert)
-
-          cleanup_anchor = (
-              '            .github/workflows/remote-data-privacy-closure-origin-fix.yml \\\n'
-              '            .github/remote-data-privacy-closure-origin-fix.trigger \\\n'
-          )
-          cleanup_replacement = (
-              '            .github/workflows/remote-data-privacy-closure-origin-fix.yml \\\n'
-              '            .github/remote-data-privacy-closure-origin-fix.trigger \\\n'
-              '            .github/workflows/remote-data-privacy-closure-frontend-diagnostic.yml \\\n'
-              '            .github/remote-data-privacy-closure-frontend-diagnostic.trigger \\\n'
-          )
-          if text.count(cleanup_anchor) != 1:
-              raise SystemExit("expected exactly one bounded cleanup insertion point")
-          text = text.replace(cleanup_anchor, cleanup_replacement)
-
-          path.write_text(text, encoding="utf-8")
           PY
-
-          git config user.name "Phillip Chin"
-          git config user.email "ekkus93@gmail.com"
-          git add .github/workflows/remote-data-privacy-closure-origin-fix.yml
-          git diff --cached --check
-          git commit -m "ci: wire typed frontend closure repair"
-          git push origin HEAD:master
+          bash /tmp/apply-validated-closure.sh
+          echo 'BEGIN validated changed files'
+          git status --short
+          echo 'END validated changed files'
+          echo 'BEGIN validated workflow changes'
+          git diff --name-status -- .github/workflows
+          echo 'END validated workflow changes'
