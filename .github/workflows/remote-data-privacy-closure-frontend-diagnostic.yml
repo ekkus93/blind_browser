@@ -1,0 +1,36 @@
+name: Remote Data Privacy Closure Frontend Diagnostic
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/remote-data-privacy-closure-frontend-diagnostic.trigger
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-generated-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Apply checksum-pinned closure patch and print lint context
+        shell: bash
+        run: |
+          set -euo pipefail
+          parts=(.github/remote-data-privacy-closure-batch1.patch.gz.b64.part-??)
+          test "${#parts[@]}" -eq 6
+          cat "${parts[@]}" > /tmp/closure.patch.gz.b64
+          echo "38fe67435dc1305b2a526d598415e5f25fccc9ba51d1375e07661577d0296a7b  /tmp/closure.patch.gz.b64" | sha256sum -c -
+          base64 --decode /tmp/closure.patch.gz.b64 > /tmp/closure.patch.gz
+          gzip -t /tmp/closure.patch.gz
+          gzip -dc /tmp/closure.patch.gz > /tmp/closure.patch
+          echo "e465efe86d24f1ba26ef359593e5c124afc40ded0f0f17da29af69ff8825399d  /tmp/closure.patch" | sha256sum -c -
+          git apply --check /tmp/closure.patch
+          git apply /tmp/closure.patch
+          echo 'BEGIN generated frontend lint context'
+          nl -ba src/remote-planner-privacy-ui.tsx | sed -n '140,190p'
+          echo 'END generated frontend lint context'
