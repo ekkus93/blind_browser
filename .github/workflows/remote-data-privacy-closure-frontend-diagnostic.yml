@@ -11,13 +11,13 @@ permissions:
   contents: read
 
 jobs:
-  inspect-generated-frontend:
+  validate-generated-frontend:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Apply checksum-pinned closure patch and print helper context
+      - name: Apply checksum-pinned closure patch and typed import repair
         shell: bash
         run: |
           set -euo pipefail
@@ -31,14 +31,39 @@ jobs:
           echo "e465efe86d24f1ba26ef359593e5c124afc40ded0f0f17da29af69ff8825399d  /tmp/closure.patch" | sha256sum -c -
           git apply --check /tmp/closure.patch
           git apply /tmp/closure.patch
-          echo 'BEGIN generated frontend imports'
-          nl -ba src/remote-planner-privacy-ui.tsx | sed -n '1,55p'
-          echo 'END generated frontend imports'
-          echo 'BEGIN interaction helper files'
-          mapfile -t helper_files < <(grep -R -l -E 'activateConsentDialogFocus|handleConsentDialogKeyboard' src tests 2>/dev/null | sort -u)
-          test "${#helper_files[@]}" -gt 0
-          for helper_file in "${helper_files[@]}"; do
-            echo "--- ${helper_file}"
-            nl -ba "${helper_file}"
-          done
-          echo 'END interaction helper files'
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/remote-planner-privacy-ui.tsx")
+          text = path.read_text(encoding="utf-8")
+          anchor = '} from "react";\n\n'
+          replacement = '''} from "react";
+
+import {
+  activateConsentDialogFocus,
+  handleConsentDialogKeyboard,
+} from "./remote-planner-consent-dialog-interactions.ts";
+
+'''
+          if text.count(anchor) != 1:
+              raise SystemExit("expected exactly one React import boundary")
+          path.write_text(text.replace(anchor, replacement), encoding="utf-8")
+          PY
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate frontend
+        run: |
+          pnpm lint
+          pnpm test:ui
+          pnpm build
