@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-          test "$(cat .github/bbcr-008-012-compile.trigger)" = "bbcr-008-012-compile-v1"
+          test "$(cat .github/bbcr-008-012-compile.trigger)" = "bbcr-008-012-compile-v2"
           find .github -maxdepth 1 -type f \
             -name 'bbcr-008-012-compile.patch.gz.part-*' \
             -print | sort > /tmp/patch-parts.txt
@@ -41,6 +41,13 @@ jobs:
           echo "c900a9f41c7540fba4255b127c6610c4e02274ed9905e3fd6955a12a8d962ce2  /tmp/bbcr-008-012-compile.patch" | sha256sum --check --strict
           git apply --check /tmp/bbcr-008-012-compile.patch
           git apply /tmp/bbcr-008-012-compile.patch
+
+          test -f .github/bbcr-008-012-resource-limits.rs.gz
+          echo "21e9bc79ba4f461d23f4d003cc15c640e9f76f76bfc1da1aad5f786a56593c9a  .github/bbcr-008-012-resource-limits.rs.gz" | sha256sum --check --strict
+          gzip --test .github/bbcr-008-012-resource-limits.rs.gz
+          test ! -e src-tauri/src/resource_limits.rs
+          gzip --decompress --stdout .github/bbcr-008-012-resource-limits.rs.gz > src-tauri/src/resource_limits.rs
+          echo "1d2757b7ad8ba52bc95dcd0e359333e0dd97a994da2950fb6e1bd919a7e7d107  src-tauri/src/resource_limits.rs" | sha256sum --check --strict
 
           cat > /tmp/expected-source-paths.txt <<'PATHS'
           src-tauri/src/app_core/api_key_tools.rs
