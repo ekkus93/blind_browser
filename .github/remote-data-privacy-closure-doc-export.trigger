@@ -1,1 +1,1 @@
-remote-data-privacy-closure-doc-export-v1
+remote-data-privacy-closure-doc-publish-v1
