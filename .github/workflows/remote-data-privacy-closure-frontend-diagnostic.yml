@@ -17,7 +17,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Apply checksum-pinned closure patch and print lint context
+      - name: Apply checksum-pinned closure patch and print helper context
         shell: bash
         run: |
           set -euo pipefail
@@ -31,6 +31,14 @@ jobs:
           echo "e465efe86d24f1ba26ef359593e5c124afc40ded0f0f17da29af69ff8825399d  /tmp/closure.patch" | sha256sum -c -
           git apply --check /tmp/closure.patch
           git apply /tmp/closure.patch
-          echo 'BEGIN generated frontend lint context'
-          nl -ba src/remote-planner-privacy-ui.tsx | sed -n '140,190p'
-          echo 'END generated frontend lint context'
+          echo 'BEGIN generated frontend imports'
+          nl -ba src/remote-planner-privacy-ui.tsx | sed -n '1,55p'
+          echo 'END generated frontend imports'
+          echo 'BEGIN interaction helper files'
+          mapfile -t helper_files < <(grep -R -l -E 'activateConsentDialogFocus|handleConsentDialogKeyboard' src tests 2>/dev/null | sort -u)
+          test "${#helper_files[@]}" -gt 0
+          for helper_file in "${helper_files[@]}"; do
+            echo "--- ${helper_file}"
+            nl -ba "${helper_file}"
+          done
+          echo 'END interaction helper files'
