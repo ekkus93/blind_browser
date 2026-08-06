@@ -1,1 +1,1 @@
-remote-data-privacy-closure-batch-one-v5
+remote-data-privacy-closure-batch-one-v6
