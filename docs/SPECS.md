@@ -3389,3 +3389,32 @@ src/
   state/
   logging/
   ui_bridge/
+
+
+## Remote Planner Data-Transmission Privacy Boundary (2026-08-05)
+
+### Authority and precedence
+
+Rust is the sole authority for non-loopback planner transmission. The evaluator applies loopback, local-only, opaque-origin, current high-risk, persistent block, matching session grant, exact persistent allow, broad sanitized-network mode, and consent-required precedence in that order. Malformed, stale, conflicting, unsupported-version, or missing state cannot authorize.
+
+### Prepared-request boundary
+
+`planner_redaction` creates a bounded sanitized `PlannerInput`; disclosure categories/counts and a payload digest derive from that sanitized form. `remote_planner` can send only an authorized `PreparedRemotePlannerRequest`. Public first-party APIs do not accept raw planner input and perform network I/O. Endpoint scope and credential use remain destination-bound, redirects remain refused, and network wait occurs outside the `AppCore` lock.
+
+### Consent transaction
+
+One runtime-only pending transaction owns the sanitized input, planning snapshot, canonical challenge manifest, expiry, and continuation. A new transaction replaces the old one. The manifest digest binds request/page identity and generation, normalized origin, endpoint scheme/host/effective port/path, profile/model, policy version, disclosure metadata, sanitized payload digest, relevant runtime token, and expiry. Response handling validates current destination, privacy/safety state, and current high-risk classification, then atomically consumes pending state before any persistent write or network operation.
+
+### Persistent and ephemeral state
+
+One-shot and session grants and pending transactions are runtime-only. Persistent blocks are origin-wide. Persistent allows bind normalized origin, exact destination, and policy version. Persistent authorization is installed only after durable write succeeds; persistence failure cannot fall back to a weaker grant.
+
+### Frontend boundary
+
+The frontend projects only approved public status/challenge metadata. It may submit typed operations or a challenge-bound decision, but cannot construct authorization or select an allow destination. Authoritative backend rejection clears stale controls and refreshes status; transport failure remains explicit and retryable. Transmission consent never substitutes for protected-action confirmation.
+
+### Diagnostics and enforcement
+
+Raw transcript/page/OCR/tool/skill/credential content and sanitized pending payloads are prohibited from ambient state, persistence, logs, errors, and operation diagnostics. `scripts/check-remote-planner-privacy-state.py` and the permanent fallback/diagnostic scanners enforce the reviewed contract in `.github/workflows/ci.yml`.
+
+Detailed user behavior, threat analysis, item reconciliation, and closure evidence are in `docs/REMOTE_PLANNER_PRIVACY.md`, `docs/BLIND_BROWSER_REMOTE_DATA_PRIVACY_THREAT_MODEL_2026-08-05.md`, `docs/BLIND_BROWSER_REMOTE_DATA_PRIVACY_MILESTONE_RECONCILIATION_2026-08-05.md`, and `docs/BLIND_BROWSER_REMOTE_DATA_PRIVACY_MILESTONE_CLOSURE_REPORT_2026-08-05.md`.

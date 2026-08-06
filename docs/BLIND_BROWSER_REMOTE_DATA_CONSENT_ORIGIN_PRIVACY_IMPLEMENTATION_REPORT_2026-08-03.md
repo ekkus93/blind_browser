@@ -166,3 +166,23 @@ Stage 2B should proceed in this order:
 ## Bounded statement
 
 Stage 1 and Stage 2A are complete under their bounded definitions after the reconciliation cleanup. The full remote-data-consent/origin-privacy milestone and broader BBCR program remain open.
+
+
+---
+
+## Final milestone closure addendum — 2026-08-05
+
+The preceding “Still open” and “Next stage” sections are retained as historical statements about the Stage 2A source/run. They are not the current milestone status.
+
+The later closure implementation at `0beb531f963297bf0e29c559141b520ba221823c` added the missing request-count, challenge mutation, replay/concurrency, current high-risk revalidation, persistence failure, reconstruction, hostile-state, ambient-state privacy, frontend stale-dialog, interaction, and permanent-scanner evidence. Permanent CI run `31070751355`, job `92518011921`, succeeded on that exact implementation SHA.
+
+The final documentation/test reconciliation adds exhaustive effective-status rendering, explicit decision-scope/wiring evidence, a pre-rerender consent submission gate, settings confirmation focus/keyboard tests, user privacy guidance, maintainer architecture, a threat model, and item-by-item predecessor classification.
+
+Current authoritative records:
+
+- `docs/BLIND_BROWSER_REMOTE_DATA_PRIVACY_MILESTONE_CLOSURE_REPORT_2026-08-05.md`;
+- `docs/BLIND_BROWSER_REMOTE_DATA_PRIVACY_MILESTONE_RECONCILIATION_2026-08-05.md`;
+- `docs/REMOTE_PLANNER_PRIVACY.md`; and
+- `docs/BLIND_BROWSER_REMOTE_DATA_PRIVACY_THREAT_MODEL_2026-08-05.md`.
+
+This addendum closes only the current first-party remote-data consent/origin-privacy milestone. The broader BBCR remediation program and general release-readiness work remain open.

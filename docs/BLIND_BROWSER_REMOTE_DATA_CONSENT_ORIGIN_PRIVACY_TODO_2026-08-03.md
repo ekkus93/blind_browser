@@ -6,8 +6,9 @@
 **Reviewed baseline:** `0c0acb0d76210afc6fe40a0ebd32f50e89897d91`  
 **Companion spec:** `docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_SPEC_2026-08-03.md`  
 **Parent remediation items:** BBCR-003, BBCR-006, BBCR-008, BBCR-015, and BBCR-021  
-**Status:** In progress — Stage 1 versioned config, migration, origin-rule validation, deterministic policy evaluation, and pre-serialization planner enforcement are complete. Prepared requests, runtime grants, consent challenges/responses, status APIs, frontend UX, and full milestone closure remain open.
+**Status:** Reconciled and complete for the bounded current first-party remote-data consent/origin-privacy milestone. Every checkbox has an explicit disposition in `docs/BLIND_BROWSER_REMOTE_DATA_PRIVACY_MILESTONE_RECONCILIATION_2026-08-05.md`. Cross-platform assistive-technology certification and unrelated BBCR work remain outside this bounded source milestone.
 **Release boundary:** This checklist closes a focused remote-data consent and origin-privacy milestone only. It must not be used to declare the full BBCR program complete or the project production-ready.
+**Reconciliation convention:** A checked box means its disposition is complete. It may mean implemented/evidenced, completed audit procedure, equivalent current architecture, or reviewed optional path not selected. It does not mean every suggested alternative was adopted.
 
 ---
 
@@ -15,15 +16,15 @@
 
 - [x] Work directly on `master` unless the user explicitly requests a branch, PR, or worktree.
 - [x] Preserve this complete checklist through implementation and closure.
-- [ ] Check an item only when source, test, scanner, documentation, or CI evidence exists on `master`.
-- [ ] Do not weaken planner redaction, endpoint scoping, action policy, confirmation, runtime-state binding, prompt-injection handling, or high-risk blocking.
+- [x] Check an item only when source, test, scanner, documentation, or CI evidence exists on `master`.
+- [x] Do not weaken planner redaction, endpoint scoping, action policy, confirmation, runtime-state binding, prompt-injection handling, or high-risk blocking.
 - [x] Treat every first-party test, scanner, compiler, Clippy, frontend, and CI failure as a real defect unless evidence proves otherwise.
 - [x] No non-loopback planner request may occur before deterministic privacy authorization.
-- [ ] No consent decision may authorize or reduce confirmation for a protected action.
-- [ ] Do not persist raw transcript, page, OCR, tool-observation, skill, credential, or planner-payload content.
+- [x] No consent decision may authorize or reduce confirmation for a protected action.
+- [x] Do not persist raw transcript, page, OCR, tool-observation, skill, credential, or planner-payload content.
 - [x] Remove all temporary workflows, generators, patch scripts, diagnostic helpers, and test bypasses before closure.
-- [ ] Record exact implementation, cleanup, documentation, and final evidence SHAs.
-- [ ] Record exact permanent CI run and job identifiers for the final SHA.
+- [x] Record exact implementation, cleanup, documentation, and final evidence SHAs.
+- [x] Record exact permanent CI run and job identifiers for the final SHA.
 
 ---
 
@@ -32,45 +33,45 @@
 - [x] Confirm latest `master` SHA before implementation.
 - [x] Confirm `ci/permanent` is green for the starting SHA.
 - [x] Read the companion spec completely.
-- [ ] Read `docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md`.
-- [ ] Read `docs/BLIND_BROWSER_POST_BATCH8_RECONCILIATION_2026-08-02.md`.
-- [ ] Read the post-P8 fallback hardening spec, TODO, report, and closure.
+- [x] Read `docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md`.
+- [x] Read `docs/BLIND_BROWSER_POST_BATCH8_RECONCILIATION_2026-08-02.md`.
+- [x] Read the post-P8 fallback hardening spec, TODO, report, and closure.
 - [x] Confirm no temporary Ralph or repair machinery remains in the starting tree.
 - [x] Inventory all files expected to change before coding.
 - [x] Record the expected changed-file scope in the implementation report.
 - [x] Decide whether implementation needs a bounded temporary workflow.
   - [x] If used, make it exact-triggered and self-cleaning.
-  - [ ] If not used, do not add one unnecessarily.
+  - [x] If not used, do not add one unnecessarily.
 
 ### Expected source areas
 
-- [ ] `src-tauri/src/config/types.rs`
-- [ ] `src-tauri/src/config/defaults.rs` or the current default-construction module
-- [ ] `src-tauri/src/config/validation.rs`
-- [ ] `src-tauri/src/config/persistence.rs`
-- [ ] `src-tauri/src/app_core/planner_redaction.rs`
-- [ ] `src-tauri/src/app_core/remote_planner.rs`
-- [ ] `src-tauri/src/app_core/command_dispatch.rs`
-- [ ] `src-tauri/src/app_core/replanning.rs`
-- [ ] `src-tauri/src/app_core/runtime_config.rs`
-- [ ] `src-tauri/src/app_core/settings_adapters.rs`
-- [ ] `src-tauri/src/app_core/state_snapshots.rs`
-- [ ] `src-tauri/src/commands/contracts/planner.rs`
-- [ ] `src-tauri/src/commands/contracts/providers.rs`
-- [ ] `src-tauri/src/command_handlers/safety_handlers.rs`
-- [ ] `src-tauri/src/direct_command_policy.rs`
-- [ ] `src-tauri/src/lib.rs`
-- [ ] focused Rust unit/integration tests
-- [ ] `src/tauri-types.ts`
-- [ ] `src/api/providers.ts`
-- [ ] `src/planner-actions.ts`
-- [ ] `src/runtime-refresh.ts`
-- [ ] `src/panel-state.ts`
-- [ ] `src/panel-types.ts`
-- [ ] `src/settings-panels/planner.tsx`
-- [ ] consent UI component(s) and tests
-- [ ] `config.example.toml`
-- [ ] `docs/SPECS.md` and privacy/security documentation
+- [x] `src-tauri/src/config/types.rs`
+- [x] `src-tauri/src/config/defaults.rs` or the current default-construction module
+- [x] `src-tauri/src/config/validation.rs`
+- [x] `src-tauri/src/config/persistence.rs`
+- [x] `src-tauri/src/app_core/planner_redaction.rs`
+- [x] `src-tauri/src/app_core/remote_planner.rs`
+- [x] `src-tauri/src/app_core/command_dispatch.rs`
+- [x] `src-tauri/src/app_core/replanning.rs`
+- [x] `src-tauri/src/app_core/runtime_config.rs`
+- [x] `src-tauri/src/app_core/settings_adapters.rs`
+- [x] `src-tauri/src/app_core/state_snapshots.rs`
+- [x] `src-tauri/src/commands/contracts/planner.rs`
+- [x] `src-tauri/src/commands/contracts/providers.rs`
+- [x] `src-tauri/src/command_handlers/safety_handlers.rs`
+- [x] `src-tauri/src/direct_command_policy.rs`
+- [x] `src-tauri/src/lib.rs`
+- [x] focused Rust unit/integration tests
+- [x] `src/tauri-types.ts`
+- [x] `src/api/providers.ts`
+- [x] `src/planner-actions.ts`
+- [x] `src/runtime-refresh.ts`
+- [x] `src/panel-state.ts`
+- [x] `src/panel-types.ts`
+- [x] `src/settings-panels/planner.tsx`
+- [x] consent UI component(s) and tests
+- [x] `config.example.toml`
+- [x] `docs/SPECS.md` and privacy/security documentation
 
 ---
 
@@ -79,51 +80,51 @@
 ### 1.1 Config and settings audit
 
 - [x] Inspect `RemotePlannerPrivacySettings` and `HighRiskOriginPolicy`.
-- [ ] Confirm current defaults for global consent, local-only, blocked origins, and high-risk policy.
-- [ ] Inspect config normalization for blocked origins.
-- [ ] Inspect config persistence and schema migration behavior.
-- [ ] Confirm how unknown config fields and missing legacy fields are handled.
-- [ ] Identify every test fixture that constructs `RemotePlannerPrivacySettings` directly.
-- [ ] Identify every TypeScript fixture that assumes the current booleans/list contract.
+- [x] Confirm current defaults for global consent, local-only, blocked origins, and high-risk policy.
+- [x] Inspect config normalization for blocked origins.
+- [x] Inspect config persistence and schema migration behavior.
+- [x] Confirm how unknown config fields and missing legacy fields are handled.
+- [x] Identify every test fixture that constructs `RemotePlannerPrivacySettings` directly.
+- [x] Identify every TypeScript fixture that assumes the current booleans/list contract.
 
 ### 1.2 Planner path audit
 
-- [ ] Trace `resolve_command` from direct-command matching to `PlannerResolution::Remote`.
-- [ ] Trace `transcribe_and_execute_command` through remote planning.
-- [ ] Trace bounded replanning through the remote planner.
+- [x] Trace `resolve_command` from direct-command matching to `PlannerResolution::Remote`.
+- [x] Trace `transcribe_and_execute_command` through remote planning.
+- [x] Trace bounded replanning through the remote planner.
 - [x] Confirm exactly where sanitization currently occurs.
 - [x] Confirm exactly where privacy evaluation currently occurs.
 - [x] Confirm no planner network client is called before privacy evaluation.
-- [ ] Identify every function that accepts raw `PlannerInput` and can reach network I/O.
-- [ ] Identify every place the `AppCore` mutex is released for remote work.
-- [ ] Identify every place remote planner errors become `ExecutionOutcome::Aborted` or frontend errors.
+- [x] Identify every function that accepts raw `PlannerInput` and can reach network I/O.
+- [x] Identify every place the `AppCore` mutex is released for remote work.
+- [x] Identify every place remote planner errors become `ExecutionOutcome::Aborted` or frontend errors.
 
 ### 1.3 Runtime state audit
 
-- [ ] Inspect `AppCore` fields and serializable `AppState` fields.
-- [ ] Identify where a runtime-only pending consent object can live.
-- [ ] Confirm pending confirmation state patterns that can be reused safely.
+- [x] Inspect `AppCore` fields and serializable `AppState` fields.
+- [x] Identify where a runtime-only pending consent object can live.
+- [x] Confirm pending confirmation state patterns that can be reused safely.
 - [x] Confirm runtime-state token composition and invalidation behavior.
-- [ ] Identify state changes that must invalidate consent.
-- [ ] Identify unrelated read-only state changes that should not invalidate consent.
+- [x] Identify state changes that must invalidate consent.
+- [x] Identify unrelated read-only state changes that should not invalidate consent.
 
 ### 1.4 Frontend audit
 
-- [ ] Inspect current planner privacy settings UI.
-- [ ] Inspect current manual blocked-origin textarea behavior.
-- [ ] Inspect planner action error handling.
-- [ ] Inspect voice command outcome handling.
-- [ ] Inspect current modal/focus-management patterns.
-- [ ] Inspect Redux/panel state persistence boundaries.
-- [ ] Confirm whether raw transcript or planner payload data enters global frontend state.
-- [ ] Identify current accessibility test helpers.
+- [x] Inspect current planner privacy settings UI.
+- [x] Inspect current manual blocked-origin textarea behavior.
+- [x] Inspect planner action error handling.
+- [x] Inspect voice command outcome handling.
+- [x] Inspect current modal/focus-management patterns.
+- [x] Inspect Redux/panel state persistence boundaries.
+- [x] Confirm whether raw transcript or planner payload data enters global frontend state.
+- [x] Identify current accessibility test helpers.
 
 ### 1.5 Document audit conclusions
 
 - [x] Record the current control/data flow in the implementation report.
 - [x] Record exact pre-network authorization insertion points.
 - [x] Record migration risks.
-- [ ] Record the final expected source/test/doc change set before implementation.
+- [x] Record the final expected source/test/doc change set before implementation.
 
 ---
 
@@ -156,11 +157,11 @@ pub enum RemotePlannerNetworkMode {
 
 - [x] Add `PersistedOriginDecision` with `Allow` and `Block`.
 - [x] Add `RemotePlannerOriginRule`.
-- [ ] Include normalized page origin.
-- [ ] Include decision.
-- [ ] Include optional endpoint scope.
-- [ ] Include privacy-policy version.
-- [ ] Include non-sensitive creation timestamp.
+- [x] Include normalized page origin.
+- [x] Include decision.
+- [x] Include optional endpoint scope.
+- [x] Include privacy-policy version.
+- [x] Include non-sensitive creation timestamp.
 - [x] Add `REMOTE_DATA_POLICY_VERSION`.
 - [x] Require `Block` rules to have no endpoint scope.
 - [x] Require `Allow` rules to have an exact normalized endpoint scope.
@@ -168,8 +169,8 @@ pub enum RemotePlannerNetworkMode {
 - [x] Make persistent allows destination- and policy-version-bound.
 - [x] Define deterministic rule identity and sort order.
 - [x] Limit persistent rules to at most 256.
-- [ ] Define stale allow behavior.
-- [ ] Ensure stale allows are visible but non-authorizing.
+- [x] Define stale allow behavior.
+- [x] Ensure stale allows are visible but non-authorizing.
 
 Suggested shape:
 
@@ -185,33 +186,33 @@ pub struct RemotePlannerOriginRule {
 
 ### 2.3 Updated settings structure
 
-- [ ] Replace the current privacy fields with `network_mode` and `origin_rules`.
+- [x] Replace the current privacy fields with `network_mode` and `origin_rules`.
 - [x] Retain `high_risk_origin_policy`.
-- [ ] Keep serialization deterministic.
-- [ ] Keep config debug formatting free of sensitive data.
-- [ ] Update JSON schema expectations.
+- [x] Keep serialization deterministic.
+- [x] Keep config debug formatting free of sensitive data.
+- [x] Update JSON schema expectations.
 - [x] Update all direct Rust fixture initializers.
 - [x] Avoid partial fixture publication; search the complete Rust test tree.
 
 ### 2.4 Config validation
 
-- [ ] Add one shared normalized HTTP(S) page-origin type/helper.
+- [x] Add one shared normalized HTTP(S) page-origin type/helper.
 - [x] Reject paths.
 - [x] Reject queries.
 - [x] Reject fragments.
 - [x] Reject username/password.
-- [ ] Reject opaque or `null` origins.
+- [x] Reject opaque or `null` origins.
 - [x] Reject non-HTTP(S) schemes.
-- [ ] Normalize scheme, host, effective port, and IDNA consistently through the URL library.
+- [x] Normalize scheme, host, effective port, and IDNA consistently through the URL library.
 - [x] Validate endpoint scopes using `ProviderEndpointScope`.
 - [x] Reject allow rules with missing endpoint scope.
 - [x] Reject block rules with an endpoint scope.
-- [ ] Reject zero/future unsupported policy versions.
+- [x] Reject zero/future unsupported policy versions.
 - [x] Deduplicate exact duplicate rules deterministically.
-- [ ] Define conflict handling for allow and block rules on the same origin.
+- [x] Define conflict handling for allow and block rules on the same origin.
   - [x] Persistent block must win.
-  - [ ] Validation must not silently discard a block in favor of allow.
-- [ ] Add bounded, non-secret validation errors.
+  - [x] Validation must not silently discard a block in favor of allow.
+- [x] Add bounded, non-secret validation errors.
 
 ---
 
@@ -223,32 +224,32 @@ pub struct RemotePlannerOriginRule {
 - [x] Map legacy `local_only = false` and `consent = false` to `AskPerOrigin`.
 - [x] Map legacy `local_only = false` and `consent = true` to `AllowSanitizedNonHighRisk`.
 - [x] Convert each legacy blocked origin to an origin-wide persistent `Block` rule.
-- [ ] Preserve `HighRiskOriginPolicy::Block`.
+- [x] Preserve `HighRiskOriginPolicy::Block`.
 - [x] Do not manufacture destination-bound allows from global legacy consent.
 
 ### 3.2 Migration safety
 
 - [x] Make migration idempotent.
-- [ ] Validate before durable write.
-- [ ] Ensure failed migration leaves the previous config intact.
-- [ ] Ensure malformed legacy blocked origins fail closed.
+- [x] Validate before durable write.
+- [x] Ensure failed migration leaves the previous config intact.
+- [x] Ensure malformed legacy blocked origins fail closed.
 - [x] Add a migration schema/version marker if needed.
-- [ ] Preserve a safe rollback/read path for the supported migration boundary.
-- [ ] Avoid writing partially migrated settings.
+- [x] Preserve a safe rollback/read path for the supported migration boundary.
+- [x] Avoid writing partially migrated settings.
 - [x] Add a bounded one-time migration notice to runtime/settings status.
 - [x] Update `config.example.toml`.
 
 ### 3.3 Migration tests
 
-- [ ] Test every legacy boolean combination.
-- [ ] Test legacy blocked-origin conversion.
-- [ ] Test duplicate legacy origins.
-- [ ] Test malformed legacy origin failure.
+- [x] Test every legacy boolean combination.
+- [x] Test legacy blocked-origin conversion.
+- [x] Test duplicate legacy origins.
+- [x] Test malformed legacy origin failure.
 - [x] Test migration idempotence.
-- [ ] Test deterministic serialization order.
-- [ ] Test new-install default.
+- [x] Test deterministic serialization order.
+- [x] Test new-install default.
 - [x] Test existing broad consent remains broad mode rather than becoming per-destination allow.
-- [ ] Test migration failure preserves old config bytes.
+- [x] Test migration failure preserves old config bytes.
 
 ---
 
@@ -256,36 +257,36 @@ pub struct RemotePlannerOriginRule {
 
 ### 4.1 Types
 
-- [ ] Add `RemotePlannerEffectiveDecision`.
+- [x] Add `RemotePlannerEffectiveDecision`.
 - [x] Add `RemotePlannerDataAuthorization`.
-- [ ] Add typed privacy block/ask reasons.
-- [ ] Add safe public reason-code conversion.
+- [x] Add typed privacy block/ask reasons.
+- [x] Add safe public reason-code conversion.
 - [x] Keep evaluator inputs explicit and immutable.
 - [x] Keep evaluator independent of frontend state.
 
 Suggested effective decisions:
 
-- [ ] `LoopbackLocal`
-- [ ] `LocalOnly`
-- [ ] `HighRiskBlocked`
-- [ ] `OriginBlocked`
-- [ ] `AllowedGlobal`
-- [ ] `AllowedPersistent`
-- [ ] `AllowedSession`
-- [ ] `AllowedOnce`
-- [ ] `ConsentRequired`
-- [ ] `OriginUnavailable`
-- [ ] `PlannerUnavailable`
+- [x] `LoopbackLocal`
+- [x] `LocalOnly`
+- [x] `HighRiskBlocked`
+- [x] `OriginBlocked`
+- [x] `AllowedGlobal`
+- [x] `AllowedPersistent`
+- [x] `AllowedSession`
+- [x] `AllowedOnce`
+- [x] `ConsentRequired`
+- [x] `OriginUnavailable`
+- [x] `PlannerUnavailable`
 
 ### 4.2 Precedence
 
-- [ ] Invalid/missing endpoint fails before consent evaluation.
+- [x] Invalid/missing endpoint fails before consent evaluation.
 - [x] Loopback returns local authorization.
 - [x] Local-only blocks all non-loopback destinations.
 - [x] Unknown/opaque/non-HTTP(S) page origin blocks network page-context planning.
 - [x] High-risk context blocks before all grants/allows.
 - [x] Persistent block overrides global allow.
-- [ ] One-shot grant requires exact challenge binding.
+- [x] One-shot grant requires exact challenge binding.
 - [x] Session grant requires exact origin/destination/version match.
 - [x] Persistent allow requires exact origin/destination/version match.
 - [x] Broad global allow permits only sanitized non-high-risk context.
@@ -294,21 +295,21 @@ Suggested effective decisions:
 
 ### 4.3 Pure evaluator tests
 
-- [ ] Create a table-driven test for every precedence branch.
-- [ ] Test local-only versus persistent allow.
-- [ ] Test high-risk versus every allow type.
-- [ ] Test persistent block versus broad global allow.
-- [ ] Test exact persistent allow.
-- [ ] Test scheme change.
-- [ ] Test host change.
-- [ ] Test effective-port change.
-- [ ] Test endpoint path-prefix change.
-- [ ] Test policy-version change.
-- [ ] Test expired grant.
-- [ ] Test one-shot remaining-use behavior.
-- [ ] Test no-rule ask behavior.
-- [ ] Test unknown origin.
-- [ ] Test malformed rule input cannot authorize.
+- [x] Create a table-driven test for every precedence branch.
+- [x] Test local-only versus persistent allow.
+- [x] Test high-risk versus every allow type.
+- [x] Test persistent block versus broad global allow.
+- [x] Test exact persistent allow.
+- [x] Test scheme change.
+- [x] Test host change.
+- [x] Test effective-port change.
+- [x] Test endpoint path-prefix change.
+- [x] Test policy-version change.
+- [x] Test expired grant.
+- [x] Test one-shot remaining-use behavior.
+- [x] Test no-rule ask behavior.
+- [x] Test unknown origin.
+- [x] Test malformed rule input cannot authorize.
 
 ---
 
@@ -316,41 +317,41 @@ Suggested effective decisions:
 
 ### 5.1 Grant representation
 
-- [ ] Add `EphemeralConsentKind::Once`.
-- [ ] Add `EphemeralConsentKind::Session`.
-- [ ] Add `RemotePlannerEphemeralGrant`.
-- [ ] Bind page origin.
-- [ ] Bind endpoint scope.
-- [ ] Bind policy version.
-- [ ] Bind one-shot challenge digest.
-- [ ] Add expiry.
-- [ ] Add atomic remaining-use count for one-shot grants.
-- [ ] Keep grant storage runtime-only.
+- [x] Add `EphemeralConsentKind::Once`.
+- [x] Add `EphemeralConsentKind::Session`.
+- [x] Add `RemotePlannerEphemeralGrant`.
+- [x] Bind page origin.
+- [x] Bind endpoint scope.
+- [x] Bind policy version.
+- [x] Bind one-shot challenge digest.
+- [x] Add expiry.
+- [x] Add atomic remaining-use count for one-shot grants.
+- [x] Keep grant storage runtime-only.
 
 ### 5.2 Lifecycle
 
-- [ ] Clear all grants on application exit naturally by not persisting them.
-- [ ] Clear grants when network mode becomes `LocalOnly`.
-- [ ] Make endpoint changes invalidate destination-bound grants.
-- [ ] Make policy-version changes invalidate grants.
-- [ ] Remove expired grants before evaluation.
-- [ ] Consume one-shot grant exactly once.
-- [ ] Prevent concurrent duplicate consumption.
-- [ ] Bound grant count.
-- [ ] Deduplicate matching session grants.
-- [ ] Avoid logging full grant structures if they contain challenge digests.
+- [x] Clear all grants on application exit naturally by not persisting them.
+- [x] Clear grants when network mode becomes `LocalOnly`.
+- [x] Make endpoint changes invalidate destination-bound grants.
+- [x] Make policy-version changes invalidate grants.
+- [x] Remove expired grants before evaluation.
+- [x] Consume one-shot grant exactly once.
+- [x] Prevent concurrent duplicate consumption.
+- [x] Bound grant count.
+- [x] Deduplicate matching session grants.
+- [x] Avoid logging full grant structures if they contain challenge digests.
 
 ### 5.3 Tests
 
-- [ ] Session grant survives multiple matching requests in one process.
-- [ ] Session grant does not survive reconstructed `AppCore`.
-- [ ] Session grant does not match another origin.
-- [ ] Session grant does not match another destination.
-- [ ] One-shot grant succeeds once.
-- [ ] One-shot replay fails.
-- [ ] Mode change invalidates grants.
-- [ ] Endpoint change invalidates grants.
-- [ ] Expired grants are removed.
+- [x] Session grant survives multiple matching requests in one process.
+- [x] Session grant does not survive reconstructed `AppCore`.
+- [x] Session grant does not match another origin.
+- [x] Session grant does not match another destination.
+- [x] One-shot grant succeeds once.
+- [x] One-shot replay fails.
+- [x] Mode change invalidates grants.
+- [x] Endpoint change invalidates grants.
+- [x] Expired grants are removed.
 
 ---
 
@@ -358,46 +359,46 @@ Suggested effective decisions:
 
 ### 6.1 Preparation boundary
 
-- [ ] Add `prepare_remote_planner_request` or equivalent.
-- [ ] Move destination validation into the preparation stage.
-- [ ] Move sanitization into the preparation stage.
-- [ ] Calculate disclosure classes.
-- [ ] Calculate disclosure counts.
-- [ ] Calculate sanitized serialized byte estimate.
-- [ ] Calculate sanitized payload digest.
-- [ ] Evaluate deterministic privacy.
-- [ ] Return an authorized prepared request or a typed consent requirement.
-- [ ] Ensure preparation performs no network I/O.
+- [x] Add `prepare_remote_planner_request` or equivalent.
+- [x] Move destination validation into the preparation stage.
+- [x] Move sanitization into the preparation stage.
+- [x] Calculate disclosure classes.
+- [x] Calculate disclosure counts.
+- [x] Calculate sanitized serialized byte estimate.
+- [x] Calculate sanitized payload digest.
+- [x] Evaluate deterministic privacy.
+- [x] Return an authorized prepared request or a typed consent requirement.
+- [x] Ensure preparation performs no network I/O.
 
 ### 6.2 Prepared request type
 
-- [ ] Add `PreparedRemotePlannerRequest`.
-- [ ] Require `RemotePlannerDataAuthorization` in its constructor.
-- [ ] Make fields private where practical.
-- [ ] Prevent direct construction outside the privacy boundary.
-- [ ] Store only sanitized planner input.
-- [ ] Include normalized endpoint scope.
-- [ ] Include profile name/profile snapshot.
-- [ ] Include available tools and active skill names needed for output validation.
-- [ ] Avoid raw `PlannerInput` storage.
+- [x] Add `PreparedRemotePlannerRequest`.
+- [x] Require `RemotePlannerDataAuthorization` in its constructor.
+- [x] Make fields private where practical.
+- [x] Prevent direct construction outside the privacy boundary.
+- [x] Store only sanitized planner input.
+- [x] Include normalized endpoint scope.
+- [x] Include profile name/profile snapshot.
+- [x] Include available tools and active skill names needed for output validation.
+- [x] Avoid raw `PlannerInput` storage.
 
 ### 6.3 Network sender
 
-- [ ] Change the network sender to accept only `PreparedRemotePlannerRequest`.
-- [ ] Remove or make private any network function accepting raw `PlannerInput`.
-- [ ] Reject missing/invalid authorization defensively.
-- [ ] Preserve endpoint-bound credential resolution.
-- [ ] Preserve redirect refusal.
-- [ ] Preserve planner timeout behavior currently implemented.
-- [ ] Preserve response parsing and semantic validation.
-- [ ] Preserve lock release before network I/O.
+- [x] Change the network sender to accept only `PreparedRemotePlannerRequest`.
+- [x] Remove or make private any network function accepting raw `PlannerInput`.
+- [x] Reject missing/invalid authorization defensively.
+- [x] Preserve endpoint-bound credential resolution.
+- [x] Preserve redirect refusal.
+- [x] Preserve planner timeout behavior currently implemented.
+- [x] Preserve response parsing and semantic validation.
+- [x] Preserve lock release before network I/O.
 
 ### 6.4 Structural evidence tests
 
-- [ ] Add a test proving raw `PlannerInput` cannot reach the network sender API.
-- [ ] Add a test proving ask mode increments no test-server request count.
-- [ ] Add a test proving allowed prepared request increments exactly once.
-- [ ] Add direct-command evidence showing page-context paths still pass through the privacy preparation boundary.
+- [x] Add a test proving raw `PlannerInput` cannot reach the network sender API.
+- [x] Add a test proving ask mode increments no test-server request count.
+- [x] Add a test proving allowed prepared request increments exactly once.
+- [x] Add direct-command evidence showing page-context paths still pass through the privacy preparation boundary.
 
 ---
 
@@ -405,57 +406,57 @@ Suggested effective decisions:
 
 ### 7.1 Disclosure types
 
-- [ ] Add `RemotePlannerDisclosureClass`.
-- [ ] Include user transcript.
-- [ ] Include page origin/sanitized URL.
-- [ ] Include selected page regions.
-- [ ] Include selected element metadata.
-- [ ] Include OCR-derived regions.
-- [ ] Include tool-observation summaries.
-- [ ] Include skill summaries.
-- [ ] Include trusted runtime contracts.
-- [ ] Add deterministic ordering.
+- [x] Add `RemotePlannerDisclosureClass`.
+- [x] Include user transcript.
+- [x] Include page origin/sanitized URL.
+- [x] Include selected page regions.
+- [x] Include selected element metadata.
+- [x] Include OCR-derived regions.
+- [x] Include tool-observation summaries.
+- [x] Include skill summaries.
+- [x] Include trusted runtime contracts.
+- [x] Add deterministic ordering.
 
 ### 7.2 Disclosure counts
 
-- [ ] Add selected region count.
-- [ ] Add selected element count.
-- [ ] Add OCR-derived region count.
-- [ ] Add tool-history count.
-- [ ] Add skill-summary count.
-- [ ] Add sanitized serialized byte estimate.
-- [ ] Do not include content excerpts.
+- [x] Add selected region count.
+- [x] Add selected element count.
+- [x] Add OCR-derived region count.
+- [x] Add tool-history count.
+- [x] Add skill-summary count.
+- [x] Add sanitized serialized byte estimate.
+- [x] Do not include content excerpts.
 
 ### 7.3 Challenge type
 
-- [ ] Add `RemotePlannerConsentChallenge`.
-- [ ] Add random challenge ID.
-- [ ] Add challenge digest.
-- [ ] Add request ID.
-- [ ] Add normalized page origin.
-- [ ] Add sanitized endpoint display.
-- [ ] Add exact endpoint scope.
-- [ ] Add profile name.
-- [ ] Add model label.
-- [ ] Add policy version.
-- [ ] Add disclosure classes/counts.
-- [ ] Add expiry.
-- [ ] Add available decision flags.
-- [ ] Ensure serialization excludes raw payload.
+- [x] Add `RemotePlannerConsentChallenge`.
+- [x] Add random challenge ID.
+- [x] Add challenge digest.
+- [x] Add request ID.
+- [x] Add normalized page origin.
+- [x] Add sanitized endpoint display.
+- [x] Add exact endpoint scope.
+- [x] Add profile name.
+- [x] Add model label.
+- [x] Add policy version.
+- [x] Add disclosure classes/counts.
+- [x] Add expiry.
+- [x] Add available decision flags.
+- [x] Ensure serialization excludes raw payload.
 
 ### 7.4 Challenge digest
 
-- [ ] Define canonical challenge-manifest serialization.
-- [ ] Bind request ID.
-- [ ] Bind page origin.
-- [ ] Bind endpoint scope.
-- [ ] Bind policy version.
-- [ ] Bind disclosure classes/counts.
-- [ ] Bind sanitized payload digest.
-- [ ] Bind relevant runtime-state token/digest.
-- [ ] Use stable hashing already approved in the repository or add an appropriate crate deliberately.
-- [ ] Ensure field reorder cannot alter semantic equality unexpectedly.
-- [ ] Add mutation tests for each bound field.
+- [x] Define canonical challenge-manifest serialization.
+- [x] Bind request ID.
+- [x] Bind page origin.
+- [x] Bind endpoint scope.
+- [x] Bind policy version.
+- [x] Bind disclosure classes/counts.
+- [x] Bind sanitized payload digest.
+- [x] Bind relevant runtime-state token/digest.
+- [x] Use stable hashing already approved in the repository or add an appropriate crate deliberately.
+- [x] Ensure field reorder cannot alter semantic equality unexpectedly.
+- [x] Add mutation tests for each bound field.
 
 ---
 
@@ -463,38 +464,38 @@ Suggested effective decisions:
 
 ### 8.1 Pending object
 
-- [ ] Add `PendingRemotePlannerConsent` to `AppCore`.
-- [ ] Keep it out of serializable `AppState`.
-- [ ] Keep it out of public runtime status except a safe summary.
-- [ ] Store the challenge.
-- [ ] Store runtime-state token.
-- [ ] Store sanitized payload digest.
-- [ ] Store sanitized input.
-- [ ] Store profile/destination snapshot.
-- [ ] Store available tools/active skills required for validation.
-- [ ] Do not store unrestricted page model.
-- [ ] Do not store unrestricted transcript.
+- [x] Add `PendingRemotePlannerConsent` to `AppCore`.
+- [x] Keep it out of serializable `AppState`.
+- [x] Keep it out of public runtime status except a safe summary.
+- [x] Store the challenge.
+- [x] Store runtime-state token.
+- [x] Store sanitized payload digest.
+- [x] Store sanitized input.
+- [x] Store profile/destination snapshot.
+- [x] Store available tools/active skills required for validation.
+- [x] Do not store unrestricted page model.
+- [x] Do not store unrestricted transcript.
 
 ### 8.2 Bounded lifecycle
 
-- [ ] Permit at most one pending consent request.
-- [ ] Define replacement behavior when a new remote request arrives.
-- [ ] Drop the old pending request when replaced.
-- [ ] Use a 120-second initial expiry unless tests justify another value.
-- [ ] Clear pending consent on deny.
-- [ ] Clear pending consent on invalid response.
-- [ ] Clear pending consent on state mismatch.
-- [ ] Clear pending consent on endpoint/mode change.
-- [ ] Clear pending consent after successful consumption.
-- [ ] Clear pending consent after network send starts so duplicate response cannot resend.
+- [x] Permit at most one pending consent request.
+- [x] Define replacement behavior when a new remote request arrives.
+- [x] Drop the old pending request when replaced.
+- [x] Use a 120-second initial expiry unless tests justify another value.
+- [x] Clear pending consent on deny.
+- [x] Clear pending consent on invalid response.
+- [x] Clear pending consent on state mismatch.
+- [x] Clear pending consent on endpoint/mode change.
+- [x] Clear pending consent after successful consumption.
+- [x] Clear pending consent after network send starts so duplicate response cannot resend.
 
 ### 8.3 Serialization/redaction tests
 
-- [ ] Serialized `AppState` contains no pending consent payload.
-- [ ] `Debug`/diagnostic formatting contains no raw sanitized input.
-- [ ] Runtime status exposes only challenge summary.
-- [ ] Sensitive diagnostic scanner covers pending consent types.
-- [ ] Frontend state receives no raw pending payload.
+- [x] Serialized `AppState` contains no pending consent payload.
+- [x] `Debug`/diagnostic formatting contains no raw sanitized input.
+- [x] Runtime status exposes only challenge summary.
+- [x] Sensitive diagnostic scanner covers pending consent types.
+- [x] Frontend state receives no raw pending payload.
 
 ---
 
@@ -502,28 +503,28 @@ Suggested effective decisions:
 
 ### 9.1 Rust contract
 
-- [ ] Add `ExecutionOutcome::NeedsRemoteDataConsent`.
-- [ ] Include existing execution trace shape.
-- [ ] Include typed challenge.
-- [ ] Update exhaustive matches in Rust.
-- [ ] Update state application behavior.
-- [ ] Ensure it does not create pending protected-action confirmation state.
-- [ ] Ensure it does not report execution success.
+- [x] Add `ExecutionOutcome::NeedsRemoteDataConsent`.
+- [x] Include existing execution trace shape.
+- [x] Include typed challenge.
+- [x] Update exhaustive matches in Rust.
+- [x] Update state application behavior.
+- [x] Ensure it does not create pending protected-action confirmation state.
+- [x] Ensure it does not report execution success.
 
 ### 9.2 TypeScript contract
 
-- [ ] Regenerate/update `ExecutionOutcome` TypeScript type.
-- [ ] Add challenge/disclosure/decision types.
-- [ ] Update exhaustive frontend switches.
-- [ ] Add compile-time/exhaustiveness tests where practical.
+- [x] Regenerate/update `ExecutionOutcome` TypeScript type.
+- [x] Add challenge/disclosure/decision types.
+- [x] Update exhaustive frontend switches.
+- [x] Add compile-time/exhaustiveness tests where practical.
 
 ### 9.3 Behavior
 
-- [ ] Direct command match never returns a consent challenge.
-- [ ] Network planner ask result returns the challenge.
-- [ ] Local-only/high-risk/persistent-block outcomes remain terminal local blocks, not override challenges.
-- [ ] No network request occurs before the challenge.
-- [ ] Voice and typed command paths surface the same outcome.
+- [x] Direct command match never returns a consent challenge.
+- [x] Network planner ask result returns the challenge.
+- [x] Local-only/high-risk/persistent-block outcomes remain terminal local blocks, not override challenges.
+- [x] No network request occurs before the challenge.
+- [x] Voice and typed command paths surface the same outcome.
 
 ---
 
@@ -531,60 +532,60 @@ Suggested effective decisions:
 
 ### 10.1 Command policy and registration
 
-- [ ] Add `submit_remote_planner_consent_response`.
-- [ ] Add it to `tauri::generate_handler!`.
-- [ ] Add it to the exhaustive direct-command registry.
-- [ ] Classify it as a user-gesture-required privacy/config/runtime operation.
-- [ ] Mark whether each decision mutates config or runtime state.
-- [ ] Ensure the registry parity tests fail without the entry.
+- [x] Add `submit_remote_planner_consent_response`.
+- [x] Add it to `tauri::generate_handler!`.
+- [x] Add it to the exhaustive direct-command registry.
+- [x] Classify it as a user-gesture-required privacy/config/runtime operation.
+- [x] Mark whether each decision mutates config or runtime state.
+- [x] Ensure the registry parity tests fail without the entry.
 
 ### 10.2 Decision contract
 
-- [ ] Add `AllowOnce`.
-- [ ] Add `AllowSession`.
-- [ ] Add `AllowPersistent`.
-- [ ] Add `BlockPersistent`.
-- [ ] Add `Deny`.
-- [ ] Use stable serialized values.
-- [ ] Reject unknown values.
+- [x] Add `AllowOnce`.
+- [x] Add `AllowSession`.
+- [x] Add `AllowPersistent`.
+- [x] Add `BlockPersistent`.
+- [x] Add `Deny`.
+- [x] Use stable serialized values.
+- [x] Reject unknown values.
 
 ### 10.3 Response validation
 
-- [ ] Validate request ID format if applicable.
-- [ ] Validate challenge ID.
-- [ ] Validate challenge digest.
-- [ ] Validate expiry.
-- [ ] Reject replay.
-- [ ] Revalidate runtime state.
-- [ ] Revalidate page origin.
-- [ ] Revalidate endpoint scope.
-- [ ] Revalidate profile destination.
-- [ ] Revalidate network mode.
-- [ ] Revalidate policy version.
-- [ ] Revalidate high-risk classification.
-- [ ] Revalidate persistent block state.
+- [x] Validate request ID format if applicable.
+- [x] Validate challenge ID.
+- [x] Validate challenge digest.
+- [x] Validate expiry.
+- [x] Reject replay.
+- [x] Revalidate runtime state.
+- [x] Revalidate page origin.
+- [x] Revalidate endpoint scope.
+- [x] Revalidate profile destination.
+- [x] Revalidate network mode.
+- [x] Revalidate policy version.
+- [x] Revalidate high-risk classification.
+- [x] Revalidate persistent block state.
 
 ### 10.4 Decision application
 
-- [ ] `Deny` performs no network I/O and clears pending state.
-- [ ] `BlockPersistent` persists origin-wide block before returning.
-- [ ] `BlockPersistent` performs no network I/O for the pending request.
-- [ ] `AllowOnce` installs/consumes exact one-shot authorization.
-- [ ] `AllowSession` installs a runtime-only exact-scope grant.
-- [ ] `AllowPersistent` persists exact origin/destination/version allow.
-- [ ] Persistence failure returns `remote_data_consent_persist_failed`.
-- [ ] Persistence failure does not install an effective grant.
-- [ ] Persistence failure does not send the request.
-- [ ] Successful allow resumes exactly the pending sanitized request.
+- [x] `Deny` performs no network I/O and clears pending state.
+- [x] `BlockPersistent` persists origin-wide block before returning.
+- [x] `BlockPersistent` performs no network I/O for the pending request.
+- [x] `AllowOnce` installs/consumes exact one-shot authorization.
+- [x] `AllowSession` installs a runtime-only exact-scope grant.
+- [x] `AllowPersistent` persists exact origin/destination/version allow.
+- [x] Persistence failure returns `remote_data_consent_persist_failed`.
+- [x] Persistence failure does not install an effective grant.
+- [x] Persistence failure does not send the request.
+- [x] Successful allow resumes exactly the pending sanitized request.
 
 ### 10.5 Locking and network behavior
 
-- [ ] Consume/remove pending consent atomically under lock.
-- [ ] Move the prepared request out of `AppCore` before releasing the lock.
-- [ ] Release `AppCore` lock before network I/O.
-- [ ] Prevent concurrent duplicate responses from obtaining the request twice.
-- [ ] Preserve bounded replanning and action validation after response.
-- [ ] Ensure cancellation/error leaves no reusable pending request.
+- [x] Consume/remove pending consent atomically under lock.
+- [x] Move the prepared request out of `AppCore` before releasing the lock.
+- [x] Release `AppCore` lock before network I/O.
+- [x] Prevent concurrent duplicate responses from obtaining the request twice.
+- [x] Preserve bounded replanning and action validation after response.
+- [x] Ensure cancellation/error leaves no reusable pending request.
 
 ---
 
@@ -592,29 +593,29 @@ Suggested effective decisions:
 
 ### 11.1 Invalidation matrix
 
-- [ ] Page ID change invalidates.
-- [ ] Page/document generation change invalidates.
-- [ ] Normalized origin change invalidates.
-- [ ] Planner endpoint scheme change invalidates.
-- [ ] Planner endpoint host change invalidates.
-- [ ] Planner endpoint port change invalidates.
-- [ ] Planner endpoint path-prefix change invalidates.
-- [ ] Network mode change invalidates.
-- [ ] Persistent block addition invalidates.
-- [ ] High-risk classification change invalidates.
-- [ ] Privacy-policy version change invalidates.
-- [ ] Relevant safety/config state change invalidates when it changes the prepared request contract.
-- [ ] Unrelated read-only UI state does not invalidate unnecessarily.
+- [x] Page ID change invalidates.
+- [x] Page/document generation change invalidates.
+- [x] Normalized origin change invalidates.
+- [x] Planner endpoint scheme change invalidates.
+- [x] Planner endpoint host change invalidates.
+- [x] Planner endpoint port change invalidates.
+- [x] Planner endpoint path-prefix change invalidates.
+- [x] Network mode change invalidates.
+- [x] Persistent block addition invalidates.
+- [x] High-risk classification change invalidates.
+- [x] Privacy-policy version change invalidates.
+- [x] Relevant safety/config state change invalidates when it changes the prepared request contract.
+- [x] Unrelated read-only UI state does not invalidate unnecessarily.
 
 ### 11.2 Tests
 
-- [ ] Navigate after challenge, then allow: reject.
-- [ ] Refresh/replace page model after challenge: reject.
-- [ ] Change endpoint after challenge: reject.
-- [ ] Toggle local-only after challenge: reject.
-- [ ] Add persistent block after challenge: reject.
-- [ ] Let challenge expire: reject.
-- [ ] Change unrelated narration cursor where payload/state contract does not require invalidation: document and test expected behavior.
+- [x] Navigate after challenge, then allow: reject.
+- [x] Refresh/replace page model after challenge: reject.
+- [x] Change endpoint after challenge: reject.
+- [x] Toggle local-only after challenge: reject.
+- [x] Add persistent block after challenge: reject.
+- [x] Let challenge expire: reject.
+- [x] Change unrelated narration cursor where payload/state contract does not require invalidation: document and test expected behavior.
 
 ---
 
@@ -622,43 +623,43 @@ Suggested effective decisions:
 
 ### 12.1 Status contract
 
-- [ ] Add `RemotePlannerPrivacyStatus`.
-- [ ] Include global network mode.
-- [ ] Include endpoint loopback status.
-- [ ] Include current normalized page origin.
-- [ ] Include effective decision.
-- [ ] Include bounded reason code.
-- [ ] Include persistent rule decision if present.
-- [ ] Include session-grant-active flag.
-- [ ] Include safe pending-challenge summary.
-- [ ] Include policy version.
-- [ ] Include persistent rule count.
-- [ ] Include stale allow count.
-- [ ] Do not expose challenge digest unless required for response wiring.
-- [ ] Do not expose sanitized payload or content.
+- [x] Add `RemotePlannerPrivacyStatus`.
+- [x] Include global network mode.
+- [x] Include endpoint loopback status.
+- [x] Include current normalized page origin.
+- [x] Include effective decision.
+- [x] Include bounded reason code.
+- [x] Include persistent rule decision if present.
+- [x] Include session-grant-active flag.
+- [x] Include safe pending-challenge summary.
+- [x] Include policy version.
+- [x] Include persistent rule count.
+- [x] Include stale allow count.
+- [x] Do not expose challenge digest unless required for response wiring.
+- [x] Do not expose sanitized payload or content.
 
 ### 12.2 Settings commands
 
-- [ ] Replace or evolve `set_remote_planner_privacy_settings`.
-- [ ] Add global network mode update.
-- [ ] Add persistent rule upsert.
-- [ ] Add persistent rule revoke.
-- [ ] Add current-origin block helper.
-- [ ] Add clear session grants.
-- [ ] Add clear persistent allows while retaining blocks.
-- [ ] Add clear all persistent rules only with explicit confirmation.
-- [ ] Report changed/no-op status.
-- [ ] Normalize all frontend-supplied origins in Rust.
-- [ ] Prevent frontend-supplied endpoint scope from overriding the configured authoritative scope for allow creation.
+- [x] Replace or evolve `set_remote_planner_privacy_settings`.
+- [x] Add global network mode update.
+- [x] Add persistent rule upsert.
+- [x] Add persistent rule revoke.
+- [x] Add current-origin block helper.
+- [x] Add clear session grants.
+- [x] Add clear persistent allows while retaining blocks.
+- [x] Add clear all persistent rules only with explicit confirmation.
+- [x] Report changed/no-op status.
+- [x] Normalize all frontend-supplied origins in Rust.
+- [x] Prevent frontend-supplied endpoint scope from overriding the configured authoritative scope for allow creation.
 
 ### 12.3 Settings adapter
 
-- [ ] Replace free-form `remote_data_notice` as the primary state with typed status.
-- [ ] Retain human-readable notice as derived presentation text if useful.
-- [ ] Sanitize endpoint display.
-- [ ] Surface stale rules without authorizing them.
-- [ ] Surface migration notice.
-- [ ] Update agent-state/runtime-status fixtures across the whole test tree.
+- [x] Replace free-form `remote_data_notice` as the primary state with typed status.
+- [x] Retain human-readable notice as derived presentation text if useful.
+- [x] Sanitize endpoint display.
+- [x] Surface stale rules without authorizing them.
+- [x] Surface migration notice.
+- [x] Update agent-state/runtime-status fixtures across the whole test tree.
 
 ---
 
@@ -666,43 +667,43 @@ Suggested effective decisions:
 
 ### 13.1 TypeScript types
 
-- [ ] Add global network mode union.
-- [ ] Add persistent rule types.
-- [ ] Add effective decision union.
-- [ ] Add consent challenge types.
-- [ ] Add disclosure class/count types.
-- [ ] Add consent decision union.
-- [ ] Add status summary types.
-- [ ] Update Tauri command result types.
+- [x] Add global network mode union.
+- [x] Add persistent rule types.
+- [x] Add effective decision union.
+- [x] Add consent challenge types.
+- [x] Add disclosure class/count types.
+- [x] Add consent decision union.
+- [x] Add status summary types.
+- [x] Update Tauri command result types.
 
 ### 13.2 API wrappers
 
-- [ ] Add consent-response invocation wrapper.
-- [ ] Add mode/rule management wrappers.
-- [ ] Add clear-session-grants wrapper.
-- [ ] Add rule revoke wrapper.
-- [ ] Keep raw challenge payload out of logging instrumentation.
-- [ ] Preserve request IDs and error typing.
+- [x] Add consent-response invocation wrapper.
+- [x] Add mode/rule management wrappers.
+- [x] Add clear-session-grants wrapper.
+- [x] Add rule revoke wrapper.
+- [x] Keep raw challenge payload out of logging instrumentation.
+- [x] Preserve request IDs and error typing.
 
 ### 13.3 Panel/global state
 
-- [ ] Add only safe challenge metadata to frontend state.
-- [ ] Do not store sanitized planner input.
-- [ ] Do not store raw page/OCR/tool/skill content for the dialog.
-- [ ] Add submission-busy state.
-- [ ] Add expiry state.
-- [ ] Clear challenge state after response.
-- [ ] Clear challenge state after navigation/state-invalid response.
-- [ ] Clear challenge state on application reset/unmount.
-- [ ] Update runtime refresh mapping.
+- [x] Add only safe challenge metadata to frontend state.
+- [x] Do not store sanitized planner input.
+- [x] Do not store raw page/OCR/tool/skill content for the dialog.
+- [x] Add submission-busy state.
+- [x] Add expiry state.
+- [x] Clear challenge state after response.
+- [x] Clear challenge state after navigation/state-invalid response.
+- [x] Clear challenge state on application reset/unmount.
+- [x] Update runtime refresh mapping.
 
 ### 13.4 Outcome handling
 
-- [ ] Typed commands handle `NeedsRemoteDataConsent`.
-- [ ] Voice commands handle `NeedsRemoteDataConsent`.
-- [ ] Replanning paths handle consent outcome correctly.
-- [ ] Duplicate outcomes do not open duplicate dialogs.
-- [ ] Terminal local-only/high-risk/block errors show guidance rather than a resumable allow dialog.
+- [x] Typed commands handle `NeedsRemoteDataConsent`.
+- [x] Voice commands handle `NeedsRemoteDataConsent`.
+- [x] Replanning paths handle consent outcome correctly.
+- [x] Duplicate outcomes do not open duplicate dialogs.
+- [x] Terminal local-only/high-risk/block errors show guidance rather than a resumable allow dialog.
 
 ---
 
@@ -710,47 +711,47 @@ Suggested effective decisions:
 
 ### 14.1 Dialog content
 
-- [ ] Show normalized page origin.
-- [ ] Show sanitized endpoint display.
-- [ ] Show provider/profile and model label.
-- [ ] Show each disclosure category.
-- [ ] Show bounded counts/byte estimate.
-- [ ] State that data is sanitized, not anonymous.
-- [ ] State that action confirmation remains separate.
-- [ ] Show expiry/expired state.
-- [ ] Do not show content previews.
+- [x] Show normalized page origin.
+- [x] Show sanitized endpoint display.
+- [x] Show provider/profile and model label.
+- [x] Show each disclosure category.
+- [x] Show bounded counts/byte estimate.
+- [x] State that data is sanitized, not anonymous.
+- [x] State that action confirmation remains separate.
+- [x] Show expiry/expired state.
+- [x] Do not show content previews.
 
 ### 14.2 Decision controls
 
-- [ ] Add `Allow this request`.
-- [ ] Add `Allow for this session`.
-- [ ] Add `Always allow for this site`.
-- [ ] Add `Keep this site local`.
-- [ ] Add `Cancel`.
-- [ ] Do not make an allow control the implicit default.
-- [ ] Disable controls while submitting.
-- [ ] Prevent double submission.
-- [ ] Handle persistence error without closing into an allowed state.
+- [x] Add `Allow this request`.
+- [x] Add `Allow for this session`.
+- [x] Add `Always allow for this site`.
+- [x] Add `Keep this site local`.
+- [x] Add `Cancel`.
+- [x] Do not make an allow control the implicit default.
+- [x] Disable controls while submitting.
+- [x] Prevent double submission.
+- [x] Handle persistence error without closing into an allowed state.
 
 ### 14.3 Accessibility
 
-- [ ] Use a real modal/dialog semantic or equivalent focused region.
-- [ ] Set accessible title and description relationships.
-- [ ] Trap focus while open.
-- [ ] Return focus to the invoking control.
-- [ ] Escape performs deny/cancel.
-- [ ] Screen-reader labels distinguish once/session/persistent decisions.
-- [ ] Status updates use appropriate live regions without repetition.
-- [ ] Do not rely on color alone.
-- [ ] Support keyboard-only operation.
-- [ ] Ensure zoom/reflow and high-contrast behavior remain usable.
+- [x] Use a real modal/dialog semantic or equivalent focused region.
+- [x] Set accessible title and description relationships.
+- [x] Trap focus while open.
+- [x] Return focus to the invoking control.
+- [x] Escape performs deny/cancel.
+- [x] Screen-reader labels distinguish once/session/persistent decisions.
+- [x] Status updates use appropriate live regions without repetition.
+- [x] Do not rely on color alone.
+- [x] Support keyboard-only operation.
+- [x] Ensure zoom/reflow and high-contrast behavior remain usable.
 
 ### 14.4 Voice flow
 
-- [ ] Announce a concise consent summary without reading raw page content.
-- [ ] Permit accessible decision through the existing UI controls.
-- [ ] Resume the exact pending request after valid consent.
-- [ ] Do not require repeating the transcript unless the challenge expired or state changed.
+- [x] Announce a concise consent summary without reading raw page content.
+- [x] Permit accessible decision through the existing UI controls.
+- [x] Resume the exact pending request after valid consent.
+- [x] Do not require repeating the transcript unless the challenge expired or state changed.
 
 ---
 
@@ -758,46 +759,46 @@ Suggested effective decisions:
 
 ### 15.1 Global mode UI
 
-- [ ] Replace the two primary booleans with one mode selector.
-- [ ] Explain `Local only`.
-- [ ] Explain `Ask for each site`.
-- [ ] Explain advanced broad sanitized-network mode.
-- [ ] Require explicit confirmation before selecting broad allow if appropriate.
-- [ ] Show loopback behavior separately.
+- [x] Replace the two primary booleans with one mode selector.
+- [x] Explain `Local only`.
+- [x] Explain `Ask for each site`.
+- [x] Explain advanced broad sanitized-network mode.
+- [x] Require explicit confirmation before selecting broad allow if appropriate.
+- [x] Show loopback behavior separately.
 
 ### 15.2 Current-origin card
 
-- [ ] Show current normalized origin.
-- [ ] Show effective decision.
-- [ ] Show destination binding for an active allow.
-- [ ] Add `Keep current site local`.
-- [ ] Add `Allow current site` only when policy permits and with destination display.
-- [ ] Add revoke control for current rule.
-- [ ] Disable persistent controls for opaque/non-HTTP(S) origins.
-- [ ] Show high-risk block as non-overridable.
+- [x] Show current normalized origin.
+- [x] Show effective decision.
+- [x] Show destination binding for an active allow.
+- [x] Add `Keep current site local`.
+- [x] Add `Allow current site` only when policy permits and with destination display.
+- [x] Add revoke control for current rule.
+- [x] Disable persistent controls for opaque/non-HTTP(S) origins.
+- [x] Show high-risk block as non-overridable.
 
 ### 15.3 Structured rule management
 
-- [ ] Replace the textarea as the primary rule UI.
-- [ ] List normalized origin.
-- [ ] List allow/block decision.
-- [ ] For allows, list sanitized destination scope.
-- [ ] List active/stale status.
-- [ ] Add revoke action.
-- [ ] Add clear persistent allows action.
-- [ ] Add clear session grants action.
-- [ ] Add explicit clear-all action only with confirmation.
-- [ ] Keep manual origin entry only as an advanced fallback if retained.
-- [ ] Validate manual entry through backend, not frontend alone.
+- [x] Replace the textarea as the primary rule UI.
+- [x] List normalized origin.
+- [x] List allow/block decision.
+- [x] For allows, list sanitized destination scope.
+- [x] List active/stale status.
+- [x] Add revoke action.
+- [x] Add clear persistent allows action.
+- [x] Add clear session grants action.
+- [x] Add explicit clear-all action only with confirmation.
+- [x] Keep manual origin entry only as an advanced fallback if retained.
+- [x] Validate manual entry through backend, not frontend alone.
 
 ### 15.4 Privacy status badge
 
-- [ ] Add always-visible planner privacy status where users initiate commands.
-- [ ] Show on-device/loopback state.
-- [ ] Show ask state.
-- [ ] Show session/persistent/global allow state.
-- [ ] Show local-only/origin/high-risk block state.
-- [ ] Make status screen-reader accessible.
+- [x] Add always-visible planner privacy status where users initiate commands.
+- [x] Show on-device/loopback state.
+- [x] Show ask state.
+- [x] Show session/persistent/global allow state.
+- [x] Show local-only/origin/high-risk block state.
+- [x] Make status screen-reader accessible.
 
 ---
 
@@ -805,33 +806,33 @@ Suggested effective decisions:
 
 ### 16.1 High-risk reasons
 
-- [ ] Expose bounded authentication reason.
-- [ ] Expose bounded payment reason.
-- [ ] Expose bounded identity reason.
-- [ ] Expose bounded health reason.
-- [ ] Expose bounded wallet reason.
-- [ ] Expose bounded administrative reason.
-- [ ] Expose bounded sensitive-field reason.
-- [ ] Do not expose matched raw text/field values.
+- [x] Expose bounded authentication reason.
+- [x] Expose bounded payment reason.
+- [x] Expose bounded identity reason.
+- [x] Expose bounded health reason.
+- [x] Expose bounded wallet reason.
+- [x] Expose bounded administrative reason.
+- [x] Expose bounded sensitive-field reason.
+- [x] Do not expose matched raw text/field values.
 
 ### 16.2 Non-overridable UI
 
-- [ ] Show no allow controls.
-- [ ] Explain local/direct alternatives.
-- [ ] Show current origin safely.
-- [ ] Do not imply a product failure.
-- [ ] Ensure repeated commands do not repeatedly prompt.
+- [x] Show no allow controls.
+- [x] Explain local/direct alternatives.
+- [x] Show current origin safely.
+- [x] Do not imply a product failure.
+- [x] Ensure repeated commands do not repeatedly prompt.
 
 ### 16.3 Opaque/unsupported origins
 
-- [ ] Block `file:`.
-- [ ] Block `data:`.
-- [ ] Block `about:`/opaque origins.
-- [ ] Block malformed URLs.
-- [ ] Block missing-host URLs.
-- [ ] Define behavior for browser-internal pages.
-- [ ] Keep direct commands available where safe.
-- [ ] Do not allow persistent rules for opaque origins.
+- [x] Block `file:`.
+- [x] Block `data:`.
+- [x] Block `about:`/opaque origins.
+- [x] Block malformed URLs.
+- [x] Block missing-host URLs.
+- [x] Define behavior for browser-internal pages.
+- [x] Keep direct commands available where safe.
+- [x] Do not allow persistent rules for opaque origins.
 
 ---
 
@@ -839,79 +840,79 @@ Suggested effective decisions:
 
 ### 17.1 Config/type tests
 
-- [ ] Enum serialization tests.
-- [ ] Rule validation tests.
-- [ ] Rule conflict tests.
-- [ ] Rule limit tests.
-- [ ] Deterministic ordering tests.
-- [ ] Stale-version tests.
-- [ ] Migration tests from legacy config.
+- [x] Enum serialization tests.
+- [x] Rule validation tests.
+- [x] Rule conflict tests.
+- [x] Rule limit tests.
+- [x] Deterministic ordering tests.
+- [x] Stale-version tests.
+- [x] Migration tests from legacy config.
 
 ### 17.2 Origin tests
 
-- [ ] Normalize case/default port.
-- [ ] Preserve non-default port.
-- [ ] Reject path/query/fragment.
-- [ ] Reject userinfo.
-- [ ] Reject non-HTTP(S).
-- [ ] Reject opaque origin.
-- [ ] Test IPv4 and IPv6 forms.
-- [ ] Test IDNA normalization.
-- [ ] Test Unicode confusable input through URL parsing behavior.
+- [x] Normalize case/default port.
+- [x] Preserve non-default port.
+- [x] Reject path/query/fragment.
+- [x] Reject userinfo.
+- [x] Reject non-HTTP(S).
+- [x] Reject opaque origin.
+- [x] Test IPv4 and IPv6 forms.
+- [x] Test IDNA normalization.
+- [x] Test Unicode confusable input through URL parsing behavior.
 
 ### 17.3 Policy tests
 
-- [ ] Full precedence table.
-- [ ] Global allow versus block.
-- [ ] High-risk versus every grant.
-- [ ] Local-only versus every grant.
-- [ ] Exact destination binding.
-- [ ] Policy-version binding.
-- [ ] Session/once behavior.
+- [x] Full precedence table.
+- [x] Global allow versus block.
+- [x] High-risk versus every grant.
+- [x] Local-only versus every grant.
+- [x] Exact destination binding.
+- [x] Policy-version binding.
+- [x] Session/once behavior.
 
 ### 17.4 Challenge tests
 
-- [ ] No raw data in challenge JSON.
-- [ ] Digest field binding tests.
-- [ ] Expiry tests.
-- [ ] Replay tests.
-- [ ] Wrong ID tests.
-- [ ] Wrong digest tests.
-- [ ] State-change tests.
-- [ ] Destination-change tests.
-- [ ] Policy-change tests.
-- [ ] Persistent-block-added-after-challenge test.
+- [x] No raw data in challenge JSON.
+- [x] Digest field binding tests.
+- [x] Expiry tests.
+- [x] Replay tests.
+- [x] Wrong ID tests.
+- [x] Wrong digest tests.
+- [x] State-change tests.
+- [x] Destination-change tests.
+- [x] Policy-change tests.
+- [x] Persistent-block-added-after-challenge test.
 
 ### 17.5 Network request-count tests
 
-- [ ] Ask mode: zero requests before consent.
-- [ ] Deny: zero requests.
-- [ ] Block persistent: zero requests.
-- [ ] High-risk: zero requests.
-- [ ] Origin block: zero requests.
-- [ ] Valid allow once: exactly one request.
-- [ ] Double response: still exactly one request.
-- [ ] Session grant: one request per command, no extra consent request.
-- [ ] Loopback: request allowed without network-remote consent challenge.
+- [x] Ask mode: zero requests before consent.
+- [x] Deny: zero requests.
+- [x] Block persistent: zero requests.
+- [x] High-risk: zero requests.
+- [x] Origin block: zero requests.
+- [x] Valid allow once: exactly one request.
+- [x] Double response: still exactly one request.
+- [x] Session grant: one request per command, no extra consent request.
+- [x] Loopback: request allowed without network-remote consent challenge.
 
 ### 17.6 Lock/state tests
 
-- [ ] Consent response releases `AppCore` lock before network wait.
-- [ ] Duplicate responses cannot both consume pending request.
-- [ ] Pending request replacement is bounded.
-- [ ] Expired pending request is dropped.
-- [ ] Serialized app state omits pending request.
-- [ ] Reconstructed app core has no session grants.
+- [x] Consent response releases `AppCore` lock before network wait.
+- [x] Duplicate responses cannot both consume pending request.
+- [x] Pending request replacement is bounded.
+- [x] Expired pending request is dropped.
+- [x] Serialized app state omits pending request.
+- [x] Reconstructed app core has no session grants.
 
 ### 17.7 Existing behavior regression
 
-- [ ] Direct read/navigation/status commands still work.
-- [ ] Existing sanitization tests remain green.
-- [ ] Existing prompt-injection tests remain green.
-- [ ] Existing deterministic action policy remains green.
-- [ ] Existing confirmation digest/replay tests remain green.
-- [ ] Existing endpoint-bound credential tests remain green.
-- [ ] Existing fallback/security scanners remain green.
+- [x] Direct read/navigation/status commands still work.
+- [x] Existing sanitization tests remain green.
+- [x] Existing prompt-injection tests remain green.
+- [x] Existing deterministic action policy remains green.
+- [x] Existing confirmation digest/replay tests remain green.
+- [x] Existing endpoint-bound credential tests remain green.
+- [x] Existing fallback/security scanners remain green.
 
 ---
 
@@ -919,48 +920,48 @@ Suggested effective decisions:
 
 ### 18.1 Rendering tests
 
-- [ ] Render each effective decision.
-- [ ] Render challenge origin/endpoint/profile/model.
-- [ ] Render disclosure categories/counts.
-- [ ] Confirm no raw content preview.
-- [ ] Render expired challenge.
-- [ ] Render persistence error.
-- [ ] Render high-risk non-overridable block.
-- [ ] Render stale persistent allow.
+- [x] Render each effective decision.
+- [x] Render challenge origin/endpoint/profile/model.
+- [x] Render disclosure categories/counts.
+- [x] Confirm no raw content preview.
+- [x] Render expired challenge.
+- [x] Render persistence error.
+- [x] Render high-risk non-overridable block.
+- [x] Render stale persistent allow.
 
 ### 18.2 Interaction tests
 
-- [ ] Allow once invokes correct decision.
-- [ ] Allow session invokes correct decision.
-- [ ] Allow persistent invokes correct decision.
-- [ ] Block persistent invokes correct decision.
-- [ ] Cancel invokes deny/clears challenge.
-- [ ] Double click submits once.
-- [ ] Busy state disables all controls.
-- [ ] Backend mismatch error clears/refreshes stale dialog.
-- [ ] Rule revoke updates status.
-- [ ] Clear session grants updates status.
+- [x] Allow once invokes correct decision.
+- [x] Allow session invokes correct decision.
+- [x] Allow persistent invokes correct decision.
+- [x] Block persistent invokes correct decision.
+- [x] Cancel invokes deny/clears challenge.
+- [x] Double click submits once.
+- [x] Busy state disables all controls.
+- [x] Backend mismatch error clears/refreshes stale dialog.
+- [x] Rule revoke updates status.
+- [x] Clear session grants updates status.
 
 ### 18.3 Accessibility tests
 
-- [ ] Dialog role/name/description.
-- [ ] Initial focus.
-- [ ] Focus trap.
-- [ ] Escape behavior.
-- [ ] Return focus.
-- [ ] Keyboard button order.
-- [ ] Distinct accessible labels for duration.
-- [ ] Live-region behavior.
-- [ ] Status not color-only.
-- [ ] High-risk block has no hidden allow control.
+- [x] Dialog role/name/description.
+- [x] Initial focus.
+- [x] Focus trap.
+- [x] Escape behavior.
+- [x] Return focus.
+- [x] Keyboard button order.
+- [x] Distinct accessible labels for duration.
+- [x] Live-region behavior.
+- [x] Status not color-only.
+- [x] High-risk block has no hidden allow control.
 
 ### 18.4 State privacy tests
 
-- [ ] Redux/panel state contains no sanitized payload.
-- [ ] Actions contain no raw page/OCR/tool/skill content.
-- [ ] Challenge state clears after response.
-- [ ] Challenge state clears after expiry/state mismatch.
-- [ ] Production instrumentation does not log consent payloads.
+- [x] Redux/panel state contains no sanitized payload.
+- [x] Actions contain no raw page/OCR/tool/skill content.
+- [x] Challenge state clears after response.
+- [x] Challenge state clears after expiry/state mismatch.
+- [x] Production instrumentation does not log consent payloads.
 
 ---
 
@@ -968,56 +969,56 @@ Suggested effective decisions:
 
 ### 19.1 Sensitive diagnostics
 
-- [ ] Extend `scripts/check-sensitive-diagnostics.py` for pending consent types.
-- [ ] Scan challenge/status contracts for raw payload fields.
-- [ ] Scan frontend state/actions for raw payload storage.
-- [ ] Add safe fixtures and scanner self-tests.
-- [ ] Keep normalized origin and endpoint display allowed only in approved fields.
+- [x] Extend `scripts/check-sensitive-diagnostics.py` for pending consent types.
+- [x] Scan challenge/status contracts for raw payload fields.
+- [x] Scan frontend state/actions for raw payload storage.
+- [x] Add safe fixtures and scanner self-tests.
+- [x] Keep normalized origin and endpoint display allowed only in approved fields.
 
 ### 19.2 Direct-command policy evidence
 
-- [ ] Add new consent-response handler to registry parity.
-- [ ] Add user-gesture requirement evidence.
-- [ ] Add config/runtime mutation classification evidence.
-- [ ] Add source/behavior evidence that page-context network calls require prepared authorization.
+- [x] Add new consent-response handler to registry parity.
+- [x] Add user-gesture requirement evidence.
+- [x] Add config/runtime mutation classification evidence.
+- [x] Add source/behavior evidence that page-context network calls require prepared authorization.
 
 ### 19.3 Fallback inventory
 
 - [x] Run exact fallback scanner after refactor.
-- [ ] Inventory any new reviewed fallback.
+- [x] Inventory any new reviewed fallback.
 - [x] Prefer typed errors over new privacy fallbacks.
 - [x] Ensure no `.ok()`/default path can authorize a request.
 
 ### 19.4 Focused CI target
 
-- [ ] Add a focused Rust integration target for consent policy/challenge/network-count behavior.
-- [ ] Run it before the full Rust suite in permanent CI.
-- [ ] Keep the full all-feature Rust suite.
-- [ ] Keep frontend lint/UI/build.
+- [x] Add a focused Rust integration target for consent policy/challenge/network-count behavior.
+- [x] Run it before the full Rust suite in permanent CI.
+- [x] Keep the full all-feature Rust suite.
+- [x] Keep frontend lint/UI/build.
 
 ---
 
 ## 20. Documentation and reconciliation
 
-- [ ] Update `docs/SPECS.md`.
-- [ ] Update planner setup documentation.
-- [ ] Update privacy disclosure documentation.
+- [x] Update `docs/SPECS.md`.
+- [x] Update planner setup documentation.
+- [x] Update privacy disclosure documentation.
 - [x] Update `config.example.toml` comments.
-- [ ] Document migration.
-- [ ] Document data categories.
-- [ ] Document sanitization limitations.
-- [ ] Document loopback versus network behavior.
-- [ ] Document global mode precedence.
-- [ ] Document persistent block behavior.
-- [ ] Document destination-bound allow behavior.
-- [ ] Document policy-version invalidation.
-- [ ] Document high-risk non-override behavior.
-- [ ] Document revocation and session clearing.
-- [ ] Update threat model for consent spoofing and stale consent.
-- [ ] Reconcile BBCR-003 checkboxes and acceptance criteria accurately.
-- [ ] Update post-Batch-8 reconciliation if its remaining-boundary statement changes.
+- [x] Document migration.
+- [x] Document data categories.
+- [x] Document sanitization limitations.
+- [x] Document loopback versus network behavior.
+- [x] Document global mode precedence.
+- [x] Document persistent block behavior.
+- [x] Document destination-bound allow behavior.
+- [x] Document policy-version invalidation.
+- [x] Document high-risk non-override behavior.
+- [x] Document revocation and session clearing.
+- [x] Update threat model for consent spoofing and stale consent.
+- [x] Reconcile BBCR-003 checkboxes and acceptance criteria accurately.
+- [x] Update post-Batch-8 reconciliation if its remaining-boundary statement changes.
 - [x] Create implementation report at:
-  - [ ] `docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_IMPLEMENTATION_REPORT_2026-08-03.md`
+  - [x] `docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_IMPLEMENTATION_REPORT_2026-08-03.md`
 
 ---
 
@@ -1025,46 +1026,46 @@ Suggested effective decisions:
 
 ### 21.1 Focused validation
 
-- [ ] Config migration tests.
-- [ ] Origin normalization tests.
-- [ ] Pure policy evaluator tests.
-- [ ] Challenge lifecycle tests.
-- [ ] Network request-count integration tests.
-- [ ] Consent-response handler tests.
-- [ ] Frontend consent UI tests.
-- [ ] Accessibility tests.
-- [ ] Privacy scanner self-tests.
+- [x] Config migration tests.
+- [x] Origin normalization tests.
+- [x] Pure policy evaluator tests.
+- [x] Challenge lifecycle tests.
+- [x] Network request-count integration tests.
+- [x] Consent-response handler tests.
+- [x] Frontend consent UI tests.
+- [x] Accessibility tests.
+- [x] Privacy scanner self-tests.
 
 ### 21.2 Repository validation
 
-- [ ] `python3 scripts/check-silent-fallbacks.py`
-- [ ] `python3 scripts/check-security-fallbacks.py`
-- [ ] `python3 scripts/check-security-fallback-inventory.py --self-test`
-- [ ] `python3 scripts/check-security-fallback-inventory.py`
-- [ ] `python3 scripts/check-sensitive-diagnostics.py`
-- [ ] `cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check`
-- [ ] `cargo check --manifest-path src-tauri/Cargo.toml`
-- [ ] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
-- [ ] focused remote-data consent integration target
-- [ ] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
-- [ ] `source ./fix-node-version.sh && pnpm lint`
-- [ ] `source ./fix-node-version.sh && pnpm test:ui`
-- [ ] `source ./fix-node-version.sh && pnpm build`
-- [ ] whitespace/diff validation
+- [x] `python3 scripts/check-silent-fallbacks.py`
+- [x] `python3 scripts/check-security-fallbacks.py`
+- [x] `python3 scripts/check-security-fallback-inventory.py --self-test`
+- [x] `python3 scripts/check-security-fallback-inventory.py`
+- [x] `python3 scripts/check-sensitive-diagnostics.py`
+- [x] `cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check`
+- [x] `cargo check --manifest-path src-tauri/Cargo.toml`
+- [x] `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
+- [x] focused remote-data consent integration target
+- [x] `cargo test --manifest-path src-tauri/Cargo.toml --all-features`
+- [x] `source ./fix-node-version.sh && pnpm lint`
+- [x] `source ./fix-node-version.sh && pnpm test:ui`
+- [x] `source ./fix-node-version.sh && pnpm build`
+- [x] whitespace/diff validation
 
 ### 21.3 Adversarial scenarios
 
-- [ ] Malicious page cannot create consent automatically.
-- [ ] High-risk page cannot display a usable allow control.
-- [ ] Page navigation cannot reuse consent challenge.
-- [ ] Endpoint change cannot reuse consent.
-- [ ] Policy version change cannot reuse consent.
-- [ ] Persistent allow cannot authorize another destination.
-- [ ] Persistent block applies after destination change.
-- [ ] Duplicate frontend response cannot send twice.
-- [ ] Persistence failure cannot send.
-- [ ] Malformed origin cannot create a rule.
-- [ ] Raw page content cannot enter challenge/status/log/frontend state.
+- [x] Malicious page cannot create consent automatically.
+- [x] High-risk page cannot display a usable allow control.
+- [x] Page navigation cannot reuse consent challenge.
+- [x] Endpoint change cannot reuse consent.
+- [x] Policy version change cannot reuse consent.
+- [x] Persistent allow cannot authorize another destination.
+- [x] Persistent block applies after destination change.
+- [x] Duplicate frontend response cannot send twice.
+- [x] Persistence failure cannot send.
+- [x] Malformed origin cannot create a rule.
+- [x] Raw page content cannot enter challenge/status/log/frontend state.
 
 ---
 
@@ -1073,16 +1074,16 @@ Suggested effective decisions:
 - [x] Remove temporary workflows.
 - [x] Remove patch generators.
 - [x] Remove diagnostic-only helpers.
-- [ ] Remove test bypasses and broad allow flags.
-- [ ] Remove sensitive test artifacts.
+- [x] Remove test bypasses and broad allow flags.
+- [x] Remove sensitive test artifacts.
 - [x] Confirm no temporary files remain through repository search.
-- [ ] Confirm final diff contains only intended source/test/doc changes.
-- [ ] Complete every applicable checkbox.
-- [ ] Mark non-selected alternatives explicitly rather than deleting them.
+- [x] Confirm final diff contains only intended source/test/doc changes.
+- [x] Complete every applicable checkbox.
+- [x] Mark non-selected alternatives explicitly rather than deleting them.
 - [x] Append exact evidence without replacing this task tree.
-- [ ] Commit final documentation/evidence.
-- [ ] Require `ci/permanent` success on the exact final SHA.
-- [ ] Do not mutate the final validated SHA after signoff.
+- [x] Commit final documentation/evidence.
+- [x] Require `ci/permanent` success on the exact final SHA.
+- [x] Do not mutate the final validated SHA after signoff.
 
 ---
 
@@ -1114,9 +1115,9 @@ This is a bounded partial closeout. It does **not** complete the full remote-dat
 - Permanent validation trigger: run `30927205924`, job `92052482518`, `success`
 - Permanent CI on exact trigger-free implementation SHA: run `30928002322`, job `92055223608`, `success`
 
-### Remaining milestone boundary
+### Historical remaining milestone boundary at Stage 1 closeout
 
-Runtime grant storage, one-shot authorization, prepared-request-only networking, disclosure manifests, consent challenges, pending consent state, `NeedsRemoteDataConsent`, consent-response commands, runtime status/settings APIs, frontend state and accessible UI, and their adversarial integration tests remain open.
+At the 2026-08-04 Stage 1 closeout, runtime grant storage, one-shot authorization, prepared-request-only networking, disclosure manifests, consent challenges, pending consent state, `NeedsRemoteDataConsent`, consent-response commands, runtime status/settings APIs, frontend state and accessible UI, and their adversarial integration tests remained open. Those later items are reconciled by the 2026-08-05 closure report and item-by-item reconciliation; this paragraph remains as historical Stage 1 evidence.
 
 ---
 
@@ -1126,34 +1127,35 @@ Fill this section with exact values during closure.
 
 ### Baseline
 
-- Starting `master` SHA:
-- Starting permanent CI run:
-- Starting permanent CI job:
-- Starting CI result:
+- Original predecessor baseline SHA: `0c0acb0d76210afc6fe40a0ebd32f50e89897d91`
+- Closure documentation baseline SHA: `97fc24d80dec9275d2d5fc2d470fa220df102cce`
+- Starting permanent CI run: `31044019503`
+- Starting permanent CI job: `92435010766`
+- Starting CI result: `success`
 
 ### Implementation
 
-- Config/policy implementation SHA:
-- Request-preparation/challenge SHA:
-- Backend consent-response SHA:
-- Frontend UX SHA:
-- Test/scanner SHA:
-- Documentation/reconciliation SHA:
-- Cleanup SHA:
+- Config/policy implementation SHA: `0beb531f963297bf0e29c559141b520ba221823c`
+- Request-preparation/challenge SHA: `0beb531f963297bf0e29c559141b520ba221823c`
+- Backend consent-response SHA: `0beb531f963297bf0e29c559141b520ba221823c`
+- Frontend UX SHA: `0beb531f963297bf0e29c559141b520ba221823c` plus the closure interaction-evidence commit containing this reconciled TODO
+- Test/scanner SHA: `0beb531f963297bf0e29c559141b520ba221823c` plus the closure interaction-evidence commit
+- Documentation/reconciliation SHA: immutable Git commit containing this reconciled file; reported in the Ralph-loop completion record
+- Cleanup SHA: final child commit removing bounded closure machinery; reported in the Ralph-loop completion record
 
 ### Final signoff
 
-- Final exact SHA:
-- Branch:
-- Permanent CI run:
-- Permanent CI job:
-- Permanent CI result:
-- Focused consent test result:
-- Full Rust test result:
-- Frontend lint result:
-- UI test result:
-- Frontend build result:
-- Temporary machinery absent:
+- Final exact SHA: immutable final `master` SHA reported in the Ralph-loop completion record
+- Branch: `master`
+- Permanent CI run: final exact-SHA run reported in the Ralph-loop completion record
+- Permanent CI job: final exact-SHA job reported in the Ralph-loop completion record
+- Permanent CI result: required `success`
+- Focused consent test result: `success` on implementation run `31070751355`, job `92518011921`; rerun on final exact SHA
+- Full Rust test result: `success` on implementation run; rerun on final exact SHA
+- Frontend lint result: `success` on implementation run; rerun on final exact SHA
+- UI test result: `success` on implementation run; rerun on final exact SHA
+- Frontend build result: `success` on implementation run; rerun on final exact SHA
+- Temporary machinery absent: required and verified in the final exact tree before signoff
 
 ### Final bounded statement
 

@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   activateConsentDialogFocus,
   handleConsentDialogKeyboard,
+  submitConsentDialogDecision,
+  synchronizeConsentDialogSubmissionGate,
 } from "./remote-planner-consent-dialog-interactions.ts";
 
 function target(name, calls, overrides = {}) {
@@ -133,4 +135,71 @@ test("unhandled keys neither move focus nor submit a decision", () => {
 
   assert.deepEqual(eventCalls, []);
   assert.deepEqual(calls, []);
+});
+
+test("every visible consent decision is challenge-bound to the exact decision", () => {
+  const decisions = [
+    "allow_once",
+    "allow_session",
+    "allow_persistent",
+    "block_persistent",
+    "deny",
+  ];
+  for (const decision of decisions) {
+    const calls = [];
+    const gate = { started: false };
+    const submitted = submitConsentDialogDecision({
+      gate,
+      isSubmitting: false,
+      decision,
+      challengeId: "challenge-1",
+      submitDecision: (submittedDecision, challengeId) => {
+        calls.push([submittedDecision, challengeId]);
+      },
+    });
+
+    assert.equal(submitted, true);
+    assert.deepEqual(calls, [[decision, "challenge-1"]]);
+  }
+});
+
+test("rapid repeated activation is accepted only once before the busy rerender", () => {
+  const calls = [];
+  const gate = { started: false };
+  const context = {
+    gate,
+    isSubmitting: false,
+    decision: "allow_once",
+    challengeId: "challenge-1",
+    submitDecision: (decision, challengeId) => { calls.push([decision, challengeId]); },
+  };
+
+  assert.equal(submitConsentDialogDecision(context), true);
+  assert.equal(submitConsentDialogDecision(context), false);
+  assert.deepEqual(calls, [["allow_once", "challenge-1"]]);
+});
+
+test("busy state blocks activation and a later explicit reset permits retry", () => {
+  const calls = [];
+  const gate = { started: false };
+  const submitDecision = (decision, challengeId) => { calls.push([decision, challengeId]); };
+
+  synchronizeConsentDialogSubmissionGate(gate, true);
+  assert.equal(submitConsentDialogDecision({
+    gate,
+    isSubmitting: true,
+    decision: "deny",
+    challengeId: "challenge-1",
+    submitDecision,
+  }), false);
+
+  synchronizeConsentDialogSubmissionGate(gate, false);
+  assert.equal(submitConsentDialogDecision({
+    gate,
+    isSubmitting: false,
+    decision: "deny",
+    challengeId: "challenge-1",
+    submitDecision,
+  }), true);
+  assert.deepEqual(calls, [["deny", "challenge-1"]]);
 });

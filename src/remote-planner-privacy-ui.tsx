@@ -9,6 +9,8 @@ import {
 import {
   activateConsentDialogFocus,
   handleConsentDialogKeyboard,
+  submitConsentDialogDecision,
+  synchronizeConsentDialogSubmissionGate,
 } from "./remote-planner-consent-dialog-interactions.ts";
 
 import type {
@@ -153,6 +155,7 @@ function RemotePlannerConsentDialog(props: {
   const rootRef = useRef<HTMLElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const submissionGateRef = useRef({ started: false });
   const { challenge, isSubmitting, submissionError } = props.consentState;
   const expiry = safeExpiryDisplay(challenge.expires_at_ms);
 
@@ -166,10 +169,21 @@ function RemotePlannerConsentDialog(props: {
     );
   }, [challenge.challenge_id]);
 
+  useEffect(() => {
+    synchronizeConsentDialogSubmissionGate(
+      submissionGateRef.current,
+      isSubmitting,
+    );
+  }, [challenge.challenge_id, isSubmitting]);
+
   const submitDecision = (decision: RemotePlannerConsentDecision) => {
-    if (!isSubmitting) {
-      props.onDecision?.(decision, challenge.challenge_id);
-    }
+    submitConsentDialogDecision({
+      gate: submissionGateRef.current,
+      isSubmitting,
+      decision,
+      challengeId: challenge.challenge_id,
+      submitDecision: props.onDecision,
+    });
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {

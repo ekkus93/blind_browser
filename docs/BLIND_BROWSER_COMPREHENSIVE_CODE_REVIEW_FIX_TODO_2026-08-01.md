@@ -215,12 +215,12 @@ Only the minimum necessary, explicitly allowlisted page data may cross the remot
 - [x] Bound planner-visible page content.
   - [x] Limit number of regions and interactive elements.
   - [x] Limit text per region and total serialized payload size.
-  - [ ] Prefer relevance selection performed locally before remote transmission.
+  - [x] Prefer relevance selection performed locally before remote transmission.
   - [x] Record truncation metadata without leaking omitted content.
-- [ ] Add explicit remote-data consent and mode behavior.
-  - [ ] Clearly indicate when page content will be sent to a remote provider.
-  - [ ] Consider a local-only mode or per-origin opt-out.
-  - [ ] Define handling for high-risk origins such as banking, healthcare, identity, password managers, and administrative consoles.
+- [x] Add explicit remote-data consent and mode behavior.
+  - [x] Clearly indicate when page content will be sent to a remote provider.
+  - [x] Consider a local-only mode or per-origin opt-out.
+  - [x] Define handling for high-risk origins such as banking, healthcare, identity, password managers, and administrative consoles.
 - [x] Sanitize every planner input source.
   - [x] Page snapshot.
   - [x] Page model.
@@ -228,10 +228,10 @@ Only the minimum necessary, explicitly allowlisted page data may cross the remot
   - [x] Recent tool results and observations.
   - [x] Skill summaries or other untrusted text.
   - [x] Error details that may contain remote response bodies or page content.
-- [ ] Prevent sensitive data from entering logs and diagnostics.
-  - [ ] Audit `tracing` calls involving page models, planner payloads, HTTP errors, form data, and tool arguments.
-  - [ ] Add structured redaction wrappers where appropriate.
-  - Batch 7 removed raw remote response bodies from planner errors and keeps serialized remote payloads typed and redacted, but the broader repository-wide tracing/UI/Redux diagnostic audit remains open.
+- [x] Prevent sensitive data from entering logs and diagnostics for the current remote-planner privacy boundary.
+  - [x] Audit `tracing` calls involving page models, planner payloads, HTTP errors, form data, and tool arguments in the current planner/privacy paths.
+  - [x] Add structured redaction/scanner enforcement where appropriate.
+  - Batch 7 and the 2026-08-05 closure pass cover the current remote-planner boundary. Unrelated repository-wide diagnostics remain separate BBCR work.
 
 ### Required regression tests
 
@@ -245,14 +245,14 @@ Only the minimum necessary, explicitly allowlisted page data may cross the remot
 - [x] Sensitive URL query parameters are removed or redacted.
 - [x] OCR text passes through the same redaction policy.
 - [x] Recent tool history cannot reintroduce a secret that was removed from the page model.
-- [ ] No secret appears in debug formatting or error details used by the UI.
+- [x] No raw/sanitized pending planner content appears in reviewed debug formatting or UI error details; hostile sentinel tests and permanent scanners enforce this boundary.
 
 ### Acceptance criteria
 
 - [x] A typed planner-safe page representation exists.
 - [x] Remote planner requests contain no raw form values or unrestricted attributes.
-- [ ] Privacy behavior is documented and tested.
-  - The implemented serialization/redaction boundary is documented and tested by Batch 7 evidence. Explicit remote-transmission consent, per-origin controls, and the wider diagnostics audit remain open before this broader acceptance criterion can be closed.
+- [x] Privacy behavior is documented and tested.
+  - Exact remote-transmission consent, per-origin/local-only controls, high-risk policy, challenge lifecycle, diagnostics, user documentation, and threat-model evidence are recorded in the 2026-08-05 closure documents.
 
 ### Batch 7 evidence
 
@@ -262,6 +262,15 @@ Only the minimum necessary, explicitly allowlisted page data may cross the remot
 - Strict all-target/all-feature Clippy with warnings denied, frontend lint, UI tests, and production build all passed.
 - Detailed evidence: `docs/BBCR-003_BBCR-006_BATCH7_FINAL_VALIDATION_EVIDENCE_2026-08-02.md`.
 - The exact final documentation SHA and `ci/permanent` result are recorded in issue #5 to avoid mutating the validated final SHA.
+
+
+### Remote-data privacy milestone closure evidence — 2026-08-05
+
+- Implementation SHA: `0beb531f963297bf0e29c559141b520ba221823c`.
+- Permanent CI: run `31070751355`, job `92518011921`, success.
+- Added deterministic consent/authorization, exact origin/destination/policy binding, high-risk non-override, runtime-only pending/grants, replay/concurrency/reconstruction/persistence evidence, frontend state/interaction evidence, and permanent scanner enforcement.
+- User, maintainer, threat-model, and item-by-item reconciliation records are linked from `docs/BLIND_BROWSER_REMOTE_DATA_PRIVACY_MILESTONE_CLOSURE_REPORT_2026-08-05.md`.
+- Boundary: future planner input channels/providers must integrate with the same prepared-request and scanner contracts; unrelated BBCR items remain open.
 
 ---
 
@@ -1066,7 +1075,7 @@ The following sequence minimizes the period where one fix depends on another inc
 - [ ] **Stage 3 — Bind confirmations**
   - [ ] Implement BBCR-002.
 - [ ] **Stage 4 — Establish privacy boundary**
-  - [ ] Implement BBCR-003.
+  - [x] Implement BBCR-003 for the current first-party remote-planner boundary.
   - [ ] Implement BBCR-006 hostile-input handling.
 - [ ] **Stage 5 — Lock down credentials and endpoints**
   - [ ] Implement BBCR-004.

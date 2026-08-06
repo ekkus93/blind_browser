@@ -11,6 +11,40 @@ export interface ConsentDialogKeyboardEvent {
   preventDefault: () => void;
 }
 
+export interface ConsentDialogSubmissionGate {
+  started: boolean;
+}
+
+export interface ConsentDialogSubmissionContext {
+  gate: ConsentDialogSubmissionGate;
+  isSubmitting: boolean;
+  decision: RemotePlannerConsentDecision;
+  challengeId: string;
+  submitDecision?: (
+    decision: RemotePlannerConsentDecision,
+    challengeId: string,
+  ) => void;
+}
+
+export function synchronizeConsentDialogSubmissionGate(
+  gate: ConsentDialogSubmissionGate,
+  isSubmitting: boolean,
+): void {
+  gate.started = isSubmitting;
+}
+
+export function submitConsentDialogDecision(
+  context: ConsentDialogSubmissionContext,
+): boolean {
+  const { gate, isSubmitting, decision, challengeId, submitDecision } = context;
+  if (isSubmitting || gate.started || !submitDecision) {
+    return false;
+  }
+  gate.started = true;
+  submitDecision(decision, challengeId);
+  return true;
+}
+
 export interface ConsentDialogKeyboardContext {
   event: ConsentDialogKeyboardEvent;
   activeElement: ConsentDialogFocusableTarget | null;

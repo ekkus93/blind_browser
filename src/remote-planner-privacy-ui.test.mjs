@@ -154,3 +154,80 @@ test("submitting consent disables every decision button", () => {
   assert.equal(disabled.length, 5);
   assert.match(html, /Processing privacy choice/);
 });
+
+test("every effective privacy decision renders a distinct textual status", () => {
+  const cases = [
+    ["loopback_local", "On-device planner"],
+    ["local_only", "Local-only mode"],
+    ["high_risk_blocked", "High-risk page: network planner blocked"],
+    ["origin_blocked", "This site stays local"],
+    ["allowed_global", "Remote data allowed by the global setting"],
+    ["allowed_persistent", "Remote data always allowed for this site and destination"],
+    ["allowed_session", "Remote data allowed for this session"],
+    ["consent_required", "Remote data: ask for this site"],
+    ["origin_unavailable", "Current page cannot use a network planner"],
+    ["planner_unavailable", "Remote planner unavailable"],
+  ];
+
+  for (const [decision, expected] of cases) {
+    const state = privacyState();
+    state.status.effective_decision = decision;
+    const html = renderToStaticMarkup(
+      renderRemotePlannerPrivacyWorkspaceNode(state, { kind: "idle" }),
+    );
+    assert.ok(html.includes(expected), `${decision} should render ${expected}`);
+  }
+});
+
+test("consent choices expose distinct scope labels in deterministic keyboard order", () => {
+  const html = renderToStaticMarkup(
+    renderRemotePlannerPrivacyWorkspaceNode(privacyState(), consentState()),
+  );
+  const ordered = [
+    ["allow_once", "Allow sanitized data for this request only"],
+    ["allow_session", "Allow sanitized data for this site and planner for this application session"],
+    ["allow_persistent", "Always allow sanitized data for this site and exact planner destination"],
+    ["block_persistent", "Keep this site local for every network planner"],
+    ["deny", "Cancel and do not send data"],
+  ];
+  let previousIndex = -1;
+  for (const [decision, label] of ordered) {
+    const decisionIndex = html.indexOf(`data-remote-consent-decision="${decision}"`);
+    assert.ok(decisionIndex > previousIndex, `${decision} should follow the prior choice`);
+    assert.match(html, new RegExp(`aria-label="${label}"`));
+    previousIndex = decisionIndex;
+  }
+});
+
+test("expired challenge and persistence failures remain explicit and accessible", () => {
+  const expiredAt = Date.UTC(2020, 0, 1);
+  const state = consentState({
+    challenge: {
+      ...consentState().challenge,
+      expires_at_ms: expiredAt,
+    },
+    submissionError: {
+      title: "Privacy rule was not saved",
+      message: "The privacy rule could not be written.",
+      guidance: "No data was sent. Review storage access and try again.",
+    },
+  });
+  const html = renderToStaticMarkup(
+    renderRemotePlannerPrivacyWorkspaceNode(privacyState(), state),
+  );
+
+  assert.match(html, /<time dateTime="2020-01-01T00:00:00.000Z">/);
+  assert.match(html, /class="remote-consent-error" role="alert"/);
+  assert.match(html, /No data was sent/);
+});
+
+test("stale allow warnings use a textual status region rather than color alone", () => {
+  const state = privacyState();
+  state.status.stale_allow_rule_count = 1;
+  const html = renderToStaticMarkup(
+    renderRemotePlannerPrivacyWorkspaceNode(state, { kind: "idle" }),
+  );
+
+  assert.match(html, /role="status"/);
+  assert.match(html, /saved allow rule is inactive because the destination or privacy policy changed/);
+});

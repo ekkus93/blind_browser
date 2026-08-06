@@ -27,7 +27,7 @@ The source patch itself was generated and validated by Ralph run `30836879809`, 
 |---|---|---|
 | **BBCR-001 — Deterministic action safety** | **Partially complete; bounded direct-command policy gap closed.** Direct Tauri handlers are exhaustively classified and parity-tested. | Keep future non-Tauri side-effect entry points in the central policy model and maintain classification rationale. |
 | **BBCR-002 — Immutable confirmation manifests** | **Core complete; degraded-summary gap closed.** Structured warning metadata is visible, redacted, and digest-bound. | A generic protected-locator framework remains future work; current live revalidation is action-specific. |
-| **BBCR-003 — Remote planner redaction/privacy** | **Partially complete; diagnostic/privacy audit gap closed.** | Explicit transmission consent, per-origin/local-only controls, high-risk-origin product policy, and improved local relevance selection remain open. |
+| **BBCR-003 — Remote planner redaction/privacy** | **Complete for the current first-party remote-planner boundary after the 2026-08-05 privacy milestone closure.** | Future planner input channels/providers must integrate with the same prepared-request, consent, destination-binding, high-risk, diagnostics, and scanner contracts. Manual packaged-platform assistive-technology QA remains release work. |
 | **BBCR-004 — Destination-bound credentials** | **Complete for current provider operations.** API-key persistence now fails closed if a scoped reference is missing. | Apply the same endpoint scope to every future credential-bearing operation. |
 | **BBCR-005 — Opaque contained image handles** | **Core complete.** Screenshot containment and opaque handles remain enforced. | Broader filesystem identifier audit and packaged capture-to-Tesseract E2E remain open. |
 | **BBCR-006 — Hostile page/OCR content** | **Core complete; named hostile corpus gap closed.** Focused tests now prove hostile content cannot authorize a click and high-risk OCR/page text blocks network planning. | Extend the corpus for new extraction channels; deterministic policy remains authoritative over model behavior. |
@@ -63,8 +63,12 @@ The source patch itself was generated and validated by Ralph run `30836879809`, 
 
 ### Residuals intentionally not claimed complete
 
-The still-open BBCR items and subitems above remain the next comprehensive remediation program. In particular, this pass does not close remote-data consent, generic locator architecture, full persistence transactions/durability, centralized resource budgets, Redux secret-draft redesign, CSP, secret-history scanning, dependency/SAST gates, cross-platform packaged CI, fuzzing/mutation, or primary security/operations documentation.
+The still-open BBCR items and subitems above remain the next comprehensive remediation program. In particular, the later 2026-08-05 milestone closes remote-data consent for current first-party planner paths, but this reconciliation still does not close generic locator architecture, full persistence transactions/durability, centralized resource budgets, unrelated Redux secret-draft redesign, CSP, secret-history scanning, dependency/SAST gates, cross-platform packaged CI, fuzzing/mutation, or primary security/operations documentation.
 
 ## Correct completion statement
 
 > The post-Batch-8 security-hardening TODO is complete for its bounded scope. The broader comprehensive remediation remains open, so this is not a general production release-readiness or comprehensive-security-completion declaration.
+
+## Remote-data privacy milestone addendum — 2026-08-05
+
+BBCR-003 moved from partial to complete for the current first-party remote-planner boundary at implementation SHA `0beb531f963297bf0e29c559141b520ba221823c`, permanent CI run `31070751355`, job `92518011921`. The exact bounded scope, threat model, predecessor reconciliation, and broader residuals are recorded in `docs/BLIND_BROWSER_REMOTE_DATA_PRIVACY_MILESTONE_CLOSURE_REPORT_2026-08-05.md`. This does not change the status of unrelated BBCR rows above.

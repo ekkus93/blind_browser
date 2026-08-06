@@ -235,3 +235,43 @@ test("opaque origins disable persistent current-site controls", () => {
   assert.doesNotMatch(html, /data-remote-planner-current-origin-allow="true"/);
   assert.equal(canPersistentlyAllowCurrentOrigin(opaque.status), false);
 });
+
+test("network modes render as one mutually exclusive radio group", () => {
+  const html = renderToStaticMarkup(renderRemotePlannerPrivacySettingsCard(privacyState()));
+  const radios = html.match(/type="radio"/g) ?? [];
+  const names = html.match(/name="remote-planner-network-mode"/g) ?? [];
+  const checked = html.match(/ checked=""/g) ?? [];
+
+  assert.equal(radios.length, 3);
+  assert.equal(names.length, 3);
+  assert.equal(checked.length, 1);
+});
+
+test("local-only and persistent-block states never expose a persistent allow control", () => {
+  const localOnly = privacyState({
+    network_mode: "local_only",
+    effective_decision: "local_only",
+    persistent_rule: null,
+  });
+  const localOnlyHtml = renderToStaticMarkup(renderRemotePlannerPrivacySettingsCard(localOnly));
+  assert.doesNotMatch(localOnlyHtml, /data-remote-planner-current-origin-allow="true"/);
+
+  const blocked = privacyState({
+    effective_decision: "origin_blocked",
+    persistent_rule: "block",
+  });
+  const blockedHtml = renderToStaticMarkup(renderRemotePlannerPrivacySettingsCard(blocked));
+  assert.match(blockedHtml, /data-remote-planner-current-origin-block="true"/);
+  assert.doesNotMatch(blockedHtml, /data-remote-planner-current-origin-allow="true"/);
+});
+
+test("migration notice is conditional and explains conservative conversion", () => {
+  const pendingHtml = renderToStaticMarkup(renderRemotePlannerPrivacySettingsCard(privacyState()));
+  assert.match(pendingHtml, /Privacy settings were migrated/);
+  assert.match(pendingHtml, /broad legacy consent was not converted into destination-bound site allows/);
+
+  const acknowledgedHtml = renderToStaticMarkup(
+    renderRemotePlannerPrivacySettingsCard(privacyState({ migration_notice_pending: false })),
+  );
+  assert.doesNotMatch(acknowledgedHtml, /Privacy settings were migrated/);
+});

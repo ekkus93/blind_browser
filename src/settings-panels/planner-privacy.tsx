@@ -21,6 +21,10 @@ import {
   type RemotePlannerPrivacyState,
 } from "../remote-planner-privacy-state.ts";
 import { appShellStore } from "../store.ts";
+import {
+  activatePrivacyConfirmationFocus,
+  handlePrivacyConfirmationKeyboard,
+} from "./planner-privacy-confirmation-interactions.ts";
 
 const NETWORK_MODE_OPTIONS = [
   {
@@ -211,47 +215,36 @@ function PrivacySettingsConfirmationDialog(props: {
     returnFocusRef.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
-    cancelRef.current?.focus();
-
-    return () => {
-      const returnTarget = returnFocusRef.current;
-      if (returnTarget?.isConnected) {
-        returnTarget.focus();
-      }
-    };
+    const cancelControl = cancelRef.current;
+    if (cancelControl === null) {
+      return undefined;
+    }
+    return activatePrivacyConfirmationFocus(
+      returnFocusRef.current,
+      cancelControl,
+    );
   }, [props.kind]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape" && !props.busy) {
-      event.preventDefault();
-      props.onCancel();
+    const dialogRoot = rootRef.current;
+    if (dialogRoot === null) {
       return;
     }
-
-    if (event.key !== "Tab" || rootRef.current === null) {
-      return;
-    }
-
     const focusable = Array.from(
-      rootRef.current.querySelectorAll<HTMLElement>(
+      dialogRoot.querySelectorAll<HTMLElement>(
         "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
       ),
     );
-    if (focusable.length === 0) {
-      event.preventDefault();
-      rootRef.current.focus();
-      return;
-    }
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
+    handlePrivacyConfirmationKeyboard({
+      event,
+      busy: props.busy,
+      activeElement: document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null,
+      focusableElements: focusable,
+      dialogRoot,
+      cancel: props.onCancel,
+    });
   };
 
   return (
