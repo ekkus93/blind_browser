@@ -32,10 +32,10 @@ jobs:
           git apply --check /tmp/closure.patch
           git apply /tmp/closure.patch
 
-      - name: Show persistent allow fixture and stop
+      - name: Show closure test helpers and stop
         shell: bash
         run: |
           set -euo pipefail
           nl -ba src-tauri/src/app_core/tests/remote_data_consent_evidence_tests.rs \
-            | sed -n '660,755p'
+            | sed -n '1,240p'
           exit 1
