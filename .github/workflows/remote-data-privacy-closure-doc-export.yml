@@ -32,18 +32,13 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-          test "$(cat .github/remote-data-privacy-closure-doc-export.trigger)" = "remote-data-privacy-closure-doc-publish-v1"
+          test "$(cat .github/remote-data-privacy-closure-doc-export.trigger)" = "remote-data-privacy-closure-doc-publish-v2"
 
-          parts=(
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-00
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-01
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-02
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-03
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-04
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-05
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-06
-          )
-          test "${#parts[@]}" -eq 7
+          find .github -maxdepth 1 -type f \
+            -name 'remote-data-privacy-closure-docs.patch.gz.b64.part-*' \
+            -print | sort > /tmp/payload-paths.txt
+          test "$(wc -l < /tmp/payload-paths.txt)" -eq 14
+          mapfile -t parts < /tmp/payload-paths.txt
           for part in "${parts[@]}"; do
             test -f "${part}"
             test -s "${part}"
@@ -165,33 +160,18 @@ jobs:
           test "$(git rev-parse origin/master)" = "${GITHUB_SHA}"
 
           mapfile -t source_paths < /tmp/expected-source-paths.txt
+          mapfile -t payload_paths < /tmp/payload-paths.txt
+          test "${#payload_paths[@]}" -eq 14
           git add -- "${source_paths[@]}"
-          git rm -- \
-            .github/remote-data-privacy-closure-doc-export.trigger \
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-00 \
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-01 \
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-02 \
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-03 \
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-04 \
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-05 \
-            .github/remote-data-privacy-closure-docs.patch.gz.b64.part-06
+          git rm -- .github/remote-data-privacy-closure-doc-export.trigger "${payload_paths[@]}"
 
           cat /tmp/expected-source-paths.txt > /tmp/expected-publish-paths.txt
-          cat >> /tmp/expected-publish-paths.txt <<'EOF'
-          .github/remote-data-privacy-closure-doc-export.trigger
-          .github/remote-data-privacy-closure-docs.patch.gz.b64.part-00
-          .github/remote-data-privacy-closure-docs.patch.gz.b64.part-01
-          .github/remote-data-privacy-closure-docs.patch.gz.b64.part-02
-          .github/remote-data-privacy-closure-docs.patch.gz.b64.part-03
-          .github/remote-data-privacy-closure-docs.patch.gz.b64.part-04
-          .github/remote-data-privacy-closure-docs.patch.gz.b64.part-05
-          .github/remote-data-privacy-closure-docs.patch.gz.b64.part-06
-          EOF
-          sed -i 's/^          //' /tmp/expected-publish-paths.txt
+          printf '%s\n' .github/remote-data-privacy-closure-doc-export.trigger >> /tmp/expected-publish-paths.txt
+          cat /tmp/payload-paths.txt >> /tmp/expected-publish-paths.txt
           sort -u /tmp/expected-publish-paths.txt -o /tmp/expected-publish-paths.txt
           git diff --cached --name-only | sort -u > /tmp/actual-publish-paths.txt
           diff -u /tmp/expected-publish-paths.txt /tmp/actual-publish-paths.txt
-          test "$(wc -l < /tmp/actual-publish-paths.txt)" -eq 26
+          test "$(wc -l < /tmp/actual-publish-paths.txt)" -eq 33
           git diff --cached --check
           test -z "$(git diff --name-only)"
           test -z "$(git status --short --untracked-files=all | grep '^??' || true)"
