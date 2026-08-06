@@ -22,8 +22,8 @@ use crate::config::{
     RemotePlannerOriginRule, RemotePlannerProfile, RemoteProviderKind, SecretRef,
     REMOTE_DATA_POLICY_VERSION,
 };
-use crate::provider_endpoint::ProviderEndpointScope;
 use crate::page_model::{PageRegion, RegionRole, RegionSource};
+use crate::provider_endpoint::ProviderEndpointScope;
 use crate::state::AppState;
 
 const PROFILE: &str = "openai-default";
@@ -53,12 +53,12 @@ fn test_core(app: &tauri::App<tauri::Wry>) -> (super::super::AppCore, tempfile::
     let mut core = super::super::AppCore::new(app.handle().clone())
         .expect("AppCore should initialize for consent evidence");
     core.config = AppConfig::persist_remote_planner_connection_settings_for_app(
-    app.handle(),
-    PROFILE,
-    "https://api.example.com/v1",
-    MODEL,
-)
-.expect("test planner destination should be persisted");
+        app.handle(),
+        PROFILE,
+        "https://api.example.com/v1",
+        MODEL,
+    )
+    .expect("test planner destination should be persisted");
     core.config.providers.planner.mode = ProviderMode::Remote;
     core.config.providers.planner.remote_profile = Some(String::from(PROFILE));
     core.config.remote_planner_profiles.insert(
@@ -426,7 +426,6 @@ fn remote_data_consent_expiry_invalidation_persistence_and_hostile_state_are_fai
     assert!(serialized[3].contains(&challenge.challenge_id));
 }
 
-
 fn assert_consumed_failure(
     core: &mut super::super::AppCore,
     challenge: &RemotePlannerConsentChallenge,
@@ -642,7 +641,10 @@ fn remote_data_privacy_closure_identity_scope_and_restart_are_fail_closed() {
             RemotePlannerConsentDecision::AllowPersistent,
         )
         .expect("persistent consent should authorize");
-    assert!(matches!(persistent, PendingConsentResolution::Authorized(_)));
+    assert!(matches!(
+        persistent,
+        PendingConsentResolution::Authorized(_)
+    ));
     let reconstructed = super::super::AppCore::new(app.handle().clone())
         .expect("AppCore should reload persisted privacy rules");
     assert!(reconstructed
@@ -658,9 +660,10 @@ fn remote_data_privacy_closure_identity_scope_and_restart_are_fail_closed() {
     assert!(reconstructed.remote_planner_ephemeral_grants.is_empty());
     assert!(reconstructed.pending_remote_planner_consent.is_none());
 
-    let config_path = AppConfig::config_path_for_app(&core.app_handle)
-        .expect("test config path should resolve");
-    let config_bytes = fs::read_to_string(config_path).expect("persisted config should be readable");
+    let config_path =
+        AppConfig::config_path_for_app(&core.app_handle).expect("test config path should resolve");
+    let config_bytes =
+        fs::read_to_string(config_path).expect("persisted config should be readable");
     assert!(!config_bytes.contains(&challenge.challenge_id));
     assert!(!config_bytes.contains(&challenge.challenge_digest));
     assert!(!config_bytes.contains("sanitized_input"));
@@ -725,7 +728,10 @@ fn remote_data_privacy_closure_policy_and_disclosure_matrix_is_bounded() {
             RemotePlannerConsentDecision::AllowPersistent,
         )
         .expect("persistent consent should authorize");
-    assert!(matches!(persistent, PendingConsentResolution::Authorized(_)));
+    assert!(matches!(
+        persistent,
+        PendingConsentResolution::Authorized(_)
+    ));
     let (profile_name, profile) = core
         .remote_planner_profile_snapshot()
         .expect("test profile should resolve");
@@ -786,13 +792,16 @@ fn remote_data_privacy_closure_policy_and_disclosure_matrix_is_bounded() {
     assert_eq!(local_only.code, "remote_data_local_only");
 
     core.config.remote_planner_privacy.network_mode = RemotePlannerNetworkMode::AskPerOrigin;
-    core.config.remote_planner_privacy.origin_rules.push(RemotePlannerOriginRule {
-        page_origin: String::from(ORIGIN),
-        decision: PersistedOriginDecision::Block,
-        endpoint_scope: None,
-        policy_version: REMOTE_DATA_POLICY_VERSION,
-        created_at_ms: current_timestamp_ms(),
-    });
+    core.config
+        .remote_planner_privacy
+        .origin_rules
+        .push(RemotePlannerOriginRule {
+            page_origin: String::from(ORIGIN),
+            decision: PersistedOriginDecision::Block,
+            endpoint_scope: None,
+            policy_version: REMOTE_DATA_POLICY_VERSION,
+            created_at_ms: current_timestamp_ms(),
+        });
     let (profile_name, profile) = core
         .remote_planner_profile_snapshot()
         .expect("test profile should resolve");
@@ -892,11 +901,13 @@ fn remote_data_privacy_closure_policy_and_disclosure_matrix_is_bounded() {
         requires_confirmation: false,
         priority: 0,
     });
-    hostile_input.recent_tool_results.push(PlannerToolHistoryEntry {
-        tool_name: ToolName::GetPageSnapshot,
-        ok: true,
-        observation_summary: vec![String::from("tool-observation-sentinel")],
-    });
+    hostile_input
+        .recent_tool_results
+        .push(PlannerToolHistoryEntry {
+            tool_name: ToolName::GetPageSnapshot,
+            ok: true,
+            observation_summary: vec![String::from("tool-observation-sentinel")],
+        });
     let (profile_name, profile) = core
         .remote_planner_profile_snapshot()
         .expect("test profile should resolve");
@@ -907,8 +918,8 @@ fn remote_data_privacy_closure_policy_and_disclosure_matrix_is_bounded() {
     let RemotePlannerPreparation::ConsentRequired { challenge, draft } = prepared else {
         panic!("ask mode unexpectedly authorized hostile metadata");
     };
-    let challenge_json = serde_json::to_string(&challenge)
-        .expect("challenge should serialize without excerpts");
+    let challenge_json =
+        serde_json::to_string(&challenge).expect("challenge should serialize without excerpts");
     for sentinel in [
         HOSTILE,
         "secret-query-sentinel",

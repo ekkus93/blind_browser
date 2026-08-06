@@ -1099,5 +1099,4 @@ mod tests {
             assert_ne!(baseline_digest, changed_digest);
         }
     }
-
 }
