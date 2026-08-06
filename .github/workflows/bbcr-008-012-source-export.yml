@@ -25,19 +25,17 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           printf '%s\n' "${GITHUB_SHA}" > SOURCE_SHA.txt
-          tar \
-            --exclude=.git \
-            --exclude=bbcr-008-012-source.tar.gz \
-            -czf bbcr-008-012-source.tar.gz .
-          sha256sum bbcr-008-012-source.tar.gz > bbcr-008-012-source.tar.gz.sha256
+          tar --exclude=.git -czf "${RUNNER_TEMP}/bbcr-008-012-source.tar.gz" .
+          sha256sum "${RUNNER_TEMP}/bbcr-008-012-source.tar.gz" > "${RUNNER_TEMP}/bbcr-008-012-source.tar.gz.sha256"
+          cp SOURCE_SHA.txt "${RUNNER_TEMP}/SOURCE_SHA.txt"
 
       - name: Upload source artifact
         uses: actions/upload-artifact@v4
         with:
           name: bbcr-008-012-source-${{ github.sha }}
           path: |
-            bbcr-008-012-source.tar.gz
-            bbcr-008-012-source.tar.gz.sha256
-            SOURCE_SHA.txt
+            ${{ runner.temp }}/bbcr-008-012-source.tar.gz
+            ${{ runner.temp }}/bbcr-008-012-source.tar.gz.sha256
+            ${{ runner.temp }}/SOURCE_SHA.txt
           if-no-files-found: error
           retention-days: 1
