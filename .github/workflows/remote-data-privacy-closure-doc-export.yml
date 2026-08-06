@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-          test "$(cat .github/remote-data-privacy-closure-doc-export.trigger)" = "remote-data-privacy-closure-doc-publish-v4"
+          test "$(cat .github/remote-data-privacy-closure-doc-export.trigger)" = "remote-data-privacy-closure-doc-publish-v5"
 
           find .github -maxdepth 1 -type f \
             -name 'remote-data-privacy-closure-docs.patch.gz.b64.part-*' \
@@ -71,6 +71,19 @@ jobs:
           echo "4326dfdc4f0d27c1181dc8bae34f9b83f733db884571f4e1f7b5a3498f593899  /tmp/remote-data-privacy-closure-new-files.patch" | sha256sum --check --strict
           git apply --check /tmp/remote-data-privacy-closure-new-files.patch
           git apply /tmp/remote-data-privacy-closure-new-files.patch
+
+          corrected_new_files=(
+            docs/BLIND_BROWSER_REMOTE_DATA_PRIVACY_MILESTONE_CLOSURE_REPORT_2026-08-05.md
+            docs/BLIND_BROWSER_REMOTE_DATA_PRIVACY_MILESTONE_RECONCILIATION_2026-08-05.md
+            docs/BLIND_BROWSER_REMOTE_DATA_PRIVACY_THREAT_MODEL_2026-08-05.md
+            docs/REMOTE_PLANNER_PRIVACY.md
+            src/settings-panels/planner-privacy-confirmation-interactions.test.mjs
+            src/settings-panels/planner-privacy-confirmation-interactions.ts
+          )
+          sed -i 's/[[:blank:]]\+$//' "${corrected_new_files[@]}"
+          git add --intent-to-add -- "${corrected_new_files[@]}"
+          git diff --binary -- "${corrected_new_files[@]}" > /tmp/remote-data-privacy-closure-corrected-new-files.patch
+          echo "3c1c3bd9439ac2f226c366d3e49ced6afa15971e1f0bda1775b7b7229db2991c  /tmp/remote-data-privacy-closure-corrected-new-files.patch" | sha256sum --check --strict
 
           cat > /tmp/expected-source-paths.txt <<'PATHS'
           docs/BLIND_BROWSER_COMPREHENSIVE_CODE_REVIEW_FIX_TODO_2026-08-01.md
