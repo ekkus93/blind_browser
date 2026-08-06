@@ -90,6 +90,11 @@ jobs:
           python3 scripts/check-sensitive-diagnostics.py --self-test
           python3 scripts/check-sensitive-diagnostics.py
 
+      - name: Check remote planner privacy state boundaries
+        run: |
+          python3 scripts/check-remote-planner-privacy-state.py --self-test
+          python3 scripts/check-remote-planner-privacy-state.py
+
       - name: Check Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
 
