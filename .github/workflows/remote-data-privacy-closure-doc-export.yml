@@ -1,0 +1,37 @@
+name: Remote Data Privacy Closure Documentation Export
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/remote-data-privacy-closure-doc-export.trigger
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Package exact source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          git status --short --untracked-files=all | test ! -s /dev/stdin
+          tar --exclude=.git -czf /tmp/blind-browser-source.tar.gz .
+          sha256sum /tmp/blind-browser-source.tar.gz > /tmp/blind-browser-source.tar.gz.sha256
+
+      - name: Upload exact source tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-data-privacy-closure-source-${{ github.sha }}
+          path: |
+            /tmp/blind-browser-source.tar.gz
+            /tmp/blind-browser-source.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 1
