@@ -8,7 +8,7 @@ use super::keyring_store::{keyring_ref_for_remote_api_key, set_keyring_secret};
 use super::loading::{load_document_table_from_path, load_document_table_from_str};
 use super::validation::{
     normalize_remote_endpoint, normalize_remote_planner_privacy_settings, validate_audio_settings,
-    validate_model_settings,
+    validate_model_settings, validate_ocr_settings, validate_safety_settings,
 };
 use super::{
     AppConfig, AudioSettings, ConfigError, ModelManagementSettings, ProviderSelection,
@@ -244,6 +244,11 @@ impl AppConfig {
         safety: &SafetySettings,
     ) -> Result<Self, ConfigError> {
         let path = path.as_ref();
+        let mut issues = Vec::new();
+        validate_safety_settings(safety, &mut issues);
+        if !issues.is_empty() {
+            return Err(ConfigError::Validation(issues.join("\n")));
+        }
 
         let mut document = if path.exists() {
             load_document_table_from_path(path)?
@@ -267,6 +272,11 @@ impl AppConfig {
         ocr: &OcrSettings,
     ) -> Result<Self, ConfigError> {
         let path = path.as_ref();
+        let mut issues = Vec::new();
+        validate_ocr_settings(ocr, &mut issues);
+        if !issues.is_empty() {
+            return Err(ConfigError::Validation(issues.join("\n")));
+        }
 
         let mut document = if path.exists() {
             load_document_table_from_path(path)?
@@ -645,7 +655,7 @@ impl AppConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::write_config_atomic;
+    use super::{write_config_atomic, AppConfig, ConfigError, SafetySettings};
 
     #[test]
     fn write_config_atomic_writes_expected_content() {
@@ -690,6 +700,79 @@ mod tests {
         write_config_atomic(&path, "value = 2\n").unwrap();
 
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "value = 2\n");
+    }
+
+    #[test]
+    fn persist_safety_settings_rejects_an_invalid_threshold_without_touching_the_file() {
+        // Regression test: previously this validated only on the *next* load,
+        // after the invalid value was already written to disk -- which could
+        // brick the next app launch. It must now fail before any write.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        let invalid_safety = SafetySettings {
+            confirmation_confidence_threshold: 5.0,
+            allow_click_without_confirmation: false,
+            always_confirm_submit: true,
+        };
+
+        let result = AppConfig::persist_safety_settings_at_path(&path, &invalid_safety);
+
+        assert!(
+            matches!(result, Err(ConfigError::Validation(_))),
+            "expected a validation error, got {result:?}"
+        );
+        assert!(
+            !path.exists(),
+            "an invalid safety threshold must not be written to disk"
+        );
+    }
+
+    #[test]
+    fn persist_ocr_settings_rejects_a_zero_threshold_without_touching_the_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        let invalid_ocr = crate::ocr::OcrSettings {
+            trigger_on_no_extractable_text: true,
+            sparse_text_char_threshold: 0,
+            sparse_text_region_threshold: 0,
+            prefer_region_ocr: true,
+        };
+
+        let result = AppConfig::persist_ocr_settings_at_path(&path, &invalid_ocr);
+
+        assert!(
+            matches!(result, Err(ConfigError::Validation(_))),
+            "expected a validation error, got {result:?}"
+        );
+        assert!(
+            !path.exists(),
+            "an invalid OCR threshold must not be written to disk"
+        );
+    }
+
+    #[test]
+    fn persist_safety_settings_leaves_an_existing_file_untouched_on_validation_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        let original_contents = "[safety]\nconfirmation_confidence_threshold = 0.9\nallow_click_without_confirmation = false\nalways_confirm_submit = true\n";
+        std::fs::write(&path, original_contents).unwrap();
+
+        let invalid_safety = SafetySettings {
+            confirmation_confidence_threshold: -1.0,
+            allow_click_without_confirmation: false,
+            always_confirm_submit: true,
+        };
+
+        let result = AppConfig::persist_safety_settings_at_path(&path, &invalid_safety);
+
+        assert!(result.is_err());
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            original_contents,
+            "a rejected write must not modify an existing config file"
+        );
     }
 }
 

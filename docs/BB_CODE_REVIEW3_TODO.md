@@ -184,7 +184,20 @@ Expected: no unchecked indexing; `previous_region_index` compares against
 
 ## P0.3 — Validate settings before writing them to disk
 
-**Status:** PENDING · `[VERIFIED]`
+**Status:** DONE · `[VERIFIED]`
+
+**Note:** the P0.3.2 audit found a second instance of the same bug class:
+`set_active_tts_profile` (`app_core/runtime_config.rs`) wrote a caller-supplied
+TTS profile name into `ProviderSelection` with no check that the profile exists,
+reachable via the `set_tts_model_selection` command. `persist_tts_provider_selection_at_path`
+itself validates nothing profile-specific (it only validates the document is
+table-shaped), so an unknown profile name would land on disk before the
+persister's own reload caught it on the next load. Fixed alongside safety/OCR by
+checking `local_tts_profiles`/`remote_tts_profiles` before persisting. This fix
+does not have a dedicated regression test — exercising it requires the full
+`AppCore::new(app.handle())` isolated-Wry test harness (see P2.1's scope), which
+was judged disproportionate for a single `contains_key` guard. Flagged here for
+whoever picks up P2.1.
 **Spec:** constraint 3
 **Files:**
 

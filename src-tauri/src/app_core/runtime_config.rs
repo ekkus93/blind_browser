@@ -187,11 +187,28 @@ impl AppCore {
     ) -> Result<(), ConfigError> {
         let profile_name = profile_name.into();
         let mut selection = self.config.providers.tts.clone();
+        // Validate the profile actually exists before persisting the
+        // reference: writing an unknown profile name would pass this
+        // function's own document-shape checks, but the very next config
+        // load (including the reload this persister itself performs, and
+        // every subsequent app launch) rejects it via load_provider_profiles
+        // -- so the invalid reference would already be on disk when the
+        // caller learns persistence failed.
         match selection.mode {
             crate::config::ProviderMode::Local => {
+                if !self.config.local_tts_profiles.contains_key(&profile_name) {
+                    return Err(ConfigError::Validation(format!(
+                        "local_profiles.{profile_name} is not a configured local TTS profile"
+                    )));
+                }
                 selection.local_profile = Some(profile_name);
             }
             crate::config::ProviderMode::Remote => {
+                if !self.config.remote_tts_profiles.contains_key(&profile_name) {
+                    return Err(ConfigError::Validation(format!(
+                        "remote_profiles.{profile_name} is not a configured remote TTS profile"
+                    )));
+                }
                 selection.remote_profile = Some(profile_name);
             }
         }
