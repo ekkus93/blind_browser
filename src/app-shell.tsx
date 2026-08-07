@@ -57,6 +57,16 @@ export function AppShellMarkup({
 
       {renderPanelContent("app-alert", panelContent)}
 
+      {/* Rendered unconditionally, outside both the workspace and settings
+          sections below: a confirmation or remote-data-consent dialog can be
+          raised while the app is in Settings view (push-to-talk and the
+          continuous-listening loop are not gated to workspace view), and the
+          workspace/settings sections below are hidden+aria-hidden whenever
+          they are not the active view. A safety gate that cannot be seen or
+          heard is equivalent to no gate -- this must stay reachable
+          regardless of which view is currently showing. */}
+      {renderPanelContent("confirmation-panel", panelContent)}
+
       <section
         data-app-view-section="workspace"
         hidden={!workspaceActive}
@@ -67,7 +77,6 @@ export function AppShellMarkup({
           {renderPanelContent("url-input", panelContent)}
         </div>
         {renderPanelContent("status", panelContent)}
-        {renderPanelContent("confirmation-panel", panelContent)}
       </section>
 
       <section

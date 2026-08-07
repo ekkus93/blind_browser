@@ -68,3 +68,36 @@ test("app-alert renders above both workspace and settings sections", async () =>
   assert.match(settingsHtml, /Could not open the external link/);
   assert.ok(settingsHtml.indexOf("app-alert") < settingsHtml.indexOf('data-settings-view-section="planner"'));
 });
+
+test("confirmation panel stays reachable when the app is in settings view", async () => {
+  // Regression test: the confirmation-panel root (action-approval panel +
+  // remote-data-consent dialog) used to render inside the workspace-only
+  // section, which carries hidden + aria-hidden whenever the app is in
+  // settings view. Push-to-talk has no view gate, so a command issued from
+  // Settings could raise a confirmation into an invisible, unfocusable,
+  // screen-reader-hidden subtree. It must now render as a sibling of both
+  // view sections, never nested inside either.
+  const confirmationHtml = '<section data-confirmation-panel-marker="true">Approve this action</section>';
+
+  const settingsHtml = await renderAppShell({
+    initialAppView: "settings",
+    initialSettingsView: "tts",
+    panelContent: { "confirmation-panel": confirmationHtml },
+  });
+
+  assert.match(settingsHtml, /Approve this action/);
+  const confirmationIndex = settingsHtml.indexOf("data-confirmation-panel-marker");
+  const workspaceSectionIndex = settingsHtml.indexOf('data-app-view-section="workspace"');
+  const settingsSectionIndex = settingsHtml.indexOf('data-app-view-section="settings"');
+  assert.ok(confirmationIndex > -1, "confirmation panel content must be present in the settings-view render");
+  assert.ok(
+    confirmationIndex < workspaceSectionIndex && confirmationIndex < settingsSectionIndex,
+    "confirmation panel must render before -- i.e. as a sibling of, not nested inside -- the workspace/settings view sections",
+  );
+
+  const workspaceHtml = await renderAppShell({
+    initialAppView: "workspace",
+    panelContent: { "confirmation-panel": confirmationHtml },
+  });
+  assert.match(workspaceHtml, /Approve this action/);
+});

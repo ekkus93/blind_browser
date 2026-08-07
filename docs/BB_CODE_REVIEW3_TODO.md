@@ -424,7 +424,18 @@ Expected: no unchecked cast remains; a test asserts the resulting view.
 
 ## P0.6 — Make confirmation and consent surfaces reachable from any view
 
-**Status:** PENDING · `[VERIFIED]`
+**Status:** DONE · `[VERIFIED]`
+
+**Note:** implemented option (a) from P0.6.1 -- hoisted
+`renderPanelContent("confirmation-panel", panelContent)` out of the
+workspace-only section to render unconditionally as a sibling of both the
+workspace and settings sections, right after the app-alert panel. Option
+(b) (auto-switch `appView`) was not used, per the spec's own caveat about
+moving the user's view without them asking in a voice-first UI. The
+existing focus-trap modules needed no changes -- they already worked
+correctly on the dialog's own DOM subtree; the bug was purely that the
+subtree was hidden/unreachable via its ancestor, not that the trap logic
+was broken.
 **Spec:** constraint 9
 **Files:**
 
