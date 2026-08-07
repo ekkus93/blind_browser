@@ -2,8 +2,20 @@ import { type ReactNode } from "react";
 
 const FOCUS_RING = "focus-visible:[outline:var(--focus-ring)] focus-visible:[outline-offset:var(--focus-offset)]";
 
-const CONTROL_CARD_BASE = "flex flex-col p-[16px_18px] rounded-[18px] bg-[var(--color-surface-inner)] border border-[rgba(41,88,63,0.14)]";
+// Structural anatomy shared by every `.settings-control-card` variant, with
+// no background of its own -- each variant below appends exactly one
+// background utility so two never end up stacked on the same element
+// fighting over which wins (the bug that shipped: renderReadOnlyCard used to
+// append a `bg-[color-mix(...)]` on top of CONTROL_CARD, which already set
+// `bg-[var(--color-surface-inner)]`).
+const CONTROL_CARD_STRUCTURE = "flex flex-col p-[16px_18px] rounded-[18px] border border-[rgba(41,88,63,0.14)]";
+const CONTROL_CARD_BASE = `${CONTROL_CARD_STRUCTURE} bg-[var(--color-surface-inner)]`;
 export const CONTROL_CARD = `${CONTROL_CARD_BASE} gap-2`;
+// Read-only variant: same anatomy, its own (translucent) background instead
+// of CONTROL_CARD's, complete and self-contained rather than layered on top.
+// Exported so the cascade regression test in tailwind-cascade.test.mjs can
+// compile this exact string rather than a hand-copied duplicate.
+export const CONTROL_CARD_READONLY_CLASS = `${CONTROL_CARD_STRUCTURE} gap-2 bg-[color-mix(in_srgb,var(--color-surface-card)_72%,transparent)] pointer-events-none select-text`;
 export const CONTROL_LABEL = "text-[0.84rem] uppercase tracking-[0.08em] text-[var(--color-text-label)] font-bold";
 export const CONTROL_VALUE = "text-[1.1rem] font-bold text-[var(--color-text-primary)]";
 
@@ -87,7 +99,10 @@ export const BTN_SPINNER_CLASS = "inline-block w-[0.75em] h-[0.75em] mr-[0.4em] 
 // (horizontal) properties use Tailwind's logical ps-/border-s- utilities so
 // RTL correctness is preserved.
 const REMOTE_PRIVACY_CARD_BASE = "my-4 border-2 border-current rounded-xl p-4 bg-[var(--surface,Canvas)] text-[var(--text,CanvasText)]";
-export const REMOTE_PRIVACY_STATUS_CLASS = `${REMOTE_PRIVACY_CARD_BASE} flex items-start justify-between gap-4 max-sm:block`;
+// The old CSS's `@media (max-width: 48rem)` breakpoint maps to Tailwind's
+// `md` (48rem), not `sm` (40rem) -- kept explicit here since it's easy to
+// reach for the more familiar `max-sm:` and silently narrow the breakpoint.
+export const REMOTE_PRIVACY_STATUS_CLASS = `${REMOTE_PRIVACY_CARD_BASE} flex items-start justify-between gap-4 max-md:block`;
 export const REMOTE_CONSENT_DIALOG_CLASS = `${REMOTE_PRIVACY_CARD_BASE} relative shadow-[0_0.5rem_2rem_rgb(0_0_0_/_0.25)] focus-visible:[outline:0.25rem_solid_Highlight] focus-visible:[outline-offset:0.2rem]`;
 
 export const REMOTE_PRIVACY_STATUS_COPY_CLASS = "min-w-0";
@@ -103,7 +118,7 @@ export const REMOTE_PRIVACY_ERROR_CLASS = `my-2 ${REMOTE_PRIVACY_INLINE_START_AC
 export const REMOTE_PRIVACY_INLINE_STATUS_CLASS = REMOTE_PRIVACY_INLINE_START_ACCENT;
 
 const REMOTE_PRIVACY_ACTION_BUTTON_BASE = "min-h-11 border-2 border-current rounded-lg p-[0.65rem_0.9rem] [font:inherit] font-bold bg-[ButtonFace] text-[ButtonText] cursor-pointer focus-visible:[outline:0.25rem_solid_Highlight] focus-visible:[outline-offset:0.2rem]";
-export const REMOTE_PRIVACY_SETTINGS_BUTTON_CLASS = `${REMOTE_PRIVACY_ACTION_BUTTON_BASE} max-sm:w-full max-sm:mt-3`;
+export const REMOTE_PRIVACY_SETTINGS_BUTTON_CLASS = `${REMOTE_PRIVACY_ACTION_BUTTON_BASE} max-md:w-full max-md:mt-3`;
 export const REMOTE_CONSENT_ACTION_BUTTON_CLASS = `${REMOTE_PRIVACY_ACTION_BUTTON_BASE} disabled:cursor-wait disabled:opacity-65`;
 // `!important` in the old CSS beats `.remote-consent-actions button`'s higher
 // specificity (a class + descendant type selector). Tailwind's trailing `!`
@@ -111,7 +126,7 @@ export const REMOTE_CONSENT_ACTION_BUTTON_CLASS = `${REMOTE_PRIVACY_ACTION_BUTTO
 export const REMOTE_CONSENT_LOCAL_CANCEL_BUTTON_CLASS = "bg-[Canvas]! text-[CanvasText]!";
 
 export const REMOTE_CONSENT_DESTINATION_COUNTS_CLASS = "grid gap-2 my-4";
-export const REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS = "grid [grid-template-columns:minmax(8rem,0.35fr)_minmax(0,1fr)] gap-3 max-sm:[grid-template-columns:1fr] max-sm:gap-[0.15rem]";
+export const REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS = "grid [grid-template-columns:minmax(8rem,0.35fr)_minmax(0,1fr)] gap-3 max-md:[grid-template-columns:1fr] max-md:gap-[0.15rem]";
 export const REMOTE_CONSENT_DT_CLASS = "font-bold";
 export const REMOTE_CONSENT_DD_CLASS = "m-0 [overflow-wrap:anywhere]";
 
@@ -132,7 +147,7 @@ export const REMOTE_CONSENT_ERROR_PARAGRAPH_CLASS = "my-[0.35rem]";
 // net result instead.
 export const REMOTE_PRIVACY_SETTINGS_CARD_CLASS = "grid gap-4 p-[16px_18px] rounded-[18px] bg-[var(--color-surface-inner)] border border-[rgba(41,88,63,0.14)] [&_h3]:mt-0 [&_h4]:mt-0 [&_p]:mt-0";
 
-export const REMOTE_PRIVACY_ROW_CLASS = "flex items-start justify-between gap-4 max-sm:grid";
+export const REMOTE_PRIVACY_ROW_CLASS = "flex items-start justify-between gap-4 max-md:grid";
 
 const REMOTE_PRIVACY_BOX_BASE = "border-2 border-current rounded-[0.65rem] p-4 bg-[Canvas] text-[CanvasText]";
 export const REMOTE_PRIVACY_BOX_ACCENT_CLASS = `${REMOTE_PRIVACY_BOX_BASE} border-s-[0.45rem]`;
@@ -197,7 +212,7 @@ export function renderReadOnlySettingText(value: string | number | null): string
 
 export function renderReadOnlyCard(label: string, value: string | number | null): ReactNode {
   return (
-    <div className={`${CONTROL_CARD} bg-[color-mix(in_srgb,var(--color-surface-card)_72%,transparent)] pointer-events-none select-text`}>
+    <div className={CONTROL_CARD_READONLY_CLASS}>
       <span className={CONTROL_LABEL}>{label}</span>
       <span className={CONTROL_VALUE}>{renderReadOnlySettingText(value)}</span>
     </div>
@@ -208,7 +223,7 @@ export function renderReadOnlyCard(label: string, value: string | number | null)
 // audio-controls-panel, settings-panel, confirmation-panel in the pre-Tailwind
 // CSS): identical border-radius/border/shadow, with per-caller overrides for
 // margin, padding, and background passed via sectionClassName.
-const PANEL_BASE = "rounded-[22px] border border-[var(--card-border)] shadow-[0_18px_36px_rgba(49,63,74,0.08)]";
+const PANEL_BASE = "rounded-[22px] [border:var(--card-border)] shadow-[0_18px_36px_rgba(49,63,74,0.08)]";
 export const SETTINGS_PANEL_SECTION_CLASS = `mt-[18px] p-[22px_24px] bg-[var(--color-surface-card)] ${PANEL_BASE}`;
 
 // Card grid shared by every settings subpage (asr/tts/planner/runtime), plus

@@ -134,7 +134,7 @@ export function renderSettingsSubpageLink(
   return (
     <button
       type="button"
-      className={`flex items-center justify-between w-full p-[12px_16px] appearance-none border border-[var(--card-border)] rounded-[10px] bg-[var(--color-surface-card)] text-[var(--color-green-primary)] [font:inherit] font-bold cursor-pointer text-left [transition:background_150ms_ease,box-shadow_150ms_ease,transform_120ms_ease] shadow-[0_2px_8px_rgba(49,63,74,0.06)] hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(41,88,63,0.12)] focus-visible:-translate-y-px focus-visible:shadow-[0_6px_16px_rgba(41,88,63,0.12)] ${FOCUS_RING} max-sm:p-[10px_14px]`}
+      className={`flex items-center justify-between w-full p-[12px_16px] appearance-none [border:var(--card-border)] rounded-[10px] bg-[var(--color-surface-card)] text-[var(--color-green-primary)] [font:inherit] font-bold cursor-pointer text-left [transition:background_150ms_ease,box-shadow_150ms_ease,transform_120ms_ease] shadow-[0_2px_8px_rgba(49,63,74,0.06)] hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(41,88,63,0.12)] focus-visible:-translate-y-px focus-visible:shadow-[0_6px_16px_rgba(41,88,63,0.12)] ${FOCUS_RING} max-sm:p-[10px_14px]`}
       data-settings-view-button={view}
       onClick={handleClick}
       aria-label={ariaLabel}

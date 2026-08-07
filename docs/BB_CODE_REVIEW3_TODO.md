@@ -660,7 +660,34 @@ Expected: hands-free windows reset; a cap exists and is unit-tested.
 
 ## P0.9 — Fix the Tailwind migration regressions from `af89a22`
 
-**Status:** PENDING · `[VERIFIED]`
+**Status:** DONE · `[VERIFIED]`
+**Note:** All four fixed as specified.
+P0.9.1: every `border-[var(--card-border)]`/`border-[var(--inner-card-border)]`
+colour-utility usage (6 files) is now `[border:var(--x)]`; the now-redundant
+paired `border` width utility was removed alongside each. P0.9.2: the
+browser-visibility toggle's pressed/unpressed states are now two complete,
+exported, mutually-exclusive class constants
+(`TOGGLE_BUTTON_PRESSED_CLASS`/`_UNPRESSED_CLASS` in `workspace.tsx`) selected
+by ternary, not a base string plus a conditional delta. P0.9.3:
+`renderReadOnlyCard` now uses its own complete `CONTROL_CARD_READONLY_CLASS`
+(a `CONTROL_CARD_STRUCTURE` with no background of its own, shared by both
+`CONTROL_CARD` and the read-only variant) instead of appending a background
+on top of `CONTROL_CARD`'s. P0.9.4: all four `max-sm:` occurrences in the
+remote-privacy/consent constants are now `max-md:` (768px). P0.9.5: added
+`src/tailwind-cascade.test.mjs`, which compiles the project's actual exported
+class-string constants through Tailwind v4's own `compile()`/`build()` API
+(no Vite/PostCSS pipeline needed — narrow and fast, ~2ms/assertion) and
+asserts on the emitted declarations directly: the shorthand-vs-`border-color`
+distinction, each toggle/card variant's declarations in isolation, and the
+768px vs 640px breakpoint. A companion `git grep --untracked` test guards the
+whole `src/` tree against the broken `border-[var(--x)]` form ever
+reappearing outside the six touched files. One implementation-affecting
+discovery along the way: Tailwind's `build()` is an *incremental*-rebuild
+API — candidates accumulate across calls on the same `compile()` instance
+rather than each call returning only that call's own CSS — so the test
+recompiles fresh per assertion rather than sharing one `compile()` across the
+file, or an earlier assertion's utilities silently leak into a later one's
+output.
 **Spec:** constraint 10
 **Files:**
 

@@ -63,7 +63,7 @@ export function renderVoiceStatusStripNode(state: VoiceStatusStripState): ReactN
   const label = VOICE_STATE_LABEL[voiceState];
   return (
     <div
-      className="inline-flex items-center gap-[7px] py-[5px] px-3 rounded-full bg-[var(--color-surface-card)] border border-[var(--card-border)] shadow-[0_4px_10px_rgba(49,63,74,0.06)] text-[0.8rem] text-[var(--color-text-secondary)] ml-auto select-none max-sm:text-[0.74rem] max-sm:py-1 max-sm:px-[10px]"
+      className="inline-flex items-center gap-[7px] py-[5px] px-3 rounded-full bg-[var(--color-surface-card)] [border:var(--card-border)] shadow-[0_4px_10px_rgba(49,63,74,0.06)] text-[0.8rem] text-[var(--color-text-secondary)] ml-auto select-none max-sm:text-[0.74rem] max-sm:py-1 max-sm:px-[10px]"
       data-voice-status-strip="true"
       data-voice-state={voiceState}
       role="status"

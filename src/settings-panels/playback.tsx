@@ -10,7 +10,10 @@ export interface AudioControlsPanelHandlers {
 }
 
 const DISMISS_BUTTON_CLASS = "appearance-none bg-transparent border-none pl-2 [font:inherit] text-[0.84rem] font-bold text-inherit cursor-pointer opacity-70 underline hover:opacity-100";
-const AUDIO_CONTROL_CLASS = "grid [grid-template-columns:1fr_auto] gap-[8px_12px] p-[16px_18px] rounded-[18px] bg-[var(--color-surface-inner)] border-[var(--inner-card-border)]";
+// Exported so the cascade regression test in tailwind-cascade.test.mjs can
+// compile the exact string this module renders, instead of a hand-copied
+// duplicate that could drift from it.
+export const AUDIO_CONTROL_CLASS = "grid [grid-template-columns:1fr_auto] gap-[8px_12px] p-[16px_18px] rounded-[18px] bg-[var(--color-surface-inner)] [border:var(--inner-card-border)]";
 const AUDIO_CONTROL_LABEL_CLASS = "font-bold text-[var(--color-text-primary)]";
 
 function renderPlaybackVolumeValueText(value: number): string {

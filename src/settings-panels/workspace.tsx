@@ -15,6 +15,18 @@ const URL_ACTION_BUTTON_GREEN_CLASS = "bg-gradient-to-br from-[var(--color-green
 const URL_ACTION_BUTTON_STOP_CLASS = "bg-gradient-to-br from-[var(--color-error-primary)] to-[var(--color-error-active)] shadow-[0_12px_24px_rgba(176,71,54,0.18)] enabled:hover:shadow-[0_16px_28px_rgba(176,71,54,0.24)] focus-visible:shadow-[0_16px_28px_rgba(176,71,54,0.24)]";
 const URL_ACTION_BUTTON_NAV_CLASS = "bg-gradient-to-br from-[var(--btn-nav-start)] to-[var(--btn-nav-end)] shadow-[0_12px_24px_var(--btn-nav-shadow)] enabled:hover:shadow-[0_16px_28px_var(--btn-nav-shadow)] focus-visible:shadow-[0_16px_28px_var(--btn-nav-shadow)]";
 
+// The browser-visibility toggle's pressed/unpressed states are complete,
+// self-contained alternatives (not a base string plus a conditional delta):
+// pressed and unpressed both set their own border/background/text, so
+// Tailwind's utility-emission order can never leave one state's colors
+// losing to the other's on the same element.
+const TOGGLE_BUTTON_BASE_CLASS = `appearance-none rounded-full py-2 px-3 [font:inherit] font-semibold cursor-pointer transition-[transform,box-shadow,background-color] duration-[140ms] hover:-translate-y-px hover:shadow-[0_10px_22px_rgba(42,55,66,0.12)] focus-visible:-translate-y-px focus-visible:shadow-[0_10px_22px_rgba(42,55,66,0.12)] ${FOCUS_RING} disabled:cursor-progress disabled:translate-y-0 disabled:shadow-none disabled:opacity-60`;
+// Exported (rather than kept module-private) so the cascade regression test
+// in tailwind-cascade.test.mjs can compile the exact strings this module
+// renders, instead of a hand-copied duplicate that could drift from them.
+export const TOGGLE_BUTTON_UNPRESSED_CLASS = `${TOGGLE_BUTTON_BASE_CLASS} border border-[rgba(123,98,70,0.2)] bg-[var(--color-surface-inner)] text-[var(--color-text-secondary)]`;
+export const TOGGLE_BUTTON_PRESSED_CLASS = `${TOGGLE_BUTTON_BASE_CLASS} border border-[rgba(41,88,63,0.28)] bg-[rgba(41,88,63,0.14)] text-[var(--color-green-active)]`;
+
 type UrlActionIcon = "open" | "read" | "stop" | "previous" | "next";
 
 function UrlActionSvgIcon({ icon }: { icon: UrlActionIcon }) {
@@ -99,7 +111,7 @@ export function renderUrlInputPanelNode(
 
   return (
     <section
-      className="block m-0 p-[22px_24px] rounded-[22px] bg-[var(--color-surface-card)] border border-[var(--card-border)] shadow-[0_18px_36px_rgba(49,63,74,0.08)]"
+      className="block m-0 p-[22px_24px] rounded-[22px] bg-[var(--color-surface-card)] [border:var(--card-border)] shadow-[0_18px_36px_rgba(49,63,74,0.08)]"
       aria-label="Page navigation"
     >
       <div className="grid gap-3">
@@ -242,9 +254,7 @@ export function renderStatusPanelNode(
                 <div className="inline-flex gap-2 flex-wrap" role="group" aria-label="Browser visibility mode">
                   <button
                     type="button"
-                    className={`appearance-none border border-[rgba(123,98,70,0.2)] rounded-full py-2 px-3 bg-[var(--color-surface-inner)] text-[var(--color-text-secondary)] [font:inherit] font-semibold cursor-pointer transition-[transform,box-shadow,background-color] duration-[140ms] hover:-translate-y-px hover:shadow-[0_10px_22px_rgba(42,55,66,0.12)] focus-visible:-translate-y-px focus-visible:shadow-[0_10px_22px_rgba(42,55,66,0.12)] ${FOCUS_RING} disabled:cursor-progress disabled:translate-y-0 disabled:shadow-none disabled:opacity-60 ${
-                      visiblePressed ? "bg-[rgba(41,88,63,0.14)] border-[rgba(41,88,63,0.28)] text-[var(--color-green-active)]" : ""
-                    }`}
+                    className={visiblePressed ? TOGGLE_BUTTON_PRESSED_CLASS : TOGGLE_BUTTON_UNPRESSED_CLASS}
                     data-browser-visibility-mode="Visible"
                     aria-label="Browser visibility mode: Visible"
                     aria-pressed={visiblePressed}
@@ -256,9 +266,7 @@ export function renderStatusPanelNode(
                   </button>
                   <button
                     type="button"
-                    className={`appearance-none border border-[rgba(123,98,70,0.2)] rounded-full py-2 px-3 bg-[var(--color-surface-inner)] text-[var(--color-text-secondary)] [font:inherit] font-semibold cursor-pointer transition-[transform,box-shadow,background-color] duration-[140ms] hover:-translate-y-px hover:shadow-[0_10px_22px_rgba(42,55,66,0.12)] focus-visible:-translate-y-px focus-visible:shadow-[0_10px_22px_rgba(42,55,66,0.12)] ${FOCUS_RING} disabled:cursor-progress disabled:translate-y-0 disabled:shadow-none disabled:opacity-60 ${
-                      headlessPressed ? "bg-[rgba(41,88,63,0.14)] border-[rgba(41,88,63,0.28)] text-[var(--color-green-active)]" : ""
-                    }`}
+                    className={headlessPressed ? TOGGLE_BUTTON_PRESSED_CLASS : TOGGLE_BUTTON_UNPRESSED_CLASS}
                     data-browser-visibility-mode="Headless"
                     aria-label="Browser visibility mode: Headless"
                     aria-pressed={headlessPressed}

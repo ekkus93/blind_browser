@@ -29,7 +29,7 @@ export function renderConfirmationPanelNode(
 
   return (
     <section
-      className="mt-[26px] p-6 rounded-[22px] bg-gradient-to-br from-[var(--color-amber-light)] to-[var(--color-surface-card)] bg-[var(--color-surface-card)] border border-[var(--card-border)] shadow-[0_18px_36px_rgba(49,63,74,0.12)] max-sm:p-5"
+      className="mt-[26px] p-6 rounded-[22px] bg-gradient-to-br from-[var(--color-amber-light)] to-[var(--color-surface-card)] bg-[var(--color-surface-card)] [border:var(--card-border)] shadow-[0_18px_36px_rgba(49,63,74,0.12)] max-sm:p-5"
       aria-live="polite"
       aria-labelledby="confirmation-title"
       aria-busy={state.isSubmitting}
