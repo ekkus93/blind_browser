@@ -151,15 +151,21 @@ pub(crate) struct PromptInjectionIndicators {
     pub(crate) reason_codes: Vec<String>,
 }
 
+/// CR3 P2.5: `omitted_elements`/`omitted_regions` used to have sibling
+/// `relevance_filtered_elements`/`relevance_filtered_regions` fields. Once
+/// both were computed correctly (against the post-visibility-filter element
+/// count, and the full region count respectively — see
+/// [`super::relevance::select_relevant_elements`] and
+/// [`super::relevance::select_relevant_regions`]), the two fields in each
+/// pair were provably always equal, so the redundant `relevance_filtered_*`
+/// fields were removed rather than kept in sync by hand.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Default)]
 pub(crate) struct SanitizationMetadata {
     pub(crate) redacted_text_fields: usize,
     pub(crate) truncated_text_fields: usize,
     pub(crate) omitted_elements: usize,
     pub(crate) omitted_hidden_elements: usize,
-    pub(crate) relevance_filtered_elements: usize,
     pub(crate) omitted_regions: usize,
-    pub(crate) relevance_filtered_regions: usize,
     pub(crate) omitted_history_entries: usize,
     pub(crate) omitted_skill_summaries: usize,
     pub(crate) query_values_removed: usize,

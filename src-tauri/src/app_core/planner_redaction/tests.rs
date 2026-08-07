@@ -526,6 +526,87 @@ fn page_payload_is_deterministically_bounded() {
     assert!(safe.regions[0].text.0.chars().count() <= MAX_REGION_TEXT_CHARS + 1);
 }
 
+// CR3 P2.5.3: `omitted_elements` used to be computed against `elements.len()`
+// instead of the post-visibility-filter count, so hidden elements were
+// counted twice -- once via `omitted_hidden_elements`, again via
+// `omitted_elements` -- and the limit-bound count was reported even when the
+// limit never actually bound. This test asserts the exact counts for the
+// review's own worked example (50 elements, 30 hidden, limit 40: true answer
+// is 0 relevance/limit-omitted, not 10) plus a case where the limit does
+// bind, to pin both the non-double-counting fix and the still-correct
+// limit-bound arithmetic.
+#[test]
+fn element_relevance_selection_does_not_double_count_hidden_elements_when_limit_does_not_bind() {
+    let elements = (0..50)
+        .map(|index| {
+            let mut candidate = element(&[("type", "button")], "value");
+            candidate.element_id = format!("element-{index}");
+            candidate.visible = index >= 30;
+            candidate
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(elements.iter().filter(|e| !e.visible).count(), 30);
+    assert_eq!(elements.iter().filter(|e| e.visible).count(), 20);
+
+    let mut metadata = SanitizationMetadata::default();
+    let selected =
+        relevance::select_relevant_elements(&elements, "find the button", 40, &mut metadata);
+
+    // limit (40) exceeds the visible count (20): nothing is dropped by the
+    // relevance/limit filter, only by visibility.
+    assert_eq!(selected.len(), 20);
+    assert_eq!(metadata.omitted_hidden_elements, 30);
+    assert_eq!(metadata.omitted_elements, 0);
+}
+
+#[test]
+fn element_relevance_selection_counts_correctly_when_limit_binds() {
+    let elements = (0..50)
+        .map(|index| {
+            let mut candidate = element(&[("type", "button")], "value");
+            candidate.element_id = format!("element-{index}");
+            candidate.visible = index >= 10;
+            candidate
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(elements.iter().filter(|e| !e.visible).count(), 10);
+    assert_eq!(elements.iter().filter(|e| e.visible).count(), 40);
+
+    let mut metadata = SanitizationMetadata::default();
+    let selected =
+        relevance::select_relevant_elements(&elements, "find the button", 25, &mut metadata);
+
+    assert_eq!(selected.len(), 25);
+    assert_eq!(metadata.omitted_hidden_elements, 10);
+    assert_eq!(metadata.omitted_elements, 15);
+}
+
+#[test]
+fn region_relevance_selection_counts_are_correct_whether_or_not_the_limit_binds() {
+    let region = |index: usize| PageRegion {
+        region_id: format!("region-{index}"),
+        role: RegionRole::Paragraph,
+        label: None,
+        text: format!("unrelated navigation text {index}"),
+        bbox: None,
+        source: RegionSource::Dom,
+    };
+
+    let below_limit = (0..20).map(region).collect::<Vec<_>>();
+    let mut metadata = SanitizationMetadata::default();
+    let selected =
+        relevance::select_relevant_regions(&below_limit, "find the button", 40, &mut metadata);
+    assert_eq!(selected.len(), 20);
+    assert_eq!(metadata.omitted_regions, 0);
+
+    let above_limit = (0..70).map(region).collect::<Vec<_>>();
+    let mut metadata = SanitizationMetadata::default();
+    let selected =
+        relevance::select_relevant_regions(&above_limit, "find the button", 40, &mut metadata);
+    assert_eq!(selected.len(), 40);
+    assert_eq!(metadata.omitted_regions, 30);
+}
+
 #[test]
 fn network_remote_planning_requires_consent_but_loopback_stays_local() {
     let input = fixture_planner_input();

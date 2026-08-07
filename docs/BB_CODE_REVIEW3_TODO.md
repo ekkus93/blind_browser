@@ -1561,8 +1561,10 @@ homoglyph markers, and a credential-shaped token with no surrounding whitespace
 
 ## P2.5 — Correct the sanitization metadata arithmetic
 
-**Status:** PENDING · `[VERIFIED]`
-**Files:** `src-tauri/src/app_core/planner_redaction/relevance.rs`
+**Status:** DONE · `[VERIFIED]`
+**Files:** `src-tauri/src/app_core/planner_redaction/relevance.rs`,
+`src-tauri/src/app_core/planner_redaction/types.rs`,
+`src-tauri/src/app_core/planner_redaction/tests.rs`
 
 ### Problem
 
@@ -1599,6 +1601,56 @@ Either give them distinct meanings or collapse them into one field.
 ### P2.5.3 — Tests
 
 Assert the exact counts for the 50/30-hidden/limit-40 case above.
+
+### Implementation note
+
+- **P2.5.1**: `select_relevant_elements` now captures `visible_count` before
+  consuming the `visible` vec, and computes `metadata.omitted_elements` against
+  it instead of `elements.len()`. `omitted_hidden_elements` already accounted
+  for the hidden elements separately, so this stops double-counting them.
+- **P2.5.2**: chose **collapse**, not "give distinct meanings." Once
+  `omitted_elements` is fixed to use `visible_count`, it is provably always
+  equal to what `relevance_filtered_elements` was computing
+  (`selected.len() == visible_count.min(limit)` from the `.take(limit)`
+  construction, so both reduce to `visible_count.saturating_sub(limit)`) — the
+  review's own worked example already assumes this (it asks for "0 and 0," not
+  two independently-meaningful numbers). The regions path never had a
+  visibility-filtering stage at all, so `relevance_filtered_regions` and
+  `omitted_regions` were computing the exact same expression off the exact
+  same inputs from the start; there is no distinct meaning to give it.
+  `relevance_filtered_elements` and `relevance_filtered_regions` were removed
+  from `SanitizationMetadata`, keeping `omitted_elements`/`omitted_regions` as
+  the sole counts. Confirmed via `grep -rn` across `src-tauri/src` and `src`
+  that these 4 field names were referenced only inside
+  `planner_redaction/{relevance,types,tests}.rs` — no frontend TypeScript
+  consumer exists — so removing a field has no cross-boundary contract to
+  update. `SanitizationMetadata` is part of `RemoteUntrustedData`, which is
+  serialized and sent to the remote planner LLM, so this also means the LLM
+  planner receives one less redundant number to reason about.
+- **P2.5.3**: added `element_relevance_selection_does_not_double_count_hidden_elements_when_limit_does_not_bind`
+  (the review's own 50/30-hidden/limit-40 example, asserting `omitted_elements
+  == 0`), `element_relevance_selection_counts_correctly_when_limit_binds` (50
+  elements/10 hidden/limit 25, asserting `omitted_hidden_elements == 10` and
+  `omitted_elements == 15`), and
+  `region_relevance_selection_counts_are_correct_whether_or_not_the_limit_binds`
+  (20-below-limit-40 and 70-above-limit-40 cases) to
+  `planner_redaction/tests.rs`, calling `select_relevant_elements`/
+  `select_relevant_regions` directly rather than through the full
+  `sanitize_for_network` pipeline (whose fixed `MAX_REMOTE_ELEMENTS`/
+  `MAX_REMOTE_REGIONS` limits don't match the review's example limits). The
+  pre-existing `page_payload_is_deterministically_bounded` test (which
+  exercises the full pipeline with all-visible elements) still passes
+  unmodified, since with zero hidden elements the old and new formulas agree.
+- Full validation green: `cargo fmt --check`, `cargo clippy --all-targets
+  --all-features -- -D warnings`, `cargo test --all-features` (534 passed, 9
+  ignored — 3 net-new tests), all 4 CI guard scripts, and
+  `xvfb-run -a cargo test --all-features`. One isolated-Wry test
+  (`remote_data_consent_request_counts_replay_and_concurrency_are_enforced`)
+  failed once inside the full `run-rust-tests-linux.sh` sweep on an assertion
+  unrelated to this change (`planner_request_failed` vs
+  `planner_http_status`); reproduced as a pre-existing flake by running it in
+  isolation both with and without this diff's changes (`git stash`) — passed
+  both times, confirming it is not caused by this change.
 
 ---
 

@@ -52,8 +52,13 @@ pub(super) fn select_relevant_regions<'a>(
         .take(limit)
         .map(|(_, _, region)| region)
         .collect::<Vec<_>>();
-    metadata.relevance_filtered_regions += regions.len().saturating_sub(selected.len());
-    metadata.omitted_regions += regions.len().saturating_sub(limit);
+    // `regions.len() - selected.len()` and `regions.len() - limit` are the same
+    // quantity for every input: `selected.len() == regions.len().min(limit)`
+    // always holds given the `.take(limit)` above, and there is no separate
+    // visibility-filtering stage for regions (unlike elements) that could make
+    // them diverge. CR3 P2.5 collapsed the once-duplicate
+    // `relevance_filtered_regions` field into this one.
+    metadata.omitted_regions += regions.len().saturating_sub(selected.len());
     selected
 }
 
@@ -81,7 +86,8 @@ pub(super) fn select_relevant_elements<'a>(
         .iter()
         .filter(|element| element.visible)
         .collect::<Vec<_>>();
-    metadata.omitted_hidden_elements += elements.len().saturating_sub(visible.len());
+    let visible_count = visible.len();
+    metadata.omitted_hidden_elements += elements.len().saturating_sub(visible_count);
     let mut ranked = visible
         .into_iter()
         .enumerate()
@@ -99,7 +105,14 @@ pub(super) fn select_relevant_elements<'a>(
         .take(limit)
         .map(|(_, _, element)| element)
         .collect::<Vec<_>>();
-    metadata.relevance_filtered_elements += elements.len().saturating_sub(selected.len());
-    metadata.omitted_elements += elements.len().saturating_sub(limit);
+    // Count against `visible_count`, not `elements.len()`: hidden elements are
+    // already accounted for above via `omitted_hidden_elements`, and counting
+    // them again here would double-count them as if the relevance/limit filter
+    // had also dropped them. This also makes the count equal
+    // `visible_count.saturating_sub(limit)` for every input (since
+    // `selected.len() == visible_count.min(limit)` always holds), so the
+    // once-duplicate `relevance_filtered_elements` field (CR3 P2.5) has been
+    // collapsed into this one.
+    metadata.omitted_elements += visible_count.saturating_sub(selected.len());
     selected
 }
