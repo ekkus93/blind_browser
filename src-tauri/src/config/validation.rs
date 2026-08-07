@@ -30,6 +30,117 @@ pub(in crate::config) fn validate_safety_settings(
             "safety.confirmation_confidence_threshold must be between 0.0 and 1.0",
         ));
     }
+
+    // CR3 P3.1.2: docs/SPECS.md has documented "`always_confirm_submit` must
+    // remain `true` in v1" as a validation rule since the doc's original
+    // draft, but nothing ever enforced it -- a hand-edited
+    // `always_confirm_submit = false` loaded without error. It never actually
+    // weakened submit-confirmation behavior (action_policy.rs's
+    // `SubmitActiveForm` arm hard-codes `ConfirmationRequirement::
+    // ConfirmationRequired` regardless of this field's value -- see the
+    // comment there), but silently accepting a value that has no effect is
+    // itself misleading: it invites a user or future change to believe
+    // setting it `false` does something. Rejecting it here makes the
+    // documented invariant real instead of aspirational.
+    if !safety.always_confirm_submit {
+        issues.push(String::from(
+            "safety.always_confirm_submit must remain true in v1",
+        ));
+    }
+}
+
+fn validate_remote_profile_base_url(name: &str, base_url: &str, issues: &mut Vec<String>) {
+    if let Err(reason) = ProviderEndpointScope::parse(base_url) {
+        issues.push(format!(
+            "remote_profiles.{name}.base_url is invalid: {reason}"
+        ));
+    }
+}
+
+pub(in crate::config) fn validate_remote_planner_profile(
+    name: &str,
+    profile: &RemotePlannerProfile,
+    issues: &mut Vec<String>,
+) {
+    validate_remote_profile_base_url(name, &profile.base_url, issues);
+    if profile.timeout_ms == 0 {
+        issues.push(format!(
+            "remote_profiles.{name}.timeout_ms must be positive"
+        ));
+    }
+    if profile.max_output_tokens == 0 {
+        issues.push(format!(
+            "remote_profiles.{name}.max_output_tokens must be positive"
+        ));
+    }
+    if profile.temperature_milli > MAX_TEMPERATURE_MILLI {
+        issues.push(format!(
+            "remote_profiles.{name}.temperature_milli must be between 0 and {MAX_TEMPERATURE_MILLI}"
+        ));
+    }
+}
+
+pub(in crate::config) fn validate_remote_tts_profile(
+    name: &str,
+    profile: &RemoteTtsProfile,
+    issues: &mut Vec<String>,
+) {
+    validate_remote_profile_base_url(name, &profile.base_url, issues);
+    if profile.timeout_ms == 0 {
+        issues.push(format!(
+            "remote_profiles.{name}.timeout_ms must be positive"
+        ));
+    }
+}
+
+pub(in crate::config) fn validate_remote_asr_profile(
+    name: &str,
+    profile: &RemoteAsrProfile,
+    issues: &mut Vec<String>,
+) {
+    validate_remote_profile_base_url(name, &profile.base_url, issues);
+    if profile.timeout_ms == 0 {
+        issues.push(format!(
+            "remote_profiles.{name}.timeout_ms must be positive"
+        ));
+    }
+    if profile.temperature_milli > MAX_TEMPERATURE_MILLI {
+        issues.push(format!(
+            "remote_profiles.{name}.temperature_milli must be between 0 and {MAX_TEMPERATURE_MILLI}"
+        ));
+    }
+}
+
+pub(in crate::config) fn validate_local_tts_profile(
+    name: &str,
+    profile: &LocalTtsProfile,
+    issues: &mut Vec<String>,
+) {
+    if profile.model_path.trim().is_empty() {
+        issues.push(format!(
+            "local_profiles.{name}.model_path must not be empty"
+        ));
+    }
+    if profile.sample_rate == 0 {
+        issues.push(format!(
+            "local_profiles.{name}.sample_rate must be positive"
+        ));
+    }
+}
+
+pub(in crate::config) fn validate_local_asr_profile(
+    name: &str,
+    profile: &LocalAsrProfile,
+    issues: &mut Vec<String>,
+) {
+    if profile.model_path.trim().is_empty() {
+        issues.push(format!(
+            "local_profiles.{name}.model_path must not be empty"
+        ));
+    }
+    if profile.threads == 0 {
+        issues.push(format!("local_profiles.{name}.threads must be positive"));
+    }
 }
 
 pub(in crate::config) fn validate_ocr_settings(ocr: &OcrSettings, issues: &mut Vec<String>) {

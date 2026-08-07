@@ -12,6 +12,9 @@ pub const MIN_PLAYBACK_VOLUME: f32 = 0.0;
 pub const MAX_PLAYBACK_VOLUME: f32 = 1.0;
 pub const MIN_PLAYBACK_SPEED: f32 = 0.5;
 pub const MAX_PLAYBACK_SPEED: f32 = 5.0;
+// docs/SPECS.md: "temperature should be clamped to a supported range such as
+// 0.0 to 2.0." `temperature_milli` stores that range in milli-units (0..=2000).
+pub const MAX_TEMPERATURE_MILLI: u16 = 2000;
 
 const DEFAULT_CONFIG_TEMPLATE: &str = include_str!("../../../config.example.toml");
 
@@ -27,8 +30,10 @@ pub use keyring_store::{
 use loading::{load_planner_profiles, load_provider_profiles};
 pub use types::*;
 use validation::{
-    normalize_remote_planner_privacy_settings, validate_audio_settings, validate_model_settings,
-    validate_ocr_settings, validate_safety_settings,
+    normalize_remote_planner_privacy_settings, validate_audio_settings, validate_local_asr_profile,
+    validate_local_tts_profile, validate_model_settings, validate_ocr_settings,
+    validate_remote_asr_profile, validate_remote_planner_profile, validate_remote_tts_profile,
+    validate_safety_settings,
 };
 
 impl AppConfig {
@@ -88,6 +93,15 @@ impl AppConfig {
         validate_ocr_settings(&raw.ocr, &mut issues);
         validate_model_settings(&raw.models, &mut issues);
 
+        // CR3 P3.1.2: docs/SPECS.md documents per-profile validation rules
+        // (positive timeout_ms/max_output_tokens/threads/sample_rate,
+        // required model_path, clamped temperature) that nothing previously
+        // implemented -- `resolve_profile::<T>` below only structurally
+        // deserializes a profile, with no field-level checks. Validated
+        // here, after the profiles are resolved, so a hand-edited config.toml
+        // (or programmatic persistence, though no current persist path can
+        // produce an out-of-range value for these specific fields) fails
+        // loudly instead of loading a profile with e.g. `timeout_ms = 0`.
         let mut remote_planner_profiles = BTreeMap::new();
         let mut remote_tts_profiles = BTreeMap::new();
         let mut remote_asr_profiles = BTreeMap::new();
@@ -118,6 +132,22 @@ impl AppConfig {
             &mut local_asr_profiles,
             &mut issues,
         );
+
+        for (name, profile) in &remote_planner_profiles {
+            validate_remote_planner_profile(name, profile, &mut issues);
+        }
+        for (name, profile) in &remote_tts_profiles {
+            validate_remote_tts_profile(name, profile, &mut issues);
+        }
+        for (name, profile) in &remote_asr_profiles {
+            validate_remote_asr_profile(name, profile, &mut issues);
+        }
+        for (name, profile) in &local_tts_profiles {
+            validate_local_tts_profile(name, profile, &mut issues);
+        }
+        for (name, profile) in &local_asr_profiles {
+            validate_local_asr_profile(name, profile, &mut issues);
+        }
 
         if !issues.is_empty() {
             return Err(ConfigError::Validation(issues.join("\n")));

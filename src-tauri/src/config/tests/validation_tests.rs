@@ -200,3 +200,161 @@ fn resets_remote_planner_connection_settings_to_defaults() {
         let _ = std::fs::remove_dir_all(parent);
     }
 }
+
+// CR3 P3.1.2: docs/SPECS.md documents these as validation rules; none of
+// them were enforced by the loader before this pass. Each test below flips
+// exactly one field of the default template invalid and asserts the load
+// fails with a message naming that field.
+
+#[test]
+fn rejects_always_confirm_submit_false() {
+    let invalid = AppConfig::default_template().replace(
+        "always_confirm_submit = true",
+        "always_confirm_submit = false",
+    );
+
+    let error = AppConfig::load_from_str(&invalid).expect_err("config should be invalid");
+
+    match error {
+        ConfigError::Validation(message) => {
+            assert!(message.contains("safety.always_confirm_submit must remain true"));
+        }
+        other => panic!("expected validation error, got {other}"),
+    }
+}
+
+#[test]
+fn rejects_a_relative_base_url_for_a_remote_planner_profile() {
+    let invalid = AppConfig::default_template().replacen(
+        "base_url = \"https://api.openai.com/v1\"",
+        "base_url = \"/v1\"",
+        1,
+    );
+
+    let error = AppConfig::load_from_str(&invalid).expect_err("config should be invalid");
+
+    match error {
+        ConfigError::Validation(message) => {
+            assert!(message.contains("remote_profiles.openai-default.base_url is invalid"));
+        }
+        other => panic!("expected validation error, got {other}"),
+    }
+}
+
+#[test]
+fn rejects_zero_timeout_ms_for_a_remote_planner_profile() {
+    // `timeout_ms = 30000` appears on multiple remote profiles in the
+    // template; `replacen(.., 1)` targets only the first (planner
+    // openai-default), matching the profile name asserted below.
+    let invalid = AppConfig::default_template().replacen("timeout_ms = 30000", "timeout_ms = 0", 1);
+
+    let error = AppConfig::load_from_str(&invalid).expect_err("config should be invalid");
+
+    match error {
+        ConfigError::Validation(message) => {
+            assert!(message.contains("remote_profiles.openai-default.timeout_ms must be positive"));
+        }
+        other => panic!("expected validation error, got {other}"),
+    }
+}
+
+#[test]
+fn rejects_zero_max_output_tokens_for_a_remote_planner_profile() {
+    let invalid = AppConfig::default_template().replacen(
+        "max_output_tokens = 1024",
+        "max_output_tokens = 0",
+        1,
+    );
+
+    let error = AppConfig::load_from_str(&invalid).expect_err("config should be invalid");
+
+    match error {
+        ConfigError::Validation(message) => {
+            assert!(message
+                .contains("remote_profiles.openai-default.max_output_tokens must be positive"));
+        }
+        other => panic!("expected validation error, got {other}"),
+    }
+}
+
+#[test]
+fn rejects_out_of_range_temperature_for_a_remote_planner_profile() {
+    let invalid = AppConfig::default_template().replacen(
+        "temperature_milli = 200",
+        "temperature_milli = 2001",
+        1,
+    );
+
+    let error = AppConfig::load_from_str(&invalid).expect_err("config should be invalid");
+
+    match error {
+        ConfigError::Validation(message) => {
+            assert!(message.contains(
+                "remote_profiles.openai-default.temperature_milli must be between 0 and 2000"
+            ));
+        }
+        other => panic!("expected validation error, got {other}"),
+    }
+}
+
+#[test]
+fn rejects_empty_model_path_for_a_local_tts_profile() {
+    let invalid = AppConfig::default_template().replace(
+        "model_path = \"/path/to/kitten/model\"",
+        "model_path = \"\"",
+    );
+
+    let error = AppConfig::load_from_str(&invalid).expect_err("config should be invalid");
+
+    match error {
+        ConfigError::Validation(message) => {
+            assert!(message.contains("local_profiles.kitten-default.model_path must not be empty"));
+        }
+        other => panic!("expected validation error, got {other}"),
+    }
+}
+
+#[test]
+fn rejects_zero_sample_rate_for_a_local_tts_profile() {
+    let invalid = AppConfig::default_template().replace("sample_rate = 24000", "sample_rate = 0");
+
+    let error = AppConfig::load_from_str(&invalid).expect_err("config should be invalid");
+
+    match error {
+        ConfigError::Validation(message) => {
+            assert!(message.contains("local_profiles.kitten-default.sample_rate must be positive"));
+        }
+        other => panic!("expected validation error, got {other}"),
+    }
+}
+
+#[test]
+fn rejects_empty_model_path_for_a_local_asr_profile() {
+    let invalid = AppConfig::default_template().replace(
+        "model_path = \"/path/to/whisper/model\"",
+        "model_path = \"\"",
+    );
+
+    let error = AppConfig::load_from_str(&invalid).expect_err("config should be invalid");
+
+    match error {
+        ConfigError::Validation(message) => {
+            assert!(message.contains("local_profiles.whisper-default.model_path must not be empty"));
+        }
+        other => panic!("expected validation error, got {other}"),
+    }
+}
+
+#[test]
+fn rejects_zero_threads_for_a_local_asr_profile() {
+    let invalid = AppConfig::default_template().replace("threads = 4", "threads = 0");
+
+    let error = AppConfig::load_from_str(&invalid).expect_err("config should be invalid");
+
+    match error {
+        ConfigError::Validation(message) => {
+            assert!(message.contains("local_profiles.whisper-default.threads must be positive"));
+        }
+        other => panic!("expected validation error, got {other}"),
+    }
+}

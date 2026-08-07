@@ -1945,8 +1945,11 @@ adapter is `ui-store.ts`). Confirm each has no production reference before remov
 
 ## P3.1 — Fix `docs/SPECS.md` drift
 
-**Status:** PENDING
-**Files:** `docs/SPECS.md`, `config.example.toml`
+**Status:** DONE (P3.1.1 in full; P3.1.2 implemented every listed rule
+rather than retracting any — see note for one genuine scope gap left open)
+· `[VERIFIED]`
+**Files:** `docs/SPECS.md`, `src-tauri/src/config/mod.rs`,
+`src-tauri/src/config/validation.rs`, `src-tauri/src/config/tests/validation_tests.rs`
 
 ### Problem
 
@@ -1981,6 +1984,75 @@ accurate, rather than maintaining a second copy that drifts.
 For each rule in the "validation" section: implement it, or remove it from the doc.
 **`always_confirm_submit` should be implemented, not retracted** — it is a safety
 invariant. Note that P1.1 may add privacy validation in the same file.
+
+### Implementation note
+
+- **P3.1.1**: the "Exact initial example contents" block (a second,
+  hand-maintained copy of the shipped config) is gone, replaced with prose
+  pointing at `config.example.toml` and explaining exactly how the old inline
+  copy had drifted (matching the table above) — so a future reader
+  understands *why* there's a pointer instead of a copy, not just that there
+  is one. Also fixed the adjacent "Exposed initial profile names" list, which
+  was missing `ollama-default` even though the prose two lines below it
+  already said "OpenAI or Ollama".
+- **P3.1.2**: chose to implement every rule in the "Validation Rules"
+  section rather than retract any, including two beyond the TODO's own
+  named list once "for each rule in the section" was actually checked
+  against the code: `base_url` absoluteness (verified unenforced by the
+  loader too — only the UI-driven connection-settings persister validated
+  it, via the same `ProviderEndpointScope::parse` now reused for the load
+  path) and, implicitly, `model_path`'s "required" wording (already
+  guaranteed not-*missing* by serde's default required-field behavior since
+  `model_path: String` has no `#[serde(default)]`; the actual gap was an
+  explicit empty string, which is what the new check catches).
+  - `always_confirm_submit`: verified first that the field does not
+    currently weaken real behavior — `action_policy.rs`'s `SubmitActiveForm`
+    arm already hard-codes `ConfirmationRequirement::ConfirmationRequired`
+    regardless of this config value (see that file's own comment). The
+    problem was solely that config *loading* silently accepted a value with
+    no effect, which is misleading on its own. Added the check to
+    `validate_safety_settings` (shared by both the loader and the
+    settings-persist path, so both now reject it uniformly).
+  - Remote-profile fields (`timeout_ms`, `max_output_tokens`,
+    `temperature_milli`, `base_url`) and local-profile fields (`model_path`,
+    `threads`, `sample_rate`): added `validate_remote_planner_profile`/
+    `validate_remote_tts_profile`/`validate_remote_asr_profile`/
+    `validate_local_tts_profile`/`validate_local_asr_profile` in
+    `config/validation.rs`, called from `AppConfig::from_raw` (the function
+    both `load_from_str` and, transitively, every `persist_*_at_path`'s
+    final reload already go through) after each profile map is resolved.
+    Field presence per struct was read from `config/types.rs` directly
+    rather than assumed from the doc, confirming e.g. `max_output_tokens`
+    only exists on `RemotePlannerProfile` (not TTS/ASR) and `threads`/
+    `sample_rate` are ASR-only/TTS-only respectively — matching what
+    SPECS.md's rules already said, but verified rather than trusted.
+  - Added `MAX_TEMPERATURE_MILLI: u16 = 2000` (SPECS.md's documented "0.0 to
+    2.0" range, in the milli-units the real field uses).
+  - 9 new tests in `config/tests/validation_tests.rs`, each flipping exactly
+    one field of the real `default_template()` (not a hand-built fixture)
+    invalid and asserting the load fails naming that field — run against
+    the actual shipped template so a rule that's subtly inconsistent with
+    the real defaults would fail immediately, not just against a synthetic
+    example. Verified `parses_default_template` (the existing test that
+    loads the real, unmodified `config.example.toml`) still passes,
+    confirming none of the new checks reject the app's own shipped config.
+- **Known gap, deliberately not addressed here**: the review's own problem
+  statement says "[the missing `[remote_planner_privacy]` documentation]
+  matters most" — P3.1.1's fix makes the *example* point at a file that has
+  it, but SPECS.md still has no prose section describing
+  `remote_planner_privacy`/`remote_narration_privacy`/
+  `remote_microphone_privacy`'s actual schema (network_mode, origin_rules,
+  policy_schema_version, high_risk_origin_policy, the legacy compatibility
+  fields). Writing that up now would mean documenting
+  `high_risk_origin_policy` as a real, meaningful field — but P3.2 (next)
+  is specifically about whether that field should be wired up or retracted
+  from the config surface entirely. Documenting it here first risked writing
+  something P3.2 would immediately contradict, so this is deferred until
+  after P3.2 resolves that question, not silently dropped.
+- Full validation green: `cargo fmt --check`, `cargo clippy --all-targets
+  --all-features -- -D warnings`, `cargo test --all-features` (551 passed, 9
+  ignored — 9 net-new tests), all 4 CI guard scripts, `xvfb-run -a cargo test
+  --all-features`, the full isolated-Wry sweep via `run-rust-tests-linux.sh`.
 
 ---
 

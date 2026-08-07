@@ -362,92 +362,22 @@ Suggested file location:
 - user config: `~/.config/blind_browser/config.toml`
 - example template shipped with app/docs: `config.example.toml`
 
-Exact initial example contents:
-
-```toml
-[providers.planner]
-mode = "remote"
-remote_profile = "openai-default"
-
-[providers.tts]
-mode = "remote"
-remote_profile = "openai-tts-default"
-local_profile = "kitten-default"
-
-[providers.asr]
-mode = "remote"
-remote_profile = "openai-transcribe-default"
-local_profile = "whisper-default"
-
-[audio]
-playback_volume = 1.0
-playback_speed = 1.0
-
-[safety]
-confirmation_confidence_threshold = 0.90
-allow_click_without_confirmation = false
-always_confirm_submit = true
-
-[ocr]
-trigger_on_no_extractable_text = true
-sparse_text_char_threshold = 200
-sparse_text_region_threshold = 2
-prefer_region_ocr = true
-
-[models]
-models_dir = "~/.config/blind_browser/models"
-check_on_startup = true
-auto_download_missing = false
-
-[speech_feedback]
-style = "short"
-confirm_setting_changes = true
-include_previous_value = false
-
-[remote_profiles.planner.openai-default]
-provider = "openai"
-base_url = "https://api.openai.com/v1"
-model = "gpt-5.4-mini"
-api_key = { from_env = "OPENAI_API_KEY" }
-temperature = 0.2
-max_output_tokens = 1024
-timeout_ms = 30000
-
-[remote_profiles.tts.openai-tts-default]
-provider = "openai"
-base_url = "https://api.openai.com/v1"
-model = "gpt-4o-mini-tts"
-api_key = { from_env = "OPENAI_API_KEY" }
-voice = "alloy"
-audio_format = "wav"
-timeout_ms = 30000
-
-[remote_profiles.asr.openai-transcribe-default]
-provider = "openai"
-base_url = "https://api.openai.com/v1"
-model = "gpt-4o-mini-transcribe"
-api_key = { from_env = "OPENAI_API_KEY" }
-language = "en"
-temperature = 0.0
-timeout_ms = 30000
-
-[local_profiles.tts.kitten-default]
-backend = "kitten_tts_rs"
-model_id = "default"
-model_path = "/path/to/kitten/model"
-default_voice = "Bruno"
-sample_rate = 24000
-
-[local_profiles.asr.whisper-default]
-backend = "whisper"
-model_id = "tiny"
-model_path = "/path/to/whisper/model"
-language = "en"
-threads = 4
-```
+Exact initial example contents: see `config.example.toml` at the repo root —
+that file is the authoritative, load-tested artifact (the app's own default
+template is `include_str!`'d from it, and `config::tests::load_tests::
+valid_configs::parses_default_template` loads it on every test run), so it is
+kept here as a reference rather than a second inline copy. An inline copy
+previously lived in this section and drifted out of sync with the real schema
+(nested `[remote_profiles.planner.<name>]` instead of the actual flat
+`[remote_profiles.<name>]`, `provider = "openai"` instead of the actual
+`"OpenAi"`, `temperature` instead of the actual `temperature_milli`,
+`style = "short"` instead of the actual `"Short"`, a missing
+`[remote_planner_privacy]` section, and an `[audio]` block missing the
+required `default_tts_voice` field) badly enough that it would not load —
+CR3 P3.1 removed it for exactly that reason.
 
 Exposed initial profile names:
-- Planner remote: `openai-default`
+- Planner remote: `openai-default`, `ollama-default`
 - TTS remote: `openai-tts-default`
 - TTS local: `kitten-default`
 - ASR remote: `openai-transcribe-default`
