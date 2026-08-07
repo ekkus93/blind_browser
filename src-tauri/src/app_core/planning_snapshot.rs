@@ -205,6 +205,28 @@ fn build_runtime_state_token(
     format!("state-{:x}", Sha256::digest(encoded))
 }
 
+// CR3 P1.4: `execute_planner_output` is a directly Tauri-invocable command
+// taking a fully caller-controlled `PlannerOutput` -- there is no session/
+// origin binding between it and a prior `resolve_command` call other than
+// this snapshot requirement. `validate_and_consume_planning_snapshot` only
+// runs the (cryptographic, digest-bound -- `planner_output_digest` hashes
+// the *entire* serialized output) snapshot check for tools in this list;
+// every other tool sails through unauthenticated. `ExtractPageModel`,
+// `ReportResult`, and `TranscribeCommand` were missing despite each
+// mutating `AppState` in ways that matter: `ExtractPageModel` calls
+// `mark_page_model_changed()`, which bumps `page_generation`, clears every
+// click authorization, and clears `pending_confirmation_id`/
+// `pending_plan_execution` -- so an unauthenticated, out-of-band
+// `ExtractPageModel`-only `PlannerOutput` could silently cancel a
+// confirmation the user is mid-way through answering. Note this list is
+// necessary but not the only layer: `validate_planner_output_with_safety`
+// (structural/policy validation) still does not reject an
+// `ExtractPageModel`-only plan on its own, since that tool is itself
+// classified `NoConfirmation`/read-only by `action_policy.rs` -- the
+// snapshot binding here is what actually closes this gap, by ensuring only
+// a `PlannerOutput` a real `resolve_command`/replanning call produced (byte-
+// identical, since the digest covers the whole struct) can ever reach
+// execution, not a forged one.
 fn planner_output_requires_snapshot(steps: &[PlannedStep]) -> bool {
     steps.iter().any(|step| {
         matches!(
@@ -230,6 +252,9 @@ fn planner_output_requires_snapshot(steps: &[PlannedStep]) -> bool {
                 | ToolName::SetPlaybackVolume
                 | ToolName::SetPlaybackSpeed
                 | ToolName::MergeOcrIntoPageModel
+                | ToolName::ExtractPageModel
+                | ToolName::ReportResult
+                | ToolName::TranscribeCommand
         )
     })
 }
@@ -339,5 +364,32 @@ mod tests {
         assert!(planner_output_requires_snapshot(&[step(
             ToolName::ClickElement
         )]));
+    }
+
+    // CR3 P1.4: `execute_planner_output` is directly Tauri-invocable with a
+    // fully caller-controlled `PlannerOutput`. Before this fix, a plan
+    // composed only of one of these three tools skipped
+    // `validate_and_consume_planning_snapshot` entirely (returned `Ok(())`
+    // immediately, no digest lookup at all) -- meaning it could execute
+    // with no proof it was ever produced by a real `resolve_command`/
+    // replanning call. `ExtractPageModel` specifically calls
+    // `mark_page_model_changed()`, which clears `pending_confirmation_id`/
+    // `pending_plan_execution` -- so this let an out-of-band call silently
+    // cancel a confirmation the user was mid-way through answering.
+    #[test]
+    fn extract_page_model_report_result_and_transcribe_command_now_require_snapshot() {
+        for tool_name in [
+            ToolName::ExtractPageModel,
+            ToolName::ReportResult,
+            ToolName::TranscribeCommand,
+        ] {
+            assert!(
+                planner_output_requires_snapshot(&[step(tool_name.clone())]),
+                "{tool_name:?} must require a bound planning snapshot: it mutates \
+                 AppState (directly or via a caller that assumes it was resolved \
+                 through the normal planning path) and must not be reachable from \
+                 an unauthenticated, out-of-band execute_planner_output call"
+            );
+        }
     }
 }

@@ -239,6 +239,20 @@ where
     }
 }
 
+// "Side-effecting" here means one narrow thing: whether a step queued
+// *after* an unresolved ConfirmAction gate in the same already-executing
+// plan is allowed to run ahead of that confirmation
+// (`block_side_effects_until_confirmation` in execution.rs). It is NOT the
+// authority on whether a tool safely runs unauthenticated/out-of-band --
+// that's `planner_output_requires_snapshot`
+// (app_core/planning_snapshot.rs), a structurally separate list. Do not
+// assume `false` here means a tool has no state-mutating consequences:
+// `ExtractPageModel` is listed here (a step queued behind a pending
+// confirmation may run it immediately) yet it calls
+// `mark_page_model_changed()`, which clears click authorizations and any
+// pending confirmation/plan-execution state entirely -- see CR3 P1.4's note
+// on `planner_output_requires_snapshot` for the fix that actually gates
+// unauthenticated invocation of that tool.
 pub(in crate::commands::planner_executor) fn is_side_effecting_tool(tool_name: &ToolName) -> bool {
     !matches!(
         tool_name,

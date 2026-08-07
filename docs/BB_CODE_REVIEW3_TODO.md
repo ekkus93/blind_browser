@@ -1173,7 +1173,71 @@ dom_smoothie fails. Cover both in the fix.
 
 ## P1.4 — Close the `execute_planner_output` validation gap
 
-**Status:** PENDING · `[VERIFY FIRST]`
+**Status:** DONE · `[VERIFIED — confirmed exploitable, then closed]`
+**Note:** P1.4.1's reproduction confirmed the gap is real and reachable, not
+theoretical: `execute_planner_output` is a directly Tauri-invocable command
+(`command_handlers/core_handlers.rs`) taking a `PlannerOutput` deserialized
+straight from the IPC payload, with no session/origin binding to a prior
+`resolve_command` call. `planner_output_requires_snapshot`
+(`app_core/planning_snapshot.rs`) — the only gate that could otherwise
+reject an unbound/forged plan — excluded `ExtractPageModel`, `ReportResult`,
+and `TranscribeCommand`, so a single-step `ExtractPageModel`-only plan
+skipped `validate_and_consume_planning_snapshot` entirely (returns `Ok(())`
+immediately with no digest lookup) and reached
+`execute_extract_page_model` → `mark_page_model_changed()`, which clears
+`pending_confirmation_id`/`pending_plan_execution`/every click
+authorization unconditionally.
+
+**Fix diverges from this doc's stated preference, with reasons recorded
+here** (per the "VERIFY FIRST" instruction to record what verification
+actually shows): P1.4.2 said "prefer [calling
+`validate_planner_output_with_safety`] — it restores the layering." Tracing
+what that call would actually reject proved it does **not** close this gap:
+`ExtractPageModel` is itself classified `ReadOnly`/`NoConfirmation` by
+`action_policy.rs`'s `tool_policy`, so a bare `ExtractPageModel`-only plan
+passes every check `validate_planner_output_with_safety` runs (step
+structure, tool availability, policy) — that function was never designed to
+reject "this tool by itself," only malformed or policy-prohibited plans.
+Implemented the doc's second-listed option instead — extending
+`planner_output_requires_snapshot` to include `ExtractPageModel`,
+`ReportResult`, `TranscribeCommand` — because `validate_and_consume_planning_snapshot`
+requires a digest-bound match against a snapshot only `register_planning_snapshot`
+creates (and only `resolve_command`/the replanning loop calls that), and
+`planner_output_digest` hashes the *entire* serialized `PlannerOutput` via
+SHA-256. This is a provenance check, not a structural/policy one: it
+guarantees only a `PlannerOutput` a real planning call actually produced —
+byte-identical — can ever reach execution, which is what actually closes an
+out-of-band/forged-input gap. Also added `validate_planner_output_with_safety`
+as defense-in-depth was considered and explicitly deferred: doing it
+correctly needs `active_skill_names` re-derived at execute time (the check
+validates `planner_output.selected_skills` against what was active when
+planned), which `PlanningStateSnapshot` doesn't currently carry — adding it
+naively with an empty list would false-positive-reject any legitimate
+snapshot-bound plan that uses skills. Threading `active_skill_names` through
+the snapshot properly is a reasonable follow-up, not required to close the
+verified gap.
+
+**P1.4.3 addressed as documentation, not a classification change**: making
+`ExtractPageModel`/`TranscribeCommand` require confirmation was considered
+and rejected — `ExtractPageModel` runs on essentially every page interaction
+(a voice-first "look at the page" primitive), so confirming every call would
+be a severe usability regression, not a proportionate fix for an
+out-of-band-invocation problem the snapshot binding already solves. Instead,
+added comments at both misclassification sites
+(`commands/planner_executor/tool_dispatch.rs`'s `is_side_effecting_tool`,
+`commands/action_policy.rs`'s `tool_policy`) explicitly stating what each
+classification does and does not guard, pointing future readers at
+`planner_output_requires_snapshot` as the actual authority on unauthenticated
+invocation — so "not side-effecting"/`NoConfirmation` here is never again
+mistaken for "safe to invoke out-of-band."
+
+**Tests**: `planning_snapshot.rs::tests::extract_page_model_report_result_and_transcribe_command_now_require_snapshot`
+asserts all three tools now require a bound snapshot. Ran the full suite
+after the fix (no existing test relied on the old permissive behavior — 0
+regressions across 521 Rust tests), consistent with the gap being genuinely
+unauthenticated/never legitimately exercised standalone before.
+
+**Original problem text preserved below for reference.**
 **Files:**
 
 - `src-tauri/src/app_core/command_dispatch.rs`

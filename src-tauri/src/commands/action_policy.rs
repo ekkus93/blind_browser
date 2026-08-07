@@ -96,6 +96,18 @@ pub fn tool_policy(tool_name: &ToolName) -> ToolPolicy {
             ConfirmationRequirement::NoConfirmation,
             ActionPolicyReasonCode::ToolClassMinimum,
         ),
+        // ExtractPageModel and ReportResult are ReadOnly/NoConfirmation
+        // here for UX reasons (asking the user to confirm "look at the
+        // page" or "report the result" on every call would be unusable),
+        // but both mutate AppState: ExtractPageModel calls
+        // mark_page_model_changed(), clearing click authorizations and any
+        // pending confirmation/plan-execution state. That's fine when they
+        // run as part of a plan a real resolve_command call produced; it is
+        // not fine for an unauthenticated, out-of-band
+        // execute_planner_output call, which is what
+        // app_core::planning_snapshot::planner_output_requires_snapshot
+        // (CR3 P1.4) actually guards against -- this classification is not
+        // that gate.
         ToolName::GetHtml
         | ToolName::GetPageSnapshot
         | ToolName::ExtractPageModel
