@@ -447,6 +447,8 @@ fn privacy_status_challenge_summary_serialization_excludes_digest_and_payload_co
             tool_history_count: 0,
             skill_summary_count: 0,
             sanitized_serialized_bytes: 128,
+            narration_text_bytes: 0,
+            microphone_audio_duration_ms: 0,
         },
         expires_at_ms: 123_456,
         allow_once: true,

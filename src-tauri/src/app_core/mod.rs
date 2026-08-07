@@ -82,6 +82,16 @@ pub struct AppCore {
     asr: AsrController,
     remote_planner_ephemeral_grants: Vec<remote_data_consent::RemotePlannerEphemeralGrant>,
     pending_remote_planner_consent: Option<remote_data_consent::PendingRemotePlannerConsent>,
+    // Independent ephemeral-grant and pending-challenge state per disclosure
+    // kind (see AppConfig::remote_narration_privacy's doc comment): a
+    // session/one-shot grant or an in-flight consent dialog for "send this
+    // page's text to remote narration" must never be conflated with one for
+    // "send this page's context to the remote planner" -- two separate user
+    // decisions, two separate stores, one shared decision algorithm
+    // (evaluate_remote_planner_policy). Remote ASR isn't gated through this
+    // module yet -- see the doc comment on remote_data_consent's module root.
+    remote_narration_ephemeral_grants: Vec<remote_data_consent::RemotePlannerEphemeralGrant>,
+    pending_narration_consent: Option<remote_data_consent::PendingNarrationConsent>,
 }
 
 mod api_key_tools;
@@ -168,6 +178,8 @@ impl AppCore {
             asr: AsrController::new(),
             remote_planner_ephemeral_grants: Vec::new(),
             pending_remote_planner_consent: None,
+            remote_narration_ephemeral_grants: Vec::new(),
+            pending_narration_consent: None,
         })
     }
 

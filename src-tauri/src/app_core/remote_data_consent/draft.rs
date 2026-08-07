@@ -103,6 +103,8 @@ fn disclosure_summary(
         tool_history_count,
         skill_summary_count,
         sanitized_serialized_bytes,
+        narration_text_bytes: 0,
+        microphone_audio_duration_ms: 0,
     };
     let mut classes = vec![
         RemotePlannerDisclosureClass::UserTranscript,

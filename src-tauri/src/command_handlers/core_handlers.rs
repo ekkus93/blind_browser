@@ -2,9 +2,9 @@ use std::sync::{Arc, Mutex};
 
 use crate::app_core::AppCore;
 use crate::commands::{
-    AgentStateData, ConfirmActionResolution, ExecutionOutcome, GetAgentStateInput, PlannerOutput,
-    RemotePlannerConsentDecision, RemotePlannerConsentResponseOutcome, ResolveCommandOutcome,
-    ToolError, ToolResult,
+    AgentStateData, ConfirmActionResolution, ExecutionOutcome, GetAgentStateInput,
+    NarrationConsentResponseOutcome, PlannerOutput, RemotePlannerConsentDecision,
+    RemotePlannerConsentResponseOutcome, ResolveCommandOutcome, ToolError, ToolResult,
 };
 use crate::{join_error_to_tool_error, lock_app_core};
 
@@ -60,6 +60,28 @@ pub async fn submit_remote_planner_consent_response(
             challenge_digest,
             decision,
         )
+    })
+    .await
+    .map_err(join_error_to_tool_error)?
+}
+
+// Runs in `spawn_blocking` so a (possibly network-bound, for a remote TTS
+// provider) narration synthesis triggered by an authorized decision doesn't
+// block the async worker threads -- held under a single lock acquisition,
+// consistent with every other narration-triggering tool call (read_region,
+// read_next_region, ...), which already hold the lock for the same
+// synthesis + playback duration today.
+#[tauri::command]
+pub async fn submit_narration_consent_response(
+    challenge_id: String,
+    challenge_digest: String,
+    decision: RemotePlannerConsentDecision,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
+) -> Result<NarrationConsentResponseOutcome, ToolError> {
+    let core = Arc::clone(&app_core);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut guard = lock_app_core(&core)?;
+        guard.submit_narration_consent_response(&challenge_id, &challenge_digest, decision)
     })
     .await
     .map_err(join_error_to_tool_error)?

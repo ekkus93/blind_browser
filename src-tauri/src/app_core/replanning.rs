@@ -112,7 +112,7 @@ pub(crate) fn execute_bounded_replanning_loop<R: ReplanningRuntime>(
             Ok(ResolvePlanOutcome::NeedsRemoteDataConsent(challenge)) => {
                 return Ok(ExecutionOutcome::NeedsRemoteDataConsent {
                     trace: accumulated_trace,
-                    challenge,
+                    challenge: Box::new(challenge),
                 });
             }
             Err(error) => {

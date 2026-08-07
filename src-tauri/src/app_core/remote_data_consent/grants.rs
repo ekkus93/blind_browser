@@ -106,41 +106,83 @@ impl RemotePlannerEphemeralGrant {
     }
 }
 
+/// Which disclosure kind an ephemeral grant or pending consent belongs to.
+/// Selects which of [`AppCore`]'s three independent grant lists (and, in
+/// [`super::origin_rules`], which of its three independent config sections)
+/// a call operates on -- kept as an explicit, caller-supplied selector
+/// (mirroring [`super::types::RemotePlannerDataAuthorization`]'s existing
+/// style) rather than three sets of near-identical methods, so the
+/// underlying grant-management logic below stays single-sourced.
+// Remote ASR (microphone audio) doesn't have a disclosure kind here yet --
+// see the module-level doc comment on `super` for why -- so this only
+// selects between the planner and narration grant stores for now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RemoteDataDisclosureKind {
+    PlannerPayload,
+    NarrationText,
+}
+
 impl AppCore {
-    pub(super) fn prune_remote_planner_grants(&mut self, now_ms: u64) {
-        self.remote_planner_ephemeral_grants
+    fn ephemeral_grants_mut(
+        &mut self,
+        kind: RemoteDataDisclosureKind,
+    ) -> &mut Vec<RemotePlannerEphemeralGrant> {
+        match kind {
+            RemoteDataDisclosureKind::PlannerPayload => &mut self.remote_planner_ephemeral_grants,
+            RemoteDataDisclosureKind::NarrationText => &mut self.remote_narration_ephemeral_grants,
+        }
+    }
+
+    pub(super) fn ephemeral_grants(
+        &self,
+        kind: RemoteDataDisclosureKind,
+    ) -> &[RemotePlannerEphemeralGrant] {
+        match kind {
+            RemoteDataDisclosureKind::PlannerPayload => &self.remote_planner_ephemeral_grants,
+            RemoteDataDisclosureKind::NarrationText => &self.remote_narration_ephemeral_grants,
+        }
+    }
+
+    pub(super) fn prune_remote_planner_grants(
+        &mut self,
+        kind: RemoteDataDisclosureKind,
+        now_ms: u64,
+    ) {
+        self.ephemeral_grants_mut(kind)
             .retain(|grant| grant.expires_at_ms > now_ms);
     }
 
     pub(super) fn install_session_grant(
         &mut self,
+        kind: RemoteDataDisclosureKind,
         page_origin: String,
         endpoint_scope: String,
         expires_at_ms: u64,
     ) {
-        self.remote_planner_ephemeral_grants.retain(|grant| {
+        let grants = self.ephemeral_grants_mut(kind);
+        grants.retain(|grant| {
             !(grant.page_origin == page_origin
                 && grant.endpoint_scope == endpoint_scope
                 && matches!(&grant.kind, EphemeralConsentKind::Session))
         });
-        self.remote_planner_ephemeral_grants
-            .push(RemotePlannerEphemeralGrant::session(
-                page_origin,
-                endpoint_scope,
-                REMOTE_DATA_POLICY_VERSION,
-                expires_at_ms,
-            ));
-        self.bound_remote_planner_grants();
+        grants.push(RemotePlannerEphemeralGrant::session(
+            page_origin,
+            endpoint_scope,
+            REMOTE_DATA_POLICY_VERSION,
+            expires_at_ms,
+        ));
+        self.bound_remote_planner_grants(kind);
     }
 
     pub(super) fn install_once_grant(
         &mut self,
+        kind: RemoteDataDisclosureKind,
         page_origin: String,
         endpoint_scope: String,
         challenge_digest: String,
         expires_at_ms: u64,
     ) {
-        self.remote_planner_ephemeral_grants
+        self.ephemeral_grants_mut(kind)
             .push(RemotePlannerEphemeralGrant::once(
                 page_origin,
                 endpoint_scope,
@@ -148,25 +190,27 @@ impl AppCore {
                 challenge_digest,
                 expires_at_ms,
             ));
-        self.bound_remote_planner_grants();
+        self.bound_remote_planner_grants(kind);
     }
 
     pub(super) fn consume_once_grant(
         &self,
+        kind: RemoteDataDisclosureKind,
         page_origin: &str,
         endpoint_scope: &str,
         challenge_digest: &str,
         now_ms: u64,
     ) -> bool {
-        self.remote_planner_ephemeral_grants.iter().any(|grant| {
+        self.ephemeral_grants(kind).iter().any(|grant| {
             grant.consume_matching_once(page_origin, endpoint_scope, challenge_digest, now_ms)
         })
     }
 
-    fn bound_remote_planner_grants(&mut self) {
-        if self.remote_planner_ephemeral_grants.len() > MAX_EPHEMERAL_GRANTS {
-            let remove = self.remote_planner_ephemeral_grants.len() - MAX_EPHEMERAL_GRANTS;
-            self.remote_planner_ephemeral_grants.drain(0..remove);
+    fn bound_remote_planner_grants(&mut self, kind: RemoteDataDisclosureKind) {
+        let grants = self.ephemeral_grants_mut(kind);
+        if grants.len() > MAX_EPHEMERAL_GRANTS {
+            let remove = grants.len() - MAX_EPHEMERAL_GRANTS;
+            grants.drain(0..remove);
         }
     }
 }

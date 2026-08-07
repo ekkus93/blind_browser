@@ -779,7 +779,101 @@ the cascade regression test exists and passes.
 
 ## P1.1 — Gate remote TTS and ASR through the shared consent layer
 
-**Status:** PENDING · `[VERIFIED]` (gap confirmed; design is new work)
+**Status:** PARTIAL · narration (remote TTS) DONE end-to-end; remote ASR
+DEFERRED to a follow-up (scoped below, groundwork already in place).
+**Note:** Scope check with the user (mid-implementation, once the real size
+became clear) confirmed the full interactive dialog, not the cheaper
+fail-closed-only or narrow-enforcement alternatives — see the design notes
+below for what that ruled out.
+
+**What shipped for narration:**
+- `evaluate_remote_planner_policy` is reused **completely unchanged** for
+  narration — it already took no planner-specific types, so "generalizing"
+  it (P1.1.1) turned out to mean "call it a second time," not rewrite it.
+- `AppConfig.remote_narration_privacy: RemotePlannerPrivacySettings` — an
+  independent network-mode/origin-rules instance, config-schema documented
+  in `config.example.toml`, so a planner-only grant can never silently
+  authorize narration text leaving the device too (a real privacy question,
+  not just plumbing — a user who trusts an origin with sanitized planner
+  context has not thereby agreed to raw page text going to a TTS vendor).
+- `AppCore` gained parallel (not unified) `remote_narration_ephemeral_grants`
+  / `pending_narration_consent` state, chosen deliberately over folding into
+  the existing `pending_remote_planner_consent` slot/types to avoid touching
+  the planner's own delicate, already-well-tested consent code at all — a
+  narrower, lower-risk diff for an "active, current-focus" subsystem.
+- `remote_data_consent::grants`/`origin_rules` were generalized in place
+  (a `RemoteDataDisclosureKind` selector, not three reimplementations);
+  `challenge.rs` grew one shared `build_consent_challenge_from_fields` +
+  a small per-kind field-extraction wrapper.
+- `app_core::narration.rs`'s `begin_region_narration`/`begin_feedback_narration`
+  are the **single choke point** every narration call site already funneled
+  through (read_region, read_next_region, read_previous_region,
+  report_result's spoken feedback) — gating there covered all four
+  call sites with zero changes to any of them beyond one new match arm each
+  for the `ConsentRequired` outcome.
+- **Real interactive dialog, not just fail-closed enforcement**: when the
+  policy says `ConsentRequired`, the challenge is stored as pending state
+  and a new `submit_narration_consent_response` Tauri command (registered in
+  `direct_command_policy.rs`'s security-evidence registry, same as every
+  other networked/credential-bearing/page-context-transmitting command)
+  resolves it and, if authorized, **redoes the exact paused narration**
+  (`NarrationResumeContext::Region`/`Feedback`, storing the *resolved*
+  region id so a stale "next"/"previous" never redirects mid-flow) by
+  re-entering `begin_region_narration`/`begin_feedback_narration`, which
+  proceeds this time because the freshly installed grant makes the
+  re-evaluation pass.
+- Two new disclosure vocabulary additions reused everywhere: a
+  `NarrationText` (P1.1.4-equivalent) `RemotePlannerDisclosureClass` variant
+  and `narration_text_bytes` disclosure count; `NarrationConsentResponseOutcome`
+  contract type. The origin-binding decision from P1.1.2's spec text is
+  resolved explicitly, not defaulted: both page-derived region text and
+  `execute_report_result`'s assistant-generated feedback text are bound to
+  the current page origin (feedback isn't literally page text, but it can
+  echo page-derived details and describes that page, so it's gated the same
+  way rather than left ungated by omission).
+- Tests: a new isolated-Wry evidence test
+  (`narration_consent_tests::remote_narration_consent_policy_matrix_is_fail_closed`,
+  registered in `scripts/run-rust-tests-linux.sh` alongside the planner's
+  own evidence tests) proves high-risk blocks remote narration, an
+  origin-block rule blocks it, a planner-only origin allow does **not**
+  cross-authorize narration, and a loopback endpoint stays ungated.
+
+**What did NOT ship (deferred, not silently dropped):**
+- P1.1.3 (remote ASR / microphone audio) — `execute_transcribe_command`'s
+  synchronous capture-then-transcribe call is one opaque `AsrController`
+  call with no separation point to insert a policy gate before the network
+  send, unlike narration's already-separated choke point. Wiring it
+  correctly needs that call split into phases first (mirroring the
+  already-separated `begin_transcribe_command`/`drain_transcribe_command`
+  path), which is its own well-scoped follow-up, not a design ambiguity.
+  The disclosure-kind-generic policy/grants/origin-rules/challenge
+  machinery built here is already shaped to add a `MicrophoneAudio`
+  kind back onto — the machinery originally written for it during this pass
+  was removed rather than left half-wired (dead code with no execution
+  path), consistent with not shipping stubs; re-add it alongside the actual
+  gate rather than ahead of it.
+- P1.1.5 (settings surfacing) — `config.example.toml` documents the new
+  `[remote_narration_privacy]`/`[remote_microphone_privacy]` sections, but
+  there is no in-app settings UI yet to view/manage narration's origin
+  rules (the planner has one: `settings-panels/planner-privacy.tsx`).
+  Users on the default `ask_per_origin` mode can only grant narration access
+  by editing `config.toml` directly until this lands.
+- Frontend dialog wiring — the backend embeds the full
+  `RemotePlannerConsentChallenge` in the `remote_data_consent_required`
+  `ToolError`'s `details` (since no "fetch the pending challenge" status
+  query exists yet for this disclosure kind), so a future pass has
+  everything needed to reuse `remote-planner-privacy-ui.tsx`'s existing
+  dialog rendering (already keyed by a `Record<DisclosureClass, string>`
+  label lookup, so adding the `NarrationText` label is small) — but no
+  frontend code was written to detect the error, show the dialog, or call
+  `submit_narration_consent_response`. **Practical consequence**: under the
+  default `ask_per_origin` mode, remote narration for a not-yet-granted
+  origin currently fails with a clear, honest error and no way to grant
+  access from the UI, until either the settings UI or the dialog wiring
+  above lands. This is a real UX gap, not a security one — the gate fails
+  closed either way.
+
+**Original problem/required-behavior text preserved below for reference.**
 **Spec:** constraint 5
 **Files:**
 

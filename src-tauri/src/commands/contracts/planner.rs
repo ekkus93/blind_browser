@@ -112,9 +112,16 @@ pub enum RemotePlannerDisclosureClass {
     ToolObservationSummaries,
     SkillSummaries,
     TrustedRuntimeContracts,
+    // Narration (remote TTS) and microphone-audio (remote ASR) disclosure
+    // kinds share this same challenge/manifest shape (see
+    // app_core::remote_data_consent) but disclose page text read aloud, or
+    // raw microphone audio, respectively -- neither the redacted page
+    // context above nor the user's typed command.
+    NarrationText,
+    MicrophoneAudio,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct RemotePlannerDisclosureCounts {
     pub selected_region_count: usize,
     pub selected_element_count: usize,
@@ -122,6 +129,10 @@ pub struct RemotePlannerDisclosureCounts {
     pub tool_history_count: usize,
     pub skill_summary_count: usize,
     pub sanitized_serialized_bytes: usize,
+    #[serde(default)]
+    pub narration_text_bytes: usize,
+    #[serde(default)]
+    pub microphone_audio_duration_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -178,7 +189,7 @@ pub enum ExecutionOutcome {
     },
     NeedsRemoteDataConsent {
         trace: ExecutionTrace,
-        challenge: RemotePlannerConsentChallenge,
+        challenge: Box<RemotePlannerConsentChallenge>,
     },
     Aborted {
         trace: ExecutionTrace,
@@ -234,4 +245,19 @@ pub enum RemotePlannerConsentResponseOutcome {
     BlockedPersistent,
     Resolved { planner_output: PlannerOutput },
     Executed { outcome: Box<ExecutionOutcome> },
+}
+
+/// Response outcome for the narration (remote TTS) disclosure kind's consent
+/// dialog (see `app_core::remote_data_consent::narration_consent`). Narration
+/// has no "resume planner execution" analog to `Resolved`/`Executed` above --
+/// once authorized, the paused narration is simply spoken -- so the caller
+/// should refresh runtime status afterward to pick up the resulting
+/// narration cursor / speaking state, the same way it already does after any
+/// other narration tool call.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum NarrationConsentResponseOutcome {
+    Denied,
+    BlockedPersistent,
+    Spoken,
 }

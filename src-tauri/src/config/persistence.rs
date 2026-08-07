@@ -143,6 +143,22 @@ impl AppConfig {
         Self::persist_remote_planner_privacy_settings_at_path(&config_path, settings)
     }
 
+    pub fn persist_remote_narration_privacy_settings_for_app(
+        app_handle: &AppHandle,
+        settings: &RemotePlannerPrivacySettings,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::persist_remote_narration_privacy_settings_at_path(&config_path, settings)
+    }
+
+    pub fn persist_remote_microphone_privacy_settings_for_app(
+        app_handle: &AppHandle,
+        settings: &RemotePlannerPrivacySettings,
+    ) -> Result<Self, ConfigError> {
+        let config_path = Self::config_path_for_app(app_handle)?;
+        Self::persist_remote_microphone_privacy_settings_at_path(&config_path, settings)
+    }
+
     pub fn persist_remote_planner_api_key_for_app(
         app_handle: &AppHandle,
         profile_name: &str,
@@ -324,6 +340,42 @@ impl AppConfig {
         path: impl AsRef<Path>,
         settings: &RemotePlannerPrivacySettings,
     ) -> Result<Self, ConfigError> {
+        Self::persist_remote_data_privacy_settings_at_path(path, "remote_planner_privacy", settings)
+    }
+
+    /// Narration and microphone-audio disclosure use the exact same policy
+    /// shape and TOML persistence as the planner (see
+    /// `remote_data_consent::evaluate_remote_planner_policy`, which is reused
+    /// unchanged for all three) -- only the section key differs, since each
+    /// disclosure kind keeps its own independent origin-rules/network-mode
+    /// instance (see the field doc comment on `AppConfig::remote_narration_privacy`).
+    pub fn persist_remote_narration_privacy_settings_at_path(
+        path: impl AsRef<Path>,
+        settings: &RemotePlannerPrivacySettings,
+    ) -> Result<Self, ConfigError> {
+        Self::persist_remote_data_privacy_settings_at_path(
+            path,
+            "remote_narration_privacy",
+            settings,
+        )
+    }
+
+    pub fn persist_remote_microphone_privacy_settings_at_path(
+        path: impl AsRef<Path>,
+        settings: &RemotePlannerPrivacySettings,
+    ) -> Result<Self, ConfigError> {
+        Self::persist_remote_data_privacy_settings_at_path(
+            path,
+            "remote_microphone_privacy",
+            settings,
+        )
+    }
+
+    fn persist_remote_data_privacy_settings_at_path(
+        path: impl AsRef<Path>,
+        toml_key: &str,
+        settings: &RemotePlannerPrivacySettings,
+    ) -> Result<Self, ConfigError> {
         let path = path.as_ref();
         let mut normalized = settings.clone();
         let mut issues = Vec::new();
@@ -337,10 +389,7 @@ impl AppConfig {
         } else {
             load_document_table_from_str(Self::default_template())?
         };
-        document.insert(
-            String::from("remote_planner_privacy"),
-            toml::Value::try_from(normalized)?,
-        );
+        document.insert(String::from(toml_key), toml::Value::try_from(normalized)?);
         let serialized = toml::to_string_pretty(&document)?;
         write_config_atomic(path, &serialized)?;
         Self::load_from_path(path)

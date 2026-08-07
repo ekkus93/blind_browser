@@ -6,12 +6,25 @@
 //!
 //! Module layout:
 //! - [`types`] — workflow shapes (draft, prepared request, pending consent, ...)
-//! - [`policy`] — the allow/block/consent-required decision
-//! - [`grants`] — ephemeral session/one-shot consent grants
+//! - [`policy`] — the allow/block/consent-required decision (shared verbatim,
+//!   with no planner-specific types in its signature, by every disclosure
+//!   kind below)
+//! - [`grants`] — ephemeral session/one-shot consent grants, and the
+//!   [`RemoteDataDisclosureKind`] selector each kind's state is keyed by
 //! - [`origin_rules`] — durable per-origin allow/block persistence
 //! - [`draft`] — sanitizes a `PlannerInput` into a `RemotePlannerRequestDraft`
 //! - [`challenge`] — builds the tamper-evident consent challenge shown to the user
 //! - [`errors`] — shared `ToolError` constructors
+//! - [`narration_consent`] — the narration (remote TTS) disclosure kind
+//!
+//! Remote ASR (microphone audio) is not yet gated through this module -- see
+//! CR3 P1.1's TODO note: the policy/grants/origin-rules/challenge machinery
+//! here is already disclosure-kind-generic and ready for it, but wiring the
+//! actual gate needs `execute_transcribe_command`'s synchronous
+//! capture-then-transcribe call to be split into separate phases first (the
+//! way the phased `begin_transcribe_command`/`drain_transcribe_command` path
+//! already is), so is deferred to its own follow-up rather than half-wired
+//! here.
 
 use crate::app_core::planner_redaction::{
     high_risk_context_reason, high_risk_page_context_reason, planner_page_origin, RemoteDataMode,
@@ -34,11 +47,12 @@ mod challenge;
 mod draft;
 mod errors;
 mod grants;
+mod narration_consent;
 mod origin_rules;
 mod policy;
 mod types;
 
-pub(crate) use grants::RemotePlannerEphemeralGrant;
+pub(crate) use grants::{RemoteDataDisclosureKind, RemotePlannerEphemeralGrant};
 pub(crate) use policy::{evaluate_remote_planner_policy, RemotePlannerPolicyResult};
 pub(crate) use types::*;
 
@@ -66,7 +80,7 @@ impl AppCore {
             )
         })?;
         let now_ms = current_timestamp_ms();
-        self.prune_remote_planner_grants(now_ms);
+        self.prune_remote_planner_grants(RemoteDataDisclosureKind::PlannerPayload, now_ms);
         let page_origin = planner_page_origin(&planner_input);
         let high_risk_reason = high_risk_context_reason(&planner_input);
         match evaluate_remote_planner_policy(
@@ -74,7 +88,7 @@ impl AppCore {
             &endpoint_scope,
             page_origin.as_deref(),
             high_risk_reason,
-            &self.remote_planner_ephemeral_grants,
+            self.ephemeral_grants(RemoteDataDisclosureKind::PlannerPayload),
             now_ms,
         ) {
             RemotePlannerPolicyResult::Allowed(authorization) => {
@@ -190,7 +204,7 @@ impl AppCore {
             &pending.draft.endpoint_scope,
             Some(&pending.draft.page_origin),
             current_high_risk_reason,
-            &self.remote_planner_ephemeral_grants,
+            self.ephemeral_grants(RemoteDataDisclosureKind::PlannerPayload),
             now_ms,
         ) {
             RemotePlannerPolicyResult::Blocked { code, reason_code } => {
@@ -205,6 +219,7 @@ impl AppCore {
             )),
             RemotePlannerConsentDecision::BlockPersistent => {
                 self.persist_origin_rule(
+                    RemoteDataDisclosureKind::PlannerPayload,
                     &pending.draft.page_origin,
                     PersistedOriginDecision::Block,
                     None,
@@ -217,6 +232,7 @@ impl AppCore {
             }
             RemotePlannerConsentDecision::AllowPersistent => {
                 self.persist_origin_rule(
+                    RemoteDataDisclosureKind::PlannerPayload,
                     &pending.draft.page_origin,
                     PersistedOriginDecision::Allow,
                     Some(
@@ -240,6 +256,7 @@ impl AppCore {
             }
             RemotePlannerConsentDecision::AllowSession => {
                 self.install_session_grant(
+                    RemoteDataDisclosureKind::PlannerPayload,
                     pending.draft.page_origin.clone(),
                     pending
                         .draft
@@ -266,12 +283,14 @@ impl AppCore {
                     .normalized_base_url()
                     .to_string();
                 self.install_once_grant(
+                    RemoteDataDisclosureKind::PlannerPayload,
                     pending.draft.page_origin.clone(),
                     endpoint.clone(),
                     pending.challenge.challenge_digest.clone(),
                     pending.challenge.expires_at_ms,
                 );
                 if !self.consume_once_grant(
+                    RemoteDataDisclosureKind::PlannerPayload,
                     &pending.draft.page_origin,
                     &endpoint,
                     &pending.challenge.challenge_digest,
@@ -495,6 +514,8 @@ mod tests {
                 tool_history_count: 4,
                 skill_summary_count: 5,
                 sanitized_serialized_bytes: 512,
+                narration_text_bytes: 6,
+                microphone_audio_duration_ms: 7,
             },
             payload_digest: String::from("payload-digest"),
             runtime_state_token: String::from("runtime-state"),
@@ -534,6 +555,8 @@ mod tests {
             Box::new(|value| value.disclosure_counts.tool_history_count += 1),
             Box::new(|value| value.disclosure_counts.skill_summary_count += 1),
             Box::new(|value| value.disclosure_counts.sanitized_serialized_bytes += 1),
+            Box::new(|value| value.disclosure_counts.narration_text_bytes += 1),
+            Box::new(|value| value.disclosure_counts.microphone_audio_duration_ms += 1),
             Box::new(|value| value.payload_digest.push_str("-changed")),
             Box::new(|value| value.runtime_state_token.push_str("-changed")),
             Box::new(|value| value.expires_at_ms += 1),

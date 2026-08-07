@@ -92,3 +92,66 @@ pub(crate) enum PendingConsentResolution {
     Terminal(RemotePlannerConsentResponseOutcome),
     Authorized(Box<AuthorizedPendingRemotePlannerRequest>),
 }
+
+// --- Narration (remote TTS) disclosure ---
+//
+// Narration has no planner-style sanitization step (the whole point is to
+// speak the text; there is nothing to redact without breaking that), so
+// unlike the planner there is no separate draft/prepared-request split --
+// preparing a narration request either succeeds immediately (Authorized) or
+// yields a challenge to answer (ConsentRequired), never an intermediate
+// sanitized-but-not-yet-authorized value.
+
+/// What to redo once a pending narration consent is authorized. Covers every
+/// call site that reaches `AppCore::begin_region_narration`/
+/// `begin_feedback_narration` (execute_read_region, execute_read_next_region,
+/// execute_read_previous_region all resolve to a concrete region id before
+/// calling in; execute_report_result supplies feedback text directly) --
+/// storing the *resolved* target rather than "next"/"previous" semantics, so
+/// resuming re-reads exactly the region the user was told about in the
+/// consent dialog, not whatever "next" has drifted to become.
+#[derive(Debug, Clone)]
+pub(crate) enum NarrationResumeContext {
+    Region {
+        region_id: String,
+        interrupt_current: bool,
+    },
+    Feedback {
+        spoken_text: String,
+    },
+}
+
+pub(crate) struct NarrationRequestDraft {
+    pub(crate) text: String,
+    pub(crate) endpoint_scope: ProviderEndpointScope,
+    pub(crate) profile_name: String,
+    pub(crate) model_label: String,
+    pub(crate) page_origin: String,
+    pub(crate) payload_digest: String,
+    pub(crate) runtime_state_token: String,
+    pub(crate) resume: NarrationResumeContext,
+}
+
+#[derive(Debug)]
+pub(crate) enum NarrationPreparation {
+    Authorized,
+    ConsentRequired {
+        challenge: Box<RemotePlannerConsentChallenge>,
+    },
+}
+
+pub(crate) struct PendingNarrationConsent {
+    pub(crate) challenge: RemotePlannerConsentChallenge,
+    pub(super) page_origin: String,
+    pub(super) endpoint_scope: String,
+    pub(super) runtime_state_token: String,
+    pub(super) resume: NarrationResumeContext,
+}
+
+pub(crate) enum NarrationConsentResolution {
+    Terminal(RemotePlannerConsentResponseOutcome),
+    Authorized { resume: NarrationResumeContext },
+}
+
+// Remote ASR (microphone audio) is not yet gated through this module -- see
+// the module-level doc comment in mod.rs for why.

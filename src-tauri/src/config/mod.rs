@@ -81,6 +81,10 @@ impl AppConfig {
         validate_safety_settings(&raw.safety, &mut issues);
         let mut remote_planner_privacy = raw.remote_planner_privacy;
         normalize_remote_planner_privacy_settings(&mut remote_planner_privacy, &mut issues);
+        let mut remote_narration_privacy = raw.remote_narration_privacy;
+        normalize_remote_planner_privacy_settings(&mut remote_narration_privacy, &mut issues);
+        let mut remote_microphone_privacy = raw.remote_microphone_privacy;
+        normalize_remote_planner_privacy_settings(&mut remote_microphone_privacy, &mut issues);
         validate_ocr_settings(&raw.ocr, &mut issues);
         validate_model_settings(&raw.models, &mut issues);
 
@@ -129,6 +133,8 @@ impl AppConfig {
             audio: raw.audio,
             safety: raw.safety,
             remote_planner_privacy,
+            remote_narration_privacy,
+            remote_microphone_privacy,
             ocr: raw.ocr,
             models: raw.models,
             speech_feedback: raw.speech_feedback,
@@ -266,6 +272,8 @@ impl Default for AppConfig {
                 always_confirm_submit: true,
             },
             remote_planner_privacy: RemotePlannerPrivacySettings::default(),
+            remote_narration_privacy: RemotePlannerPrivacySettings::default(),
+            remote_microphone_privacy: RemotePlannerPrivacySettings::default(),
             ocr: OcrSettings::default(),
             models: ModelManagementSettings {
                 models_dir: String::from("~/.config/blind_browser/models"),

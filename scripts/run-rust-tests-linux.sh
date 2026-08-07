@@ -63,3 +63,5 @@ run_isolated_wry_test \
   app_core::tests::remote_data_consent_evidence_tests::identity_scope_and_restart_tests::remote_data_privacy_closure_identity_scope_and_restart_are_fail_closed
 run_isolated_wry_test \
   app_core::tests::remote_data_consent_evidence_tests::policy_and_disclosure_matrix_tests::remote_data_privacy_closure_policy_and_disclosure_matrix_is_bounded
+run_isolated_wry_test \
+  app_core::tests::remote_data_consent_evidence_tests::narration_consent_tests::remote_narration_consent_policy_matrix_is_fail_closed

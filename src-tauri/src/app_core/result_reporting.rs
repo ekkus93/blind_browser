@@ -1,4 +1,5 @@
 use super::element_scoring::normalize_optional_text;
+use super::narration::{narration_consent_required_error, NarrationAttempt};
 use crate::commands::{
     AgentStateData, GetAgentStateInput, GetRuntimeStatusData, GetRuntimeStatusInput,
     ReportResultData, ReportResultInput, ToolError, ToolName, ToolResult,
@@ -56,15 +57,28 @@ impl super::AppCore {
         let user_message = normalize_optional_text(input.user_message);
         let spoken_message = user_message.clone().unwrap_or_else(|| summary.clone());
 
-        if let Err(error) = self.begin_feedback_narration(&spoken_message) {
-            return ToolResult::failure(
-                ToolName::ReportResult,
-                input.request_id,
-                error,
-                vec![String::from(
-                    "Final result reporting could not start audible feedback with the configured TTS backend.",
-                )],
-            );
+        match self.begin_feedback_narration(&spoken_message, &input.request_id) {
+            Ok(NarrationAttempt::Completed(())) => {}
+            Ok(NarrationAttempt::ConsentRequired(challenge)) => {
+                return ToolResult::failure(
+                    ToolName::ReportResult,
+                    input.request_id,
+                    narration_consent_required_error(&challenge),
+                    vec![String::from(
+                        "Spoken feedback was paused because sending this page's text to remote narration requires your permission first.",
+                    )],
+                );
+            }
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::ReportResult,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Final result reporting could not start audible feedback with the configured TTS backend.",
+                    )],
+                );
+            }
         }
 
         ToolResult::success(

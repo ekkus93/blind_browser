@@ -450,7 +450,10 @@ fn map_policy_status(
     }
 }
 
-fn page_origin_from_url(raw: &str) -> Option<String> {
+// pub(super): also reused by remote_data_consent::{narration_consent,microphone_consent}
+// so page-origin extraction from the current page URL stays single-sourced
+// across all three disclosure kinds.
+pub(super) fn page_origin_from_url(raw: &str) -> Option<String> {
     let parsed = match url::Url::parse(raw.trim()) {
         Ok(parsed) => parsed,
         Err(_) => return None,

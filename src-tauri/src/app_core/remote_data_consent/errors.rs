@@ -28,6 +28,40 @@ pub(super) fn policy_block_error(code: &str, reason_code: &str) -> ToolError {
     }
 }
 
+/// Like [`policy_block_error`], but for the narration/microphone-audio
+/// disclosure kinds, whose block messages must not say "planner" -- avoids a
+/// misleading "Local-only planner mode..." message when what was actually
+/// blocked was sending page text to remote narration or microphone audio to
+/// remote transcription.
+pub(super) fn policy_block_error_for(
+    context_label: &str,
+    code: &str,
+    reason_code: &str,
+) -> ToolError {
+    ToolError {
+        code: code.to_string(),
+        message: match code {
+            "remote_data_local_only" => {
+                format!("Local-only mode blocks non-loopback {context_label} endpoints.")
+            }
+            "remote_data_high_risk_blocked" => format!(
+                "Sending data to {context_label} is blocked for this high-risk page context."
+            ),
+            "remote_data_origin_blocked" => {
+                format!("This page origin is configured to remain local for {context_label}.")
+            }
+            _ => {
+                format!("The current page origin cannot be safely authorized for {context_label}.")
+            }
+        },
+        retryable: false,
+        details: Some(serde_json::json!({
+            "policy": code,
+            "reason_code": reason_code,
+        })),
+    }
+}
+
 pub(super) fn consent_error(
     code: &str,
     message: &str,

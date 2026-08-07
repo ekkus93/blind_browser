@@ -1,3 +1,4 @@
+use super::narration::{narration_consent_required_error, NarrationAttempt};
 use crate::commands::{
     ReadNextRegionData, ReadNextRegionInput, ReadPreviousRegionData, ReadPreviousRegionInput,
     ReadRegionData, ReadRegionInput, StopSpeakingData, StopSpeakingInput, ToolError, ToolName,
@@ -43,8 +44,19 @@ impl super::AppCore {
             region_index,
             &region,
             input.interruption_mode.interrupts_current_playback(),
+            &input.request_id,
         ) {
-            Ok(interrupted_region_id) => interrupted_region_id,
+            Ok(NarrationAttempt::Completed(interrupted_region_id)) => interrupted_region_id,
+            Ok(NarrationAttempt::ConsentRequired(challenge)) => {
+                return ToolResult::failure(
+                    ToolName::ReadRegion,
+                    input.request_id,
+                    narration_consent_required_error(&challenge),
+                    vec![String::from(
+                        "Narration was paused because sending this page's text to remote narration requires your permission first.",
+                    )],
+                )
+            }
             Err(error) => {
                 return ToolResult::failure(
                     ToolName::ReadRegion,
@@ -129,8 +141,19 @@ impl super::AppCore {
             region_index,
             &region,
             input.interruption_mode.interrupts_current_playback(),
+            &input.request_id,
         ) {
-            Ok(interrupted_region_id) => interrupted_region_id,
+            Ok(NarrationAttempt::Completed(interrupted_region_id)) => interrupted_region_id,
+            Ok(NarrationAttempt::ConsentRequired(challenge)) => {
+                return ToolResult::failure(
+                    ToolName::ReadNextRegion,
+                    input.request_id,
+                    narration_consent_required_error(&challenge),
+                    vec![String::from(
+                        "Narration was paused because sending this page's text to remote narration requires your permission first.",
+                    )],
+                )
+            }
             Err(error) => {
                 return ToolResult::failure(
                     ToolName::ReadNextRegion,
@@ -215,8 +238,19 @@ impl super::AppCore {
             region_index,
             &region,
             input.interruption_mode.interrupts_current_playback(),
+            &input.request_id,
         ) {
-            Ok(interrupted_region_id) => interrupted_region_id,
+            Ok(NarrationAttempt::Completed(interrupted_region_id)) => interrupted_region_id,
+            Ok(NarrationAttempt::ConsentRequired(challenge)) => {
+                return ToolResult::failure(
+                    ToolName::ReadPreviousRegion,
+                    input.request_id,
+                    narration_consent_required_error(&challenge),
+                    vec![String::from(
+                        "Narration was paused because sending this page's text to remote narration requires your permission first.",
+                    )],
+                )
+            }
             Err(error) => {
                 return ToolResult::failure(
                     ToolName::ReadPreviousRegion,

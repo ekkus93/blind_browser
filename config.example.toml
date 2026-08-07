@@ -39,6 +39,37 @@ consent_to_remote_page_data = false
 local_only = false
 blocked_origins = []
 
+# Independent privacy policy for text sent to a remote TTS provider when
+# providers.tts.mode = "remote": same shape and decision engine as
+# remote_planner_privacy above, but its own origin-rules/network-mode
+# instance, so granting the planner access to an origin never silently
+# grants remote narration access to that same origin too -- sending page
+# text to be spoken aloud is a materially different decision. Local TTS
+# never reaches this policy at all; nothing leaves the device.
+[remote_narration_privacy]
+network_mode = "ask_per_origin"
+origin_rules = []
+policy_schema_version = 1
+migration_notice_pending = false
+high_risk_origin_policy = "block"
+consent_to_remote_page_data = false
+local_only = false
+blocked_origins = []
+
+# Independent privacy policy for microphone audio sent to a remote ASR
+# provider when providers.asr.mode = "remote". Not yet enforced -- see
+# docs/BB_CODE_REVIEW3_TODO.md P1.1 -- but persisted now so a user's choice
+# here survives once remote ASR gating lands.
+[remote_microphone_privacy]
+network_mode = "ask_per_origin"
+origin_rules = []
+policy_schema_version = 1
+migration_notice_pending = false
+high_risk_origin_policy = "block"
+consent_to_remote_page_data = false
+local_only = false
+blocked_origins = []
+
 [ocr]
 trigger_on_no_extractable_text = true
 sparse_text_char_threshold = 200

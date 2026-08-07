@@ -41,6 +41,13 @@ const EVIDENCE: &[Evidence] = &[
         transmits_page_context: true,
     },
     Evidence {
+        name: "submit_narration_consent_response",
+        networked: true,
+        credential_bearing: true,
+        verified_model_download: false,
+        transmits_page_context: true,
+    },
+    Evidence {
         name: "start_listening",
         networked: false,
         credential_bearing: false,
@@ -365,6 +372,7 @@ fn source_drift_networked_direct_commands_retain_timeout_and_redirect_evidence()
         BTreeSet::from([
             "resolve_command",
             "submit_remote_planner_consent_response",
+            "submit_narration_consent_response",
             "transcribe_command",
             "transcribe_and_execute_command",
             "open_url",
@@ -400,6 +408,7 @@ fn source_drift_credential_bearing_commands_retain_endpoint_binding() {
         BTreeSet::from([
             "resolve_command",
             "submit_remote_planner_consent_response",
+            "submit_narration_consent_response",
             "transcribe_command",
             "transcribe_and_execute_command",
             "list_remote_planner_models",
@@ -452,6 +461,8 @@ fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
     let consent = source("src/app_core/remote_data_consent/mod.rs");
     let consent_draft = source("src/app_core/remote_data_consent/draft.rs");
     let redaction = source("src/app_core/planner_redaction/mod.rs");
+    let narration = source("src/app_core/narration.rs");
+    let narration_consent = source("src/app_core/remote_data_consent/narration_consent.rs");
 
     assert!(core_handlers.contains("resolve_command_lock_scoped"));
     assert!(voice_handlers.contains("run_command_with_lock_scoped_replanning"));
@@ -461,6 +472,12 @@ fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
         consent_draft.contains("sanitize_remote_planner_input_authorized(&planner_input, mode)?")
     );
     assert!(redaction.contains("pub(crate) fn sanitize_remote_planner_input_authorized("));
+    // Narration deliberately has no sanitizer -- redacting the text would
+    // break the feature (the point is to speak the page text as-is) -- but
+    // it must still go through the shared policy gate before any network
+    // send, which these assert instead of a sanitizer call.
+    assert!(narration.contains(".prepare_narration_request("));
+    assert!(narration_consent.contains("match evaluate_remote_planner_policy("));
 
     let transmitting = EVIDENCE
         .iter()
@@ -472,6 +489,7 @@ fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
         BTreeSet::from([
             "resolve_command",
             "submit_remote_planner_consent_response",
+            "submit_narration_consent_response",
             "transcribe_and_execute_command",
         ])
     );

@@ -293,6 +293,20 @@ pub struct AppConfig {
     pub audio: AudioSettings,
     pub safety: SafetySettings,
     pub remote_planner_privacy: RemotePlannerPrivacySettings,
+    // Independent privacy policies for remote TTS narration and remote ASR
+    // microphone audio: same shape and decision engine as
+    // remote_planner_privacy (see remote_data_consent::evaluate_remote_planner_policy),
+    // but a separate origin-rules/network-mode instance per disclosure kind so
+    // a grant for one (e.g. "always allow the planner on this origin") can
+    // never silently authorize another (e.g. narration text or microphone
+    // audio leaving the device for that same origin) -- these are materially
+    // different user decisions. #[serde(default)] so existing config files
+    // written before this field existed load with the same restrictive
+    // AskPerOrigin default as a fresh install, not an implicit broad allow.
+    #[serde(default)]
+    pub remote_narration_privacy: RemotePlannerPrivacySettings,
+    #[serde(default)]
+    pub remote_microphone_privacy: RemotePlannerPrivacySettings,
     pub ocr: OcrSettings,
     pub models: ModelManagementSettings,
     pub speech_feedback: SpeechFeedbackSettings,
@@ -305,6 +319,10 @@ pub(super) struct RawAppConfig {
     pub(super) safety: SafetySettings,
     #[serde(default)]
     pub(super) remote_planner_privacy: RemotePlannerPrivacySettings,
+    #[serde(default)]
+    pub(super) remote_narration_privacy: RemotePlannerPrivacySettings,
+    #[serde(default)]
+    pub(super) remote_microphone_privacy: RemotePlannerPrivacySettings,
     pub(super) ocr: OcrSettings,
     pub(super) models: ModelManagementSettings,
     pub(super) speech_feedback: SpeechFeedbackSettings,
