@@ -25,6 +25,10 @@ const {
   setTtsModelPanelState,
   setTtsProviderPanelState,
   setTtsVoicePanelState,
+  focusSettingsTarget,
+  setAppAlertState,
+  setAppView,
+  setSettingsView,
 } = await import("./panel-state-setters.ts");
 const { appShellStore } = await import("./store.ts");
 
@@ -54,6 +58,12 @@ function getTtsProviderState() {
 }
 function getTtsVoiceState() {
   return appShellStore.getState().panelStates.ttsVoicePanelState;
+}
+function getShellView() {
+  return appShellStore.getState().shellView;
+}
+function getAppAlertState() {
+  return appShellStore.getState().panelStates.appAlertState;
 }
 
 test.beforeEach(() => {
@@ -421,4 +431,40 @@ test("persistModelManagementSettings rolls back on failure", async () => {
   await persistModelManagementSettings();
   assert.ok(getModelState().error !== null);
   assert.equal(getModelState().isSaving, false);
+});
+
+// ─── focusSettingsTarget ───────────────────────────────────────────────────
+
+test("focusSettingsTarget navigates to the settings view containing a known target id", () => {
+  setAppView("workspace");
+  setSettingsView("overview");
+
+  focusSettingsTarget("settings-model-management-title");
+
+  assert.equal(getShellView().appView, "settings");
+  assert.equal(getShellView().settingsView, "runtime");
+  assert.equal(getAppAlertState().kind, "info");
+});
+
+test("focusSettingsTarget falls back to the overview and raises an alert for an unknown target id", () => {
+  // Regression test: focusSettingsTarget used to cast an arbitrary DOM
+  // element id straight to SettingsView. Every settings subview hides
+  // itself unless it matches the current settingsView, so an unmatched
+  // value hid all five subviews -- including "overview", which holds the
+  // guidance panel that triggered the navigation -- stranding the user on a
+  // blank Settings page.
+  setAppView("workspace");
+  setSettingsView("overview");
+  setAppAlertState({ kind: "info", message: null });
+
+  focusSettingsTarget("settings-does-not-exist-title");
+
+  assert.equal(getShellView().appView, "settings");
+  assert.equal(
+    getShellView().settingsView,
+    "overview",
+    "an unrecognized target must fail safe to the overview, not an invalid SettingsView value",
+  );
+  assert.equal(getAppAlertState().kind, "error");
+  assert.match(getAppAlertState().message, /settings overview/i);
 });

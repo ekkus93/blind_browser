@@ -350,7 +350,17 @@ margin is computed pre-truncation.
 
 ## P0.5 — Validate the settings navigation target
 
-**Status:** PENDING · `[VERIFIED]`
+**Status:** DONE · `[VERIFIED]`
+
+**Note:** P0.5.1's suggestion to keep the element id available for
+focus-after-navigate was not implemented -- no such capability existed
+before this fix (the id was only ever used, incorrectly, as a settings-view
+value), there is no existing timing idiom in this codebase for
+post-render DOM focus, and some target ids are heading ids (`titleId`,
+used only for `aria-labelledby`) rather than focusable controls. Scoped
+this to the required behavior: navigate to a valid view, fail safe
+otherwise. A dedicated focus-after-navigate enhancement can be proposed
+separately if wanted.
 **Spec:** constraint 9
 **Files:**
 

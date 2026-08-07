@@ -62,9 +62,47 @@ export function setSettingsView(nextView: SettingsView) {
   appShellStore.dispatch(setAppShellSettingsView(nextView));
 }
 
+// guidanceStateForErrorMessage (main-errors.ts) builds its action list from
+// DOM element ids -- e.g. "settings-model-management-title", the titleId of
+// the model-management panel section -- not SettingsView members. Each
+// panel-content root in app-shell.tsx renders inside exactly one settings
+// subview (see the data-settings-view-section groups), so this maps every
+// guidance target id to the view that actually contains it.
+const SETTINGS_TARGET_VIEWS: Record<string, SettingsView> = {
+  "settings-tts-provider-control": "tts",
+  "settings-tts-model-control": "tts",
+  "settings-local-tts-model-title": "tts",
+  "settings-remote-tts-title": "tts",
+  "settings-remote-tts-api-key-input": "tts",
+  "settings-asr-provider-control": "asr",
+  "settings-local-asr-model-title": "asr",
+  "settings-remote-asr-title": "asr",
+  "settings-remote-asr-api-key-input": "asr",
+  "settings-remote-planner-title": "planner",
+  "settings-remote-planner-api-key-input": "planner",
+  "settings-model-management-title": "runtime",
+};
+
 export function focusSettingsTarget(targetId: string) {
   setAppView("settings");
-  setSettingsView(targetId as SettingsView);
+  const view = SETTINGS_TARGET_VIEWS[targetId];
+  if (view === undefined) {
+    // Every settings subview hides itself with hidden={initialSettingsView
+    // !== "<view>"}, so an unmatched value here previously hid ALL FIVE
+    // subviews -- including "overview", which holds the page heading and the
+    // guidance panel itself -- stranding the user on a blank Settings page
+    // with only the back arrow as an escape. Fail safe to overview instead.
+    console.error(
+      `focusSettingsTarget: no settings view is registered for target id "${targetId}"; falling back to the settings overview.`,
+    );
+    setSettingsView("overview");
+    setAppAlertState({
+      kind: "error",
+      message: "Could not open that specific setting. Showing the settings overview instead.",
+    });
+    return;
+  }
+  setSettingsView(view);
 }
 
 function safeExternalLinkDisplay(url: string): string | null {
