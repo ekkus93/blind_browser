@@ -3,9 +3,15 @@ import test from "node:test";
 
 import {
   applyExecutionOutcomeToUiState,
-  createExecutionUiStore,
   isNeedsRemoteDataConsentOutcome,
 } from "./planner-orchestration.ts";
+import {
+  applyExecutionOutcome,
+  clearRemoteDataConsent,
+  createAppShellStore,
+  setRemoteDataConsentError,
+  setRemoteDataConsentSubmitting,
+} from "./app-shell-store.ts";
 
 function challenge() {
   return {
@@ -57,51 +63,74 @@ test("consent outcome creates a dedicated consent state and clears action confir
   assert.equal(state.remoteDataConsent.submissionError, null);
 });
 
+// CR3 P2.8.4: these three tests used to drive `createExecutionUiStore` (a
+// standalone in-memory `ExecutionUiStore` implementation in
+// planner-orchestration.ts) rather than the real production store. That
+// factory had no production caller -- the live app's `ExecutionUiStore` is
+// `ui-store.ts`'s Redux-backed adapter around `app-shell-store.ts`, whose
+// `executionUi` slice reducers independently reimplement this exact
+// challenge-id-bound guard logic -- so the factory was deleted as dead code
+// and these tests now dispatch the real Redux actions against a real store
+// instead, preserving coverage of the guard behavior itself (a stale
+// challenge response must not perturb a newer one) while testing the code
+// that actually runs.
 test("a later non-consent outcome clears the pending consent UI", () => {
-  const store = createExecutionUiStore();
-  store.applyOutcome(consentOutcome());
+  const store = createAppShellStore();
+  store.dispatch(applyExecutionOutcome(consentOutcome()));
 
-  store.applyOutcome({ Complete: { trace: { executed_step_ids: [], tool_results: [] } } });
+  store.dispatch(
+    applyExecutionOutcome({ Complete: { trace: { executed_step_ids: [], tool_results: [] } } }),
+  );
 
-  assert.equal(store.getState().remoteDataConsent.kind, "idle");
+  assert.equal(store.getState().executionUi.remoteDataConsent.kind, "idle");
 });
 
 test("consent state methods reject stale challenge identifiers", () => {
-  const store = createExecutionUiStore();
-  store.applyOutcome(consentOutcome());
+  const store = createAppShellStore();
+  store.dispatch(applyExecutionOutcome(consentOutcome()));
 
-  store.setRemoteDataConsentSubmitting("old-challenge", true);
-  store.setRemoteDataConsentError("old-challenge", {
-    kind: "transport-error",
-    title: "Old",
-    message: "Old",
-    guidance: "Old",
-  });
-  store.clearRemoteDataConsent("old-challenge");
+  store.dispatch(setRemoteDataConsentSubmitting({ challengeId: "old-challenge", isSubmitting: true }));
+  store.dispatch(
+    setRemoteDataConsentError({
+      challengeId: "old-challenge",
+      submissionError: {
+        kind: "transport-error",
+        title: "Old",
+        message: "Old",
+        guidance: "Old",
+      },
+    }),
+  );
+  store.dispatch(clearRemoteDataConsent({ challengeId: "old-challenge" }));
 
-  const state = store.getState().remoteDataConsent;
+  const state = store.getState().executionUi.remoteDataConsent;
   assert.equal(state.kind, "awaiting-remote-data-consent");
   assert.equal(state.isSubmitting, false);
   assert.equal(state.submissionError, null);
 });
 
 test("consent submission is challenge-bound and preserves visible failures", () => {
-  const store = createExecutionUiStore();
-  store.applyOutcome(consentOutcome());
+  const store = createAppShellStore();
+  store.dispatch(applyExecutionOutcome(consentOutcome()));
 
-  store.setRemoteDataConsentSubmitting("challenge-1", true);
-  assert.equal(store.getState().remoteDataConsent.isSubmitting, true);
+  store.dispatch(setRemoteDataConsentSubmitting({ challengeId: "challenge-1", isSubmitting: true }));
+  assert.equal(store.getState().executionUi.remoteDataConsent.isSubmitting, true);
 
-  store.setRemoteDataConsentError("challenge-1", {
-    kind: "tool-error",
-    title: "State changed",
-    message: "The page changed.",
-    guidance: "Review the page.",
-    retryable: false,
-    code: "remote_data_consent_state_changed",
-  });
+  store.dispatch(
+    setRemoteDataConsentError({
+      challengeId: "challenge-1",
+      submissionError: {
+        kind: "tool-error",
+        title: "State changed",
+        message: "The page changed.",
+        guidance: "Review the page.",
+        retryable: false,
+        code: "remote_data_consent_state_changed",
+      },
+    }),
+  );
 
-  const state = store.getState().remoteDataConsent;
+  const state = store.getState().executionUi.remoteDataConsent;
   assert.equal(state.isSubmitting, false);
   assert.equal(state.submissionError.code, "remote_data_consent_state_changed");
 });

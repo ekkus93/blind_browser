@@ -68,25 +68,6 @@ class FakeSelectElement extends FakeElement {}
 class FakeButtonElement extends FakeElement {}
 class FakeDivElement extends FakeElement {}
 
-class FakeDocument {
-  constructor() {
-    this.activeElement = null;
-    this.elements = new Map();
-  }
-
-  register(element) {
-    element.ownerDocument = this;
-    if (element.id) {
-      this.elements.set(element.id, element);
-    }
-    return element;
-  }
-
-  getElementById(id) {
-    return this.elements.get(id) ?? null;
-  }
-}
-
 globalThis.HTMLElement = FakeElement;
 globalThis.HTMLInputElement = FakeInputElement;
 globalThis.HTMLTextAreaElement = FakeTextareaElement;
@@ -94,7 +75,7 @@ globalThis.HTMLSelectElement = FakeSelectElement;
 globalThis.HTMLButtonElement = FakeButtonElement;
 globalThis.HTMLDivElement = FakeDivElement;
 
-const { AppShellMarkup, preserveActivePanelControl } = await import("./app-shell.tsx");
+const { AppShellMarkup } = await import("./app-shell.tsx");
 const {
   renderSecretEntryCard,
   OPENAI_API_KEYS_URL,
@@ -146,37 +127,6 @@ function findElement(node, predicate) {
   assert.equal(matches.length, 1);
   return matches[0];
 }
-
-test("preserveActivePanelControl keeps focus and selection on the replacement control", () => {
-  const document = new FakeDocument();
-  globalThis.document = document;
-
-  const root = new FakeDivElement();
-  const activeInput = new FakeInputElement();
-  activeInput.id = "url-input";
-  document.register(activeInput);
-  activeInput.value = "https://example.com";
-  activeInput.selectionStart = 8;
-  activeInput.selectionEnd = 15;
-  activeInput.selectionDirection = "forward";
-  root.children = [activeInput];
-  document.activeElement = activeInput;
-
-  const replacementInput = new FakeInputElement();
-  replacementInput.id = "url-input";
-  document.register(replacementInput);
-  replacementInput.value = "https://example.com";
-
-  preserveActivePanelControl(root, () => {
-    root.children = [replacementInput];
-  });
-
-  assert.equal(document.activeElement, replacementInput);
-  assert.deepEqual(replacementInput.focusOptions, { preventScroll: true });
-  assert.equal(replacementInput.selectionStart, 8);
-  assert.equal(replacementInput.selectionEnd, 15);
-  assert.equal(replacementInput.selectionDirection, "forward");
-});
 
 test("masked remote API key display clears on focus and restores on blur", () => {
   const appRoot = new FakeDivElement();

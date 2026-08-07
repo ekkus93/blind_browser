@@ -1826,12 +1826,19 @@ The cache must not reintroduce a lock held across model load.
 
 ## P2.8 — Reduce the duplication that hides validation gaps
 
-**Status:** PENDING
+**Status:** DONE (P2.8.1–P2.8.3 in full; P2.8.4 partial — see note) · `[VERIFIED]`
 **Files:**
 
-- `src-tauri/src/app_core/command_dispatch.rs`
+- `src-tauri/src/app_core/command_dispatch.rs`, `src-tauri/src/app_core/replanning_orchestrator.rs`
 - `src-tauri/src/config/persistence.rs`
-- `src/settings-panels/shared-controls.tsx` and callers
+- `src/settings-panels/shared-controls.tsx`, `src/app-shell-nav.tsx`,
+  `src/settings-panels/workspace.tsx`, `src/settings-panels/playback.tsx`,
+  `src/confirmation-panels/confirmation.tsx`, `src/confirmation-panels/push-to-talk.tsx`,
+  `src/app-alert-panel.tsx`
+- `src/confirmation-panel-helpers.tsx`, `src/app-shell.tsx`,
+  `src/app-shell-controls.ts` (deleted), `src/dom-seams.test.mjs`,
+  `src/planner-orchestration.ts`, `src/main.tsx`,
+  `src/remote-planner-consent-orchestration.test.mjs`
 
 ### Problem
 
@@ -1867,6 +1874,72 @@ them. Do this together with P0.9 so the files are only touched once.
 former), `preserveActivePanelControl`, `renderSettingsProviderFailoverPanelNode`,
 and the duplicate `createExecutionUiStore` in `planner-orchestration.ts` (the real
 adapter is `ui-store.ts`). Confirm each has no production reference before removing.
+
+### Implementation note
+
+- **P2.8.1**: added `ValidatedPlannerOutput`, a newtype around `PlannerOutput`
+  whose only constructor (`ValidatedPlannerOutput::new`) calls
+  `validate_planner_output_with_safety`. `PlannerResolution::Direct` now holds
+  one instead of a bare `PlannerOutput`, so there is no path to that variant
+  that skips validation — a forgotten call is a compile error, not a silent
+  gap, going one step further than the TODO's literal wording ("introduce a
+  small abstraction") into a type-level guarantee. `build_planner_resolution`'s
+  14 resolver call sites now funnel through one local `direct(...)` closure
+  instead of each repeating the 5-line validate-and-wrap block by hand. The
+  one downstream consumer (`replanning_orchestrator.rs`'s match on
+  `PlannerResolution::Direct`) unwraps via `.into_inner()` immediately, since
+  the enforcement point is specifically "can an unvalidated output reach
+  `Direct`," not every later line that happens to hold a `PlannerOutput`.
+- **P2.8.2**: added `AppConfig::mutate_config_document` (load-or-default →
+  caller's `mutate` closure → serialize → atomic write → reload) plus two
+  small navigation helpers, `table_mut`/`profile_table_mut`, collapsing the
+  `remote_profiles.<name>` / `local_profiles.<name>` lookup-or-fail sequence
+  that was duplicated across the API-key, connection-settings, and
+  local-model-path persisters. Each persister kept its own validation,
+  called *before* `mutate_config_document` — preserving the existing
+  "validation failure never touches the file" behavior the
+  `..._without_touching_the_file` tests assert — with only the load/mutate/
+  write/reload bookkeeping shared. Added 5 new unit tests pinning
+  `table_mut`/`profile_table_mut`'s exact error wording, since that wording
+  is now shared across every persister that uses them rather than able to
+  drift independently per call site.
+- **P2.8.3**: `FOCUS_RING` and `DISMISS_BUTTON_CLASS` are now `export`ed from
+  `shared-controls.tsx` (including collapsing its own two inline copies of
+  the dismiss-button string) and imported by the four/three other files
+  respectively, including two (`app-shell-nav.tsx`, `confirmation-panels/*`,
+  `app-alert-panel.tsx`) that didn't previously import from
+  `shared-controls.tsx` at all.
+- **P2.8.4**: removed 3 of the 4 named items after confirming each had zero
+  production callers (only its own definition, re-export barrels, and/or a
+  test): `renderOpenAiApiKeysLink`/`escapeHtml`, `preserveActivePanelControl`
+  (and its entire supporting file, `app-shell-controls.ts`, which existed
+  solely for it — deleted), and `createExecutionUiStore`. For the last one,
+  the three tests that exercised its challenge-id-bound guard logic were not
+  simply deleted: `app-shell-store.ts`'s `executionUi` Redux slice
+  independently reimplements the exact same guard logic (confirmed by
+  reading it), so the tests were rewritten to dispatch real Redux actions
+  against a real `createAppShellStore()` instead of the dead in-memory
+  factory — coverage relocated onto the code that actually runs, not lost.
+  **`renderSettingsProviderFailoverPanelNode` was NOT removed** — this is
+  the one place "confirm before removing" changed the outcome: the function
+  carries its own comment reading "Not wired into the app shell until the
+  backend failover feature ships. Re-add \"settings-provider-failover\" to
+  `PanelRootKey` in app-shell-nav.tsx and wire the panel in main.ts once
+  automatic failover is implemented in the Rust runtime." This is
+  deliberate, documented, forward-staged scaffolding for a not-yet-built
+  backend feature, not leftover cruft from a completed refactor — the
+  opposite of what the other three items were. Removing it would delete
+  real prior work toward a still-planned feature. Left entirely as-is,
+  including its still-passing test in
+  `confirmation-panel-settings-planner.test.mjs`.
+- Full validation green: `cargo fmt --check`, `cargo clippy --all-targets
+  --all-features -- -D warnings`, `cargo test --all-features` (542 passed, 9
+  ignored), all 4 CI guard scripts, `xvfb-run -a cargo test --all-features`,
+  the full isolated-Wry sweep via `run-rust-tests-linux.sh`; `pnpm lint`,
+  `pnpm build` (tsc + vite, 87 modules vs. 88 before — one file deleted),
+  `pnpm test:ui` (247 passed vs. 248 before — net −1, exactly the one
+  intentionally-removed `preserveActivePanelControl` test; the three
+  `createExecutionUiStore` tests were replaced 1:1, not dropped).
 
 ---
 

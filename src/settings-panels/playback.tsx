@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 
 import type { AudioControlsPanelState } from "../panel-types.ts";
-import { SETTINGS_PANEL_SECTION_CLASS } from "./shared-controls.tsx";
+import { DISMISS_BUTTON_CLASS, SETTINGS_PANEL_SECTION_CLASS } from "./shared-controls.tsx";
 
 export interface AudioControlsPanelHandlers {
   onVolumeChange?: (value: number) => void;
@@ -9,7 +9,6 @@ export interface AudioControlsPanelHandlers {
   onDismissError?: () => void;
 }
 
-const DISMISS_BUTTON_CLASS = "appearance-none bg-transparent border-none pl-2 [font:inherit] text-[0.84rem] font-bold text-inherit cursor-pointer opacity-70 underline hover:opacity-100";
 // Exported so the cascade regression test in tailwind-cascade.test.mjs can
 // compile the exact string this module renders, instead of a hand-copied
 // duplicate that could drift from it.

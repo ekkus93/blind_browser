@@ -20,8 +20,6 @@ export type {
   SettingsView,
 } from "./app-shell-nav.tsx";
 
-export { preserveActivePanelControl } from "./app-shell-controls.ts";
-
 const LEDE_CLASS = "mt-[18px] max-w-[60ch] text-[1.05rem] leading-[1.6] text-[var(--color-text-secondary)]";
 const SETTINGS_GROUP_EYEBROW_CLASS = "m-[0_0_8px] uppercase tracking-[0.18em] text-[0.76rem] text-[var(--eyebrow-color)]";
 const SETTINGS_GROUP_H2_CLASS = "[font-family:var(--font-display)] text-[clamp(1.2rem,2.2vw,1.6rem)] leading-[1.05]";

@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 
 import { ArrowBackIcon, SettingsIcon } from "./icons.tsx";
+import { FOCUS_RING } from "./settings-panels/shared-controls.tsx";
 
 export type PanelRootKey =
   | "app-alert"
@@ -48,8 +49,6 @@ const SETTINGS_STATUS_BADGE_CLASS: Record<SettingsCardStatus, string> = {
   error: "bg-[rgba(139,52,42,0.14)] text-[var(--color-error-primary)]",
   unconfigured: "bg-[rgba(67,61,55,0.1)] text-[var(--color-text-secondary)]",
 };
-
-const FOCUS_RING = "focus-visible:[outline:var(--focus-ring)] focus-visible:[outline-offset:var(--focus-offset)]";
 
 // Shared anatomy of the round 44x44 toolbar buttons (both the settings
 // gear/back toggle and the settings-subpage back arrow used the identical

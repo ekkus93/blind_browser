@@ -40,7 +40,6 @@ import { BlindBrowserApp } from "./app.tsx";
 
 export {
   applyExecutionOutcomeToUiState,
-  createExecutionUiStore,
   createInitialExecutionUiState,
   executePlannerOutput,
   isAwaitingConfirmationOutcome,

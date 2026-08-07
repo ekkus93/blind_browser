@@ -1,8 +1,7 @@
 import { type ReactNode } from "react";
 
 import type { PushToTalkPanelState } from "../panel-types.ts";
-
-const FOCUS_RING = "focus-visible:[outline:var(--focus-ring)] focus-visible:[outline-offset:var(--focus-offset)]";
+import { FOCUS_RING } from "../settings-panels/shared-controls.tsx";
 
 function MicrophoneIcon() {
   return (

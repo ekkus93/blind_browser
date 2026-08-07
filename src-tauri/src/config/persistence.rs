@@ -120,6 +120,42 @@ fn write_config_atomic(path: &Path, serialized: &str) -> Result<(), ConfigError>
     }
 }
 
+/// Get-or-create the top-level `[key]` table in `document`, failing if that
+/// key already exists but isn't a table.
+fn table_mut<'a>(
+    document: &'a mut toml::Table,
+    key: &str,
+) -> Result<&'a mut toml::Table, ConfigError> {
+    let value = document
+        .entry(String::from(key))
+        .or_insert_with(|| toml::Value::Table(toml::Table::new()));
+    value
+        .as_table_mut()
+        .ok_or_else(|| ConfigError::Validation(format!("{key} must remain a TOML table")))
+}
+
+/// Navigate into `document.<profiles_key>.<profile_name>`. Unlike
+/// [`table_mut`]'s outer `profiles_key` table, an individual profile is
+/// never created here -- persisting a field onto a profile that was never
+/// configured is a validation error, not an implicit profile creation.
+fn profile_table_mut<'a>(
+    document: &'a mut toml::Table,
+    profiles_key: &str,
+    profile_name: &str,
+) -> Result<&'a mut toml::Table, ConfigError> {
+    let profiles_table = table_mut(document, profiles_key)?;
+    let Some(profile_value) = profiles_table.get_mut(profile_name) else {
+        return Err(ConfigError::Validation(format!(
+            "{profiles_key}.{profile_name} is not configured"
+        )));
+    };
+    profile_value.as_table_mut().ok_or_else(|| {
+        ConfigError::Validation(format!(
+            "{profiles_key}.{profile_name} must remain a TOML table"
+        ))
+    })
+}
+
 fn remove_failed_config_temp_file(path: &Path) -> std::io::Result<()> {
     remove_failed_config_temp_file_with(path, |candidate| fs::remove_file(candidate))
 }
@@ -263,6 +299,37 @@ impl AppConfig {
         Self::persist_local_model_path_at_path(&config_path, profile_name, model_path)
     }
 
+    /// Shared "load the active document (or the default template if none
+    /// exists yet), let the caller validate/mutate it, serialize, write
+    /// atomically, reload" skeleton. CR3 P2.8.2: every `persist_*_at_path`
+    /// function below used to repeat this load/write/reload bookkeeping by
+    /// hand -- ten near-identical copies, with four different validation
+    /// postures (whole-struct via an `issues` vec, per-field trim/non-empty
+    /// checks, a keyring side effect before the write, and no validation at
+    /// all for provider selection). Collapsing the bookkeeping here, while
+    /// leaving each function's own validation and section-specific mutation
+    /// in its own `mutate` closure, means a copy/paste error in the shared
+    /// part (e.g. forgetting the atomic write, or reloading from the wrong
+    /// path) can no longer diverge between persisters -- there is only one
+    /// copy of it left. Each persister still owns entirely its own
+    /// validation, called *before* this so a validation failure never even
+    /// touches the document (matching the pre-refactor behavior the
+    /// `..._without_touching_the_file` tests below assert).
+    fn mutate_config_document(
+        path: &Path,
+        mutate: impl FnOnce(&mut toml::Table) -> Result<(), ConfigError>,
+    ) -> Result<Self, ConfigError> {
+        let mut document = if path.exists() {
+            load_document_table_from_path(path)?
+        } else {
+            load_document_table_from_str(Self::default_template())?
+        };
+        mutate(&mut document)?;
+        let serialized = toml::to_string_pretty(&document)?;
+        write_config_atomic(path, &serialized)?;
+        Self::load_from_path(path)
+    }
+
     pub fn persist_audio_settings_at_path(
         path: impl AsRef<Path>,
         audio: &AudioSettings,
@@ -273,19 +340,10 @@ impl AppConfig {
         if !issues.is_empty() {
             return Err(ConfigError::Validation(issues.join("\n")));
         }
-
-        let mut document = if path.exists() {
-            load_document_table_from_path(path)?
-        } else {
-            load_document_table_from_str(Self::default_template())?
-        };
-
-        document.insert(String::from("audio"), toml::Value::try_from(audio.clone())?);
-
-        let serialized = toml::to_string_pretty(&document)?;
-        write_config_atomic(path, &serialized)?;
-
-        Self::load_from_path(path)
+        Self::mutate_config_document(path, |document| {
+            document.insert(String::from("audio"), toml::Value::try_from(audio.clone())?);
+            Ok(())
+        })
     }
 
     pub fn persist_safety_settings_at_path(
@@ -298,22 +356,13 @@ impl AppConfig {
         if !issues.is_empty() {
             return Err(ConfigError::Validation(issues.join("\n")));
         }
-
-        let mut document = if path.exists() {
-            load_document_table_from_path(path)?
-        } else {
-            load_document_table_from_str(Self::default_template())?
-        };
-
-        document.insert(
-            String::from("safety"),
-            toml::Value::try_from(safety.clone())?,
-        );
-
-        let serialized = toml::to_string_pretty(&document)?;
-        write_config_atomic(path, &serialized)?;
-
-        Self::load_from_path(path)
+        Self::mutate_config_document(path, |document| {
+            document.insert(
+                String::from("safety"),
+                toml::Value::try_from(safety.clone())?,
+            );
+            Ok(())
+        })
     }
 
     pub fn persist_ocr_settings_at_path(
@@ -326,19 +375,10 @@ impl AppConfig {
         if !issues.is_empty() {
             return Err(ConfigError::Validation(issues.join("\n")));
         }
-
-        let mut document = if path.exists() {
-            load_document_table_from_path(path)?
-        } else {
-            load_document_table_from_str(Self::default_template())?
-        };
-
-        document.insert(String::from("ocr"), toml::Value::try_from(ocr.clone())?);
-
-        let serialized = toml::to_string_pretty(&document)?;
-        write_config_atomic(path, &serialized)?;
-
-        Self::load_from_path(path)
+        Self::mutate_config_document(path, |document| {
+            document.insert(String::from("ocr"), toml::Value::try_from(ocr.clone())?);
+            Ok(())
+        })
     }
 
     pub fn persist_model_management_settings_at_path(
@@ -351,22 +391,13 @@ impl AppConfig {
         if !issues.is_empty() {
             return Err(ConfigError::Validation(issues.join("\n")));
         }
-
-        let mut document = if path.exists() {
-            load_document_table_from_path(path)?
-        } else {
-            load_document_table_from_str(Self::default_template())?
-        };
-
-        document.insert(
-            String::from("models"),
-            toml::Value::try_from(models.clone())?,
-        );
-
-        let serialized = toml::to_string_pretty(&document)?;
-        write_config_atomic(path, &serialized)?;
-
-        Self::load_from_path(path)
+        Self::mutate_config_document(path, |document| {
+            document.insert(
+                String::from("models"),
+                toml::Value::try_from(models.clone())?,
+            );
+            Ok(())
+        })
     }
 
     pub fn persist_remote_planner_privacy_settings_at_path(
@@ -416,16 +447,10 @@ impl AppConfig {
         if !issues.is_empty() {
             return Err(ConfigError::Validation(issues.join("\n")));
         }
-
-        let mut document = if path.exists() {
-            load_document_table_from_path(path)?
-        } else {
-            load_document_table_from_str(Self::default_template())?
-        };
-        document.insert(String::from(toml_key), toml::Value::try_from(normalized)?);
-        let serialized = toml::to_string_pretty(&document)?;
-        write_config_atomic(path, &serialized)?;
-        Self::load_from_path(path)
+        Self::mutate_config_document(path, |document| {
+            document.insert(String::from(toml_key), toml::Value::try_from(normalized)?);
+            Ok(())
+        })
     }
 
     pub fn persist_remote_api_key_at_path(
@@ -449,63 +474,41 @@ impl AppConfig {
             )));
         }
 
-        let mut document = if path.exists() {
-            load_document_table_from_path(path)?
-        } else {
-            load_document_table_from_str(Self::default_template())?
-        };
+        Self::mutate_config_document(path, |document| {
+            let profile_table =
+                profile_table_mut(document, "remote_profiles", normalized_profile_name)?;
+            let base_url = profile_table
+                .get("base_url")
+                .and_then(toml::Value::as_str)
+                .ok_or_else(|| {
+                    ConfigError::Validation(format!(
+                        "remote_profiles.{normalized_profile_name}.base_url must be configured before storing a credential"
+                    ))
+                })?;
+            let endpoint_scope =
+                ProviderEndpointScope::parse(base_url).map_err(ConfigError::Validation)?;
+            let keyring_ref = keyring_ref_for_remote_api_key(
+                provider_kind,
+                normalized_profile_name,
+                &endpoint_scope,
+            )
+            .map_err(ConfigError::Keyring)?;
 
-        let remote_profiles_value = document
-            .entry(String::from("remote_profiles"))
-            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
-        let Some(remote_profiles_table) = remote_profiles_value.as_table_mut() else {
-            return Err(ConfigError::Validation(String::from(
-                "remote_profiles must remain a TOML table",
-            )));
-        };
+            set_keyring_secret(
+                &keyring_ref.service,
+                &keyring_ref.account,
+                normalized_api_key,
+            )
+            .map_err(ConfigError::Keyring)?;
 
-        let Some(profile_value) = remote_profiles_table.get_mut(normalized_profile_name) else {
-            return Err(ConfigError::Validation(format!(
-                "remote_profiles.{normalized_profile_name} is not configured"
-            )));
-        };
-        let Some(profile_table) = profile_value.as_table_mut() else {
-            return Err(ConfigError::Validation(format!(
-                "remote_profiles.{normalized_profile_name} must remain a TOML table"
-            )));
-        };
-        let base_url = profile_table
-            .get("base_url")
-            .and_then(toml::Value::as_str)
-            .ok_or_else(|| {
-                ConfigError::Validation(format!(
-                    "remote_profiles.{normalized_profile_name}.base_url must be configured before storing a credential"
-                ))
-            })?;
-        let endpoint_scope =
-            ProviderEndpointScope::parse(base_url).map_err(ConfigError::Validation)?;
-        let keyring_ref =
-            keyring_ref_for_remote_api_key(provider_kind, normalized_profile_name, &endpoint_scope)
-                .map_err(ConfigError::Keyring)?;
-
-        set_keyring_secret(
-            &keyring_ref.service,
-            &keyring_ref.account,
-            normalized_api_key,
-        )
-        .map_err(ConfigError::Keyring)?;
-
-        profile_table.insert(
-            String::from("api_key"),
-            toml::Value::try_from(SecretRef::FromKeyring {
-                from_keyring: keyring_ref,
-            })?,
-        );
-
-        let serialized = toml::to_string_pretty(&document)?;
-        write_config_atomic(path, &serialized)?;
-
-        Self::load_from_path(path)
+            profile_table.insert(
+                String::from("api_key"),
+                toml::Value::try_from(SecretRef::FromKeyring {
+                    from_keyring: keyring_ref,
+                })?,
+            );
+            Ok(())
+        })
     }
 
     pub fn persist_remote_planner_connection_settings_at_path(
@@ -530,45 +533,19 @@ impl AppConfig {
             )));
         }
 
-        let mut document = if path.exists() {
-            load_document_table_from_path(path)?
-        } else {
-            load_document_table_from_str(Self::default_template())?
-        };
-
-        let remote_profiles_value = document
-            .entry(String::from("remote_profiles"))
-            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
-        let Some(remote_profiles_table) = remote_profiles_value.as_table_mut() else {
-            return Err(ConfigError::Validation(String::from(
-                "remote_profiles must remain a TOML table",
-            )));
-        };
-
-        let Some(profile_value) = remote_profiles_table.get_mut(normalized_profile_name) else {
-            return Err(ConfigError::Validation(format!(
-                "remote_profiles.{normalized_profile_name} is not configured"
-            )));
-        };
-        let Some(profile_table) = profile_value.as_table_mut() else {
-            return Err(ConfigError::Validation(format!(
-                "remote_profiles.{normalized_profile_name} must remain a TOML table"
-            )));
-        };
-
-        profile_table.insert(
-            String::from("base_url"),
-            toml::Value::String(normalized_base_url),
-        );
-        profile_table.insert(
-            String::from("model"),
-            toml::Value::String(String::from(normalized_model)),
-        );
-
-        let serialized = toml::to_string_pretty(&document)?;
-        write_config_atomic(path, &serialized)?;
-
-        Self::load_from_path(path)
+        Self::mutate_config_document(path, |document| {
+            let profile_table =
+                profile_table_mut(document, "remote_profiles", normalized_profile_name)?;
+            profile_table.insert(
+                String::from("base_url"),
+                toml::Value::String(normalized_base_url),
+            );
+            profile_table.insert(
+                String::from("model"),
+                toml::Value::String(String::from(normalized_model)),
+            );
+            Ok(())
+        })
     }
 
     pub fn reset_remote_planner_connection_settings_to_defaults_at_path(
@@ -619,41 +596,17 @@ impl AppConfig {
                 "local model path persistence requires a non-empty model path",
             )));
         }
+        let normalized_model_path = normalized_model_path.to_string();
 
-        let mut document = if path.exists() {
-            load_document_table_from_path(path)?
-        } else {
-            load_document_table_from_str(Self::default_template())?
-        };
-
-        let local_profiles_value = document
-            .entry(String::from("local_profiles"))
-            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
-        let Some(local_profiles_table) = local_profiles_value.as_table_mut() else {
-            return Err(ConfigError::Validation(String::from(
-                "local_profiles must remain a TOML table",
-            )));
-        };
-
-        let Some(profile_value) = local_profiles_table.get_mut(normalized_profile_name) else {
-            return Err(ConfigError::Validation(format!(
-                "local_profiles.{normalized_profile_name} is not configured"
-            )));
-        };
-        let Some(profile_table) = profile_value.as_table_mut() else {
-            return Err(ConfigError::Validation(format!(
-                "local_profiles.{normalized_profile_name} must remain a TOML table"
-            )));
-        };
-        profile_table.insert(
-            String::from("model_path"),
-            toml::Value::String(normalized_model_path.to_string()),
-        );
-
-        let serialized = toml::to_string_pretty(&document)?;
-        write_config_atomic(path, &serialized)?;
-
-        Self::load_from_path(path)
+        Self::mutate_config_document(path, |document| {
+            let profile_table =
+                profile_table_mut(document, "local_profiles", normalized_profile_name)?;
+            profile_table.insert(
+                String::from("model_path"),
+                toml::Value::String(normalized_model_path),
+            );
+            Ok(())
+        })
     }
 
     pub fn persist_tts_provider_selection_for_app(
@@ -677,30 +630,14 @@ impl AppConfig {
         selection: &ProviderSelection,
     ) -> Result<Self, ConfigError> {
         let path = path.as_ref();
-
-        let mut document = if path.exists() {
-            load_document_table_from_path(path)?
-        } else {
-            load_document_table_from_str(Self::default_template())?
-        };
-
-        let providers_value = document
-            .entry(String::from("providers"))
-            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
-        let Some(providers_table) = providers_value.as_table_mut() else {
-            return Err(ConfigError::Validation(String::from(
-                "providers must remain a TOML table",
-            )));
-        };
-        providers_table.insert(
-            String::from("asr"),
-            toml::Value::try_from(selection.clone())?,
-        );
-
-        let serialized = toml::to_string_pretty(&document)?;
-        write_config_atomic(path, &serialized)?;
-
-        Self::load_from_path(path)
+        Self::mutate_config_document(path, |document| {
+            let providers_table = table_mut(document, "providers")?;
+            providers_table.insert(
+                String::from("asr"),
+                toml::Value::try_from(selection.clone())?,
+            );
+            Ok(())
+        })
     }
 
     pub fn persist_tts_provider_selection_at_path(
@@ -708,36 +645,100 @@ impl AppConfig {
         selection: &ProviderSelection,
     ) -> Result<Self, ConfigError> {
         let path = path.as_ref();
-
-        let mut document = if path.exists() {
-            load_document_table_from_path(path)?
-        } else {
-            load_document_table_from_str(Self::default_template())?
-        };
-
-        let providers_value = document
-            .entry(String::from("providers"))
-            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
-        let Some(providers_table) = providers_value.as_table_mut() else {
-            return Err(ConfigError::Validation(String::from(
-                "providers must remain a TOML table",
-            )));
-        };
-        providers_table.insert(
-            String::from("tts"),
-            toml::Value::try_from(selection.clone())?,
-        );
-
-        let serialized = toml::to_string_pretty(&document)?;
-        write_config_atomic(path, &serialized)?;
-
-        Self::load_from_path(path)
+        Self::mutate_config_document(path, |document| {
+            let providers_table = table_mut(document, "providers")?;
+            providers_table.insert(
+                String::from("tts"),
+                toml::Value::try_from(selection.clone())?,
+            );
+            Ok(())
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{write_config_atomic, AppConfig, ConfigError, SafetySettings};
+    use super::{
+        profile_table_mut, table_mut, write_config_atomic, AppConfig, ConfigError, SafetySettings,
+    };
+
+    // CR3 P2.8.2: `table_mut`/`profile_table_mut` are the two navigation
+    // helpers every `persist_*_at_path` function now shares instead of
+    // repeating its own `document.entry(...).or_insert_with(...)`/
+    // `as_table_mut()` boilerplate by hand. Pin their behavior and exact
+    // error wording directly, since after the refactor a mistake here would
+    // affect every persister that uses them, not just one.
+    #[test]
+    fn table_mut_creates_a_missing_table() {
+        let mut document = toml::Table::new();
+        table_mut(&mut document, "providers").unwrap();
+        assert!(document.get("providers").unwrap().is_table());
+    }
+
+    #[test]
+    fn table_mut_rejects_a_non_table_value() {
+        let mut document = toml::Table::new();
+        document.insert(
+            String::from("providers"),
+            toml::Value::String(String::from("not a table")),
+        );
+        let error = table_mut(&mut document, "providers").unwrap_err();
+        match error {
+            ConfigError::Validation(message) => {
+                assert_eq!(message, "providers must remain a TOML table");
+            }
+            other => panic!("expected ConfigError::Validation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn profile_table_mut_rejects_an_unconfigured_profile() {
+        let mut document = toml::Table::new();
+        let error = profile_table_mut(&mut document, "remote_profiles", "ghost").unwrap_err();
+        match error {
+            ConfigError::Validation(message) => {
+                assert_eq!(message, "remote_profiles.ghost is not configured");
+            }
+            other => panic!("expected ConfigError::Validation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn profile_table_mut_does_not_implicitly_create_a_profile() {
+        let mut document = toml::Table::new();
+        // Even though `table_mut` (used internally) would create a missing
+        // `remote_profiles` table, `profile_table_mut` must still refuse to
+        // fabricate the *profile itself* -- persisting a field onto a
+        // profile that was never configured is a validation error, not an
+        // implicit profile creation.
+        assert!(profile_table_mut(&mut document, "remote_profiles", "ghost").is_err());
+        assert!(document
+            .get("remote_profiles")
+            .and_then(toml::Value::as_table)
+            .is_some_and(|table| !table.contains_key("ghost")));
+    }
+
+    #[test]
+    fn profile_table_mut_resolves_an_existing_profile() {
+        let mut document = toml::Table::new();
+        let mut profiles = toml::Table::new();
+        profiles.insert(String::from("mine"), toml::Value::Table(toml::Table::new()));
+        document.insert(
+            String::from("remote_profiles"),
+            toml::Value::Table(profiles),
+        );
+
+        let profile_table = profile_table_mut(&mut document, "remote_profiles", "mine").unwrap();
+        profile_table.insert(
+            String::from("model"),
+            toml::Value::String(String::from("gpt")),
+        );
+
+        assert_eq!(
+            document["remote_profiles"]["mine"]["model"].as_str(),
+            Some("gpt")
+        );
+    }
 
     #[test]
     fn write_config_atomic_writes_expected_content() {

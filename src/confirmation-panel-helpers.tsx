@@ -52,10 +52,6 @@ export function renderModelAvailabilityLabel(available: boolean): string {
   return available ? "Downloaded" : "Missing";
 }
 
-export function renderOpenAiApiKeysLink(label: string = OPENAI_API_KEYS_URL): string {
-  return `<a href="${escapeHtml(OPENAI_API_KEYS_URL)}" target="_blank" rel="noreferrer" data-external-link-url="${escapeHtml(OPENAI_API_KEYS_URL)}">${escapeHtml(label)}</a>`;
-}
-
 export function renderTextWithKnownLinkNodes(value: string, onOpenExternalLink?: (url: string) => void): ReactNode[] {
   const segments = value.split(OPENAI_API_KEYS_URL);
   const children: ReactNode[] = [];
@@ -256,13 +252,4 @@ export function resolveConfirmationErrorPresentation(
     metaClassName: `m-0 mt-[6px] text-[0.94rem] ${isHardStop ? "text-[var(--color-error-dark)]" : "text-[var(--color-error-primary)]"}`,
     retryStatusClassName: `m-0 mt-1 text-[0.88rem] font-bold tracking-[0.04em] uppercase ${retryStatusColor}`,
   };
-}
-
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }

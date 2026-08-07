@@ -6,12 +6,11 @@ import {
   resolveConfirmationErrorPresentation,
 } from "../confirmation-panel-helpers.tsx";
 import type { ConfirmationUiState } from "../planner-orchestration";
+import { FOCUS_RING } from "../settings-panels/shared-controls.tsx";
 
 export interface ConfirmationPanelHandlers {
   onRespond?: (action: "approve" | "reject", confirmationId: string) => void;
 }
-
-const FOCUS_RING = "focus-visible:[outline:var(--focus-ring)] focus-visible:[outline-offset:var(--focus-offset)]";
 
 const CONFIRMATION_BUTTON_BASE = `appearance-none border-0 rounded-full p-[12px_18px] [font:inherit] font-semibold cursor-pointer transition-[transform,box-shadow,background-color] duration-[140ms] hover:-translate-y-px hover:shadow-[0_10px_22px_rgba(42,55,66,0.16)] focus-visible:-translate-y-px focus-visible:shadow-[0_10px_22px_rgba(42,55,66,0.16)] ${FOCUS_RING} disabled:cursor-progress disabled:translate-y-0 disabled:shadow-none disabled:opacity-[0.58]`;
 const CONFIRMATION_BUTTON_APPROVE_CLASS = `${CONFIRMATION_BUTTON_BASE} bg-[var(--color-green-primary)] text-[#f6fbf8] hover:bg-[var(--color-green-dark)] focus-visible:bg-[var(--color-green-dark)] disabled:bg-[color-mix(in_srgb,var(--color-green-primary)_62%,var(--color-surface-card))]`;

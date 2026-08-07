@@ -1,12 +1,11 @@
 import { type ReactNode } from "react";
 
 import type { AppAlertState } from "./panel-types.ts";
+import { DISMISS_BUTTON_CLASS } from "./settings-panels/shared-controls.tsx";
 
 export interface AppAlertPanelHandlers {
   onDismiss?: () => void;
 }
-
-const DISMISS_BUTTON_CLASS = "appearance-none bg-transparent border-none pl-2 [font:inherit] text-[0.84rem] font-bold text-inherit cursor-pointer opacity-70 underline hover:opacity-100";
 
 export function renderAppAlertPanelNode(
   state: AppAlertState,

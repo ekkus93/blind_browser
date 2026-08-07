@@ -5,10 +5,7 @@ import type {
   StatusPanelState,
   UrlInputPanelState,
 } from "../panel-types.ts";
-import { SETTINGS_PANEL_SECTION_CLASS } from "./shared-controls.tsx";
-
-const FOCUS_RING = "focus-visible:[outline:var(--focus-ring)] focus-visible:[outline-offset:var(--focus-offset)]";
-const DISMISS_BUTTON_CLASS = "appearance-none bg-transparent border-none pl-2 [font:inherit] text-[0.84rem] font-bold text-inherit cursor-pointer opacity-70 underline hover:opacity-100";
+import { DISMISS_BUTTON_CLASS, FOCUS_RING, SETTINGS_PANEL_SECTION_CLASS } from "./shared-controls.tsx";
 
 const URL_ACTION_BUTTON_BASE_CLASS = `appearance-none w-11 h-11 p-0 inline-flex items-center justify-center border-none rounded-[14px] text-[#fffdf8] cursor-pointer enabled:hover:-translate-y-px focus-visible:-translate-y-px ${FOCUS_RING} disabled:cursor-progress disabled:opacity-[0.62] disabled:shadow-none`;
 const URL_ACTION_BUTTON_GREEN_CLASS = "bg-gradient-to-br from-[var(--color-green-primary)] to-[var(--color-green-active)] shadow-[0_12px_24px_rgba(31,127,92,0.18)] enabled:hover:shadow-[0_16px_28px_rgba(31,127,92,0.24)] focus-visible:shadow-[0_16px_28px_rgba(31,127,92,0.24)]";

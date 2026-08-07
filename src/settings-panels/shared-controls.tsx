@@ -1,6 +1,17 @@
 import { type ReactNode } from "react";
 
-const FOCUS_RING = "focus-visible:[outline:var(--focus-ring)] focus-visible:[outline-offset:var(--focus-offset)]";
+// CR3 P2.8.3: exported so the four other files that used to define their own
+// verbatim copy (app-shell-nav.tsx, settings-panels/workspace.tsx,
+// confirmation-panels/confirmation.tsx, confirmation-panels/push-to-talk.tsx)
+// import this one instead.
+export const FOCUS_RING = "focus-visible:[outline:var(--focus-ring)] focus-visible:[outline-offset:var(--focus-offset)]";
+
+// CR3 P2.8.3: exported so the three other files that used to define their
+// own verbatim copy (settings-panels/workspace.tsx, app-alert-panel.tsx,
+// settings-panels/playback.tsx) import this one instead, and so the two
+// inline copies below (in this file's own error/dismiss row) can be a single
+// string too.
+export const DISMISS_BUTTON_CLASS = "appearance-none bg-transparent border-none pl-2 [font:inherit] text-[0.84rem] font-bold text-inherit cursor-pointer opacity-70 underline hover:opacity-100";
 
 // Structural anatomy shared by every `.settings-control-card` variant, with
 // no background of its own -- each variant below appends exactly one
@@ -276,7 +287,7 @@ export function renderSettingsPanelSection({
             {onRetry ? (
               <button
                 type="button"
-                className="appearance-none bg-transparent border-none pl-2 [font:inherit] text-[0.84rem] font-bold text-inherit cursor-pointer opacity-70 underline hover:opacity-100"
+                className={DISMISS_BUTTON_CLASS}
                 onClick={onRetry}
                 aria-label="Try again"
               >
@@ -286,7 +297,7 @@ export function renderSettingsPanelSection({
             {onDismissError ? (
               <button
                 type="button"
-                className="appearance-none bg-transparent border-none pl-2 [font:inherit] text-[0.84rem] font-bold text-inherit cursor-pointer opacity-70 underline hover:opacity-100"
+                className={DISMISS_BUTTON_CLASS}
                 onClick={onDismissError}
                 aria-label="Dismiss error"
               >

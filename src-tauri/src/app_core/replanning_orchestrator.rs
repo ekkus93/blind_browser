@@ -35,7 +35,7 @@ impl<'a> LockScopedReplanningRuntime<'a> {
             let planning_snapshot = guard.capture_planning_state_snapshot();
             match guard.build_planner_resolution(request_id, transcript, recent_tool_results)? {
                 PlannerResolution::Direct(planner_output) => {
-                    ResolvePhase::Direct(planner_output, planning_snapshot)
+                    ResolvePhase::Direct(planner_output.into_inner(), planning_snapshot)
                 }
                 PlannerResolution::Remote {
                     planner_input,

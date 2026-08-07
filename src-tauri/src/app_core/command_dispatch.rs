@@ -23,7 +23,7 @@ use crate::config::{RemotePlannerPrivacySettings, RemotePlannerProfile};
 /// result carries everything the (unlocked) LLM round-trip needs, so the lock can
 /// be released before [`super::remote_planner::resolve_remote_planner`] runs.
 pub(crate) enum PlannerResolution {
-    Direct(PlannerOutput),
+    Direct(ValidatedPlannerOutput),
     Remote {
         // Boxed: `PlannerInput` is large, so an unboxed variant bloats every
         // `PlannerResolution` (clippy `large_enum_variant`).
@@ -34,6 +34,43 @@ pub(crate) enum PlannerResolution {
         available_tools: Vec<AvailableTool>,
         active_skill_names: Vec<String>,
     },
+}
+
+/// A `PlannerOutput` that has passed [`validate_planner_output_with_safety`].
+/// `PlannerResolution::Direct` holds one of these, not a bare `PlannerOutput`,
+/// and the only way to build one is [`ValidatedPlannerOutput::new`], which
+/// validates first — so an unvalidated output cannot reach `Direct` by
+/// construction, not merely by convention.
+///
+/// CR3 P2.8.1: `build_planner_resolution` used to repeat an identical
+/// `validate_planner_output_with_safety(...)?; return Ok(...)` block after
+/// every one of its (then thirteen) direct resolvers. A fourteenth resolver
+/// whose author forgot that block would have compiled and returned its
+/// output completely unvalidated — the bug would only surface as a runtime
+/// policy gap, not a compile error. Requiring a `ValidatedPlannerOutput` to
+/// build a `Direct` closes that: there is no path to one that skips
+/// validation, so a forgotten call is a compile error, not a silent gap.
+pub(crate) struct ValidatedPlannerOutput(PlannerOutput);
+
+impl ValidatedPlannerOutput {
+    fn new(
+        planner_output: PlannerOutput,
+        available_tools: &[AvailableTool],
+        active_skill_names: &[String],
+        safety: &PlannerSafetySettings,
+    ) -> Result<Self, ToolError> {
+        validate_planner_output_with_safety(
+            &planner_output,
+            available_tools,
+            active_skill_names,
+            safety,
+        )?;
+        Ok(Self(planner_output))
+    }
+
+    pub(crate) fn into_inner(self) -> PlannerOutput {
+        self.0
+    }
 }
 
 impl super::AppCore {
@@ -120,19 +157,29 @@ impl super::AppCore {
         skill_selection.diagnostics.extend(context_diagnostics);
         self.last_skill_discovery_diagnostics = skill_selection.diagnostics.clone();
 
+        // CR3 P2.8.1: every direct resolver below returns through this one
+        // closure instead of each repeating its own
+        // `validate_planner_output_with_safety(...)?` call. See
+        // `ValidatedPlannerOutput`'s doc comment: `PlannerResolution::Direct`
+        // requires one, and this closure is the only place that builds one,
+        // so a resolver added here without going through it fails to compile
+        // rather than silently skipping validation.
+        let direct = |planner_output: PlannerOutput| -> Result<PlannerResolution, ToolError> {
+            Ok(PlannerResolution::Direct(ValidatedPlannerOutput::new(
+                planner_output,
+                &available_tools,
+                &skill_selection.active_skill_names,
+                &planner_safety,
+            )?))
+        };
+
         if let Some(planner_output) = resolve_direct_browser_visibility_command(
             transcript,
             &request_id,
             self.state.browser_visibility,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(planner_output);
         }
 
         let current_agent_state = self.current_agent_state_snapshot(true);
@@ -142,13 +189,7 @@ impl super::AppCore {
             &request_id,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(planner_output);
         }
 
         if let Some(planner_output) = resolve_direct_voice_input_command(
@@ -156,13 +197,7 @@ impl super::AppCore {
             &request_id,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(planner_output);
         }
 
         if let Some(planner_output) = resolve_direct_open_url_command(
@@ -170,13 +205,7 @@ impl super::AppCore {
             &request_id,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(planner_output);
         }
 
         if let Some(planner_output) = resolve_direct_read_page_command(
@@ -186,13 +215,7 @@ impl super::AppCore {
             &current_agent_state,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(planner_output);
         }
 
         if let Some((planner_output, next_recent_field_context)) =
@@ -206,13 +229,7 @@ impl super::AppCore {
             )
         {
             self.recent_field_context = next_recent_field_context;
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(planner_output);
         }
 
         if let Some(resolved) = resolve_direct_fill_command_internal(
@@ -225,14 +242,7 @@ impl super::AppCore {
             true,
         ) {
             self.store_recent_field_context(resolved.recent_field_context);
-            let planner_output = resolved.planner_output;
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(resolved.planner_output);
         }
 
         if let Some(resolved) = resolve_direct_fill_command_internal(
@@ -245,14 +255,7 @@ impl super::AppCore {
             false,
         ) {
             self.store_recent_field_context(resolved.recent_field_context);
-            let planner_output = resolved.planner_output;
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(resolved.planner_output);
         }
 
         if let Some(planner_output) = resolve_direct_submit_form_command(
@@ -261,13 +264,7 @@ impl super::AppCore {
             self.state.current_page.as_ref(),
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(planner_output);
         }
 
         if let Some(planner_output) = resolve_direct_focus_field_command(
@@ -277,13 +274,7 @@ impl super::AppCore {
             &skill_selection.active_skill_names,
             self.config.safety.confirmation_confidence_threshold,
         ) {
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(planner_output);
         }
 
         if let Some(planner_output) = resolve_direct_repeat_command(
@@ -292,13 +283,7 @@ impl super::AppCore {
             &current_agent_state,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(planner_output);
         }
 
         if let Some(planner_output) = resolve_direct_read_title_command(
@@ -307,13 +292,7 @@ impl super::AppCore {
             &current_agent_state,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(planner_output);
         }
 
         let current_runtime_status = self.current_runtime_status_snapshot(false);
@@ -325,13 +304,7 @@ impl super::AppCore {
             &current_runtime_status,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(planner_output);
         }
 
         if let Some(planner_output) = resolve_direct_audio_command(
@@ -341,13 +314,7 @@ impl super::AppCore {
             self.state.audio.playback_speed,
             &skill_selection.active_skill_names,
         ) {
-            validate_planner_output_with_safety(
-                &planner_output,
-                &available_tools,
-                &skill_selection.active_skill_names,
-                &planner_safety,
-            )?;
-            return Ok(PlannerResolution::Direct(planner_output));
+            return direct(planner_output);
         }
 
         // No direct command matched: snapshot the remote planner profile under the
