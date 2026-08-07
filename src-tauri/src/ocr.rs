@@ -212,10 +212,6 @@ mod tests {
         OcrSettings,
     };
     use crate::page_model::Rect;
-    use crate::resource_limits::{
-        ocr_requests, png_dimensions, truncate_utf8_bytes, validate_image_dimensions,
-        MAX_OCR_INPUT_BYTES, MAX_OCR_OUTPUT_BYTES,
-    };
 
     #[test]
     fn default_ocr_settings_use_shipped_sparse_text_thresholds() {

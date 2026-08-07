@@ -342,11 +342,10 @@ fn source_drift_networked_direct_commands_retain_timeout_and_redirect_evidence()
     let model_handlers = source("src/command_handlers/model_handlers.rs");
     let model_download = source("src/app_core/model_management/download.rs");
 
-    assert!(api_keys.contains("fn credential_async_client(timeout_ms: u64)"));
     assert!(api_keys.contains("fn credential_client(timeout_ms: u64, purpose: &str)"));
-    assert!(api_keys.matches("timeout_ms.max(1)").count() >= 2);
+    assert!(api_keys.matches("timeout_ms.max(1)").count() >= 1);
     assert!(api_keys.contains(".redirect(Policy::none())"));
-    assert!(remote_planner.contains("credential_async_client(profile.timeout_ms)"));
+    assert!(remote_planner.contains(r#"credential_client(profile.timeout_ms, "remote planner")"#));
     assert!(remote_asr.contains(".timeout(Duration::from_millis(timeout_ms))"));
     assert!(remote_asr.contains(".redirect(reqwest::redirect::Policy::none())"));
     assert!(navigation.contains(".open_url(&final_url, load_state, input.timeout_ms)"));
@@ -417,8 +416,9 @@ fn source_drift_model_downloads_retain_verified_activation_wiring() {
     let runtime = source("src/app_core/runtime_config.rs");
     let download = source("src/app_core/model_management/download.rs");
 
-    assert!(handlers.contains("guard.download_active_local_tts_model()"));
-    assert!(handlers.contains("guard.download_active_local_asr_model()"));
+    assert!(handlers.contains(".prepare_active_local_tts_model_download()"));
+    assert!(handlers.contains(".prepare_active_local_asr_model_download()"));
+    assert!(handlers.matches(".finalize_local_model_download(completed)").count() >= 2);
     assert!(runtime.contains("download_hugging_face_directory"));
     assert!(runtime.contains("download_hugging_face_file"));
     assert!(download.contains("write_verified_reader_atomically"));

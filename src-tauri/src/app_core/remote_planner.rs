@@ -197,7 +197,7 @@ fn resolve_openai_compatible(
         let code = limit.code("planner");
         planner_interpretation_unavailable_error(
             &code,
-            &format!("Remote planner request was not started: {limit}."),
+            format!("Remote planner request was not started: {limit}."),
             true,
             Some(limit.details()),
         )
@@ -440,7 +440,7 @@ impl crate::AppCore {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{Read, Write};
+    use std::io::Read;
     use std::net::{Shutdown, TcpListener};
     use std::sync::mpsc;
     use std::thread;

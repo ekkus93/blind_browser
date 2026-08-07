@@ -27,6 +27,8 @@ pub(super) fn execute_run_ocr(ex: &mut MockExecutor, input: RunOcrInput) -> Tool
             image_id: input.image_id,
             extracted_text: String::from("recognized text"),
             text_length: 15,
+            original_text_length: 15,
+            truncated: false,
             confidence: Some(0.82),
             source_bbox: input.bbox,
         },

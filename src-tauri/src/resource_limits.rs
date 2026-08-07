@@ -133,6 +133,7 @@ struct RateWindow {
     used: usize,
 }
 
+#[derive(Debug)]
 pub(crate) struct OperationLimiter {
     active: AtomicUsize,
     maximum_concurrent: usize,
@@ -141,6 +142,7 @@ pub(crate) struct OperationLimiter {
 }
 
 impl OperationLimiter {
+    #[cfg(test)]
     pub(crate) const fn new(maximum_concurrent: usize) -> Self {
         Self {
             active: AtomicUsize::new(0),
@@ -246,6 +248,7 @@ impl OperationLimiter {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct OperationPermit<'a> {
     limiter: &'a OperationLimiter,
 }

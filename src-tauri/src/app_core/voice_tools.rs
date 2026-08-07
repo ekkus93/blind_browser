@@ -186,6 +186,18 @@ pub(crate) fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolErr
             retryable: false,
             details: None,
         },
+        TtsRuntimeError::NarrationTextTooLarge { .. } => ToolError {
+            code: String::from("tts_narration_text_too_large"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::OperationLimited { .. } => ToolError {
+            code: String::from("tts_operation_limited"),
+            message: error.to_string(),
+            retryable: true,
+            details: None,
+        },
         TtsRuntimeError::MissingLocalProfile
         | TtsRuntimeError::MissingLocalProfileDefinition { .. }
         | TtsRuntimeError::MissingRemoteProfile
@@ -222,6 +234,24 @@ pub(crate) fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolErr
         },
         TtsRuntimeError::RemoteRequestBuildFailed { .. } => ToolError {
             code: String::from("tts_request_build_failed"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
+        TtsRuntimeError::RemoteRequestTimedOut { .. } => ToolError {
+            code: String::from("tts_request_timed_out"),
+            message: error.to_string(),
+            retryable: true,
+            details: None,
+        },
+        TtsRuntimeError::RemoteHttpStatus { status } => ToolError {
+            code: String::from("tts_http_status"),
+            message: error.to_string(),
+            retryable: status == 408 || status == 429 || status >= 500,
+            details: None,
+        },
+        TtsRuntimeError::RemoteResponseTooLarge { .. } => ToolError {
+            code: String::from("tts_response_too_large"),
             message: error.to_string(),
             retryable: false,
             details: None,
@@ -315,6 +345,10 @@ pub(crate) fn asr_runtime_error_to_tool_error(error: &AsrRuntimeError) -> ToolEr
         AsrRuntimeError::RemoteAudioEncodeFailed { .. } => "invalid_audio_input",
         AsrRuntimeError::RemoteRequestBuildFailed { .. } => "asr_request_build_failed",
         AsrRuntimeError::RemoteRequestTimedOut { .. } => "asr_request_timed_out",
+        AsrRuntimeError::RemoteHttpStatus { .. } => "asr_http_status",
+        AsrRuntimeError::RemoteResponseTooLarge { .. } => "asr_response_too_large",
+        AsrRuntimeError::RemoteAudioTooLarge { .. } => "asr_audio_too_large",
+        AsrRuntimeError::OperationLimited { .. } => "asr_operation_limited",
         AsrRuntimeError::RemoteRequestFailed { .. } => "asr_request_failed",
         AsrRuntimeError::LocalModelLoad { .. } => "asr_model_load_failed",
         AsrRuntimeError::NoAudioCaptured => "no_audio_captured",
@@ -334,6 +368,11 @@ pub(crate) fn asr_runtime_error_to_tool_error(error: &AsrRuntimeError) -> ToolEr
                 | AsrRuntimeError::NoAudioCaptured
                 | AsrRuntimeError::RemoteRequestTimedOut { .. }
                 | AsrRuntimeError::RemoteRequestFailed { .. }
+                | AsrRuntimeError::OperationLimited { .. }
+        ) || matches!(
+            error,
+            AsrRuntimeError::RemoteHttpStatus { status }
+                if *status == 408 || *status == 429 || *status >= 500
         ),
         details: None,
     }

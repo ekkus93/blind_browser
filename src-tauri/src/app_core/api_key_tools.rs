@@ -227,14 +227,6 @@ pub(crate) fn fetch_openai_compatible_models(
     Ok(models)
 }
 
-pub(crate) fn credential_async_client(timeout_ms: u64) -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .timeout(Duration::from_millis(timeout_ms.max(1)))
-        .redirect(Policy::none())
-        .build()
-        .map_err(|error| format!("failed to build credential-bearing HTTP client: {error}"))
-}
-
 pub(crate) fn credential_client(timeout_ms: u64, purpose: &str) -> Result<Client, String> {
     Client::builder()
         .timeout(Duration::from_millis(timeout_ms.max(1)))

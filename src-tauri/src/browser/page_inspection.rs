@@ -178,15 +178,6 @@ impl super::BrowserController {
     }
 }
 
-#[cfg(any(feature = "browser", test))]
-pub(super) fn png_dimensions(image_bytes: &[u8]) -> Result<(u32, u32), BrowserError> {
-    crate::resource_limits::png_dimensions(image_bytes).ok_or_else(|| {
-        BrowserError::Screenshot(String::from(
-            "captured screenshot was not a valid PNG image",
-        ))
-    })
-}
-
 fn image_limit_to_browser_error(error: ImageLimitExceeded) -> BrowserError {
     let message = match error {
         ImageLimitExceeded::InvalidDimensions { .. } => {
