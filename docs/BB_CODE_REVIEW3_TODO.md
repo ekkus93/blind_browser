@@ -1470,7 +1470,63 @@ writes. Fix, or record as accepted with rationale.
 
 ## P2.4 — Make sensitive-content detection Unicode-aware
 
-**Status:** PENDING
+**Status:** DONE
+**Note:** Implemented with one significant, verified divergence from the
+literal instruction — recorded here because it changes what the fix
+actually covers.
+
+**Digit detection (P2.4.1, as specified)**: `contains_long_digit_sequence`
+and `contains_ssn_shape` now use `char::is_numeric()` (Unicode decimal
+digits across scripts) instead of `is_ascii_digit()`/raw-byte comparison.
+`contains_ssn_shape` was rewritten from a byte-windowed scan to a
+char-windowed one — the byte version wasn't unsound (UTF-8 continuation
+bytes never collide with ASCII digit byte values), just blind to non-ASCII
+digits. Bounded input confirmed (`MAX_REGION_TEXT_CHARS = 2_000`), so the
+O(n) char-vec allocation this needs is not a DoS concern, per P2.4.1's own
+instruction to check that.
+
+**Marker matching diverges from "NFKC-normalize"**: verified empirically
+(Python `unicodedata.normalize`) that NFKC does **not** fold the Cyrillic
+homoglyph in the motivating example ("pаssword=" with a Cyrillic а,
+U+0430) to its Latin equivalent — NFKC only unifies compatibility variants
+of the *same* character (e.g. fullwidth Latin letters, which it *does*
+correctly fold), not lookalikes across different scripts. Pulling in NFKC
+normalization (which needs the `unicode-normalization` crate — a new
+dependency, ask-first territory this pass doesn't have sign-off for) would
+not have closed the gap it was proposed to close. Implemented instead: a
+hand-rolled, dependency-free `fold_confusable_ascii` — a fixed `-0xFEE0`
+offset for the Halfwidth/Fullwidth Forms block (mathematically identical to
+what NFKC does for that block, confirmed against Python) plus a small,
+explicit table of the Cyrillic/Greek letters that are lookalikes for the
+specific Latin letters (a-z) this module's marker vocabulary is built from
+— not general Unicode confusable detection (Unicode TR39's full skeleton
+algorithm would be needed for that), scoped to what's actually being
+matched against. Case folding switched from `to_ascii_lowercase()` to
+`str::to_lowercase()` (full Unicode case folding) throughout.
+
+**`is_credential_shaped_token`'s whitespace gap (implied by P2.4.2, not
+explicitly listed under P2.4.1) was also fixed, not just tested**: tested
+first and confirmed `key=sk-...`/`{"authorization":"ghp_..."}` were missed
+entirely, since `split_whitespace()` left the credential fused to
+surrounding text with no split point. Changed the tokenizer from
+`split_whitespace()` to a boundary split on anything that isn't
+alphanumeric or one of `-_.` (the characters a credential token is itself
+built from) — correctly isolates a credential-shaped token glued to
+surrounding text via `=`, `:`, quotes, or similar, while leaving genuine
+JWT `.`-separated segments intact for `is_credential_shaped_token`'s own
+internal split.
+
+**Tests (P2.4.2)**: added a `#[cfg(test)] mod tests` directly in
+`sensitive.rs` (it had none) rather than extending the hostile-content
+JSON corpus (`hostile_content_corpus_manifest.rs`) — that corpus is scoped
+to a different, adjacent concern (prompt-injection attack shapes), not
+credential/PII marker detection, and its fixture format doesn't map onto
+these functions' unit-level inputs. 9 new tests cover fullwidth digits,
+Arabic-Indic digits, a Cyrillic homoglyph marker, a fullwidth-letter
+marker, credential tokens with no surrounding whitespace, SSN shape with
+Arabic-Indic digits, a fullwidth/homoglyph element descriptor, and two
+negative cases (plain text, short digit runs) proving the changes didn't
+make matching over-eager.
 **Files:** `src-tauri/src/app_core/planner_redaction/sensitive.rs`
 
 ### Problem
