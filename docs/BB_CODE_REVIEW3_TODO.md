@@ -1656,11 +1656,13 @@ Assert the exact counts for the 50/30-hidden/limit-40 case above.
 
 ## P2.6 — Resolve the "Allow always" snapshot invalidation
 
-**Status:** PENDING · `[VERIFY FIRST]`
+**Status:** DONE · `[VERIFIED]`
 **Files:**
 
-- `src-tauri/src/app_core/remote_data_consent/mod.rs`
-- `src-tauri/src/app_core/planning_snapshot.rs`
+- `src-tauri/src/app_core/remote_data_consent/mod.rs` (the actual fix)
+- `src-tauri/src/app_core/planning_snapshot.rs` (comment only — see
+  implementation note; behavior unchanged from before this pass)
+- `src-tauri/src/app_core/tests/remote_data_consent_evidence_tests/policy_and_disclosure_matrix_tests.rs`
 
 ### Problem (to verify)
 
@@ -1691,6 +1693,67 @@ Prefer whichever keeps the fingerprint's meaning coherent.
 `policy_and_disclosure_matrix_tests.rs` currently stops at asserting the
 authorization kind and never reaches execution — extend it through execution so a
 regression is caught.
+
+### Implementation note
+
+- **P2.6.1 (reproduce)**: confirmed independently, not just re-taking the
+  reviewer's word. Extended the existing "persistent" section of
+  `remote_data_privacy_closure_policy_and_disclosure_matrix_is_bounded`
+  (already exercises `AllowPersistent` up through
+  `resolve_pending_remote_planner_consent`) to register the returned
+  `planning_snapshot` against a minimal `PlannerOutput` (a single
+  `StopSpeaking` step — chosen because its executor
+  (`AppCore::execute_stop_speaking`) is pure in-memory state, so the test
+  doesn't need a live browser backend) and call `execute_planner_output`.
+  Before the fix this failed exactly as reported: `ExecutionOutcome::NeedsReplan`
+  with `error.code == "stale_planning_snapshot"` and
+  `expected_config_fingerprint != observed_config_fingerprint` while every
+  other field (`page_id`, `page_generation`, `origin`, `history_index`,
+  `runtime_state_token` fingerprint-independent parts) matched — isolating the
+  cause to the config fingerprint exactly as the reviewer described, not some
+  other drift.
+- **P2.6.2 (fix)**: first attempt chose to exclude `remote_planner_privacy`
+  from `relevant_config_fingerprint` — reasoning that it only gates
+  *whether/how a remote LLM planner call may happen*, not whether resolved
+  tool-execution steps are still safe to run. That attempt was **wrong** and
+  was reverted after the full isolated-Wry sweep (not just the targeted
+  reproduction test) caught it breaking
+  `remote_data_consent_expiry_invalidation_persistence_and_hostile_state_are_fail_closed`'s
+  pre-existing "mode" case: `resolve_pending_remote_planner_consent`'s own
+  freshness check (`pending.draft.runtime_state_token !=
+  self.current_runtime_state_token()`) diffs the *same* fingerprint-embedding
+  token to detect "did anything privacy-relevant change while this consent
+  challenge sat unanswered" — a network-mode change *must* trip that check,
+  and excluding `remote_planner_privacy` from the shared fingerprint function
+  silently defeated it too. (My grep for "any test asserting a
+  `remote_planner_privacy` change alone invalidates a snapshot" before the
+  first attempt was a no-op — filtering lines that already matched
+  `remote_planner_privacy` by `grep -i "test\|fingerprint"` matches every
+  line, since every hit's file path already contains `tests/`. Recorded here
+  so the mistake — and the fact the sweep caught what the narrower reproduction
+  test alone did not — isn't lost.)
+
+  The actual fix: in `resolve_pending_remote_planner_consent`'s
+  `AllowPersistent` arm, re-capture `planning_snapshot` via
+  `self.capture_planning_state_snapshot()` *after* `persist_origin_rule`
+  returns, instead of handing back `pending.planning_snapshot` (captured when
+  the challenge was first drafted, before that write). This binds the
+  authorization to the runtime state as it actually is at the moment consent
+  is granted, without touching the shared fingerprint function at all — so
+  the "mode changed while a challenge was pending" check keeps working
+  unchanged. `relevant_config_fingerprint` itself was reverted to its
+  original form (with `remote_planner_privacy` still included), with a code
+  comment recording why removing it was tried and rejected, so a future
+  reader doesn't repeat the mistake.
+- **P2.6.3 (test)**: the P2.6.1 reproduction test *is* the P2.6.3 regression
+  test — it was written once, confirmed failing pre-fix, then confirmed
+  passing post-fix, per `[VERIFY FIRST]`.
+- Full validation green: `cargo fmt --check`, `cargo clippy --all-targets
+  --all-features -- -D warnings`, `cargo test --all-features` (534 passed, 9
+  ignored — no net-new ignored/isolated tests, the extended test was already
+  isolated-Wry), all 4 CI guard scripts, `xvfb-run -a cargo test
+  --all-features`, and the full isolated-Wry sweep via
+  `run-rust-tests-linux.sh`.
 
 ---
 

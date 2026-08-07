@@ -243,13 +243,26 @@ impl AppCore {
                             .to_string(),
                     ),
                 )?;
+                // CR3 P2.6: re-capture the planning snapshot *after*
+                // `persist_origin_rule` above, not before. `persist_origin_rule`
+                // writes a new rule into `remote_planner_privacy`, which is part
+                // of `relevant_config_fingerprint` (see `planning_snapshot.rs`
+                // for why that field must stay in the fingerprint). Handing back
+                // `pending.planning_snapshot` -- captured when the challenge was
+                // first drafted, before this write -- meant the fingerprint
+                // bound to the eventual `PlannerOutput` could never match the
+                // one observed when `execute_planner_output` re-validated it,
+                // so the plan spuriously came back `NeedsReplan` on every
+                // persistent-allow. Re-capturing here binds the snapshot to the
+                // runtime state as it actually is at the moment this
+                // authorization is granted.
                 Ok(PendingConsentResolution::Authorized(Box::new(
                     AuthorizedPendingRemotePlannerRequest {
                         request_id: pending.challenge.request_id,
                         prepared: pending
                             .draft
                             .authorize(RemotePlannerDataAuthorization::PersistentAllow),
-                        planning_snapshot: pending.planning_snapshot,
+                        planning_snapshot: self.capture_planning_state_snapshot(),
                         continuation: pending.continuation,
                     },
                 )))

@@ -78,10 +78,68 @@ fn remote_data_privacy_closure_policy_and_disclosure_matrix_is_bounded() {
             RemotePlannerConsentDecision::AllowPersistent,
         )
         .expect("persistent consent should authorize");
+    let PendingConsentResolution::Authorized(persistent) = persistent else {
+        panic!("persistent consent returned a terminal outcome");
+    };
     assert!(matches!(
-        persistent,
-        PendingConsentResolution::Authorized(_)
+        persistent.prepared.authorization,
+        RemotePlannerDataAuthorization::PersistentAllow
     ));
+
+    // CR3 P2.6: `AllowPersistent` calls `persist_origin_rule` above, which
+    // writes a new rule into `remote_planner_privacy` -- part of
+    // `relevant_config_fingerprint` -- *before* this point, but the
+    // `planning_snapshot` just captured off `persistent` was captured back
+    // when the challenge was drafted, i.e. before that write. If that
+    // pre-write snapshot is bound to the eventual `PlannerOutput` and then
+    // validated at execution time (as `submit_remote_planner_consent_response`
+    // does in production), the config fingerprint captured before the write
+    // no longer matches the one observed after it, and the plan spuriously
+    // comes back as `NeedsReplan` even though nothing about the *plan
+    // itself* went stale -- only `AllowPersistent`'s own bookkeeping did.
+    let stop_speaking_after_persistent_allow = PlannerOutput {
+        status: PlannerStatus::Ready,
+        intent: IntentSummary {
+            name: IntentName::Stop,
+            goal: String::from("stop speaking"),
+            target_description: None,
+        },
+        selected_skills: Vec::new(),
+        steps: vec![PlannedStep {
+            step_id: String::from("stop-speaking-after-persistent-allow"),
+            tool_name: ToolName::StopSpeaking,
+            arguments: serde_json::json!({
+                "request_id": "stop-speaking-after-persistent-allow",
+                "timeout_ms": 1000,
+            }),
+            purpose: String::from(
+                "prove the snapshot AllowPersistent hands back still validates at execution",
+            ),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        }],
+        requires_confirmation: false,
+        confirmation_reason: None,
+        blocked_reason: None,
+        user_message: None,
+    };
+    core.register_planning_snapshot(
+        &stop_speaking_after_persistent_allow,
+        persistent.planning_snapshot,
+    )
+    .expect("registering the pre-persist snapshot should not fail on its own");
+    match core.execute_planner_output(
+        String::from("persistent-allow-execute"),
+        &stop_speaking_after_persistent_allow,
+    ) {
+        ExecutionOutcome::Complete { .. } => {}
+        ExecutionOutcome::NeedsReplan { trace } => panic!(
+            "AllowPersistent's own origin-rule write must not invalidate the \
+             planning snapshot it just authorized execution under: {trace:?}"
+        ),
+        other => panic!("unexpected execution outcome after AllowPersistent: {other:?}"),
+    }
+
     let (profile_name, profile) = core
         .remote_planner_profile_snapshot()
         .expect("test profile should resolve");

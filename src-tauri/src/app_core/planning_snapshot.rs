@@ -154,6 +154,18 @@ impl super::AppCore {
         }
     }
 
+    // CR3 P2.6: `remote_planner_privacy` stays in this fingerprint. An
+    // earlier version of this fix excluded it here to stop `AllowPersistent`
+    // spuriously invalidating the very snapshot it had just authorized (see
+    // the `AllowPersistent` arm of `resolve_pending_remote_planner_consent`
+    // for the actual fix and why). That approach was reverted:
+    // `current_runtime_state_token()` -- which embeds this same fingerprint
+    // -- is *also* what `resolve_pending_remote_planner_consent` diffs
+    // `pending.draft.runtime_state_token` against to detect "did anything
+    // privacy-relevant change while this consent challenge sat unanswered"
+    // (see `remote_data_consent_expiry_invalidation_persistence_and_hostile_state_are_fail_closed`'s
+    // "mode" case). Excluding `remote_planner_privacy` here would have
+    // silently defeated that check too, since it shares the same function.
     fn relevant_config_fingerprint(&self) -> String {
         let value = serde_json::json!({
             "safety": &self.config.safety,
