@@ -117,7 +117,7 @@ test("renders model management busy and error states", () => {
   assert.match(html, /Download failed\./);
   assert.match(html, /Downloading\.\.\./);
   assert.match(html, /btn-spinner/);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
   assert.match(html, /Download Whisper tiny model/);
 });
 
@@ -147,7 +147,7 @@ test("renders remote planner API reference details", () => {
   });
 
   assert.match(html, /AI assistant setup/);
-  assert.match(html, /endpoint, model, and API key used to interpret commands/i);
+  assert.match(html, /endpoint, model, API key, and fail-closed site privacy rules used to interpret commands/i);
   assert.match(html, /Model/);
   assert.match(html, /Endpoint/);
   assert.match(html, /data-remote-planner-endpoint-input="true"/);
@@ -218,7 +218,7 @@ test("renders confirmation settings errors and disabled state while saving", () 
   });
 
   assert.match(html, /The confirmation settings could not be saved\./);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
   assert.match(html, /role="alert"/);
 });
 
@@ -249,7 +249,7 @@ test("renders OCR threshold settings errors and disabled state while saving", ()
   });
 
   assert.match(html, /The OCR thresholds could not be saved\./);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
   assert.match(html, /role="alert"/);
 });
 
@@ -305,7 +305,7 @@ test("renders remote planner API key save errors and disabled state while saving
   });
 
   assert.match(html, /The remote planner API key could not be saved\./);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
   assert.match(html, /role="alert"/);
 });
 

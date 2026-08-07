@@ -1,4 +1,4 @@
-import { isValidElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   renderAudioControlsPanelNode,
@@ -26,87 +26,13 @@ import {
 
 export { statusPanelStateFromAgentState, renderVoiceStatusStripNode };
 
-export const VOID_ELEMENTS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
-
-export function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-export function mapAttributeName(name) {
-  switch (name) {
-    case "className":
-      return "class";
-    case "htmlFor":
-      return "for";
-    case "inputMode":
-      return "inputmode";
-    case "autoComplete":
-      return "autocomplete";
-    case "spellCheck":
-      return "spellcheck";
-    default:
-      return name;
-  }
-}
-
-export function renderNodeMarkup(node, parentContext = {}) {
-  if (node === null || node === undefined || typeof node === "boolean") {
-    return "";
-  }
-
-  if (typeof node === "string" || typeof node === "number") {
-    return escapeHtml(node);
-  }
-
-  if (Array.isArray(node)) {
-    return node.map((child) => renderNodeMarkup(child, parentContext)).join("");
-  }
-
-  if (!isValidElement(node)) {
-    return "";
-  }
-
-  if (typeof node.type !== "string") {
-    return renderNodeMarkup(node.props.children, parentContext);
-  }
-
-  const { children, ...rawProps } = node.props ?? {};
-  const props = { ...rawProps };
-  if (
-    node.type === "option"
-    && props.selected === undefined
-    && parentContext.selectedValue !== undefined
-    && props.value === parentContext.selectedValue
-  ) {
-    props.selected = true;
-  }
-
-  const attributes = Object.entries(props)
-    .filter(([name, value]) => name !== "key" && name !== "ref" && name !== "children" && name !== "dangerouslySetInnerHTML" && name !== "onChange" && name !== "readOnly" && value !== undefined && value !== null && value !== false)
-    .map(([name, value]) => {
-      const attributeName = mapAttributeName(name);
-      if (value === true) {
-        return ` ${attributeName}`;
-      }
-
-      return ` ${attributeName}="${escapeHtml(value)}"`;
-    })
-    .join("");
-
-  if (VOID_ELEMENTS.has(node.type)) {
-    return `<${node.type}${attributes}>`;
-  }
-
-  const nextContext = node.type === "select"
-    ? { ...parentContext, selectedValue: props.value }
-    : parentContext;
-
-  return `<${node.type}${attributes}>${renderNodeMarkup(children, nextContext)}</${node.type}>`;
+// Renders a React node tree to static HTML using React's own server renderer,
+// so components that call hooks (e.g. useSyncExternalStore, as
+// WorkspaceDecisionPanels does) render correctly instead of silently
+// producing empty output. React's renderer also handles controlled
+// <select value="..."> -> matching <option selected> mapping natively.
+export function renderNodeMarkup(node) {
+  return renderToStaticMarkup(node);
 }
 
 export function renderConfirmationPanel(state) {

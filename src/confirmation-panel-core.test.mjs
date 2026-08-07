@@ -86,7 +86,7 @@ test("disables the talk button during hands-free listening", () => {
   });
 
   assert.match(html, /aria-label="Voice input active"/);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
   assert.match(html, /stop listening.*to end/);
 });
 
@@ -101,7 +101,7 @@ test("disables the talk button while processing the next spoken command", () => 
   });
 
   assert.match(html, /aria-label="Voice input active"/);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
   assert.match(html, /stop listening.*to end/);
 });
 
@@ -155,7 +155,7 @@ test("renders setup banner when push-to-talk is disabled, hides it when enabled"
   });
 
   assert.match(disabledHtml, /ptt-setup-banner/);
-  assert.match(disabledHtml, /Voice input isn&#39;t set up yet/);
+  assert.match(disabledHtml, /Voice input isn&#x27;t set up yet/);
   assert.match(disabledHtml, /data-ptt-open-settings="true"/);
   assert.doesNotMatch(disabledHtml, /data-push-to-talk-button="true"/);
   assert.doesNotMatch(enabledHtml, /ptt-setup-banner/);

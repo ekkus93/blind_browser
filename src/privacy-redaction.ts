@@ -20,11 +20,17 @@ function sanitizeDiagnosticUrl(value: string): string {
 }
 
 export function redactDiagnosticText(value: string): string {
-  if (SENSITIVE_TEXT.test(value) || CREDENTIAL.test(value) || JWT.test(value)) {
+  // Sanitize embedded URLs first: a URL's query string can itself contain a
+  // sensitive-looking key=value pair (e.g. "?api_key=..."), which must not
+  // trigger wholesale redaction when precise URL sanitization (dropping
+  // credentials, query, and fragment) already removes it.
+  const urlSanitized = value.replace(URL_CANDIDATE, (candidate) => sanitizeDiagnosticUrl(candidate));
+
+  if (SENSITIVE_TEXT.test(urlSanitized) || CREDENTIAL.test(urlSanitized) || JWT.test(urlSanitized)) {
     return "[REDACTED SENSITIVE DIAGNOSTIC]";
   }
 
-  return value.replace(URL_CANDIDATE, (candidate) => sanitizeDiagnosticUrl(candidate));
+  return urlSanitized;
 }
 
 export function redactDiagnosticValue(value: unknown, key = ""): unknown {

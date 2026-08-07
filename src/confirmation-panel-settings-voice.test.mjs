@@ -36,7 +36,7 @@ test("renders settings ASR provider errors and disabled state while saving", () 
   });
 
   assert.match(html, /The ASR provider selection could not be saved\./);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
   assert.match(html, /role="alert"/);
 });
 
@@ -169,7 +169,7 @@ test("renders settings TTS provider errors and disabled state while saving", () 
   });
 
   assert.match(html, /The TTS provider selection could not be saved\./);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
   assert.match(html, /role="alert"/);
 });
 
@@ -307,7 +307,7 @@ test("renders settings TTS model errors and disabled state while saving", () => 
 
   assert.match(html, /remote voice model for the current mode/i);
   assert.match(html, /The TTS model selection could not be saved\./);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
   assert.match(html, /role="alert"/);
 });
 
@@ -328,7 +328,7 @@ test("renders settings voice selection for configured voices", () => {
   assert.match(html, /Selected voice/);
   assert.match(html, /Bruno/);
   assert.match(html, /data-tts-voice-select="true"/);
-  assert.match(html, /<option value="Bruno" selected>Bruno<\/option>/);
+  assert.match(html, /<option value="Bruno" selected="">Bruno<\/option>/);
 });
 
 test("renders settings voice errors and disabled state while saving", () => {
@@ -342,7 +342,7 @@ test("renders settings voice errors and disabled state while saving", () => {
 
   assert.match(html, /The runtime could not save that voice\./);
   assert.match(html, /remote voice for the current mode/i);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
 });
 
 test("renders api key reference error warning in remote ASR panel", () => {

@@ -98,7 +98,7 @@ test("disables browser visibility toggle buttons while visibility changes are in
     error: null,
   });
 
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
   assert.match(html, /status-toggle-button-active/);
 });
 

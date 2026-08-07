@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint \"src/**/*.{ts,tsx,mjs}\"",
-    "test:ui": "node --import tsx/esm --disable-warning=ExperimentalWarning --test src/**/*.test.mjs",
+    "test:ui": "node --import tsx/esm --disable-warning=ExperimentalWarning --test \"src/**/*.test.mjs\"",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev:ocr": "tauri dev --features ocr",

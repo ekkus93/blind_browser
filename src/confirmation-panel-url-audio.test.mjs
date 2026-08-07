@@ -88,7 +88,7 @@ test("renders URL input busy and error states while opening", () => {
 
   assert.match(html, /aria-label="Opening"/);
   assert.match(html, /The browser could not open that URL\./);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
   assert.match(html, /role="alert"/);
 });
 
@@ -106,7 +106,7 @@ test("renders URL input busy state while starting page reading", () => {
   });
 
   assert.match(html, /aria-label="Reading"/);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
 });
 
 test("renders URL input busy state while stopping page reading", () => {
@@ -123,7 +123,7 @@ test("renders URL input busy state while stopping page reading", () => {
   });
 
   assert.match(html, /aria-label="Stopping"/);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
 });
 
 test("renders URL input busy state while moving to the next reading region", () => {
@@ -140,7 +140,7 @@ test("renders URL input busy state while moving to the next reading region", () 
   });
 
   assert.match(html, /aria-label="Moving to next section"/);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
 });
 
 test("renders URL input busy state while moving to the previous reading region", () => {
@@ -157,7 +157,7 @@ test("renders URL input busy state while moving to the previous reading region",
   });
 
   assert.match(html, /aria-label="Moving to previous section"/);
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
 });
 
 test("renders nearby playback controls with volume and speed values", () => {
@@ -185,7 +185,7 @@ test("disables nearby playback controls while audio settings are saving", () => 
     error: null,
   });
 
-  assert.match(html, /disabled aria-disabled="true"/);
+  assert.match(html, /disabled="" aria-disabled="true"/);
 });
 
 test("renders nearby playback control errors when syncing fails", () => {
