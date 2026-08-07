@@ -26,7 +26,6 @@ function createMinimalAgentState(remotePlannerOverrides = {}) {
       consent_to_remote_page_data: false,
       local_only: false,
       blocked_origins: [],
-      high_risk_origin_policy: "block",
       remote_data_notice: "",
       ...remotePlannerOverrides,
     },

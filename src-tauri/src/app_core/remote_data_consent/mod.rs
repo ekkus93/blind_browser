@@ -338,7 +338,7 @@ impl AppCore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{HighRiskOriginPolicy, RemotePlannerOriginRule};
+    use crate::config::RemotePlannerOriginRule;
 
     fn endpoint(raw: &str) -> ProviderEndpointScope {
         ProviderEndpointScope::parse(raw).expect("test endpoint must be valid")
@@ -347,7 +347,6 @@ mod tests {
     fn settings(mode: RemotePlannerNetworkMode) -> RemotePlannerPrivacySettings {
         RemotePlannerPrivacySettings {
             network_mode: mode,
-            high_risk_origin_policy: HighRiskOriginPolicy::Block,
             ..Default::default()
         }
     }

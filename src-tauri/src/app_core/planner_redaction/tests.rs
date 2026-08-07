@@ -3,8 +3,8 @@ use crate::audio_io::RuntimeAudioState;
 use crate::browser::BrowserVisibilityMode;
 use crate::commands::*;
 use crate::config::{
-    HighRiskOriginPolicy, PersistedOriginDecision, ProviderMode, RemotePlannerNetworkMode,
-    RemotePlannerOriginRule, REMOTE_DATA_POLICY_VERSION,
+    PersistedOriginDecision, ProviderMode, RemotePlannerNetworkMode, RemotePlannerOriginRule,
+    REMOTE_DATA_POLICY_VERSION,
 };
 use crate::page_model::{
     ElementRole, InteractiveElement, PageModel, PageRegion, RegionRole, RegionSource,
@@ -106,7 +106,6 @@ fn fixture_agent_state() -> AgentStateData {
             consent_to_remote_page_data: true,
             local_only: false,
             blocked_origins: Vec::new(),
-            high_risk_origin_policy: String::from("block"),
             remote_data_notice: String::from("notice"),
         },
         remote_planner_privacy_status: RemotePlannerPrivacyStatus::default(),
@@ -165,7 +164,6 @@ fn network_privacy() -> RemotePlannerPrivacySettings {
         consent_to_remote_page_data: true,
         local_only: false,
         blocked_origins: Vec::new(),
-        high_risk_origin_policy: HighRiskOriginPolicy::Block,
         network_mode: RemotePlannerNetworkMode::AllowSanitizedNonHighRisk,
         ..Default::default()
     }

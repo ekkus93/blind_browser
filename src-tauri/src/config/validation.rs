@@ -396,7 +396,6 @@ mod privacy_tests {
             consent_to_remote_page_data: true,
             local_only: false,
             blocked_origins: vec![String::from("https://EXAMPLE.com:443")],
-            high_risk_origin_policy: HighRiskOriginPolicy::Block,
             network_mode: RemotePlannerNetworkMode::AskPerOrigin,
             origin_rules: Vec::new(),
             policy_schema_version: 0,

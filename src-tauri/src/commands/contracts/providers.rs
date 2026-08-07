@@ -158,7 +158,6 @@ pub struct RemotePlannerSettings {
     pub consent_to_remote_page_data: bool,
     pub local_only: bool,
     pub blocked_origins: Vec<String>,
-    pub high_risk_origin_policy: String,
     pub remote_data_notice: String,
 }
 
@@ -282,7 +281,6 @@ pub struct RemotePlannerPrivacyOperationResult {
     pub consent_to_remote_page_data: bool,
     pub local_only: bool,
     pub blocked_origins: Vec<String>,
-    pub high_risk_origin_policy: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

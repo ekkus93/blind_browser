@@ -8,8 +8,8 @@ use crate::commands::{
     RemotePlannerDisclosureCounts, RemotePlannerEffectiveDecision, RemotePlannerPrivacyOperation,
 };
 use crate::config::{
-    HighRiskOriginPolicy, PersistedOriginDecision, RemotePlannerNetworkMode,
-    RemotePlannerOriginRule, RemotePlannerPrivacySettings, REMOTE_DATA_POLICY_VERSION,
+    PersistedOriginDecision, RemotePlannerNetworkMode, RemotePlannerOriginRule,
+    RemotePlannerPrivacySettings, REMOTE_DATA_POLICY_VERSION,
 };
 use crate::provider_endpoint::ProviderEndpointScope;
 
@@ -20,7 +20,6 @@ fn endpoint(raw: &str) -> ProviderEndpointScope {
 fn privacy_settings(mode: RemotePlannerNetworkMode) -> RemotePlannerPrivacySettings {
     RemotePlannerPrivacySettings {
         network_mode: mode,
-        high_risk_origin_policy: HighRiskOriginPolicy::Block,
         ..RemotePlannerPrivacySettings::default()
     }
 }

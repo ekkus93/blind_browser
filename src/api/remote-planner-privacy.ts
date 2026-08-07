@@ -119,7 +119,6 @@ export interface RemotePlannerPrivacyOperationResult {
   consent_to_remote_page_data: boolean;
   local_only: boolean;
   blocked_origins: string[];
-  high_risk_origin_policy: string;
 }
 
 export interface RemotePlannerPrivacyOperationInput {

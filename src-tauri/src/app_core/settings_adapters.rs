@@ -11,8 +11,7 @@ use crate::commands::{
     TtsModelSettings, TtsProviderSettings, TtsVoiceOption, TtsVoiceSettings,
 };
 use crate::config::{
-    secret_ref_reference, AppConfig, HighRiskOriginPolicy, LocalAsrProfile, LocalTtsProfile,
-    RemoteProviderKind,
+    secret_ref_reference, AppConfig, LocalAsrProfile, LocalTtsProfile, RemoteProviderKind,
 };
 use crate::diagnostic_redaction::sanitize_url_for_display;
 use crate::provider_endpoint::ProviderEndpointScope;
@@ -220,9 +219,6 @@ pub(crate) fn build_remote_planner_settings(config: &AppConfig) -> RemotePlanner
         consent_to_remote_page_data: config.remote_planner_privacy.consent_to_remote_page_data,
         local_only: config.remote_planner_privacy.local_only,
         blocked_origins: config.remote_planner_privacy.blocked_origins.clone(),
-        high_risk_origin_policy: match config.remote_planner_privacy.high_risk_origin_policy {
-            HighRiskOriginPolicy::Block => String::from("block"),
-        },
         remote_data_notice: String::from(
             "Network planner endpoints receive only locally selected, sanitized page, OCR, tool, and skill context after explicit consent. Loopback endpoints stay on this device. High-risk pages and blocked origins never leave the device.",
         ),

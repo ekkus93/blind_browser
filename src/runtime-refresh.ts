@@ -88,7 +88,6 @@ export function applyAgentStateToPanels(
     consentToRemotePageData: agentState.remote_planner_settings.consent_to_remote_page_data,
     localOnly: agentState.remote_planner_settings.local_only,
     blockedOriginsDraft: agentState.remote_planner_settings.blocked_origins.join("\n"),
-    highRiskOriginPolicy: agentState.remote_planner_settings.high_risk_origin_policy,
     remoteDataNotice: agentState.remote_planner_settings.remote_data_notice,
     isSavingPrivacy: false,
   });

@@ -86,13 +86,6 @@ pub struct SafetySettings {
     pub always_confirm_submit: bool,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum HighRiskOriginPolicy {
-    #[default]
-    Block,
-}
-
 pub const REMOTE_DATA_POLICY_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -120,18 +113,43 @@ pub struct RemotePlannerOriginRule {
     pub created_at_ms: u64,
 }
 
+// CR3 P3.2: high-risk page contexts (credit-card fields, password fields --
+// see `high_risk_page_context_reason`/`high_risk_context_reason`) are always
+// blocked from remote-planner disclosure, unconditionally, with no config
+// knob to loosen that. This struct used to carry a `high_risk_origin_policy`
+// field for it, but the field was never read by
+// `evaluate_remote_planner_policy` (which blocks on `high_risk_reason` alone)
+// and its enum had exactly one variant (`Block`) -- it advertised a control
+// that did not exist. Removed rather than wired up: making high-risk
+// blocking configurable would be a real, unrequested security-behavior
+// change, not a cleanup, and the existing invariant (never overridable) is
+// deliberate -- the same "runtime minimum, not a config toggle" pattern
+// `always_confirm_submit` follows.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct RemotePlannerPrivacySettings {
-    // Legacy fields remain readable for one schema boundary. Normalization migrates
-    // them into `network_mode` and `origin_rules` before runtime use.
+    // Legacy fields. `normalize_remote_planner_privacy_settings` migrates
+    // them into `network_mode`/`origin_rules` exactly once, the first time a
+    // pre-v1 config (`policy_schema_version == 0`) loads -- but on *every*
+    // normalize call after that (every load and persist), it runs the other
+    // direction: it overwrites these three fields FROM the current
+    // `network_mode`/`origin_rules`, so they read as an always-current
+    // mirror for older UI/API consumers, never as a live input. Never
+    // authoritative at runtime either way. Dated removal plan (CR3 P3.2, per
+    // review request -- "give them a dated removal plan or they become
+    // permanent"): drop `consent_to_remote_page_data`/`local_only`/
+    // `blocked_origins` from this struct (and their serialization, UI
+    // marshalling in `settings_adapters.rs`, and the corresponding fields on
+    // `RemotePlannerSettings`/`RemotePlannerPrivacyOperationResult`) the next
+    // time `REMOTE_DATA_POLICY_VERSION` bumps past `1` -- that version bump
+    // is this schema's existing signal for "every config has been touched by
+    // the current normalization logic," so it's the natural removal gate
+    // rather than an arbitrary calendar date.
     #[serde(default)]
     pub consent_to_remote_page_data: bool,
     #[serde(default)]
     pub local_only: bool,
     #[serde(default)]
     pub blocked_origins: Vec<String>,
-    #[serde(default)]
-    pub high_risk_origin_policy: HighRiskOriginPolicy,
     #[serde(default)]
     pub network_mode: RemotePlannerNetworkMode,
     #[serde(default)]
@@ -148,7 +166,6 @@ impl Default for RemotePlannerPrivacySettings {
             consent_to_remote_page_data: false,
             local_only: false,
             blocked_origins: Vec::new(),
-            high_risk_origin_policy: HighRiskOriginPolicy::Block,
             network_mode: RemotePlannerNetworkMode::AskPerOrigin,
             origin_rules: Vec::new(),
             policy_schema_version: REMOTE_DATA_POLICY_VERSION,

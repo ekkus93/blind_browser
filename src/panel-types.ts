@@ -109,7 +109,6 @@ export interface RemotePlannerPanelState {
   consentToRemotePageData: boolean;
   localOnly: boolean;
   blockedOriginsDraft: string;
-  highRiskOriginPolicy: string;
   remoteDataNotice: string;
   isSavingPrivacy: boolean;
   apiKeyDraft: string;

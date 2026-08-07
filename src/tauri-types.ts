@@ -293,7 +293,6 @@ export interface RemotePlannerSettings {
   consent_to_remote_page_data: boolean;
   local_only: boolean;
   blocked_origins: string[];
-  high_risk_origin_policy: string;
   remote_data_notice: string;
 }
 
@@ -340,7 +339,6 @@ export interface RemotePlannerPrivacySettingsData {
   consent_to_remote_page_data: boolean;
   local_only: boolean;
   blocked_origins: string[];
-  high_risk_origin_policy: string;
   changed: boolean;
 }
 

@@ -37,7 +37,6 @@ function plannerState(overrides = {}) {
     consentToRemotePageData: false,
     localOnly: false,
     blockedOriginsDraft: "https://bank.example",
-    highRiskOriginPolicy: "block",
     remoteDataNotice: "Legacy privacy notice",
     isSavingPrivacy: false,
     apiKeyDraft: "",

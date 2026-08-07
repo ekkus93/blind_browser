@@ -165,7 +165,6 @@ pub fn set_remote_planner_privacy_settings(
         consent_to_remote_page_data: current.consent_to_remote_page_data,
         local_only: current.local_only,
         blocked_origins: current.blocked_origins,
-        high_risk_origin_policy: String::from("block"),
     })
 }
 

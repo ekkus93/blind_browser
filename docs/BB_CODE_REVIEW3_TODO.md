@@ -2058,8 +2058,15 @@ invariant. Note that P1.1 may add privacy validation in the same file.
 
 ## P3.2 — Resolve the `high_risk_origin_policy` phantom knob
 
-**Status:** PENDING
-**Files:** `src-tauri/src/config/types.rs`, `src-tauri/src/app_core/remote_data_consent/policy.rs`, `src-tauri/src/app_core/settings_adapters.rs`
+**Status:** DONE (retracted, per explicit user decision — see note) · `[VERIFIED]`
+**Files:** `src-tauri/src/config/types.rs`, `src-tauri/src/config/validation.rs`,
+`src-tauri/src/app_core/settings_adapters.rs`, `src-tauri/src/app_core/runtime_config.rs`,
+`src-tauri/src/app_core/remote_data_consent/mod.rs`, `src-tauri/src/app_core/planner_redaction/high_risk.rs`,
+`src-tauri/src/app_core/planner_redaction/tests.rs`, `src-tauri/src/app_core/tests/remote_privacy_api_tests.rs`,
+`src-tauri/src/command_handlers/safety_handlers.rs`, `src-tauri/src/commands/contracts/providers.rs`,
+`config.example.toml`, `CLAUDE.md`,
+`src/tauri-types.ts`, `src/panel-types.ts`, `src/panel-state.ts`, `src/runtime-refresh.ts`,
+`src/api/remote-planner-privacy.ts`, and 4 test files under `src/`
 
 ### Problem
 
@@ -2084,6 +2091,68 @@ Related: four legacy privacy fields (`consent_to_remote_page_data`, `local_only`
 `origin_rules` on normalize, yet are still serialized and surfaced to the UI, so
 nothing in the data says which is authoritative. Give them a dated removal plan or
 they become permanent.
+
+### Implementation note
+
+- **Decision**: this genuinely required a call the review itself left open
+  ("either... do not leave it advertised and inert" — no stated preference),
+  and it directly touches CLAUDE.md's own "Design-choice locks" section (a
+  section this same file's directive-compliance rules mark highest
+  priority), so — unlike every other CR3 item, which had a clear preferred
+  resolution or enough evidence to pick one confidently — this was surfaced
+  to the user rather than decided unilaterally: wiring it up would mean
+  making high-risk-context blocking configurable/bypassable, a real new
+  security-behavior decision, not a cleanup. The user chose **retract**.
+- **Verified before implementing** (not just retracting on request):
+  confirmed `evaluate_remote_planner_policy` never reads
+  `privacy.high_risk_origin_policy` at all (blocks unconditionally on
+  `high_risk_reason` alone) and the enum has exactly one variant — so
+  retracting it is a pure surface removal with zero behavior change, not a
+  policy change disguised as cleanup.
+- **Removed**: the `HighRiskOriginPolicy` enum and the
+  `high_risk_origin_policy` field from `RemotePlannerPrivacySettings`
+  (`config/types.rs`); its construction/defaults in `config/validation.rs`,
+  `remote_data_consent/mod.rs`'s and `planner_redaction/tests.rs`'s test
+  fixtures, and `tests/remote_privacy_api_tests.rs`; the force-overwrite in
+  `runtime_config.rs`; the UI-marshalling match arm in
+  `settings_adapters.rs`; the `high_risk_origin_policy: String` fields on
+  `RemotePlannerSettings` and `RemotePlannerPrivacyOperationResult`
+  (`commands/contracts/providers.rs`) and the hard-coded `"block"` that
+  populated the latter in `safety_handlers.rs`; the three
+  `high_risk_origin_policy = "block"` lines in `config.example.toml`; and
+  the mirrored `high_risk_origin_policy`/`highRiskOriginPolicy` fields across
+  the frontend (`tauri-types.ts`, `panel-types.ts`, `panel-state.ts`,
+  `runtime-refresh.ts`, `api/remote-planner-privacy.ts`) and their four test
+  fixtures. Confirmed no `#[serde(deny_unknown_fields)]` anywhere in the
+  config module, so an existing user's config.toml with a stray
+  `high_risk_origin_policy = "block"` line (written by every prior version's
+  default template) still loads fine — the key is just silently ignored by
+  serde, exactly the intended backward-compatible outcome for a field
+  removal.
+- **CLAUDE.md updated** (explicitly anticipated by this task's own P3.2.1
+  wording, not a unilateral edit to the project's instruction file): the
+  "Design-choice locks" line now lists only `network_mode`/`origin_rules` as
+  the `[remote_planner_privacy]` knobs, with high-risk blocking called out as
+  unconditional rather than config-governed; the "Runtime, models, and
+  config" section's schema-field list updated the same way.
+- **Related legacy-fields note**: rather than leave "give them a dated
+  removal plan" as an unaddressed aside, added one to
+  `RemotePlannerPrivacySettings`'s doc comment in `config/types.rs`: since
+  these three fields are unconditionally recomputed FROM
+  `network_mode`/`origin_rules` on every normalize call (verified by reading
+  `normalize_remote_planner_privacy_settings` in full — an always-current
+  display mirror, never a live input, once schema v0 migration is behind
+  it), the natural removal gate is the next `REMOTE_DATA_POLICY_VERSION`
+  bump past `1` — a real, existing versioning signal already used for
+  exactly this "has every config been touched by current normalization
+  logic" purpose, rather than an arbitrary calendar date. Not removed in
+  this pass — only P3.2's specifically-scoped item was, per the ticket.
+- Full validation green: `cargo fmt --check`, `cargo clippy --all-targets
+  --all-features -- -D warnings`, `cargo test --all-features` (551 passed, 9
+  ignored — unchanged count, pure removal), all 4 CI guard scripts,
+  `xvfb-run -a cargo test --all-features`, the full isolated-Wry sweep via
+  `run-rust-tests-linux.sh`; `pnpm lint`, `pnpm build` (tsc + vite),
+  `pnpm test:ui` (247 passed, unchanged count).
 
 ---
 

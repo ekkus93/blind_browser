@@ -83,7 +83,6 @@ export function createInitialPanelStates(): PanelStates {
       consentToRemotePageData: false,
       localOnly: false,
       blockedOriginsDraft: "",
-      highRiskOriginPolicy: "block",
       remoteDataNotice: "Network planner endpoints require explicit consent before sanitized page or OCR context leaves this device.",
       isSavingPrivacy: false,
       apiKeyDraft: "",

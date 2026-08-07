@@ -70,7 +70,6 @@ const operationResult = {
   consent_to_remote_page_data: false,
   local_only: false,
   blocked_origins: ["https://blocked.example"],
-  high_risk_origin_policy: "block",
 };
 
 test.beforeEach(() => {

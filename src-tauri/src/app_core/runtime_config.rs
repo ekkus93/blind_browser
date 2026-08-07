@@ -274,7 +274,6 @@ impl AppCore {
                 }
             }));
         settings.policy_schema_version = crate::config::REMOTE_DATA_POLICY_VERSION;
-        settings.high_risk_origin_policy = crate::config::HighRiskOriginPolicy::Block;
         self.config = AppConfig::persist_remote_planner_privacy_settings_for_app(
             &self.app_handle,
             &settings,

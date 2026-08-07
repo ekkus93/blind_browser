@@ -86,7 +86,7 @@ User directives override convenience. When the user explicitly states constraint
 Frontend shell:      ALLOWED = Tauri;            BANNED = replacing with a different app shell
 Browser backend:     ALLOWED = chromiumoxide;    BANNED = substituting without approval
 Command execution:   ALLOWED = deterministic Rust tools; BANNED = free-form LLM action execution
-Remote planner data: ALLOWED = per `[remote_planner_privacy]` config (network_mode, origin_rules, high_risk_origin_policy); BANNED = sending origin/page data to a remote planner outside those consent rules
+Remote planner data: ALLOWED = per `[remote_planner_privacy]` config (network_mode, origin_rules); BANNED = sending origin/page data to a remote planner outside those consent rules, or to a high-risk page context under any config (unconditional, not a config knob — see CR3 P3.2)
 ```
 
 The remote-planner privacy/consent layer (`app_core/remote_data_consent.rs`, `remote_planner.rs`, `remote_privacy_api.rs`) is active, current-focus work — see `docs/BLIND_BROWSER_REMOTE_DATA_CONSENT_ORIGIN_PRIVACY_*` spec/TODO files and recent git log before making changes in this area.
@@ -160,7 +160,7 @@ If a different approach is believed to be superior, propose it in a comment only
 ---
 
 ## Runtime, models, and config
-- Respect the TOML config schema documented in `docs/SPECS.md` and `config.example.toml`, including the `[remote_planner_privacy]` section (`network_mode`, `origin_rules`, `high_risk_origin_policy`).
+- Respect the TOML config schema documented in `docs/SPECS.md` and `config.example.toml`, including the `[remote_planner_privacy]` section (`network_mode`, `origin_rules`).
 - Keep planner, TTS, and ASR provider selection consistent with configured local/remote profiles.
 - Missing required models or credentials must surface clear errors and a clear path to resolution.
 - Audio settings, confirmation settings, OCR thresholds, and model-management settings must remain persisted and configurable.

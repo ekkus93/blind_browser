@@ -1,6 +1,9 @@
 //! High-risk page-context detection: sites/pages where sanitized data should
 //! never leave the device for network remote planning, regardless of consent
-//! settings (see `high_risk_origin_policy` handling in [`super::super::remote_data_consent`]).
+//! settings -- unconditional, not configurable (CR3 P3.2 removed the
+//! `high_risk_origin_policy` config field that used to advertise this as a
+//! knob; see [`super::super::remote_data_consent::evaluate_remote_planner_policy`],
+//! which blocks on `high_risk_reason` alone).
 
 use crate::commands::PlannerInput;
 use crate::commands::PlannerToolHistoryEntry;
