@@ -6,7 +6,7 @@ import {
   renderModelAvailabilityLabel,
   renderOcrThresholdValue,
   renderTextWithKnownLinkNodes,
-} from "../confirmation-panel-helpers.ts";
+} from "../confirmation-panel-helpers.tsx";
 import type {
   ConfirmationSettingsPanelState,
   ModelManagementPanelState,

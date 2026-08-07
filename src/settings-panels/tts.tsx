@@ -5,7 +5,7 @@ import {
   renderSecretEntryCard,
   renderTtsModelOptionLabel,
   renderTtsVoiceOptionLabel,
-} from "../confirmation-panel-helpers.ts";
+} from "../confirmation-panel-helpers.tsx";
 import type {
   LocalTtsModelPanelState,
   RemoteTtsPanelState,

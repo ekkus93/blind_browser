@@ -1,7 +1,6 @@
 import "./styles.css";
 import "./remote-planner-privacy.css";
 
-import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
 import { appShellStore } from "./store";
@@ -80,7 +79,6 @@ if (!app) {
   throw new Error("App root element was not found.");
 }
 const appRoot: HTMLDivElement = app;
-const h = createElement;
 const runtimeRoot = createRoot(appRoot);
 
 const { refreshRuntimePanelsFromRuntime } = createRuntimeRefreshHandlersWithPrivacy({
@@ -119,7 +117,11 @@ const { refreshRuntimePanelsFromRuntime } = createRuntimeRefreshHandlersWithPriv
 
 setRuntimeRefreshHandle(refreshRuntimePanelsFromRuntime);
 
-runtimeRoot.render(h(Provider, { store: appShellStore, children: h(BlindBrowserApp) }));
+runtimeRoot.render(
+  <Provider store={appShellStore}>
+    <BlindBrowserApp />
+  </Provider>,
+);
 
 void refreshRuntimePanelsFromRuntime();
 registerShellEventHandlers(appRoot);

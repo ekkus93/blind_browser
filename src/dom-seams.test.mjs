@@ -98,11 +98,11 @@ const { AppShellMarkup, preserveActivePanelControl } = await import("./app-shell
 const {
   renderSecretEntryCard,
   OPENAI_API_KEYS_URL,
-} = await import("./confirmation-panel-helpers.ts");
+} = await import("./confirmation-panel-helpers.tsx");
 const {
   renderSettingsGuidancePanelNode,
   renderUrlInputPanelNode,
-} = await import("./confirmation-panel.ts");
+} = await import("./confirmation-panel.tsx");
 const { registerApiKeyMaskEventHandlers } = await import("./event-handlers.ts");
 const {
   createAppShellStore,

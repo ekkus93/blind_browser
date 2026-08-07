@@ -22,7 +22,7 @@ import {
   statusPanelStateFromAgentState,
   renderUrlInputPanelNode,
   renderVoiceStatusStripNode,
-} from "./confirmation-panel.ts";
+} from "./confirmation-panel.tsx";
 
 export { statusPanelStateFromAgentState, renderVoiceStatusStripNode };
 

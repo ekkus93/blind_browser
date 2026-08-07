@@ -1,9 +1,7 @@
-import { createElement, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { ConfirmationUiState } from "./planner-orchestration";
 
 export const OPENAI_API_KEYS_URL = "https://platform.openai.com/account/api-keys";
-
-const h = createElement;
 
 export interface SecretEntryCardHandlers {
   onInput?: (value: string) => void;
@@ -55,23 +53,21 @@ export function renderTextWithKnownLinkNodes(value: string, onOpenExternalLink?:
 
     if (index < segments.length - 1) {
       children.push(
-        h(
-          "a",
-          {
-            href: OPENAI_API_KEYS_URL,
-            target: "_blank",
-            rel: "noreferrer",
-            "data-external-link-url": OPENAI_API_KEYS_URL,
-            onClick: onOpenExternalLink
-              ? (event: { preventDefault: () => void }) => {
-                event.preventDefault();
-                onOpenExternalLink(OPENAI_API_KEYS_URL);
-              }
-              : undefined,
-            key: `known-link-${index}`,
-          },
-          OPENAI_API_KEYS_URL,
-        ),
+        <a
+          href={OPENAI_API_KEYS_URL}
+          target="_blank"
+          rel="noreferrer"
+          data-external-link-url={OPENAI_API_KEYS_URL}
+          onClick={onOpenExternalLink
+            ? (event: { preventDefault: () => void }) => {
+              event.preventDefault();
+              onOpenExternalLink(OPENAI_API_KEYS_URL);
+            }
+            : undefined}
+          key={`known-link-${index}`}
+        >
+          {OPENAI_API_KEYS_URL}
+        </a>,
       );
     }
   });
@@ -101,96 +97,86 @@ export function renderSecretEntryCard(
   const displayedApiKeyValue = apiKeyDraft.length > 0 ? apiKeyDraft : (apiKeyMaskedValue ?? "");
   const inputType = apiKeyDraft.length > 0 ? "password" : (apiKeyMaskedValue ? "text" : "password");
 
-  return h(
-    "div",
-    { className: "settings-control-card settings-secret-entry-card" },
-    h("span", { className: "settings-control-label" }, "API key"),
-    h(
-      "div",
-      { className: "settings-api-key-inline-actions" },
-      h("input", {
-        id: `settings-remote-${kind}-api-key-input`,
-        className: "settings-control-select settings-api-key-input",
-        "data-remote-api-key-input": kind,
-        type: inputType,
-        value: displayedApiKeyValue,
-        placeholder: "Enter a replacement API key",
-        autoComplete: "off",
-        spellCheck: false,
-        "data-masked-api-key-display": apiKeyDraft.length === 0 && apiKeyMaskedValue ? apiKeyMaskedValue : undefined,
-        disabled: controlsDisabled || undefined,
-        "aria-disabled": controlsDisabled ? "true" : undefined,
-        onChange: handlers.onInput
-          ? (event: { currentTarget: { value: string } }) => {
-            handlers.onInput?.(event.currentTarget.value);
-          }
-          : undefined,
-      }),
-      h(
-        "div",
-        { className: "settings-api-key-button-row" },
-        h(
-          "button",
-          {
-            type: "button",
-            className: "settings-control-button",
-            "data-remote-api-key-save": kind,
-            disabled: saveDisabled || undefined,
-            "aria-disabled": saveDisabled ? "true" : undefined,
-            onClick: handlers.onSave,
-          },
-          "Save API key",
-        ),
-        h(
-          "button",
-          {
-            type: "button",
-            className: "settings-control-button settings-control-button-secondary",
-            "data-remote-api-key-test": kind,
-            disabled: testDisabled || undefined,
-            "aria-disabled": testDisabled ? "true" : undefined,
-            onClick: handlers.onTest,
-          },
-          ...(isTestingApiKey
-            ? [h("span", { className: "btn-spinner", "aria-hidden": "true" }), "Testing..."]
-            : ["Test API key"]),
-        ),
-      ),
-    ),
-    h(
-      "p",
-      { className: "settings-panel-description" },
-      "Need an OpenAI API key? Get one at ",
-      h(
-        "a",
-        {
-          href: OPENAI_API_KEYS_URL,
-          target: "_blank",
-          rel: "noreferrer",
-          "data-external-link-url": OPENAI_API_KEYS_URL,
-          onClick: handlers.onOpenExternalLink
+  return (
+    <div className="settings-control-card settings-secret-entry-card">
+      <span className="settings-control-label">API key</span>
+      <div className="settings-api-key-inline-actions">
+        <input
+          id={`settings-remote-${kind}-api-key-input`}
+          className="settings-control-select settings-api-key-input"
+          data-remote-api-key-input={kind}
+          type={inputType}
+          value={displayedApiKeyValue}
+          placeholder="Enter a replacement API key"
+          autoComplete="off"
+          spellCheck={false}
+          data-masked-api-key-display={apiKeyDraft.length === 0 && apiKeyMaskedValue ? apiKeyMaskedValue : undefined}
+          disabled={controlsDisabled || undefined}
+          aria-disabled={controlsDisabled ? "true" : undefined}
+          onChange={handlers.onInput
+            ? (event: { currentTarget: { value: string } }) => {
+              handlers.onInput?.(event.currentTarget.value);
+            }
+            : undefined}
+        />
+        <div className="settings-api-key-button-row">
+          <button
+            type="button"
+            className="settings-control-button"
+            data-remote-api-key-save={kind}
+            disabled={saveDisabled || undefined}
+            aria-disabled={saveDisabled ? "true" : undefined}
+            onClick={handlers.onSave}
+          >
+            Save API key
+          </button>
+          <button
+            type="button"
+            className="settings-control-button settings-control-button-secondary"
+            data-remote-api-key-test={kind}
+            disabled={testDisabled || undefined}
+            aria-disabled={testDisabled ? "true" : undefined}
+            onClick={handlers.onTest}
+          >
+            {isTestingApiKey
+              ? (
+                <>
+                  <span className="btn-spinner" aria-hidden="true" />
+                  Testing...
+                </>
+              )
+              : "Test API key"}
+          </button>
+        </div>
+      </div>
+      <p className="settings-panel-description">
+        Need an OpenAI API key? Get one at{" "}
+        <a
+          href={OPENAI_API_KEYS_URL}
+          target="_blank"
+          rel="noreferrer"
+          data-external-link-url={OPENAI_API_KEYS_URL}
+          onClick={handlers.onOpenExternalLink
             ? (event: { preventDefault: () => void }) => {
               event.preventDefault();
               handlers.onOpenExternalLink?.(OPENAI_API_KEYS_URL);
             }
-            : undefined,
-        },
-        OPENAI_API_KEYS_URL,
-      ),
-      ".",
-    ),
-    apiKeyTestMessage
-      ? h(
-        "div",
-        { className: "settings-api-key-test-status", role: "status", "aria-live": "polite" },
-        h("p", { className: "settings-api-key-test-status-label" }, "Latest test result"),
-        h(
-          "p",
-          { className: "settings-api-key-test-status-message" },
-          ...renderTextWithKnownLinkNodes(apiKeyTestMessage, handlers.onOpenExternalLink),
-        ),
-      )
-      : null,
+            : undefined}
+        >
+          {OPENAI_API_KEYS_URL}
+        </a>.
+      </p>
+      {apiKeyTestMessage
+        ? (
+          <div className="settings-api-key-test-status" role="status" aria-live="polite">
+            <p className="settings-api-key-test-status-label">Latest test result</p>
+            <p className="settings-api-key-test-status-message">
+              {renderTextWithKnownLinkNodes(apiKeyTestMessage, handlers.onOpenExternalLink)}
+            </p>
+          </div>
+        )
+        : null}
+    </div>
   );
 }
 

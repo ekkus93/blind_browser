@@ -3,7 +3,7 @@ import { type ReactNode } from "react";
 import {
   renderProviderModeLabel,
   renderSecretEntryCard,
-} from "../confirmation-panel-helpers.ts";
+} from "../confirmation-panel-helpers.tsx";
 import type {
   AsrProviderPanelState,
   LocalAsrModelPanelState,

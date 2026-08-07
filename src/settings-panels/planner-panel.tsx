@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 
-import { renderSecretEntryCard } from "../confirmation-panel-helpers.ts";
+import { renderSecretEntryCard } from "../confirmation-panel-helpers.tsx";
 import type { RemotePlannerPanelState } from "../panel-types.ts";
 import { renderConnectedRemotePlannerPrivacySettingsCard } from "./planner-privacy.tsx";
 import { renderSettingsPanelSection } from "./shared-controls.tsx";

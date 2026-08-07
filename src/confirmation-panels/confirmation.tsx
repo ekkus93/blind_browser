@@ -3,7 +3,7 @@ import { type ReactNode } from "react";
 import {
   renderConfirmationErrorBadge,
   renderConfirmationErrorClassName,
-} from "../confirmation-panel-helpers.ts";
+} from "../confirmation-panel-helpers.tsx";
 import type { ConfirmationUiState } from "../planner-orchestration";
 
 export interface ConfirmationPanelHandlers {
