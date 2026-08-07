@@ -261,10 +261,50 @@ pub(crate) fn rank_find_element_candidates(
         right
             .confidence_bps
             .cmp(&left.confidence_bps)
+            // Deterministic tie-break: lexicographic on element_id (e.g.
+            // "element-2" < "element-10"), not document order. Intentional --
+            // this only affects which of two *equally scored* candidates
+            // ranks first, not whether the result is ambiguous.
             .then_with(|| left.element_id.cmp(&right.element_id))
     });
-    candidates.truncate(candidate_limit);
+    // Always keep at least two candidates, even when the caller requested
+    // fewer: determine_find_element_resolution reads the runner-up
+    // (candidates[1]) to detect ambiguity. Truncating to exactly
+    // candidate_limit before that check let a planner-supplied
+    // max_candidates: 1 silently disable ambiguity detection -- two
+    // identically-scoring elements would resolve with no confirmation,
+    // because the runner-up had already been discarded. Callers that must
+    // respect the literal requested limit in what they show the planner
+    // truncate the *result* of the resolution decision separately (see
+    // execute_find_element), after ambiguity has already been evaluated
+    // against the true runner-up.
+    candidates.truncate(candidate_limit.max(2));
     candidates
+}
+
+/// Whether `candidate` was matched via an exact identity signal (the
+/// requested description/text equals the element's accessible name, visible
+/// text, or placeholder verbatim) rather than only a fuzzy lexical-overlap
+/// score.
+///
+/// Exact-tier matches (4_200/4_000/3_400 bps before the small enabled bonus)
+/// never reach `confirmation_confidence_threshold` on their own -- the
+/// default threshold is 0.90 (9_000 bps), well above what a single-field
+/// description match can score even at its ceiling. `field_fill`/`field_focus`
+/// use this to let a genuinely unambiguous single exact match (e.g. "focus
+/// the email field" against an element whose accessible name is literally
+/// "Email") resolve without stopping for confirmation, while a single match
+/// that only scored via generic lexical overlap (e.g. "card number" loosely
+/// overlapping an unrelated "Number of guests" field) still goes through the
+/// normal threshold-gated resolution and can require confirmation or
+/// clarification.
+pub(crate) fn is_exact_identity_match(candidate: &ElementCandidate) -> bool {
+    candidate.rationale_codes.iter().any(|code| {
+        matches!(
+            code.as_str(),
+            "accessible_name_exact" | "visible_text_exact" | "placeholder_exact"
+        )
+    })
 }
 
 pub(crate) fn determine_find_element_resolution(

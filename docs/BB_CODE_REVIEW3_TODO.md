@@ -258,7 +258,23 @@ Expected: both called before `write_config_atomic` in their respective persister
 
 ## P0.4 — Close the two confirmation-bypass paths in element resolution
 
-**Status:** PENDING · `[VERIFIED]`
+**Status:** DONE · `[VERIFIED]`
+
+**Note:** the literal P0.4.2 fix (delete the `candidates.len() == 1` special
+case, always call `determine_find_element_resolution`) was tried first and
+reverted after running the test suite: `field_fill`/`field_focus` queries only
+ever populate the `description` field, whose scoring ceiling (an exact
+accessible-name/text/placeholder match) is 4300 bps -- well below the
+production-default 9000 bps (0.90) threshold. Removing the special case
+outright would have made *every* direct fill/focus command require
+confirmation, including fully unambiguous ones, which is a severe UX
+regression the spec's "verify the intended direct-fill UX still works for a
+genuinely confident single match" caveat anticipated. The actual fix adds
+`is_exact_identity_match` (element_scoring.rs) and gates the sole-candidate
+fast path on it: an exact identity match still resolves directly; a sole
+match that only scored via fuzzy lexical overlap now correctly falls through
+to the threshold-gated resolution. All 5 previously-passing fixture tests
+that exercised the exact-match path continue to pass unmodified.
 **Spec:** constraint 4
 **Files:**
 

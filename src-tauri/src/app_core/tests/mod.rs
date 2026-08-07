@@ -1,7 +1,8 @@
 use super::api_key_tools::{fetch_openai_compatible_models, test_openai_api_key_connectivity};
 use super::element_scoring::{
     build_find_element_query, determine_find_element_resolution, filter_interactive_elements,
-    normalize_optional_text, rank_find_element_candidates, region_bbox_by_id,
+    is_exact_identity_match, normalize_optional_text, rank_find_element_candidates,
+    region_bbox_by_id,
 };
 use super::extraction_tools::should_trigger_extract_page_model_ocr_fallback;
 use super::fill_correction::{resolve_recent_fill_correction_command, RecentFieldContext};

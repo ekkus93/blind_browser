@@ -273,6 +273,56 @@ fn resolve_direct_fill_field_command_reports_missing_value() {
 }
 
 #[test]
+fn resolve_direct_fill_field_command_requires_clarification_for_a_weak_lone_match() {
+    // Regression test (CR3 P0.4): a sole candidate that only matched via
+    // fuzzy lexical overlap -- not an exact accessible-name/text/placeholder
+    // match -- must not bypass confirmation_confidence_threshold just
+    // because it was the only field that scored at all. Previously this
+    // resolved directly with no confirmation and no clarification, typing
+    // into whatever field happened to loosely overlap the request.
+    let page = PageModel {
+        title: Some(String::from("Example form")),
+        url: Some(String::from("https://example.com/form")),
+        regions: Vec::new(),
+        interactive_elements: vec![InteractiveElement {
+            element_id: String::from("input-guests"),
+            dom_locator: Some(String::from("#guests")),
+            role: ElementRole::Input,
+            tag_name: String::from("input"),
+            text: None,
+            accessible_name: Some(String::from("Number of guests")),
+            placeholder: Some(String::from("Number of guests")),
+            href: None,
+            value: None,
+            bbox: None,
+            visible: true,
+            enabled: true,
+            attributes: std::collections::BTreeMap::new(),
+        }],
+    };
+
+    let planner_output = resolve_direct_fill_field_command(
+        "fill the card number field with 4111111111111111",
+        "req-fill-field-weak-match",
+        Some(&page),
+        &[String::from("fill_field_by_label")],
+        0.9,
+    )
+    .expect("fill-field command should resolve");
+
+    // Must NOT proceed to filling the (wrong) field directly.
+    assert!(planner_output
+        .steps
+        .iter()
+        .all(|step| step.tool_name != ToolName::TypeIntoElement));
+    assert_eq!(planner_output.steps[0].tool_name, ToolName::ReportResult);
+    assert_eq!(
+        planner_output.steps[0].arguments.get("status"),
+        Some(&serde_json::json!(ReportStatus::NeedsFollowUp))
+    );
+}
+
+#[test]
 fn resolve_direct_fill_and_submit_command_builds_confirmation_gated_plan() {
     let page = PageModel {
         title: Some(String::from("Example form")),

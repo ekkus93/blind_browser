@@ -242,3 +242,92 @@ fn determine_find_element_resolution_uses_configured_confidence_threshold() {
     assert_eq!(chosen_confidence, Some(0.88));
     assert!(!requires_confirmation);
 }
+
+#[test]
+fn rank_find_element_candidates_keeps_a_runner_up_even_when_candidate_limit_is_one() {
+    // Regression test (CR3 P0.4): a planner-supplied max_candidates: 1 must
+    // not be able to disable ambiguity detection by starving the resolver of
+    // the second-place candidate. Two elements score identically here.
+    let elements = vec![
+        InteractiveElement {
+            element_id: String::from("button-1"),
+            dom_locator: Some(String::from("#button-1")),
+            role: ElementRole::Button,
+            tag_name: String::from("button"),
+            text: Some(String::from("Continue")),
+            accessible_name: Some(String::from("Continue")),
+            placeholder: None,
+            href: None,
+            value: None,
+            bbox: None,
+            visible: true,
+            enabled: true,
+            attributes: std::collections::BTreeMap::new(),
+        },
+        InteractiveElement {
+            element_id: String::from("button-2"),
+            dom_locator: Some(String::from("#button-2")),
+            role: ElementRole::Button,
+            tag_name: String::from("button"),
+            text: Some(String::from("Continue")),
+            accessible_name: Some(String::from("Continue")),
+            placeholder: None,
+            href: None,
+            value: None,
+            bbox: None,
+            visible: true,
+            enabled: true,
+            attributes: std::collections::BTreeMap::new(),
+        },
+    ];
+    let query = build_find_element_query(&FindElementInput {
+        request_id: String::from("req-find"),
+        timeout_ms: None,
+        description: String::from("Continue"),
+        text: None,
+        role: Some(ElementRole::Button),
+        color_hint: None,
+        nearby_text: None,
+        selector_hint: None,
+        visibility_filter: crate::commands::ElementVisibilityFilter::VisibleOnly,
+        max_candidates: Some(1),
+    })
+    .expect("query should be valid");
+
+    // A caller asking for at most 1 candidate must still see the runner-up
+    // reflected in the resolution decision, even though rank_find_element_candidates
+    // is allowed to internally retain more than 1 entry to make that possible.
+    let candidates = rank_find_element_candidates(&elements, &query, 1);
+    assert!(
+        candidates.len() >= 2,
+        "ranking must retain a runner-up for ambiguity detection, got {candidates:?}"
+    );
+
+    let (chosen_element_id, _, requires_confirmation) =
+        determine_find_element_resolution(&candidates, 0.5);
+
+    assert_eq!(
+        chosen_element_id, None,
+        "two identically-scoring candidates must not resolve without confirmation just because max_candidates was 1"
+    );
+    assert!(requires_confirmation);
+}
+
+#[test]
+fn is_exact_identity_match_distinguishes_exact_matches_from_fuzzy_overlap() {
+    let exact = crate::commands::ElementCandidate {
+        element_id: String::from("input-email"),
+        confidence_bps: 4_300,
+        matched_on: vec![String::from("description")],
+        rationale_codes: vec![String::from("accessible_name_exact")],
+    };
+    assert!(is_exact_identity_match(&exact));
+
+    let fuzzy = crate::commands::ElementCandidate {
+        element_id: String::from("input-guests"),
+        confidence_bps: 2_050,
+        matched_on: vec![String::from("description")],
+        rationale_codes: vec![String::from("lexical_overlap")],
+    };
+    assert!(!is_exact_identity_match(&fuzzy));
+}

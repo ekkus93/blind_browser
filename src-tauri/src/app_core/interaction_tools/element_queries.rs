@@ -140,7 +140,13 @@ impl super::super::AppCore {
             input.visibility_filter.visible_only(),
             input.role.as_ref().map(std::slice::from_ref),
         );
-        let ranked_candidates =
+        // rank_find_element_candidates may keep more than candidate_limit
+        // entries (it always keeps at least 2, so ambiguity can be evaluated
+        // against a true runner-up even when candidate_limit is 1). Compute
+        // the resolution decision against that full set first, then truncate
+        // to the caller's literal requested limit below, purely for what is
+        // reported back -- never for what the safety decision saw.
+        let mut ranked_candidates =
             rank_find_element_candidates(&elements, &search_query, candidate_limit);
         let (chosen_element_id, chosen_confidence, requires_confirmation) =
             determine_find_element_resolution(
@@ -182,6 +188,10 @@ impl super::super::AppCore {
         } else {
             None
         };
+
+        // Report back only what the caller actually asked for; the extra
+        // runner-up kept for ambiguity detection above is not planner-facing.
+        ranked_candidates.truncate(candidate_limit);
 
         let mut observations = vec![format!(
             "Searched {} interactive element(s) from the current runtime page state.",

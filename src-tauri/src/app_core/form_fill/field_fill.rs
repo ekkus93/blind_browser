@@ -1,6 +1,6 @@
 use crate::app_core::element_scoring::{
     build_find_element_query, determine_find_element_resolution, focusable_field_elements,
-    rank_find_element_candidates, summarize_candidate_names,
+    is_exact_identity_match, rank_find_element_candidates, summarize_candidate_names,
 };
 use crate::app_core::fill_correction::{
     build_direct_fill_and_submit_ready_output, build_direct_fill_ready_output,
@@ -220,10 +220,21 @@ pub(crate) fn resolve_direct_fill_command_internal(
         &search_query,
         DEFAULT_FIND_ELEMENT_MAX_CANDIDATES,
     );
-    let (chosen_element_id, _, requires_confirmation) = if candidates.len() == 1 {
-        (Some(candidates[0].element_id.clone()), None, false)
-    } else {
-        determine_find_element_resolution(&candidates, confirmation_confidence_threshold)
+    // A sole candidate resolves directly only when it matched via an exact
+    // identity signal (accessible name / text / placeholder equals the
+    // requested description verbatim) -- see is_exact_identity_match. Exact
+    // single matches never reach confirmation_confidence_threshold on raw
+    // score alone (the default 0.90 threshold is well above what a
+    // description-only match can score), so gating on the threshold here
+    // unconditionally would require confirmation on every direct fill, even
+    // fully unambiguous ones. But a sole candidate that only matched via
+    // fuzzy lexical overlap -- e.g. a 0.2-confidence hit where "card number"
+    // loosely overlaps an unrelated "Number of guests" field -- must still go
+    // through the normal threshold-gated resolution rather than bypassing it
+    // just because nothing else scored.
+    let (chosen_element_id, _, requires_confirmation) = match candidates.as_slice() {
+        [only] if is_exact_identity_match(only) => (Some(only.element_id.clone()), None, false),
+        _ => determine_find_element_resolution(&candidates, confirmation_confidence_threshold),
     };
     let recent_field_context = current_page_id.map(|_| PendingRecentFieldContext {
         target_description: Some(description.clone()),
