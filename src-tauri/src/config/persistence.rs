@@ -1,4 +1,5 @@
 use std::fs;
+use std::fs::OpenOptions;
 use std::io::Write as _;
 use std::path::Path;
 
@@ -29,6 +30,22 @@ fn write_config_atomic(path: &Path, serialized: &str) -> Result<(), ConfigError>
         path: parent.to_path_buf(),
         source,
     })?;
+    // config.toml is not secret-bearing (the keyring holds actual secrets),
+    // but it holds remote_planner_privacy.origin_rules: a durable,
+    // timestamped record of which sites the user visited and what they
+    // consented to send off-device. Restrict the directory the same way
+    // image_cache.rs already does for its own (also privacy-sensitive)
+    // files.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(parent, fs::Permissions::from_mode(0o700)).map_err(|source| {
+            ConfigError::Write {
+                path: parent.to_path_buf(),
+                source,
+            }
+        })?;
+    }
 
     let file_name = path
         .file_name()
@@ -43,10 +60,26 @@ fn write_config_atomic(path: &Path, serialized: &str) -> Result<(), ConfigError>
     let tmp_path = path.with_file_name(format!("{file_name}.tmp"));
 
     let write_result = (|| -> Result<(), ConfigError> {
-        let mut file = fs::File::create(&tmp_path).map_err(|source| ConfigError::Write {
-            path: tmp_path.clone(),
-            source,
-        })?;
+        // Mode must be set at creation (an OpenOptions flag), not via a
+        // set_permissions call after the file exists -- setting it after
+        // creation leaves a TOCTOU window where the file is briefly
+        // world/group-readable at the umask default before the mode change
+        // lands. fs::rename preserves the source file's mode, so the
+        // renamed config.toml inherits 0600 from this temp file with no
+        // separate step needed.
+        let mut open_options = OpenOptions::new();
+        open_options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            open_options.mode(0o600);
+        }
+        let mut file = open_options
+            .open(&tmp_path)
+            .map_err(|source| ConfigError::Write {
+                path: tmp_path.clone(),
+                source,
+            })?;
 
         file.write_all(serialized.as_bytes())
             .map_err(|source| ConfigError::Write {
@@ -749,6 +782,36 @@ mod tests {
         write_config_atomic(&path, "value = 2\n").unwrap();
 
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "value = 2\n");
+    }
+
+    // CR3 P2.3: config.toml holds remote_planner_privacy.origin_rules -- a
+    // durable, timestamped record of which sites the user visited and what
+    // they consented to send off-device. It is not secret-bearing (the
+    // keyring handles secrets), but on a shared machine any local user could
+    // previously read it at the umask default (measured 0644). Mirrors
+    // image_cache.rs's existing 0700 dir / 0600 file convention for its own
+    // privacy-sensitive files.
+    #[cfg(unix)]
+    #[test]
+    fn write_config_atomic_restricts_file_and_directory_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("nested-config-dir");
+        let path = dir.join("config.toml");
+
+        write_config_atomic(&path, "value = 1\n").unwrap();
+
+        let file_mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(
+            file_mode, 0o600,
+            "config.toml must be created 0600, not left at the umask default"
+        );
+        let dir_mode = std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777;
+        assert_eq!(
+            dir_mode, 0o700,
+            "the config directory must be restricted to 0700"
+        );
     }
 
     #[test]

@@ -1361,7 +1361,27 @@ Expected: referenced from tests, not only their definitions.
 
 ## P2.2 — Guard the CI lists that can silently under-run
 
-**Status:** PENDING
+**Status:** DONE
+**Note:** Added `verify_isolated_wry_test_list_is_complete` to
+`scripts/run-rust-tests-linux.sh`, run before any isolated test: it derives
+the real `#[ignore]`d test set from `cargo test -- --ignored --list`,
+diffs it against the (now array-form, still ordered/explicit)
+`ISOLATED_WRY_TESTS` list, and fails loudly with the diff on any divergence
+in either direction — a test added without a matching entry, or an entry
+for a test that no longer exists. The individual `run_isolated_wry_test`
+calls were also collapsed into a loop over the same array, so there is now
+exactly one place that needs updating when a new isolated test is added,
+not two. Verified both directions by hand: the happy-path run reports "PASS:
+... (9 tests)"; temporarily deleting one entry from the array reproduces the
+expected failure with a readable diff and exit code 1. P2.2.2 (note P1.1's
+new tests) is satisfied by construction — `narration_consent_tests`'s
+evidence test and P2.1's new click-authorization evidence test are both
+already in the array, and the completeness check would have caught it if
+either had been missed.
+**Out of scope, by the TODO's own file list**: `check-remote-planner-privacy-state.py`'s
+`REQUIRED_PATHS` and the historical `test:ui` glob are cited in the Problem
+section as prior instances of the same bug shape, not additional
+deliverables of this item (`Files:` names only `run-rust-tests-linux.sh`).
 **Spec:** constraint 12
 **Files:** `scripts/run-rust-tests-linux.sh`
 
@@ -1397,7 +1417,30 @@ Expected: fails if the hardcoded list and the actual ignored set diverge.
 
 ## P2.3 — Restrict config file permissions
 
-**Status:** PENDING
+**Status:** DONE
+**Note:** `write_config_atomic`'s temp file is now opened with
+`OpenOptions::new().mode(0o600)` set at creation (not via a post-creation
+`set_permissions` call, which would itself be the TOCTOU window P2.3.1
+warns about), and the config directory is restricted to `0700`, mirroring
+`image_cache.rs`'s existing convention for its own privacy-sensitive files.
+`fs::rename` preserves the source file's mode, so the renamed `config.toml`
+inherits `0600` with no separate step. New unit test
+(`write_config_atomic_restricts_file_and_directory_permissions`) asserts
+both modes directly.
+
+P2.3.2's two adjacent items: the missing parent-directory fsync-after-rename
+was fixed in the **shared** `atomic_file::replace_file_atomically` helper
+(used by both config persistence and model-management downloads, so both
+inherit the durability fix from one place) rather than duplicated locally.
+The fixed-temp-filename/no-concurrency-control item is recorded as
+**accepted, not fixed**: every config write already funnels through the
+single `Arc<Mutex<AppCore>>` guard, so no intra-process race is possible;
+a cross-process race would require running two copies of this desktop app
+against the same profile directory simultaneously, a scenario this app
+does not otherwise defend against (no existing single-instance lock, PID
+file, or similar), so adding concurrency control for just the config-write
+path alone would be inconsistent with the rest of the app's threat model
+rather than a genuine hardening improvement.
 **Files:** `src-tauri/src/config/persistence.rs`
 
 ### Problem
