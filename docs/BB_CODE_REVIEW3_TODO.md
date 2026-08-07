@@ -1759,8 +1759,9 @@ regression is caught.
 
 ## P2.7 — Cache the whisper context across utterances
 
-**Status:** PENDING
-**Files:** `src-tauri/src/asr/local.rs`
+**Status:** DONE · `[VERIFIED]`
+**Files:** `src-tauri/src/asr/local.rs`, `src-tauri/src/asr/mod.rs`,
+`src-tauri/src/app_core/voice_tools.rs`
 
 ### Problem
 
@@ -1782,6 +1783,44 @@ keep that property; do not reintroduce `AppCore` coupling.
 ### P2.7.2 — Verify interaction with P1.2
 
 The cache must not reintroduce a lock held across model load.
+
+### Implementation note
+
+- **P2.7.1**: added a `static CACHE: OnceLock<Mutex<Option<CachedWhisperContext>>>`
+  local to `asr/local.rs` (accessed only via a `whisper_context_cache()`
+  free function, not exposed elsewhere), keyed on `model_path`, mirroring
+  `tts::local::TtsController::local_model`'s reload-when-the-path-changes
+  logic — but as a free-standing static rather than a controller field, since
+  `transcribe_local`/`transcribe_with_whisper` are deliberately free functions
+  holding no `AppCore`/`AsrController` state (per the CR2 lock-scoping
+  refactor's own doc comment on `transcribe_local`). The reload decision
+  itself (`whisper_cache_needs_reload`) is factored out as a small pure
+  function, `#[cfg(any(feature = "local-asr", test))]` like the existing
+  `collect_transcript_segments`, so it's unit-testable without a real ggml
+  model file (none is bundled in the repo, and adding a multi-MB binary
+  fixture for this would be disproportionate). Added `AsrRuntimeError::WhisperContextCacheLockFailed`
+  (mirroring the existing `AudioBufferLockFailed`'s no-`reason`-field shape)
+  for a poisoned cache mutex, mapped to `asr_model_cache_lock_failed` in
+  `voice_tools.rs`'s exhaustive `asr_runtime_error_to_tool_error` match
+  (which does not have a wildcard arm, so the new variant had to be handled
+  there for the crate to compile at all — not an optional addition).
+- **P2.7.2**: verified, not just asserted. `transcribe_captured_audio`'s own
+  doc comment already states it's "a free function with no `AsrController`/
+  `AppCore` state, so it can run with the `AppCore` lock released," and
+  `command_handlers/voice_handlers.rs` calls it unlocked. The new whisper
+  cache `Mutex` is therefore never nested inside the `AppCore` lock — it's
+  held only for the duration of one transcription, on a lock distinct from
+  and unrelated to the one P1.2's lock-scoping work was about.
+- Full validation green: `cargo check --features local-asr` (isolated feature
+  check, to directly confirm `WhisperContext: Send` — required for
+  `Mutex<Option<CachedWhisperContext>>: Sync`, which a `static` requires —
+  compiles cleanly rather than assuming it), `cargo fmt --check`, `cargo
+  clippy --all-targets --all-features -- -D warnings`, `cargo test
+  --all-features` (537 passed, 9 ignored — 3 net-new tests pinning the reload
+  decision), all 4 CI guard scripts, `xvfb-run -a cargo test --all-features`,
+  and the full isolated-Wry sweep via `run-rust-tests-linux.sh` (this change
+  doesn't touch any isolated-Wry-gated code path, but run for full CI parity
+  regardless).
 
 ---
 

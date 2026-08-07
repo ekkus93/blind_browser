@@ -1,4 +1,6 @@
 use std::path::Path;
+#[cfg(feature = "local-asr")]
+use std::sync::{Mutex, OnceLock};
 
 use crate::config::{AppConfig, LocalAsrProfile};
 
@@ -44,6 +46,40 @@ fn normalized_model_path(model_path: &str) -> Result<String, AsrRuntimeError> {
     Ok(trimmed.to_string())
 }
 
+/// Whether the cached whisper context (if any) must be rebuilt for
+/// `requested_path`. Factored out of `transcribe_with_whisper` so the reload
+/// decision is unit-testable without a real ggml model file, the same reason
+/// `collect_transcript_segments` above is generic over its segment type.
+#[cfg(any(feature = "local-asr", test))]
+fn whisper_cache_needs_reload(cached_path: Option<&str>, requested_path: &str) -> bool {
+    cached_path.is_none_or(|cached| cached != requested_path)
+}
+
+// CR3 P2.7: `WhisperContext` construction loads the whole ggml model file
+// into memory (78 MB for the tiny model, up to 3.09 GB for large-v3), so
+// rebuilding it on every utterance -- as this used to do -- meant every
+// spoken command paid a full model load before transcription even started.
+// This process-level cache mirrors `tts::local::TtsController::local_model`'s
+// reload-when-the-path-changes pattern, but as a free-standing `OnceLock`
+// rather than a field on a controller struct: the CR2 lock-scoping refactor
+// deliberately made `transcribe_local` a free function that holds no
+// controller state so it can run with the `AppCore` lock released (see its
+// doc comment above), and a cache field would reintroduce exactly that
+// coupling. The `Mutex` here is local-asr-only and distinct from the
+// `AppCore` lock, held only for the duration of one transcription, so it
+// does not reintroduce the lock-held-across-model-load problem P1.2 fixed.
+#[cfg(feature = "local-asr")]
+struct CachedWhisperContext {
+    model_path: String,
+    context: WhisperContext,
+}
+
+#[cfg(feature = "local-asr")]
+fn whisper_context_cache() -> &'static Mutex<Option<CachedWhisperContext>> {
+    static CACHE: OnceLock<Mutex<Option<CachedWhisperContext>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(None))
+}
+
 #[cfg(feature = "local-asr")]
 fn transcribe_with_whisper(
     model_path: &str,
@@ -54,11 +90,29 @@ fn transcribe_with_whisper(
         return Err(AsrRuntimeError::NoAudioCaptured);
     }
 
-    let context = WhisperContext::new_with_params(model_path, WhisperContextParameters::default())
-        .map_err(|error| AsrRuntimeError::LocalModelLoad {
+    let mut cache = whisper_context_cache()
+        .lock()
+        .map_err(|_| AsrRuntimeError::WhisperContextCacheLockFailed)?;
+    if whisper_cache_needs_reload(
+        cache.as_ref().map(|cached| cached.model_path.as_str()),
+        model_path,
+    ) {
+        let context =
+            WhisperContext::new_with_params(model_path, WhisperContextParameters::default())
+                .map_err(|error| AsrRuntimeError::LocalModelLoad {
+                    model_path: model_path.to_string(),
+                    reason: error.to_string(),
+                })?;
+        *cache = Some(CachedWhisperContext {
             model_path: model_path.to_string(),
-            reason: error.to_string(),
-        })?;
+            context,
+        });
+    }
+    let context = &cache
+        .as_ref()
+        .expect("whisper context should be present after load")
+        .context;
+
     let mut state =
         context
             .create_state()
@@ -140,6 +194,30 @@ mod tests {
             }
             other => panic!("expected TranscriptionFailed, got {other:?}"),
         }
+    }
+
+    // CR3 P2.7: pin the whisper-context cache's reload decision -- no cached
+    // entry, or a cached entry for a different model path, must reload; a
+    // cached entry for the same path must not.
+    #[test]
+    fn whisper_cache_needs_reload_on_empty_cache() {
+        assert!(whisper_cache_needs_reload(None, "/models/ggml-tiny.bin"));
+    }
+
+    #[test]
+    fn whisper_cache_needs_reload_on_model_path_change() {
+        assert!(whisper_cache_needs_reload(
+            Some("/models/ggml-tiny.bin"),
+            "/models/ggml-large-v3.bin"
+        ));
+    }
+
+    #[test]
+    fn whisper_cache_reuses_context_for_the_same_model_path() {
+        assert!(!whisper_cache_needs_reload(
+            Some("/models/ggml-tiny.bin"),
+            "/models/ggml-tiny.bin"
+        ));
     }
 }
 

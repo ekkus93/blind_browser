@@ -100,6 +100,8 @@ pub enum AsrRuntimeError {
     MissingLocalModelPath { model_path: String },
     #[error("failed to load the local asr model from {model_path}: {reason}")]
     LocalModelLoad { model_path: String, reason: String },
+    #[error("failed to lock the cached local asr model")]
+    WhisperContextCacheLockFailed,
     #[error("captured audio buffer was empty")]
     NoAudioCaptured,
     #[error("remote asr secret could not be resolved: {reason}")]

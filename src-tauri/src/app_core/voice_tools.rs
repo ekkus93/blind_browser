@@ -360,6 +360,7 @@ pub(crate) fn asr_runtime_error_to_tool_error(error: &AsrRuntimeError) -> ToolEr
         AsrRuntimeError::OperationLimited { .. } => "asr_operation_limited",
         AsrRuntimeError::RemoteRequestFailed { .. } => "asr_request_failed",
         AsrRuntimeError::LocalModelLoad { .. } => "asr_model_load_failed",
+        AsrRuntimeError::WhisperContextCacheLockFailed => "asr_model_cache_lock_failed",
         AsrRuntimeError::NoAudioCaptured => "no_audio_captured",
         AsrRuntimeError::TranscriptionFailed { .. } => "asr_transcription_failed",
     };
