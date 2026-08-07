@@ -1281,7 +1281,51 @@ or document why it is safe.
 
 ## P2.1 — Test the click-authorization subsystem
 
-**Status:** PENDING
+**Status:** DONE
+**Note:** Added `click_authorization_subsystem_is_fail_closed`, one
+isolated-Wry evidence test (`app_core::click_authorization::tests::app_core_evidence_tests`,
+mirroring `confirmation_replay_tests.rs`'s established pattern — a real
+`AppCore::new(app.handle())`, `#[ignore]`d and registered in
+`scripts/run-rust-tests-linux.sh`) exercising all six required scenarios
+against the real `AppCore` methods, not just the free-function unit tests
+that existed before:
+1. A forged, never-minted token → `unknown_click_authorization`.
+2. A forged `_runtime_click_ambiguous: false` claim over a genuinely
+   unresolved element (no prior authorization) → stripped by
+   `clear_runtime_annotations` and correctly re-derived to `true`.
+3. A `Ready` all-click plan → the deterministic `ConfirmAction` gate is
+   actually inserted at index 0 and `status`/`requires_confirmation` flip.
+4. One valid token reused across two click steps in the same plan →
+   `duplicate_click_authorization`.
+5. Expiry and page-generation staleness are both enforced, as two separate
+   sub-cases (`click_authorization_expired`, `stale_click_authorization`).
+6. The fingerprint-mismatch rejection (`click_target_changed`) fires when
+   the authorized element's identity changes.
+
+**One implementation-affecting discovery**: the literal case 5 ask
+("expiry ... enforced") needed a different entry point than initially
+tried. `prepare_planner_output_for_execution` eagerly prunes expired tokens
+from the store *before* processing any step (`self.prune_click_authorizations()`
+at its top) — so a statically pre-expired token is already gone by the time
+the per-step check runs, and the call surfaces `unknown_click_authorization`
+instead of `click_authorization_expired`. These are genuinely different,
+both-real error codes (unknown = never existed here; expired = existed, then
+lapsed), not equivalent — caught only by running the test and reading the
+actual failure, not by reasoning alone. Switched that one sub-case to
+`preflight_pending_click_authorizations`, which doesn't prune first and so
+reaches the expiry check the scenario is actually about; the other five
+sub-cases use `prepare_planner_output_for_execution` as originally intended.
+
+**Case 6 (live-DOM fingerprint mismatch) is tested at the reachable layer,
+not literally through a live browser**: `verify_element_matches_record` — the
+exact comparison function the live-DOM re-check (`validate_live_dom: true`)
+uses — is *first* run against the current **stored** page model
+(`self.state.current_page`, no browser needed) before the live-DOM branch is
+ever reached; a mismatch there returns `click_target_changed` through the
+identical code path. This codebase has no live-browser (real CDP/chromiumoxide)
+test harness anywhere (confirmed again during this pass, same constraint as
+CR3 P1.3), so exercising the *live* half of that check specifically remains
+untested; the shared rejection logic it depends on is not.
 **Spec:** constraint 11
 **Files:** `src-tauri/src/app_core/click_authorization.rs` (+ a tests module)
 

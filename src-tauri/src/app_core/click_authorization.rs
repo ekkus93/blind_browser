@@ -741,4 +741,265 @@ mod tests {
             Some("Delete account"),
         );
     }
+
+    // CR3 P2.1: `prepare_planner_output_for_execution`,
+    // `preflight_pending_click_authorizations`,
+    // `insert_deterministic_click_confirmation_gate`, and
+    // `ClickGroundingAuthorized`-adjacent state had zero references outside
+    // their own definitions before this pass -- the enabling debt behind
+    // P0.1. These exercise the real `AppCore` methods (not just the free
+    // functions above) against a real Wry-backed `AppCore`, mirroring the
+    // pattern established by `confirmation_replay_tests.rs`.
+    mod app_core_evidence_tests {
+        use super::*;
+        use crate::commands::{BlockedReason, IntentName, IntentSummary};
+        use crate::page_model::PageModel;
+
+        const PAGE_ID: &str = "page-1";
+        const ELEMENT_ID: &str = "button-1";
+        const ORIGIN: &str = "https://example.com";
+
+        fn test_app() -> tauri::App<tauri::Wry> {
+            let builder = tauri::Builder::<tauri::Wry>::default();
+            #[cfg(any(windows, target_os = "linux"))]
+            let builder = builder.any_thread();
+            builder
+                .build(tauri::generate_context!())
+                .expect("test Tauri application should build")
+        }
+
+        fn page_with_button(label: &str) -> PageModel {
+            PageModel {
+                title: Some(String::from("Example")),
+                url: Some(format!("{ORIGIN}/")),
+                regions: Vec::new(),
+                interactive_elements: vec![InteractiveElement {
+                    element_id: String::from(ELEMENT_ID),
+                    dom_locator: Some(String::from("#button-1")),
+                    role: ElementRole::Button,
+                    tag_name: String::from("button"),
+                    text: Some(label.to_string()),
+                    accessible_name: Some(label.to_string()),
+                    placeholder: None,
+                    href: None,
+                    value: None,
+                    bbox: None,
+                    visible: true,
+                    enabled: true,
+                    attributes: BTreeMap::new(),
+                }],
+            }
+        }
+
+        fn ready_core(app: &tauri::App<tauri::Wry>, label: &str) -> crate::app_core::AppCore {
+            let mut core = crate::app_core::AppCore::new(app.handle().clone())
+                .expect("AppCore should initialize for click-authorization evidence");
+            core.state.current_page_id = Some(String::from(PAGE_ID));
+            core.state.current_page = Some(page_with_button(label));
+            core.state.page_generation = 1;
+            core
+        }
+
+        fn click_step(
+            step_id: &str,
+            token: Option<&str>,
+            ambiguous_claim: Option<bool>,
+        ) -> PlannedStep {
+            let mut arguments = serde_json::json!({
+                "request_id": step_id,
+                "timeout_ms": 1000,
+                "element_id": ELEMENT_ID,
+            });
+            if let Some(token) = token {
+                arguments[CLICK_AUTH_TOKEN_ARG] = serde_json::Value::String(token.to_string());
+            }
+            if let Some(ambiguous_claim) = ambiguous_claim {
+                arguments[CLICK_AUTH_AMBIGUOUS_ARG] = serde_json::Value::Bool(ambiguous_claim);
+            }
+            PlannedStep {
+                step_id: step_id.to_string(),
+                tool_name: ToolName::ClickElement,
+                arguments,
+                purpose: String::from("test click"),
+                on_success: StepTransition::Complete,
+                on_failure: StepTransition::Replan,
+            }
+        }
+
+        fn ready_plan(steps: Vec<PlannedStep>) -> PlannerOutput {
+            PlannerOutput {
+                status: PlannerStatus::Ready,
+                intent: IntentSummary {
+                    name: IntentName::ClickElement,
+                    goal: String::from("click the button"),
+                    target_description: None,
+                },
+                selected_skills: Vec::new(),
+                steps,
+                requires_confirmation: false,
+                confirmation_reason: None,
+                blocked_reason: None::<BlockedReason>,
+                user_message: None,
+            }
+        }
+
+        #[test]
+        #[cfg_attr(
+            any(windows, target_os = "linux"),
+            ignore = "real Wry AppCore fixture must run in a process-isolated test invocation"
+        )]
+        #[cfg_attr(
+            not(any(windows, target_os = "linux")),
+            ignore = "real Wry AppCore fixture requires Tauri's any-thread desktop builder"
+        )]
+        fn click_authorization_subsystem_is_fail_closed() {
+            let app = test_app();
+
+            // 1. A planner-supplied token for one that was never minted is
+            // rejected, not silently accepted.
+            {
+                let mut core = ready_core(&app, "Continue");
+                let plan = ready_plan(vec![click_step(
+                    "step-1",
+                    Some("forged-token-never-minted"),
+                    None,
+                )]);
+                let error = core
+                    .prepare_planner_output_for_execution(&plan)
+                    .expect_err("a forged, never-minted token must be rejected");
+                assert_eq!(error.code, "unknown_click_authorization");
+            }
+
+            // 2 & 3. A Ready all-click plan with no prior authorization for
+            // the element: the deterministic confirmation gate is inserted
+            // (since ClickElement is always ConfirmationRequired), and a
+            // forged `_runtime_click_ambiguous: false` claim is stripped and
+            // correctly re-derived to `true` -- there was no prior record
+            // for this element, so it genuinely is unresolved/ambiguous.
+            {
+                let mut core = ready_core(&app, "Continue");
+                let plan = ready_plan(vec![click_step("step-1", None, Some(false))]);
+                let prepared = core
+                    .prepare_planner_output_for_execution(&plan)
+                    .expect("a fresh click plan should prepare, gated by confirmation");
+
+                assert_eq!(prepared.status, PlannerStatus::NeedsConfirmation);
+                assert!(prepared.requires_confirmation);
+                assert_eq!(
+                    prepared.steps.len(),
+                    2,
+                    "expected the inserted confirmation gate plus the original click step"
+                );
+                assert_eq!(prepared.steps[0].tool_name, ToolName::ConfirmAction);
+
+                let click = prepared
+                    .steps
+                    .iter()
+                    .find(|step| step.tool_name == ToolName::ClickElement)
+                    .expect("the original click step should still be present");
+                assert_eq!(
+                    click.arguments.get(CLICK_AUTH_AMBIGUOUS_ARG),
+                    Some(&serde_json::Value::Bool(true)),
+                    "a forged ambiguous=false claim over a genuinely unresolved element must be \
+                     stripped and re-derived as ambiguous=true, not trusted"
+                );
+                assert!(
+                    click.arguments.get(CLICK_AUTH_TOKEN_ARG).is_some(),
+                    "the click step must be annotated with a freshly minted token"
+                );
+            }
+
+            // 4. One click authorization token cannot authorize two
+            // separate planned click steps, even when the token is
+            // genuinely valid for both (same element, unconsumed).
+            {
+                let mut core = ready_core(&app, "Continue");
+                let token = core
+                    .issue_find_element_click_authorization("req-mint", ELEMENT_ID, 9_500)
+                    .expect("minting a token for a real element should succeed");
+                let plan = ready_plan(vec![
+                    click_step("step-1", Some(&token), None),
+                    click_step("step-2", Some(&token), None),
+                ]);
+                let error = core
+                    .prepare_planner_output_for_execution(&plan)
+                    .expect_err("reusing one token across two click steps must be rejected");
+                assert_eq!(error.code, "duplicate_click_authorization");
+            }
+
+            // 5a. Expiry is enforced: a token past its expiry is rejected
+            // even though every other field still matches. Uses
+            // `preflight_pending_click_authorizations` rather than
+            // `prepare_planner_output_for_execution`: the latter eagerly
+            // prunes expired tokens from the store *before* processing any
+            // step, so a statically-expired token is gone by the time the
+            // per-step check runs and surfaces as "unknown" rather than
+            // "expired" -- a real, narrower distinction, not a test
+            // artifact (the two error codes mean different things: unknown
+            // covers a token that never existed here, expired covers one
+            // that did but lapsed). `preflight_pending_click_authorizations`
+            // does not prune first, so it reaches the expiry check this
+            // scenario is actually about.
+            {
+                let mut core = ready_core(&app, "Continue");
+                let token = core
+                    .issue_find_element_click_authorization("req-mint", ELEMENT_ID, 9_500)
+                    .expect("minting a token for a real element should succeed");
+                core.state
+                    .click_authorizations
+                    .get_mut(&token)
+                    .expect("minted token should be stored")
+                    .expires_at_ms = 1;
+                let plan = ready_plan(vec![click_step("step-1", Some(&token), None)]);
+                let error = core
+                    .preflight_pending_click_authorizations(&plan.steps)
+                    .expect_err("an expired token must be rejected");
+                assert_eq!(error.code, "click_authorization_expired");
+                assert!(
+                    !core.state.click_authorizations.contains_key(&token),
+                    "an expired token must be pruned once observed, not left to linger"
+                );
+            }
+
+            // 5b. Page-generation staleness is enforced: a token minted
+            // under an earlier page generation is rejected once the page
+            // has moved on, even though the element_id is unchanged.
+            {
+                let mut core = ready_core(&app, "Continue");
+                let token = core
+                    .issue_find_element_click_authorization("req-mint", ELEMENT_ID, 9_500)
+                    .expect("minting a token for a real element should succeed");
+                core.state.page_generation = 2;
+                let plan = ready_plan(vec![click_step("step-1", Some(&token), None)]);
+                let error = core
+                    .prepare_planner_output_for_execution(&plan)
+                    .expect_err("a token minted under a stale page generation must be rejected");
+                assert_eq!(error.code, "stale_click_authorization");
+            }
+
+            // 6. The fingerprint-mismatch rejection path fires when the
+            // element's own recorded identity (label/locator) has changed
+            // since authorization was minted -- the same
+            // `verify_element_matches_record` check `preflight_*` runs
+            // against the live DOM also runs against the current stored
+            // page model first, so this is reachable without a live browser
+            // session (which this test suite has no harness for -- see the
+            // CR3 P1.3 note on `dom_extraction.rs` for the same constraint).
+            {
+                let mut core = ready_core(&app, "Continue");
+                let token = core
+                    .issue_find_element_click_authorization("req-mint", ELEMENT_ID, 9_500)
+                    .expect("minting a token for a real element should succeed");
+                // The page changed under the user (e.g. re-extracted after a
+                // DOM mutation) without a navigation/page_generation bump:
+                // the button's accessible name changed.
+                core.state.current_page = Some(page_with_button("Delete account"));
+                let plan = ready_plan(vec![click_step("step-1", Some(&token), None)]);
+                let error = core.prepare_planner_output_for_execution(&plan).expect_err(
+                    "a fingerprint mismatch against the current page model must reject",
+                );
+                assert_eq!(error.code, "click_target_changed");
+            }
+        }
+    }
 }
