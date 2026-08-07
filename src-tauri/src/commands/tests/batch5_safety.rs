@@ -158,6 +158,7 @@ fn page_model_change_invalidates_click_authorizations_and_pending_confirmation()
             page_generation: 7,
             origin: Some(String::from("https://example.com")),
             element_id: String::from("button-1"),
+            label: String::from("Continue"),
             dom_locator: String::from("#button-1"),
             element_fingerprint: String::from("fingerprint"),
             confidence_bps: Some(9_500),

@@ -187,6 +187,7 @@ impl super::AppCore {
             page_generation: self.state.page_generation,
             origin: normalized_origin(page.url.as_deref()),
             element_id: element.element_id.clone(),
+            label: safe_element_label(&element),
             dom_locator,
             element_fingerprint: element_fingerprint(&element),
             confidence_bps,
@@ -403,6 +404,16 @@ fn annotate_click_step(
         step,
         CLICK_AUTH_TOKEN_ARG,
         serde_json::Value::String(record.token.clone()),
+    )?;
+    // Restore the human-readable label so the confirmation prompt names the
+    // element instead of its opaque internal id. `clear_runtime_annotations`
+    // strips RUNTIME_TARGET_LABEL_ARG from every step up front; TypeIntoElement
+    // and SubmitActiveForm re-derive their own copies via annotate_target_step /
+    // annotate_submit_step, and clicks must do the same here.
+    insert_runtime_value(
+        step,
+        RUNTIME_TARGET_LABEL_ARG,
+        serde_json::Value::String(record.label.clone()),
     )?;
     insert_runtime_value(
         step,
@@ -689,5 +700,45 @@ mod tests {
     fn destructive_click_labels_are_detected_deterministically() {
         assert!(!is_potentially_destructive_click(&element("Continue")));
         assert!(is_potentially_destructive_click(&element("Delete account")));
+    }
+
+    #[test]
+    fn annotate_click_step_restores_the_runtime_target_label() {
+        // Regression test for the bug where clear_runtime_annotations stripped
+        // RUNTIME_TARGET_LABEL_ARG and annotate_click_step never restored it,
+        // leaving click confirmations naming an opaque "element-N" id instead
+        // of the element the user asked to click.
+        let record = ClickAuthorizationRecord {
+            token: String::from("token-1"),
+            page_id: String::from("page-1"),
+            page_generation: 1,
+            origin: Some(String::from("https://example.com")),
+            element_id: String::from("element-7"),
+            label: String::from("Delete account"),
+            dom_locator: String::from("#delete"),
+            element_fingerprint: String::from("fingerprint"),
+            confidence_bps: Some(9_500),
+            ambiguous: false,
+            potentially_destructive: true,
+            issued_at_ms: 1,
+            expires_at_ms: u64::MAX,
+        };
+        let mut step = PlannedStep {
+            step_id: String::from("step-1"),
+            tool_name: ToolName::ClickElement,
+            arguments: serde_json::json!({ "element_id": "element-7" }),
+            purpose: String::from("test click"),
+            on_success: StepTransition::Complete,
+            on_failure: StepTransition::Replan,
+        };
+
+        annotate_click_step(&mut step, &record).expect("annotation should succeed");
+
+        assert_eq!(
+            step.arguments
+                .get(RUNTIME_TARGET_LABEL_ARG)
+                .and_then(serde_json::Value::as_str),
+            Some("Delete account"),
+        );
     }
 }

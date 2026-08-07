@@ -42,6 +42,11 @@ pub(crate) struct ClickAuthorizationRecord {
     pub page_generation: u64,
     pub origin: Option<String>,
     pub element_id: String,
+    /// Human-readable label for the authorized element (accessible name, text,
+    /// or placeholder — see `safe_element_label`), captured at mint time so the
+    /// confirmation prompt can name the element instead of its opaque internal
+    /// id. Runtime-derived only; never planner-supplied.
+    pub label: String,
     pub dom_locator: String,
     pub element_fingerprint: String,
     pub confidence_bps: Option<u16>,

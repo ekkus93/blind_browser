@@ -639,6 +639,39 @@ mod tests {
     }
 
     #[test]
+    fn click_summary_uses_the_element_label_not_the_internal_id() {
+        // Regression test: a ClickElement confirmation must name the element the
+        // user recognizes, not its opaque "element-N" internal id.
+        let built = built(step(
+            ToolName::ClickElement,
+            serde_json::json!({
+                (RUNTIME_TARGET_LABEL_ARG): "Delete account",
+                "element_id": "element-7"
+            }),
+        ));
+        let action = &built.manifest.actions[0];
+        assert!(action.safe_summary.contains("Delete account"));
+        assert!(!action.safe_summary.contains("element-7"));
+        assert!(action.summary_warnings.is_empty());
+    }
+
+    #[test]
+    fn click_summary_without_label_warns_explicitly() {
+        // safe_action_summary falls back to `element_id` when the label is
+        // absent, so this case only degrades to a warning when neither is
+        // present.
+        let built = built(step(ToolName::ClickElement, serde_json::json!({})));
+        let action = &built.manifest.actions[0];
+        assert_eq!(
+            action.summary_warnings,
+            vec![ConfirmationSummaryWarningCode::TargetLabelUnavailable]
+        );
+        assert!(action
+            .safe_summary
+            .contains("target label could not be verified"));
+    }
+
+    #[test]
     fn degraded_summary_metadata_is_digest_bound() {
         let built = built(step(
             ToolName::SubmitActiveForm,
