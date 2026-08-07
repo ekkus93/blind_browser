@@ -449,14 +449,17 @@ fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
     let core_handlers = source("src/command_handlers/core_handlers.rs");
     let voice_handlers = source("src/command_handlers/voice_handlers.rs");
     let replanning = source("src/app_core/replanning_orchestrator.rs");
-    let consent = source("src/app_core/remote_data_consent.rs");
+    let consent = source("src/app_core/remote_data_consent/mod.rs");
+    let consent_draft = source("src/app_core/remote_data_consent/draft.rs");
     let redaction = source("src/app_core/planner_redaction/mod.rs");
 
     assert!(core_handlers.contains("resolve_command_lock_scoped"));
     assert!(voice_handlers.contains("run_command_with_lock_scoped_replanning"));
     assert!(replanning.contains("guard.prepare_remote_planner_request("));
     assert!(consent.contains("match evaluate_remote_planner_policy("));
-    assert!(consent.contains("sanitize_remote_planner_input_authorized(&planner_input, mode)?"));
+    assert!(
+        consent_draft.contains("sanitize_remote_planner_input_authorized(&planner_input, mode)?")
+    );
     assert!(redaction.contains("pub(crate) fn sanitize_remote_planner_input_authorized("));
 
     let transmitting = EVIDENCE
