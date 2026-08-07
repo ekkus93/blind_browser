@@ -573,7 +573,30 @@ Expected: guard present and applied before caching in both providers.
 
 ## P0.8 — Reset and cap the hands-free capture buffer
 
-**Status:** PENDING · `[VERIFIED]`
+**Status:** DONE · `[VERIFIED]`
+**Note:** Implemented as specified, with the reset driven explicitly by
+`stop_mode`/`auto_stop` (the caller-known signal) rather than any state
+inferred inside `begin_capture`/`capture_audio` — `begin_capture` now takes
+`auto_stop: bool` so both the phased handler path
+(`AppCore::begin_transcribe_command`) and the synchronous planner-dispatched
+path (`AppCore::execute_transcribe_command` → `AsrController::capture_audio`)
+share one `reset_hands_free_capture_window` method, so the two paths cannot
+drift apart. P0.8.2's cap is threaded from `cpal::StreamConfig` into the
+capture callback as `MAX_TRANSCRIBE_DURATION_MS` worth of samples at the
+device's actual sample rate/channel count, dropping the oldest samples once
+exceeded. P0.8.3 (PTT unaffected) was verified by reading the call path —
+`reset_hands_free_capture_window` short-circuits to `Ok(())` before touching
+the buffer whenever `auto_stop = true`, which is exactly the PTT-release
+case — rather than by an automated test: exercising the "already-buffered
+session" branch end-to-end needs a live `CaptureSession`, which needs real
+audio hardware unavailable in CI (the existing pre-CR3 test suite for this
+module already avoids ever calling `CaptureSession::start()` for the same
+reason). P0.8.4's regression tests are written at the two levels that don't
+require hardware: `asr::capture`'s buffer-level tests
+(`discard_capture_buffer`, `two_consecutive_hands_free_windows_do_not_return_overlapping_samples`,
+`cap_buffered_samples_*`, `max_buffered_samples_*`) cover the actual discard
+and cap primitives production code calls, and `asr::tests::reset_hands_free_capture_window_is_a_no_op_with_no_active_session`
+covers the no-active-session branch of the policy method itself.
 **Spec:** constraint 7
 **Files:**
 

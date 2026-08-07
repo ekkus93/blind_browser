@@ -268,7 +268,7 @@ impl super::AppCore {
             effective_duration_ms = effective_duration_ms.min(timeout_ms.max(1));
         }
 
-        match self.asr.begin_capture() {
+        match self.asr.begin_capture(input.stop_mode.auto_stops()) {
             Ok(started_for_this_request) => {
                 self.state.set_listening(self.asr.is_listening());
                 Ok(TranscribeCapturePlan {

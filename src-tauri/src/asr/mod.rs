@@ -206,7 +206,12 @@ impl AsrController {
 
         #[cfg(feature = "audio")]
         {
-            if let Some(active_capture) = self.active_capture.as_ref() {
+            if self.active_capture.is_some() {
+                self.reset_hands_free_capture_window(auto_stop)?;
+                let active_capture = self
+                    .active_capture
+                    .as_ref()
+                    .expect("active_capture was just confirmed to be Some");
                 thread::sleep(Duration::from_millis(capture_duration_ms));
                 let captured_audio = active_capture.take_captured_audio()?;
                 if auto_stop {
@@ -221,21 +226,57 @@ impl AsrController {
         }
     }
 
+    /// Reset the capture buffer at the start of a hands-free ("keep
+    /// listening") window, discarding whatever accumulated since the last
+    /// drain — silence, the previous command's own TTS narration played
+    /// back over the speaker, planner/browser round-trip time — so this
+    /// window's capture reflects only audio recorded during its own listen
+    /// duration.
+    ///
+    /// Never called for a PTT hold (`auto_stop = true`): a PTT press
+    /// deliberately depends on accumulating audio across the entire
+    /// press-to-release span. `begin_capture`/`capture_audio` alone cannot
+    /// tell a PTT release (session started explicitly for this hold) apart
+    /// from a hands-free continuation (session simply never stopped) — both
+    /// look identical from in here as "a session already exists". Only the
+    /// stop mode the caller is executing distinguishes them, so the reset
+    /// is driven by that explicit, caller-supplied flag rather than
+    /// inferred from session state.
+    ///
+    /// No-op if no capture session is active (a fresh session's buffer is
+    /// already empty).
+    #[cfg(feature = "audio")]
+    fn reset_hands_free_capture_window(&mut self, auto_stop: bool) -> Result<(), AsrRuntimeError> {
+        if auto_stop {
+            return Ok(());
+        }
+        if let Some(active_capture) = self.active_capture.as_ref() {
+            active_capture.discard_buffered_audio()?;
+        }
+        Ok(())
+    }
+
     /// Phase 1 of a lock-released capture: ensure a capture session is recording.
     ///
     /// Returns whether a new session was started for this request (so the caller
     /// knows to stop it again after a one-shot transcription). The cpal stream
     /// keeps filling the shared buffer during the unlocked capture window, so the
     /// `AppCore` lock can be released between this call and [`Self::drain_capture`].
-    pub fn begin_capture(&mut self) -> Result<bool, AsrRuntimeError> {
+    ///
+    /// `auto_stop` (mirroring [`Self::capture_audio`]) gates whether an
+    /// already-running session's buffer is reset before this window starts —
+    /// see [`Self::reset_hands_free_capture_window`].
+    pub fn begin_capture(&mut self, auto_stop: bool) -> Result<bool, AsrRuntimeError> {
         #[cfg(not(feature = "audio"))]
         {
+            let _ = auto_stop;
             Err(AsrRuntimeError::AudioFeatureUnavailable)
         }
 
         #[cfg(feature = "audio")]
         {
             if self.active_capture.is_some() {
+                self.reset_hands_free_capture_window(auto_stop)?;
                 return Ok(false);
             }
             self.active_capture = Some(CaptureSession::start()?);
@@ -399,5 +440,28 @@ mod tests {
             result.is_none(),
             "a session stopped mid-capture should yield no captured audio"
         );
+    }
+
+    // reset_hands_free_capture_window with no active session returns before
+    // touching any audio hardware in both branches, so -- like the test
+    // above -- it is exercisable without a real input device. This proves
+    // the function is a safe no-op when there is nothing to reset; it does
+    // not exercise the "discard an already-buffered session" branch, which
+    // needs a live CaptureSession and so is covered instead by the
+    // buffer-level tests in asr::capture (discard_capture_buffer,
+    // two_consecutive_hands_free_windows_do_not_return_overlapping_samples).
+    #[cfg(feature = "audio")]
+    #[test]
+    fn reset_hands_free_capture_window_is_a_no_op_with_no_active_session() {
+        use super::AsrController;
+
+        let mut controller = AsrController::new();
+
+        controller
+            .reset_hands_free_capture_window(false)
+            .expect("resetting with no active session must not error");
+        controller
+            .reset_hands_free_capture_window(true)
+            .expect("a PTT-hold reset (auto_stop = true) must not error either");
     }
 }
