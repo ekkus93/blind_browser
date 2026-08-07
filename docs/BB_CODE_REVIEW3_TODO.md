@@ -969,7 +969,39 @@ local paths remain untouched.
 
 ## P1.2 — Release the runtime lock across network and capture windows
 
-**Status:** PENDING · `[VERIFIED]`
+**Status:** BLOCKED · `[VERIFIED]`
+**Note:** Both P1.2.1 (TTS) and P1.2.2 (planner-driven transcription) hit the
+same structural blocker, confirmed by reading the call path rather than
+assumed: `LockScopedReplanningRuntime::execute_plan`
+(`replanning_orchestrator.rs`) acquires the lock **once** and calls
+`AppCore::execute_planner_output` → `execute_planner_output_with_runtime_safety`,
+which iterates every step of a multi-step plan synchronously in one call
+while still holding that single guard. Both remote TTS synthesis
+(`begin_region_narration`/`begin_feedback_narration`, reached when a plan
+step is a narration tool) and planner-driven `transcribe_command` are
+individual steps *inside* that loop, not separate top-level calls — so
+releasing the lock around just one step's blocking work would require the
+step loop itself to become pausable/resumable (yield control back to the
+lock-holding caller mid-plan, then resume), not a local change to either
+callee. This is the same shape of problem CR2's P1.1.2/P1.1.3 hit and marked
+BLOCKED for the same reason; `run_phased_transcribe` (which already solves
+this) works only because it sits *outside* the step loop, at the top-level
+Tauri-command handler for a single `transcribe_command`/
+`transcribe_and_execute_command` call, not for a step embedded in a larger
+plan.
+**What already doesn't have this problem:** the top-level, non-plan-embedded
+paths (`transcribe_command`/`transcribe_and_execute_command` via
+`run_phased_transcribe`, and the remote planner's own resolve round-trip via
+`LockScopedReplanningRuntime::resolve`) already release the lock correctly —
+this item is specifically about TTS/ASR steps reached *from inside* an
+executing plan.
+**Follow-up scope**: restructuring `execute_planner_output_with_runtime_safety`
+into a step-by-step pausable loop (so the top-level handler can drop the
+lock between steps whenever the next step needs blocking I/O) is a
+significant executor change, not a narrow fix — sizing and design should be
+its own pass, informed by how `AwaitingConfirmation`'s existing
+pause/resume (`PendingPlanExecutionState`) already models suspending
+mid-plan, which may be the right template to generalize from.
 **Spec:** constraint 8
 **Files:**
 
