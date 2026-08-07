@@ -19,9 +19,27 @@ REQUIRED_PATHS = (
     "src/ui-store.ts",
     "src/store.ts",
     "src-tauri/src/app_core/remote_privacy_api.rs",
-    "src-tauri/src/app_core/remote_data_consent.rs",
+    "src-tauri/src/app_core/remote_data_consent/mod.rs",
+    "src-tauri/src/app_core/remote_data_consent/types.rs",
+    "src-tauri/src/app_core/remote_data_consent/policy.rs",
+    "src-tauri/src/app_core/remote_data_consent/grants.rs",
+    "src-tauri/src/app_core/remote_data_consent/draft.rs",
+    "src-tauri/src/app_core/remote_data_consent/challenge.rs",
+    "src-tauri/src/app_core/remote_data_consent/origin_rules.rs",
+    "src-tauri/src/app_core/remote_data_consent/errors.rs",
     "src-tauri/src/commands/contracts/planner.rs",
     "src-tauri/src/commands/contracts/providers.rs",
+)
+
+REMOTE_DATA_CONSENT_MODULE_PATHS = (
+    "src-tauri/src/app_core/remote_data_consent/mod.rs",
+    "src-tauri/src/app_core/remote_data_consent/types.rs",
+    "src-tauri/src/app_core/remote_data_consent/policy.rs",
+    "src-tauri/src/app_core/remote_data_consent/grants.rs",
+    "src-tauri/src/app_core/remote_data_consent/draft.rs",
+    "src-tauri/src/app_core/remote_data_consent/challenge.rs",
+    "src-tauri/src/app_core/remote_data_consent/origin_rules.rs",
+    "src-tauri/src/app_core/remote_data_consent/errors.rs",
 )
 
 FRONTEND_STATE_PATHS = (
@@ -225,7 +243,7 @@ def audit_sources(root: Path) -> list[Finding]:
     backend_status = "src-tauri/src/commands/contracts/providers.rs"
     findings.extend(audit_backend_status(backend_status, source[backend_status]))
     for relative in (
-        "src-tauri/src/app_core/remote_data_consent.rs",
+        *REMOTE_DATA_CONSENT_MODULE_PATHS,
         "src-tauri/src/app_core/remote_privacy_api.rs",
         "src/remote-planner-privacy-controller.ts",
     ):
