@@ -1,5 +1,19 @@
 import type { ReactNode } from "react";
 import type { ConfirmationUiState } from "./planner-orchestration";
+import {
+  BTN_SPINNER_CLASS,
+  CONTROL_LABEL,
+  SETTINGS_API_KEY_BUTTON_ROW_CLASS,
+  SETTINGS_API_KEY_INLINE_ACTIONS_CLASS,
+  SETTINGS_API_KEY_INPUT_CLASS,
+  SETTINGS_API_KEY_TEST_STATUS_CLASS,
+  SETTINGS_API_KEY_TEST_STATUS_LABEL_CLASS,
+  SETTINGS_API_KEY_TEST_STATUS_MESSAGE_CLASS,
+  SETTINGS_CONTROL_BUTTON_CLASS,
+  SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS,
+  SETTINGS_PANEL_DESCRIPTION_CLASS,
+  SETTINGS_SECRET_ENTRY_CARD_CLASS,
+} from "./settings-panels/shared-controls.tsx";
 
 export const OPENAI_API_KEYS_URL = "https://platform.openai.com/account/api-keys";
 
@@ -98,12 +112,12 @@ export function renderSecretEntryCard(
   const inputType = apiKeyDraft.length > 0 ? "password" : (apiKeyMaskedValue ? "text" : "password");
 
   return (
-    <div className="settings-control-card settings-secret-entry-card">
-      <span className="settings-control-label">API key</span>
-      <div className="settings-api-key-inline-actions">
+    <div className={SETTINGS_SECRET_ENTRY_CARD_CLASS}>
+      <span className={CONTROL_LABEL}>API key</span>
+      <div className={SETTINGS_API_KEY_INLINE_ACTIONS_CLASS}>
         <input
           id={`settings-remote-${kind}-api-key-input`}
-          className="settings-control-select settings-api-key-input"
+          className={SETTINGS_API_KEY_INPUT_CLASS}
           data-remote-api-key-input={kind}
           type={inputType}
           value={displayedApiKeyValue}
@@ -119,10 +133,10 @@ export function renderSecretEntryCard(
             }
             : undefined}
         />
-        <div className="settings-api-key-button-row">
+        <div className={SETTINGS_API_KEY_BUTTON_ROW_CLASS}>
           <button
             type="button"
-            className="settings-control-button"
+            className={SETTINGS_CONTROL_BUTTON_CLASS}
             data-remote-api-key-save={kind}
             disabled={saveDisabled || undefined}
             aria-disabled={saveDisabled ? "true" : undefined}
@@ -132,7 +146,7 @@ export function renderSecretEntryCard(
           </button>
           <button
             type="button"
-            className="settings-control-button settings-control-button-secondary"
+            className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
             data-remote-api-key-test={kind}
             disabled={testDisabled || undefined}
             aria-disabled={testDisabled ? "true" : undefined}
@@ -141,7 +155,7 @@ export function renderSecretEntryCard(
             {isTestingApiKey
               ? (
                 <>
-                  <span className="btn-spinner" aria-hidden="true" />
+                  <span className={BTN_SPINNER_CLASS} data-btn-spinner="true" aria-hidden="true" />
                   Testing...
                 </>
               )
@@ -149,7 +163,7 @@ export function renderSecretEntryCard(
           </button>
         </div>
       </div>
-      <p className="settings-panel-description">
+      <p className={SETTINGS_PANEL_DESCRIPTION_CLASS}>
         Need an OpenAI API key? Get one at{" "}
         <a
           href={OPENAI_API_KEYS_URL}
@@ -168,9 +182,9 @@ export function renderSecretEntryCard(
       </p>
       {apiKeyTestMessage
         ? (
-          <div className="settings-api-key-test-status" role="status" aria-live="polite">
-            <p className="settings-api-key-test-status-label">Latest test result</p>
-            <p className="settings-api-key-test-status-message">
+          <div className={SETTINGS_API_KEY_TEST_STATUS_CLASS} data-api-key-test-status="true" role="status" aria-live="polite">
+            <p className={SETTINGS_API_KEY_TEST_STATUS_LABEL_CLASS}>Latest test result</p>
+            <p className={SETTINGS_API_KEY_TEST_STATUS_MESSAGE_CLASS}>
               {renderTextWithKnownLinkNodes(apiKeyTestMessage, handlers.onOpenExternalLink)}
             </p>
           </div>
@@ -180,61 +194,68 @@ export function renderSecretEntryCard(
   );
 }
 
-export function renderConfirmationErrorClassName(
-  state: Extract<ConfirmationUiState, { kind: "awaiting-confirmation" }>,
-): string {
-  const classNames = ["confirmation-error"];
+type ConfirmationErrorVariant = "none" | "transport" | "tool-retryable" | "tool-hard-stop";
 
+function confirmationErrorVariant(
+  state: Extract<ConfirmationUiState, { kind: "awaiting-confirmation" }>,
+): ConfirmationErrorVariant {
   if (!state.submissionError) {
-    return classNames.join(" ");
+    return "none";
   }
-
   if (state.submissionError.kind === "transport-error") {
-    classNames.push("confirmation-error-transport");
-    return classNames.join(" ");
+    return "transport";
   }
-
-  classNames.push("confirmation-error-tool");
-  classNames.push(
-    state.submissionError.retryable
-      ? "confirmation-error-tool-retryable"
-      : "confirmation-error-tool-hard-stop",
-  );
-
-  return classNames.join(" ");
+  return state.submissionError.retryable ? "tool-retryable" : "tool-hard-stop";
 }
 
-export function renderConfirmationErrorBadge(
-  state: Extract<ConfirmationUiState, { kind: "awaiting-confirmation" }>,
-): string {
-  if (
-    !state.submissionError
-    || state.submissionError.kind !== "tool-error"
-    || state.submissionError.retryable
-  ) {
-    return "";
-  }
+// Each variant is a full, self-contained class string (base anatomy +
+// its own border/background/color) rather than base-plus-delta, matching
+// this migration's established pattern for mutually exclusive visual states.
+const CONFIRMATION_ERROR_CONTAINER_BASE = "mt-3 p-[12px_14px] rounded-[14px] leading-[1.5]";
+const CONFIRMATION_ERROR_CONTAINER_CLASS: Record<ConfirmationErrorVariant, string> = {
+  none: `${CONFIRMATION_ERROR_CONTAINER_BASE} border border-[rgba(150,39,39,0.18)] text-[var(--color-error-primary)]`,
+  transport: `${CONFIRMATION_ERROR_CONTAINER_BASE} border border-[rgba(122,87,39,0.22)] text-[var(--color-amber-active)] bg-[var(--color-amber-light)]`,
+  "tool-retryable": `${CONFIRMATION_ERROR_CONTAINER_BASE} border border-[rgba(150,39,39,0.18)] border-l-4 border-l-[rgba(150,39,39,0.48)] text-[var(--color-error-primary)] bg-[rgba(150,39,39,0.09)]`,
+  "tool-hard-stop": `${CONFIRMATION_ERROR_CONTAINER_BASE} border border-[rgba(108,16,16,0.5)] border-l-[6px] border-l-[var(--color-error-dark)] text-[var(--color-error-dark)] bg-gradient-to-b from-[rgba(108,16,16,0.12)] to-[rgba(150,39,39,0.18)] shadow-[inset_0_0_0_1px_rgba(108,16,16,0.1)]`,
+};
 
-  return '<p class="confirmation-error-badge">Requires planner change</p>';
+// The badge, meta-code, and retry-status rows only ever render for the
+// "tool-error" cases in confirmation.tsx; the badge specifically only for
+// the hard-stop case, so its class always matches that variant's computed
+// style (the old `.confirmation-error-tool-hard-stop .confirmation-error-badge`
+// override is the ONLY style it's ever actually rendered with).
+export const CONFIRMATION_ERROR_BADGE_CLASS = "m-0 inline-flex items-center mb-[10px] py-1 px-[10px] rounded-full bg-[rgba(108,16,16,0.2)] border border-[rgba(108,16,16,0.42)] text-[var(--color-error-dark)] text-[0.8rem] font-bold tracking-[0.08em] uppercase";
+export const CONFIRMATION_ERROR_MESSAGE_CLASS = "m-0 mt-[6px]";
+
+export interface ConfirmationErrorPresentation {
+  containerClassName: string;
+  showBadge: boolean;
+  titleClassName: string;
+  guidanceClassName: string;
+  showMeta: boolean;
+  metaBlockClassName: string;
+  metaClassName: string;
+  retryStatusClassName: string;
 }
 
-export function renderConfirmationErrorMeta(
+export function resolveConfirmationErrorPresentation(
   state: Extract<ConfirmationUiState, { kind: "awaiting-confirmation" }>,
-): string {
-  if (!state.submissionError || state.submissionError.kind !== "tool-error") {
-    return "";
-  }
+): ConfirmationErrorPresentation {
+  const variant = confirmationErrorVariant(state);
+  const isHardStop = variant === "tool-hard-stop";
+  const isToolError = variant === "tool-retryable" || isHardStop;
+  const retryStatusColor = isHardStop ? "text-[var(--color-error-dark)]" : "text-[var(--color-error-primary)]";
 
-  const retryableLabel = state.submissionError.retryable ? "Retryable" : "Non-retryable";
-  const retryStatus = state.submissionError.retryable ? "Can retry." : "Cannot retry.";
-  return `
-    <div class="confirmation-error-meta-block">
-      <p class="confirmation-error-meta">
-        Error code: ${escapeHtml(state.submissionError.code)}. ${retryableLabel} backend failure.
-      </p>
-      <p class="confirmation-error-retry-status">${retryStatus}</p>
-    </div>
-  `;
+  return {
+    containerClassName: CONFIRMATION_ERROR_CONTAINER_CLASS[variant],
+    showBadge: isHardStop,
+    titleClassName: isHardStop ? "m-0 font-bold tracking-[0.04em] uppercase" : "m-0 font-bold",
+    guidanceClassName: isHardStop ? "m-0 mt-[6px] font-semibold" : "m-0 mt-[6px]",
+    showMeta: isToolError,
+    metaBlockClassName: "mt-[6px]",
+    metaClassName: `m-0 mt-[6px] text-[0.94rem] ${isHardStop ? "text-[var(--color-error-dark)]" : "text-[var(--color-error-primary)]"}`,
+    retryStatusClassName: `m-0 mt-1 text-[0.88rem] font-bold tracking-[0.04em] uppercase ${retryStatusColor}`,
+  };
 }
 
 export function escapeHtml(value: string): string {

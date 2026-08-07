@@ -22,6 +22,11 @@ export type {
 
 export { preserveActivePanelControl } from "./app-shell-controls.ts";
 
+const LEDE_CLASS = "mt-[18px] max-w-[60ch] text-[1.05rem] leading-[1.6] text-[var(--color-text-secondary)]";
+const SETTINGS_GROUP_EYEBROW_CLASS = "m-[0_0_8px] uppercase tracking-[0.18em] text-[0.76rem] text-[var(--eyebrow-color)]";
+const SETTINGS_GROUP_H2_CLASS = "[font-family:var(--font-display)] text-[clamp(1.2rem,2.2vw,1.6rem)] leading-[1.05]";
+const SETTINGS_BREADCRUMB_CLASS = "text-[0.84rem] text-[var(--color-text-muted)] m-0";
+
 interface AppShellMarkupProps {
   initialAppView: AppView;
   initialSettingsView: SettingsView;
@@ -43,8 +48,8 @@ export function AppShellMarkup({
   const showAppViewAction = workspaceActive || (settingsActive && !showBackButton);
 
   return (
-    <main className="shell">
-      <header className="shell-toolbar">
+    <main className="max-w-[980px] mx-auto p-[56px_24px_72px] max-sm:p-[40px_18px_56px]">
+      <header className="flex items-center gap-3 mb-6 max-sm:mb-5">
         {showAppViewAction ? renderAppViewActionButton(initialAppView, navigationHandlers) : null}
         {renderSettingsSubpageBackButton(showBackButton, navigationHandlers)}
         {renderPanelContent("voice-status", panelContent)}
@@ -53,12 +58,11 @@ export function AppShellMarkup({
       {renderPanelContent("app-alert", panelContent)}
 
       <section
-        className={`app-view${workspaceActive ? " app-view-active" : ""}`}
         data-app-view-section="workspace"
         hidden={!workspaceActive}
         aria-hidden={!workspaceActive}
       >
-        <div className="workspace-control-bar" data-workspace-control-bar="true">
+        <div className="flex flex-col gap-[18px] mt-[18px] max-sm:gap-[14px]" data-workspace-control-bar="true">
           {renderPanelContent("push-to-talk", panelContent)}
           {renderPanelContent("url-input", panelContent)}
         </div>
@@ -67,82 +71,78 @@ export function AppShellMarkup({
       </section>
 
       <section
-        className={`app-view${settingsActive ? " app-view-active" : ""}`}
         data-app-view-section="settings"
         hidden={!settingsActive}
         aria-hidden={!settingsActive}
       >
         <div
-          className={`settings-view${initialSettingsView === "overview" ? " settings-view-active" : ""}`}
           data-settings-view-section="overview"
           hidden={initialSettingsView !== "overview"}
           aria-hidden={initialSettingsView !== "overview"}
         >
-          <section className="hero hero-settings">
-            <h1>Settings</h1>
+          <section className="p-[24px_0_32px] pt-3">
+            <h1 className="[font-family:var(--font-display)] text-[clamp(1.8rem,3.5vw,2.6rem)] leading-[0.94] max-w-[10ch] max-sm:max-w-none">Settings</h1>
           </section>
           {renderPanelContent("settings-guidance", panelContent)}
-          <section className="settings-group" aria-labelledby="settings-group-playback-title">
-            <div className="settings-group-copy">
-              <p className="settings-group-eyebrow">Listening</p>
-              <h2 id="settings-group-playback-title">Playback</h2>
+          <section className="mt-[30px]" aria-labelledby="settings-group-playback-title">
+            <div className="max-w-[62ch]">
+              <p className={SETTINGS_GROUP_EYEBROW_CLASS}>Listening</p>
+              <h2 id="settings-group-playback-title" className={SETTINGS_GROUP_H2_CLASS}>Playback</h2>
             </div>
             {renderPanelContent("audio-controls", panelContent)}
           </section>
-          <section className="settings-group settings-group-link" aria-labelledby="settings-group-planner-title">
-            <div className="settings-group-copy">
-              <p className="settings-group-eyebrow">Command interpretation</p>
-              <h2 id="settings-group-planner-title">AI assistant</h2>
+          <section className="mt-[30px] grid [grid-template-columns:minmax(0,1fr)_auto] items-end gap-[18px] max-sm:[grid-template-columns:1fr] max-sm:items-start" aria-labelledby="settings-group-planner-title">
+            <div className="max-w-[62ch]">
+              <p className={SETTINGS_GROUP_EYEBROW_CLASS}>Command interpretation</p>
+              <h2 id="settings-group-planner-title" className={SETTINGS_GROUP_H2_CLASS}>AI assistant</h2>
             </div>
             {renderSettingsSubpageLink("planner", "Open AI assistant setup", navigationHandlers, settingsStatuses?.planner)}
           </section>
-          <section className="settings-group settings-group-link" aria-labelledby="settings-group-tts-title">
-            <div className="settings-group-copy">
-              <p className="settings-group-eyebrow">Speech output</p>
-              <h2 id="settings-group-tts-title">Voice output</h2>
+          <section className="mt-[30px] grid [grid-template-columns:minmax(0,1fr)_auto] items-end gap-[18px] max-sm:[grid-template-columns:1fr] max-sm:items-start" aria-labelledby="settings-group-tts-title">
+            <div className="max-w-[62ch]">
+              <p className={SETTINGS_GROUP_EYEBROW_CLASS}>Speech output</p>
+              <h2 id="settings-group-tts-title" className={SETTINGS_GROUP_H2_CLASS}>Voice output</h2>
             </div>
             {renderSettingsSubpageLink("tts", "Open voice output setup", navigationHandlers, settingsStatuses?.tts)}
           </section>
-          <section className="settings-group settings-group-link" aria-labelledby="settings-group-asr-title">
-            <div className="settings-group-copy">
-              <p className="settings-group-eyebrow">Speech input</p>
-              <h2 id="settings-group-asr-title">Voice input</h2>
+          <section className="mt-[30px] grid [grid-template-columns:minmax(0,1fr)_auto] items-end gap-[18px] max-sm:[grid-template-columns:1fr] max-sm:items-start" aria-labelledby="settings-group-asr-title">
+            <div className="max-w-[62ch]">
+              <p className={SETTINGS_GROUP_EYEBROW_CLASS}>Speech input</p>
+              <h2 id="settings-group-asr-title" className={SETTINGS_GROUP_H2_CLASS}>Voice input</h2>
             </div>
             {renderSettingsSubpageLink("asr", "Open voice input setup", navigationHandlers, settingsStatuses?.asr)}
           </section>
-          <section className="settings-group settings-group-link" aria-labelledby="settings-group-runtime-title">
-            <div className="settings-group-copy">
-              <p className="settings-group-eyebrow">Advanced</p>
-              <h2 id="settings-group-runtime-title">Advanced settings</h2>
+          <section className="mt-[30px] grid [grid-template-columns:minmax(0,1fr)_auto] items-end gap-[18px] max-sm:[grid-template-columns:1fr] max-sm:items-start" aria-labelledby="settings-group-runtime-title">
+            <div className="max-w-[62ch]">
+              <p className={SETTINGS_GROUP_EYEBROW_CLASS}>Advanced</p>
+              <h2 id="settings-group-runtime-title" className={SETTINGS_GROUP_H2_CLASS}>Advanced settings</h2>
             </div>
             {renderSettingsSubpageLink("runtime", "Open advanced settings", navigationHandlers, settingsStatuses?.runtime)}
           </section>
         </div>
 
         <div
-          className={`settings-view${initialSettingsView === "planner" ? " settings-view-active" : ""}`}
           data-settings-view-section="planner"
           hidden={initialSettingsView !== "planner"}
           aria-hidden={initialSettingsView !== "planner"}
         >
-          <section className="hero hero-settings hero-settings-subpage">
-            <p className="settings-breadcrumb">Settings › AI assistant setup</p>
+          <section className="p-[24px_0_32px] pt-3 flex flex-col gap-[10px]">
+            <p className={SETTINGS_BREADCRUMB_CLASS}>Settings › AI assistant setup</p>
             <h2>AI assistant setup</h2>
-            <p className="lede">The AI assistant interprets your voice commands and decides what to do. It requires an OpenAI-compatible API endpoint and key. If you're using OpenAI, the endpoint is <code>https://api.openai.com/v1</code>. For local models via Ollama, use <code>http://localhost:11434</code>.</p>
+            <p className={LEDE_CLASS}>The AI assistant interprets your voice commands and decides what to do. It requires an OpenAI-compatible API endpoint and key. If you're using OpenAI, the endpoint is <code>https://api.openai.com/v1</code>. For local models via Ollama, use <code>http://localhost:11434</code>.</p>
           </section>
           {renderPanelContent("settings-remote-planner", panelContent)}
         </div>
 
         <div
-          className={`settings-view${initialSettingsView === "tts" ? " settings-view-active" : ""}`}
           data-settings-view-section="tts"
           hidden={initialSettingsView !== "tts"}
           aria-hidden={initialSettingsView !== "tts"}
         >
-          <section className="hero hero-settings hero-settings-subpage">
-            <p className="settings-breadcrumb">Settings › Voice output setup</p>
+          <section className="p-[24px_0_32px] pt-3 flex flex-col gap-[10px]">
+            <p className={SETTINGS_BREADCRUMB_CLASS}>Settings › Voice output setup</p>
             <h2>Voice output setup</h2>
-            <p className="lede">Voice output converts the assistant's text responses to speech. Choose a local model for offline use or a remote service for higher quality voices.</p>
+            <p className={LEDE_CLASS}>Voice output converts the assistant's text responses to speech. Choose a local model for offline use or a remote service for higher quality voices.</p>
           </section>
           {renderPanelContent("settings-tts-provider", panelContent)}
           {renderPanelContent("settings-tts-model", panelContent)}
@@ -152,15 +152,14 @@ export function AppShellMarkup({
         </div>
 
         <div
-          className={`settings-view${initialSettingsView === "asr" ? " settings-view-active" : ""}`}
           data-settings-view-section="asr"
           hidden={initialSettingsView !== "asr"}
           aria-hidden={initialSettingsView !== "asr"}
         >
-          <section className="hero hero-settings hero-settings-subpage">
-            <p className="settings-breadcrumb">Settings › Voice input setup</p>
+          <section className="p-[24px_0_32px] pt-3 flex flex-col gap-[10px]">
+            <p className={SETTINGS_BREADCRUMB_CLASS}>Settings › Voice input setup</p>
             <h2>Voice input setup</h2>
-            <p className="lede">Voice input converts your speech to text. Choose a local Whisper model for offline use or a remote transcription service.</p>
+            <p className={LEDE_CLASS}>Voice input converts your speech to text. Choose a local Whisper model for offline use or a remote transcription service.</p>
           </section>
           {renderPanelContent("settings-asr-provider", panelContent)}
           {renderPanelContent("settings-local-asr-model", panelContent)}
@@ -168,15 +167,14 @@ export function AppShellMarkup({
         </div>
 
         <div
-          className={`settings-view${initialSettingsView === "runtime" ? " settings-view-active" : ""}`}
           data-settings-view-section="runtime"
           hidden={initialSettingsView !== "runtime"}
           aria-hidden={initialSettingsView !== "runtime"}
         >
-          <section className="hero hero-settings hero-settings-subpage">
-            <p className="settings-breadcrumb">Settings › Advanced settings</p>
+          <section className="p-[24px_0_32px] pt-3 flex flex-col gap-[10px]">
+            <p className={SETTINGS_BREADCRUMB_CLASS}>Settings › Advanced settings</p>
             <h2>Advanced settings</h2>
-            <p className="lede">Model management, confirmation behavior, and OCR settings. Most users won't need to change these.</p>
+            <p className={LEDE_CLASS}>Model management, confirmation behavior, and OCR settings. Most users won't need to change these.</p>
           </section>
           {renderPanelContent("settings-model-management", panelContent)}
           {renderPanelContent("settings-confirmation", panelContent)}

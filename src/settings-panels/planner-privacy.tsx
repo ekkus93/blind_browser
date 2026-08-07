@@ -26,6 +26,35 @@ import {
   type PrivacyConfirmationKind,
   type RemotePlannerPrivacySettingsHandlers,
 } from "./planner-privacy-operations.ts";
+import {
+  CONTROL_LABEL,
+  REMOTE_PRIVACY_CLEAR_CONTROLS_CLASS,
+  REMOTE_PRIVACY_CODE_CLASS,
+  REMOTE_PRIVACY_CURRENT_ORIGIN_CLASS,
+  REMOTE_PRIVACY_INLINE_STATUS_CLASS,
+  REMOTE_PRIVACY_LOOPBACK_STATUS_CLASS,
+  REMOTE_PRIVACY_MANUAL_RULE_CLASS,
+  REMOTE_PRIVACY_MANUAL_RULE_SUMMARY_CLASS,
+  REMOTE_PRIVACY_MODE_OPTION_CLASS,
+  REMOTE_PRIVACY_MODE_OPTION_INPUT_CLASS,
+  REMOTE_PRIVACY_MODE_OPTION_LABEL_CLASS,
+  REMOTE_PRIVACY_MODE_SELECTOR_CLASS,
+  REMOTE_PRIVACY_MODE_SELECTOR_LEGEND_CLASS,
+  REMOTE_PRIVACY_BOX_ACCENT_CLASS,
+  REMOTE_PRIVACY_ROW_CLASS,
+  REMOTE_PRIVACY_RULE_ITEM_CLASS,
+  REMOTE_PRIVACY_RULE_LIST_CLASS,
+  REMOTE_PRIVACY_RULE_MANAGEMENT_CLASS,
+  REMOTE_PRIVACY_SETTINGS_CARD_CLASS,
+  SETTINGS_BUTTON_ROW_WRAP_CLASS,
+  SETTINGS_CONTROL_BUTTON_CLASS,
+  SETTINGS_CONTROL_BUTTON_DANGER_CLASS,
+  SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS,
+  SETTINGS_CONTROL_SELECT_CLASS,
+  SETTINGS_FIELD_GROUP_CLASS,
+  SETTINGS_PANEL_DESCRIPTION_CLASS,
+  SETTINGS_PANEL_WARNING_CLASS,
+} from "./shared-controls.tsx";
 import type {
   PersistedOriginDecision,
   RemotePlannerNetworkMode,
@@ -127,19 +156,19 @@ function RemotePlannerPrivacySettingsCard(props: {
 
   if (status === null) {
     return (
-      <div className="settings-control-card remote-privacy-settings-card" data-remote-planner-privacy-settings="true">
+      <div className={REMOTE_PRIVACY_SETTINGS_CARD_CLASS} data-remote-planner-privacy-settings="true">
         <h3>Planner privacy and site permissions</h3>
-        <p className="settings-panel-description" role="status" aria-live="polite">
+        <p className={SETTINGS_PANEL_DESCRIPTION_CLASS} role="status" aria-live="polite">
           {state.refreshBusy ? "Loading authoritative planner privacy status…" : "Planner privacy status is unavailable."}
         </p>
         {state.refreshError ? (
-          <p className="settings-panel-description settings-panel-warning" role="alert">
+          <p className={SETTINGS_PANEL_WARNING_CLASS} role="alert">
             {state.refreshError}
           </p>
         ) : null}
         <button
           type="button"
-          className="settings-control-button settings-control-button-secondary"
+          className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
           disabled={state.operationBusy || undefined}
           onClick={() => {
             void applyOperation(
@@ -167,17 +196,17 @@ function RemotePlannerPrivacySettingsCard(props: {
     || (manualDecision === "allow" && !manualAllowPermitted);
 
   return (
-    <div className="settings-control-card remote-privacy-settings-card" data-remote-planner-privacy-settings="true">
-      <div className="remote-privacy-settings-heading">
-        <div>
+    <div className={REMOTE_PRIVACY_SETTINGS_CARD_CLASS} data-remote-planner-privacy-settings="true">
+      <div className={REMOTE_PRIVACY_ROW_CLASS}>
+        <div className="min-w-0">
           <h3>Planner privacy and site permissions</h3>
-          <p className="settings-panel-description">
+          <p className={SETTINGS_PANEL_DESCRIPTION_CLASS}>
             These controls govern whether sanitized page context may reach a non-loopback planner. They never approve clicks, typing, submissions, downloads, credentials, or other protected actions.
           </p>
         </div>
         <button
           type="button"
-          className="settings-control-button settings-control-button-secondary"
+          className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
           disabled={state.operationBusy || undefined}
           onClick={() => {
             void applyOperation(
@@ -192,14 +221,14 @@ function RemotePlannerPrivacySettingsCard(props: {
       </div>
 
       {status.migration_notice_pending ? (
-        <section className="remote-privacy-migration-notice" aria-labelledby="remote-privacy-migration-title">
+        <section className={REMOTE_PRIVACY_BOX_ACCENT_CLASS} aria-labelledby="remote-privacy-migration-title">
           <h4 id="remote-privacy-migration-title">Privacy settings were migrated</h4>
           <p>
             Legacy consent and blocked-origin settings were converted to the typed network mode and structured site rules. Review the choices below; broad legacy consent was not converted into destination-bound site allows.
           </p>
           <button
             type="button"
-            className="settings-control-button settings-control-button-secondary"
+            className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
             disabled={state.operationBusy || undefined}
             onClick={() => {
               void applyOperation(
@@ -215,12 +244,12 @@ function RemotePlannerPrivacySettingsCard(props: {
       ) : null}
 
       {state.operationError ? (
-        <div className="remote-privacy-operation-error" role="alert">
+        <div className={REMOTE_PRIVACY_BOX_ACCENT_CLASS} role="alert">
           <p>{state.operationError}</p>
           {handlers?.onDismissOperationError ? (
             <button
               type="button"
-              className="settings-control-button settings-control-button-secondary"
+              className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
               disabled={state.operationBusy || undefined}
               onClick={handlers.onDismissOperationError}
             >
@@ -231,21 +260,22 @@ function RemotePlannerPrivacySettingsCard(props: {
       ) : null}
 
       {announcement ? (
-        <p className="remote-privacy-operation-status" role="status" aria-live="polite">
+        <p className={REMOTE_PRIVACY_BOX_ACCENT_CLASS} role="status" aria-live="polite">
           {announcement}
         </p>
       ) : null}
       {state.operationBusy && state.activeOperation ? (
-        <p className="remote-privacy-operation-status" role="status" aria-live="polite">
+        <p className={REMOTE_PRIVACY_BOX_ACCENT_CLASS} role="status" aria-live="polite">
           {OPERATION_LABELS[state.activeOperation]}…
         </p>
       ) : null}
 
-      <fieldset className="remote-privacy-mode-selector" disabled={state.operationBusy || undefined}>
-        <legend>Network planner mode</legend>
+      <fieldset className={REMOTE_PRIVACY_MODE_SELECTOR_CLASS} disabled={state.operationBusy || undefined}>
+        <legend className={REMOTE_PRIVACY_MODE_SELECTOR_LEGEND_CLASS}>Network planner mode</legend>
         {NETWORK_MODE_OPTIONS.map((option) => (
-          <label key={option.value} className="remote-privacy-mode-option">
+          <label key={option.value} className={REMOTE_PRIVACY_MODE_OPTION_CLASS}>
             <input
+              className={REMOTE_PRIVACY_MODE_OPTION_INPUT_CLASS}
               type="radio"
               name="remote-planner-network-mode"
               value={option.value}
@@ -253,7 +283,7 @@ function RemotePlannerPrivacySettingsCard(props: {
               checked={status.network_mode === option.value}
               onChange={() => { requestModeChange(option.value); }}
             />
-            <span>
+            <span className={REMOTE_PRIVACY_MODE_OPTION_LABEL_CLASS}>
               <strong>{option.label}</strong>
               <span>{option.description}</span>
             </span>
@@ -262,18 +292,18 @@ function RemotePlannerPrivacySettingsCard(props: {
       </fieldset>
 
       <section
-        className="remote-privacy-loopback-status"
+        className={REMOTE_PRIVACY_LOOPBACK_STATUS_CLASS}
         aria-labelledby="remote-privacy-loopback-title"
         data-remote-planner-loopback-status="true"
       >
         <h4 id="remote-privacy-loopback-title">Current planner destination</h4>
         {status.endpoint_is_loopback === true ? (
           <p>
-            <strong>On device:</strong> <code>{status.endpoint_display ?? "loopback planner"}</code>. Context stays on this device; saved remote-data permissions are not used for this destination.
+            <strong>On device:</strong> <code className={REMOTE_PRIVACY_CODE_CLASS}>{status.endpoint_display ?? "loopback planner"}</code>. Context stays on this device; saved remote-data permissions are not used for this destination.
           </p>
         ) : status.endpoint_is_loopback === false ? (
           <p>
-            <strong>Network destination:</strong> <code>{status.endpoint_display ?? "configured planner"}</code>. Site allows are bound to the exact normalized destination and current privacy-policy version.
+            <strong>Network destination:</strong> <code className={REMOTE_PRIVACY_CODE_CLASS}>{status.endpoint_display ?? "configured planner"}</code>. Site allows are bound to the exact normalized destination and current privacy-policy version.
           </p>
         ) : (
           <p>The configured planner destination is unavailable or invalid. Network context remains blocked.</p>
@@ -281,36 +311,36 @@ function RemotePlannerPrivacySettingsCard(props: {
       </section>
 
       <section
-        className="remote-privacy-current-origin"
+        className={REMOTE_PRIVACY_CURRENT_ORIGIN_CLASS}
         aria-labelledby="remote-privacy-current-origin-title"
         data-remote-planner-current-origin="true"
       >
         <h4 id="remote-privacy-current-origin-title">Current site</h4>
         {status.current_page_origin ? (
           <>
-            <p><strong>Origin:</strong> <code>{status.current_page_origin}</code></p>
+            <p><strong>Origin:</strong> <code className={REMOTE_PRIVACY_CODE_CLASS}>{status.current_page_origin}</code></p>
             <p><strong>Effective policy:</strong> {EFFECTIVE_DECISION_LABELS[status.effective_decision]}</p>
             {status.session_grant_active ? (
-              <p className="remote-privacy-inline-status" role="status">A session permission is active for this site and destination.</p>
+              <p className={REMOTE_PRIVACY_INLINE_STATUS_CLASS} role="status">A session permission is active for this site and destination.</p>
             ) : null}
             {currentRule?.decision === "allow" ? (
               <p>
-                <strong>Saved allow destination:</strong> <code>{currentRule.endpoint_display ?? "destination unavailable"}</code>
+                <strong>Saved allow destination:</strong> <code className={REMOTE_PRIVACY_CODE_CLASS}>{currentRule.endpoint_display ?? "destination unavailable"}</code>
                 {currentRule.stale ? " — inactive because the destination or privacy-policy version changed" : ""}
               </p>
             ) : currentRule?.decision === "block" ? (
               <p>A saved origin-wide block keeps this site local for every non-loopback planner destination.</p>
             ) : null}
             {status.effective_decision === "high_risk_blocked" ? (
-              <p className="settings-panel-description settings-panel-warning" role="status">
+              <p className={SETTINGS_PANEL_WARNING_CLASS} role="status">
                 High-risk page blocking is non-overridable. A persistent allow cannot be created for the current page context.
               </p>
             ) : null}
-            <div className="settings-button-row settings-button-row-wrap">
+            <div className={SETTINGS_BUTTON_ROW_WRAP_CLASS}>
               {currentRule?.decision !== "block" ? (
                 <button
                   type="button"
-                  className="settings-control-button settings-control-button-secondary"
+                  className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
                   data-remote-planner-current-origin-block="true"
                   disabled={state.operationBusy || undefined}
                   onClick={() => {
@@ -327,7 +357,7 @@ function RemotePlannerPrivacySettingsCard(props: {
               {currentAllowPermitted && currentRule?.decision !== "allow" ? (
                 <button
                   type="button"
-                  className="settings-control-button"
+                  className={SETTINGS_CONTROL_BUTTON_CLASS}
                   data-remote-planner-current-origin-allow="true"
                   disabled={state.operationBusy || undefined}
                   onClick={() => {
@@ -344,7 +374,7 @@ function RemotePlannerPrivacySettingsCard(props: {
               {currentRule ? (
                 <button
                   type="button"
-                  className="settings-control-button settings-control-button-secondary"
+                  className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
                   data-remote-planner-current-origin-revoke="true"
                   disabled={state.operationBusy || undefined}
                   onClick={() => {
@@ -368,17 +398,17 @@ function RemotePlannerPrivacySettingsCard(props: {
       </section>
 
       <section
-        className="remote-privacy-rule-management"
+        className={REMOTE_PRIVACY_RULE_MANAGEMENT_CLASS}
         aria-labelledby="remote-privacy-rules-title"
         data-remote-planner-rule-management="true"
       >
-        <div className="remote-privacy-section-heading">
-          <div>
+        <div className={REMOTE_PRIVACY_ROW_CLASS}>
+          <div className="min-w-0">
             <h4 id="remote-privacy-rules-title">Saved site rules</h4>
             <p>{allowCount} allow rule{allowCount === 1 ? "" : "s"}; {blockCount} block rule{blockCount === 1 ? "" : "s"}.</p>
           </div>
           {status.stale_allow_rule_count > 0 ? (
-            <p className="settings-panel-description settings-panel-warning" role="status">
+            <p className={SETTINGS_PANEL_WARNING_CLASS} role="status">
               {status.stale_allow_rule_count} saved allow rule{status.stale_allow_rule_count === 1 ? " is" : "s are"} stale and cannot authorize network planning.
             </p>
           ) : null}
@@ -386,31 +416,31 @@ function RemotePlannerPrivacySettingsCard(props: {
         {status.persistent_rules.length === 0 ? (
           <p>No saved site rules.</p>
         ) : (
-          <ul className="remote-privacy-rule-list">
+          <ul className={REMOTE_PRIVACY_RULE_LIST_CLASS}>
             {status.persistent_rules.map((rule) => (
               <li
                 key={`${rule.page_origin}|${rule.decision}|${rule.endpoint_scope ?? ""}|${rule.policy_version}`}
-                className="remote-privacy-rule-item"
+                className={REMOTE_PRIVACY_RULE_ITEM_CLASS}
                 data-remote-planner-rule={rule.decision}
                 data-remote-planner-rule-stale={rule.stale ? "true" : "false"}
               >
-                <div>
-                  <p><strong>{rule.decision === "allow" ? "Allow" : "Keep local"}</strong> — <code>{rule.page_origin}</code></p>
+                <div className="min-w-0">
+                  <p><strong>{rule.decision === "allow" ? "Allow" : "Keep local"}</strong> — <code className={REMOTE_PRIVACY_CODE_CLASS}>{rule.page_origin}</code></p>
                   <p>
                     {rule.decision === "allow"
-                      ? <>Destination: <code>{rule.endpoint_display ?? "destination unavailable"}</code></>
+                      ? <>Destination: <code className={REMOTE_PRIVACY_CODE_CLASS}>{rule.endpoint_display ?? "destination unavailable"}</code></>
                       : "Applies to every non-loopback planner destination."}
                   </p>
                   <p>Created: <time dateTime={safeTimestamp(rule.created_at_ms)}>{safeTimestamp(rule.created_at_ms)}</time></p>
                   {rule.stale ? (
-                    <p className="settings-panel-description settings-panel-warning" role="status">
+                    <p className={SETTINGS_PANEL_WARNING_CLASS} role="status">
                       Inactive: the destination or privacy-policy version changed. This rule is visible but cannot authorize transmission.
                     </p>
                   ) : null}
                 </div>
                 <button
                   type="button"
-                  className="settings-control-button settings-control-button-secondary"
+                  className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
                   data-remote-planner-rule-revoke="true"
                   disabled={state.operationBusy || undefined}
                   aria-label={`Revoke ${rule.decision} rule for ${rule.page_origin}`}
@@ -429,16 +459,16 @@ function RemotePlannerPrivacySettingsCard(props: {
           </ul>
         )}
 
-        <details className="remote-privacy-manual-rule" data-remote-planner-manual-rule="true">
-          <summary>Advanced: add a rule for another site</summary>
-          <p className="settings-panel-description">
+        <details className={REMOTE_PRIVACY_MANUAL_RULE_CLASS} data-remote-planner-manual-rule="true">
+          <summary className={REMOTE_PRIVACY_MANUAL_RULE_SUMMARY_CLASS}>Advanced: add a rule for another site</summary>
+          <p className={SETTINGS_PANEL_DESCRIPTION_CLASS}>
             Enter only an HTTP(S) origin such as <code>https://example.com</code>. Rust validates and normalizes the origin. For allows, Rust binds the rule to the authoritative configured planner destination; this form cannot supply or override that scope.
           </p>
-          <label className="settings-field-group" htmlFor="remote-planner-manual-origin">
-            <span className="settings-control-label">Site origin</span>
+          <label className={SETTINGS_FIELD_GROUP_CLASS} htmlFor="remote-planner-manual-origin">
+            <span className={CONTROL_LABEL}>Site origin</span>
             <input
               id="remote-planner-manual-origin"
-              className="settings-control-select"
+              className={SETTINGS_CONTROL_SELECT_CLASS}
               type="text"
               value={manualOrigin}
               placeholder="https://example.com"
@@ -448,11 +478,11 @@ function RemotePlannerPrivacySettingsCard(props: {
               onChange={(event) => { setManualOrigin(event.currentTarget.value); }}
             />
           </label>
-          <label className="settings-field-group" htmlFor="remote-planner-manual-decision">
-            <span className="settings-control-label">Rule</span>
+          <label className={SETTINGS_FIELD_GROUP_CLASS} htmlFor="remote-planner-manual-decision">
+            <span className={CONTROL_LABEL}>Rule</span>
             <select
               id="remote-planner-manual-decision"
-              className="settings-control-select"
+              className={SETTINGS_CONTROL_SELECT_CLASS}
               value={manualDecision}
               disabled={state.operationBusy || undefined}
               onChange={(event) => {
@@ -466,13 +496,13 @@ function RemotePlannerPrivacySettingsCard(props: {
             </select>
           </label>
           {manualDecision === "allow" && !manualAllowPermitted ? (
-            <p className="settings-panel-description settings-panel-warning" role="status">
+            <p className={SETTINGS_PANEL_WARNING_CLASS} role="status">
               A persistent allow requires a valid non-loopback planner destination and a network mode that is not Local only.
             </p>
           ) : null}
           <button
             type="button"
-            className="settings-control-button"
+            className={SETTINGS_CONTROL_BUTTON_CLASS}
             data-remote-planner-manual-rule-save="true"
             disabled={manualSubmitDisabled || undefined}
             onClick={() => { void submitManualRule(); }}
@@ -483,18 +513,18 @@ function RemotePlannerPrivacySettingsCard(props: {
       </section>
 
       <section
-        className="remote-privacy-clear-controls"
+        className={REMOTE_PRIVACY_CLEAR_CONTROLS_CLASS}
         aria-labelledby="remote-privacy-clear-title"
         data-remote-planner-clear-controls="true"
       >
         <h4 id="remote-privacy-clear-title">Clear permissions and rules</h4>
-        <p className="settings-panel-description">
+        <p className={SETTINGS_PANEL_DESCRIPTION_CLASS}>
           Session permissions exist only in memory. Saved rules are durable and remain until explicitly revoked or cleared.
         </p>
-        <div className="settings-button-row settings-button-row-wrap">
+        <div className={SETTINGS_BUTTON_ROW_WRAP_CLASS}>
           <button
             type="button"
-            className="settings-control-button settings-control-button-secondary"
+            className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
             data-remote-planner-clear-session-grants="true"
             disabled={state.operationBusy || undefined}
             onClick={() => {
@@ -509,7 +539,7 @@ function RemotePlannerPrivacySettingsCard(props: {
           </button>
           <button
             type="button"
-            className="settings-control-button settings-control-button-secondary"
+            className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
             data-remote-planner-clear-persistent-allows="true"
             disabled={state.operationBusy || allowCount === 0 || undefined}
             onClick={() => { setConfirmation("clear-persistent-allows"); }}
@@ -518,7 +548,7 @@ function RemotePlannerPrivacySettingsCard(props: {
           </button>
           <button
             type="button"
-            className="settings-control-button settings-control-button-danger"
+            className={SETTINGS_CONTROL_BUTTON_DANGER_CLASS}
             data-remote-planner-clear-all-rules="true"
             disabled={state.operationBusy || status.persistent_rule_count === 0 || undefined}
             onClick={() => { setConfirmation("clear-all-rules"); }}

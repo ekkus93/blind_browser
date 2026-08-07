@@ -21,6 +21,28 @@ import type {
   RemotePlannerConsentDisclosureClass,
 } from "./tauri-api.ts";
 import type { RemotePlannerPrivacyState } from "./remote-planner-privacy-state.ts";
+import {
+  REMOTE_CONSENT_ACTION_BUTTON_CLASS,
+  REMOTE_CONSENT_ACTIONS_CLASS,
+  REMOTE_CONSENT_DD_CLASS,
+  REMOTE_CONSENT_DESTINATION_COUNTS_CLASS,
+  REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS,
+  REMOTE_CONSENT_DIALOG_CLASS,
+  REMOTE_CONSENT_DISCLOSURES_CLASS,
+  REMOTE_CONSENT_DT_CLASS,
+  REMOTE_CONSENT_ERROR_CLASS,
+  REMOTE_CONSENT_ERROR_PARAGRAPH_CLASS,
+  REMOTE_CONSENT_LOCAL_CANCEL_BUTTON_CLASS,
+  REMOTE_PRIVACY_DETAIL_CLASS,
+  REMOTE_PRIVACY_ERROR_CLASS,
+  REMOTE_PRIVACY_EYEBROW_CLASS,
+  REMOTE_PRIVACY_GUIDANCE_CLASS,
+  REMOTE_PRIVACY_HEADING_CLASS,
+  REMOTE_PRIVACY_SETTINGS_BUTTON_CLASS,
+  REMOTE_PRIVACY_STATUS_CLASS,
+  REMOTE_PRIVACY_STATUS_COPY_CLASS,
+  REMOTE_PRIVACY_WARNING_CLASS,
+} from "./settings-panels/shared-controls.tsx";
 
 const DECISION_LABELS = {
   loopback_local: "On-device planner",
@@ -65,44 +87,44 @@ function renderPrivacyStatus(
   const status = state.status;
   return (
     <section
-      className="remote-privacy-status"
+      className={REMOTE_PRIVACY_STATUS_CLASS}
       aria-labelledby="remote-privacy-status-title"
       data-remote-privacy-status="true"
     >
-      <div className="remote-privacy-status-copy">
-        <p className="remote-privacy-eyebrow">Planner privacy</p>
-        <h2 id="remote-privacy-status-title">
+      <div className={REMOTE_PRIVACY_STATUS_COPY_CLASS}>
+        <p className={REMOTE_PRIVACY_EYEBROW_CLASS}>Planner privacy</p>
+        <h2 id="remote-privacy-status-title" className={REMOTE_PRIVACY_HEADING_CLASS}>
           {status
             ? DECISION_LABELS[status.effective_decision]
             : "Checking planner privacy status"}
         </h2>
         {status?.current_page_origin ? (
-          <p className="remote-privacy-detail">
+          <p className={REMOTE_PRIVACY_DETAIL_CLASS}>
             Site: <code>{status.current_page_origin}</code>
           </p>
         ) : null}
         {status?.endpoint_display ? (
-          <p className="remote-privacy-detail">
+          <p className={REMOTE_PRIVACY_DETAIL_CLASS}>
             Planner: <code>{status.endpoint_display}</code>
           </p>
         ) : null}
         {status?.effective_decision === "high_risk_blocked" ? (
-          <p className="remote-privacy-guidance">
+          <p className={REMOTE_PRIVACY_GUIDANCE_CLASS}>
             Network planning cannot be enabled for this page. Use a local planner or continue with direct commands.
           </p>
         ) : null}
         {status?.stale_allow_rule_count ? (
-          <p className="remote-privacy-warning" role="status">
+          <p className={REMOTE_PRIVACY_WARNING_CLASS} role="status">
             {status.stale_allow_rule_count} saved allow rule{status.stale_allow_rule_count === 1 ? " is" : "s are"} inactive because the destination or privacy policy changed.
           </p>
         ) : null}
         {state.refreshBusy ? (
-          <p className="remote-privacy-detail" role="status" aria-live="polite">
+          <p className={REMOTE_PRIVACY_DETAIL_CLASS} role="status" aria-live="polite">
             Refreshing authoritative privacy status…
           </p>
         ) : null}
         {state.refreshError ? (
-          <p className="remote-privacy-error" role="alert">
+          <p className={REMOTE_PRIVACY_ERROR_CLASS} role="alert">
             {state.refreshError}
           </p>
         ) : null}
@@ -110,7 +132,7 @@ function renderPrivacyStatus(
       {handlers?.onOpenSettings ? (
         <button
           type="button"
-          className="remote-privacy-settings-button"
+          className={REMOTE_PRIVACY_SETTINGS_BUTTON_CLASS}
           onClick={handlers.onOpenSettings}
         >
           Privacy settings
@@ -125,13 +147,13 @@ function disclosureCountSummary(
 ): ReactNode {
   const counts = consentState.challenge.disclosure_counts;
   return (
-    <dl className="remote-consent-counts" data-remote-consent-counts="true">
-      <div><dt>Selected text regions</dt><dd>{counts.selected_region_count}</dd></div>
-      <div><dt>Selected elements</dt><dd>{counts.selected_element_count}</dd></div>
-      <div><dt>OCR-derived regions</dt><dd>{counts.ocr_derived_region_count}</dd></div>
-      <div><dt>Tool summaries</dt><dd>{counts.tool_history_count}</dd></div>
-      <div><dt>Skill summaries</dt><dd>{counts.skill_summary_count}</dd></div>
-      <div><dt>Sanitized request size</dt><dd>{counts.sanitized_serialized_bytes} bytes</dd></div>
+    <dl className={REMOTE_CONSENT_DESTINATION_COUNTS_CLASS} data-remote-consent-counts="true">
+      <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Selected text regions</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{counts.selected_region_count}</dd></div>
+      <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Selected elements</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{counts.selected_element_count}</dd></div>
+      <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>OCR-derived regions</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{counts.ocr_derived_region_count}</dd></div>
+      <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Tool summaries</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{counts.tool_history_count}</dd></div>
+      <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Skill summaries</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{counts.skill_summary_count}</dd></div>
+      <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Sanitized request size</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{counts.sanitized_serialized_bytes} bytes</dd></div>
     </dl>
   );
 }
@@ -209,7 +231,7 @@ function RemotePlannerConsentDialog(props: {
   return (
     <section
       ref={rootRef}
-      className="remote-consent-dialog"
+      className={REMOTE_CONSENT_DIALOG_CLASS}
       role="dialog"
       aria-modal="true"
       aria-labelledby="remote-consent-title"
@@ -219,48 +241,49 @@ function RemotePlannerConsentDialog(props: {
       tabIndex={-1}
       onKeyDown={handleKeyDown}
     >
-      <p className="remote-privacy-eyebrow">Permission required</p>
-      <h2 id="remote-consent-title">Send sanitized information to the network planner?</h2>
+      <p className={REMOTE_PRIVACY_EYEBROW_CLASS}>Permission required</p>
+      <h2 id="remote-consent-title" className={REMOTE_PRIVACY_HEADING_CLASS}>Send sanitized information to the network planner?</h2>
       <p id="remote-consent-description">
         Blind Browser paused before network access. No planner request has been sent yet.
       </p>
 
-      <dl className="remote-consent-destination">
-        <div><dt>Site</dt><dd><code>{challenge.page_origin}</code></dd></div>
-        <div><dt>Planner</dt><dd><code>{challenge.endpoint_display}</code></dd></div>
-        <div><dt>Profile</dt><dd>{challenge.profile_name}</dd></div>
-        <div><dt>Model</dt><dd>{challenge.model_label}</dd></div>
+      <dl className={REMOTE_CONSENT_DESTINATION_COUNTS_CLASS}>
+        <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Site</dt><dd className={REMOTE_CONSENT_DD_CLASS}><code>{challenge.page_origin}</code></dd></div>
+        <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Planner</dt><dd className={REMOTE_CONSENT_DD_CLASS}><code>{challenge.endpoint_display}</code></dd></div>
+        <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Profile</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{challenge.profile_name}</dd></div>
+        <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Model</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{challenge.model_label}</dd></div>
       </dl>
 
-      <h3>Information categories</h3>
-      <ul className="remote-consent-disclosures">
+      <h3 className={REMOTE_PRIVACY_HEADING_CLASS}>Information categories</h3>
+      <ul className={REMOTE_CONSENT_DISCLOSURES_CLASS}>
         {challenge.disclosure_classes.map((disclosureClass) => (
           <li key={disclosureClass}>{DISCLOSURE_LABELS[disclosureClass]}</li>
         ))}
       </ul>
       {disclosureCountSummary(props.consentState)}
 
-      <p id="remote-consent-warning" className="remote-privacy-warning">
+      <p id="remote-consent-warning" className={REMOTE_PRIVACY_WARNING_CLASS}>
         The request is locally selected and sanitized, but it may still contain page or user information. This permission does not approve clicks, typing, submissions, downloads, credentials, or other actions.
       </p>
-      <p className="remote-privacy-detail">
+      <p className={REMOTE_PRIVACY_DETAIL_CLASS}>
         This request expires at {expiry.dateTime
           ? <time dateTime={expiry.dateTime}>{expiry.label}</time>
           : <span>{expiry.label}</span>}.
       </p>
 
       {submissionError ? (
-        <div className="remote-consent-error" role="alert">
+        <div className={REMOTE_CONSENT_ERROR_CLASS} data-remote-consent-error="true" role="alert">
           <strong>{submissionError.title}</strong>
-          <p>{submissionError.message}</p>
-          <p>{submissionError.guidance}</p>
+          <p className={REMOTE_CONSENT_ERROR_PARAGRAPH_CLASS}>{submissionError.message}</p>
+          <p className={REMOTE_CONSENT_ERROR_PARAGRAPH_CLASS}>{submissionError.guidance}</p>
         </div>
       ) : null}
 
-      <div className="remote-consent-actions" aria-label="Remote data choices">
+      <div className={REMOTE_CONSENT_ACTIONS_CLASS} aria-label="Remote data choices">
         {challenge.allow_once ? (
           <button
             type="button"
+            className={REMOTE_CONSENT_ACTION_BUTTON_CLASS}
             data-remote-consent-decision="allow_once"
             disabled={isSubmitting || undefined}
             aria-label="Allow sanitized data for this request only"
@@ -272,6 +295,7 @@ function RemotePlannerConsentDialog(props: {
         {challenge.allow_session ? (
           <button
             type="button"
+            className={REMOTE_CONSENT_ACTION_BUTTON_CLASS}
             data-remote-consent-decision="allow_session"
             disabled={isSubmitting || undefined}
             aria-label="Allow sanitized data for this site and planner for this application session"
@@ -283,6 +307,7 @@ function RemotePlannerConsentDialog(props: {
         {challenge.allow_persistent ? (
           <button
             type="button"
+            className={REMOTE_CONSENT_ACTION_BUTTON_CLASS}
             data-remote-consent-decision="allow_persistent"
             disabled={isSubmitting || undefined}
             aria-label="Always allow sanitized data for this site and exact planner destination"
@@ -294,7 +319,7 @@ function RemotePlannerConsentDialog(props: {
         {challenge.block_persistent ? (
           <button
             type="button"
-            className="remote-consent-local-button"
+            className={`${REMOTE_CONSENT_ACTION_BUTTON_CLASS} ${REMOTE_CONSENT_LOCAL_CANCEL_BUTTON_CLASS}`}
             data-remote-consent-decision="block_persistent"
             disabled={isSubmitting || undefined}
             aria-label="Keep this site local for every network planner"
@@ -306,7 +331,7 @@ function RemotePlannerConsentDialog(props: {
         <button
           ref={cancelRef}
           type="button"
-          className="remote-consent-cancel-button"
+          className={`${REMOTE_CONSENT_ACTION_BUTTON_CLASS} ${REMOTE_CONSENT_LOCAL_CANCEL_BUTTON_CLASS}`}
           data-remote-consent-decision="deny"
           disabled={isSubmitting || undefined}
           aria-label="Cancel and do not send data"

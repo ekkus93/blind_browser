@@ -14,8 +14,11 @@ import type {
   TtsVoicePanelState,
 } from "../panel-types.ts";
 import {
+  SETTINGS_GRID_CLASS,
+  SETTINGS_PANEL_WARNING_CLASS,
   renderReadOnlyCard,
   renderSelectControlCard,
+  renderSettingsModelMissingWarning,
   renderSettingsPanelSection,
 } from "./shared-controls.tsx";
 
@@ -53,7 +56,7 @@ export function renderSettingsLocalTtsModelPanelNode(state: LocalTtsModelPanelSt
     title: "Local voice output profile",
     description: "Review the local speech profile used when voice output runs in local mode. Edit the app config to change it.",
     children: [
-      <div className="settings-grid" key="tts-local-grid">
+      <div className={SETTINGS_GRID_CLASS} key="tts-local-grid">
         {renderReadOnlyCard("Profile", state.profileName)}
         {renderReadOnlyCard("Backend", state.backend)}
         {renderReadOnlyCard("Model ID", state.modelId)}
@@ -63,16 +66,11 @@ export function renderSettingsLocalTtsModelPanelNode(state: LocalTtsModelPanelSt
       </div>,
       state.modelAvailable === false
         ? (
-          <div className="settings-model-missing-warning" role="alert" key="tts-local-warning">
-            <p className="settings-model-missing-message">Model not downloaded yet. Go to Advanced settings to download it.</p>
-            <button
-              type="button"
-              className="settings-model-missing-button"
-              data-open-runtime-settings="true"
-              onClick={handlers?.onOpenRuntimeSettings}
-            >
-              Open Advanced settings
-            </button>
+          <div key="tts-local-warning">
+            {renderSettingsModelMissingWarning(
+              "Model not downloaded yet. Go to Advanced settings to download it.",
+              handlers?.onOpenRuntimeSettings,
+            )}
           </div>
         )
         : null,
@@ -92,14 +90,14 @@ export function renderSettingsRemoteTtsPanelNode(
     onDismissError: handlers?.onDismissError,
     onRetry: handlers?.onRetry,
     children: (
-      <div className="settings-grid">
+      <div className={SETTINGS_GRID_CLASS}>
         {renderReadOnlyCard("Profile", state.profileName)}
         {renderReadOnlyCard("Provider", state.provider)}
         {renderReadOnlyCard("Base URL", state.baseUrl)}
         {renderReadOnlyCard("Model", state.model)}
         {renderReadOnlyCard("API key source", state.apiKeyReference)}
         {state.apiKeyReferenceError ? (
-          <p className="settings-panel-description settings-panel-warning" role="alert">
+          <p className={SETTINGS_PANEL_WARNING_CLASS} role="alert">
             {state.apiKeyReferenceError}
           </p>
         ) : null}
@@ -140,7 +138,7 @@ export function renderSettingsTtsProviderPanelNode(
     error: state.error,
     onDismissError: handlers?.onDismissError,
     children: (
-      <div className="settings-grid">
+      <div className={SETTINGS_GRID_CLASS}>
         {renderSelectControlCard({
           id: "settings-tts-provider-control",
           label: "Provider",
@@ -172,7 +170,7 @@ export function renderSettingsTtsModelPanelNode(
     error: state.error,
     onDismissError: handlers?.onDismissError,
     children: (
-      <div className="settings-grid">
+      <div className={SETTINGS_GRID_CLASS}>
         {renderSelectControlCard({
           id: "settings-tts-model-control",
           label: "Selected model",
@@ -207,7 +205,7 @@ export function renderSettingsTtsVoicePanelNode(
     error: state.error,
     onDismissError: handlers?.onDismissError,
     children: (
-      <div className="settings-grid">
+      <div className={SETTINGS_GRID_CLASS}>
         {renderSelectControlCard({
           id: "settings-tts-voice-control",
           label: "Selected voice",

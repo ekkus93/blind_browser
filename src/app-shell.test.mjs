@@ -22,7 +22,7 @@ test("workspace shell keeps the main page focused on live panels", async () => {
 test("settings shell groups related sections in a logical order", async () => {
   const html = await renderAppShell();
 
-  assert.ok(html.includes("<h1>Settings</h1>"));
+  assert.match(html, /<h1[^>]*>Settings<\/h1>/);
   assert.ok(!html.includes('data-app-view-button="workspace"'));
   assert.ok(html.includes('data-settings-view-section="overview"'));
   assert.ok(html.includes('data-settings-view-section="planner"'));

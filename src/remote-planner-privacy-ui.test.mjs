@@ -217,7 +217,7 @@ test("expired challenge and persistence failures remain explicit and accessible"
   );
 
   assert.match(html, /<time dateTime="2020-01-01T00:00:00.000Z">/);
-  assert.match(html, /class="remote-consent-error" role="alert"/);
+  assert.match(html, /data-remote-consent-error="true" role="alert"/);
   assert.match(html, /No data was sent/);
 });
 

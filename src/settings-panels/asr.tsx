@@ -10,8 +10,11 @@ import type {
   RemoteAsrPanelState,
 } from "../panel-types.ts";
 import {
+  SETTINGS_GRID_CLASS,
+  SETTINGS_PANEL_WARNING_CLASS,
   renderReadOnlyCard,
   renderSelectControlCard,
+  renderSettingsModelMissingWarning,
   renderSettingsPanelSection,
 } from "./shared-controls.tsx";
 
@@ -40,7 +43,7 @@ export function renderSettingsAsrProviderPanelNode(
     error: state.error,
     onDismissError: handlers?.onDismissError,
     children: (
-      <div className="settings-grid">
+      <div className={SETTINGS_GRID_CLASS}>
         {renderSelectControlCard({
           id: "settings-asr-provider-control",
           label: "Provider",
@@ -68,7 +71,7 @@ export function renderSettingsLocalAsrModelPanelNode(state: LocalAsrModelPanelSt
     title: "Local voice input profile",
     description: "Review the speech-to-text profile used when voice input runs in local mode. Edit the app config to change it.",
     children: [
-      <div className="settings-grid" key="asr-local-grid">
+      <div className={SETTINGS_GRID_CLASS} key="asr-local-grid">
         {renderReadOnlyCard("Profile", state.profileName)}
         {renderReadOnlyCard("Backend", state.backend)}
         {renderReadOnlyCard("Model ID", state.modelId)}
@@ -77,16 +80,11 @@ export function renderSettingsLocalAsrModelPanelNode(state: LocalAsrModelPanelSt
       </div>,
       state.modelAvailable === false
         ? (
-          <div className="settings-model-missing-warning" role="alert" key="asr-local-warning">
-            <p className="settings-model-missing-message">Model not downloaded yet. Go to Advanced settings to download it.</p>
-            <button
-              type="button"
-              className="settings-model-missing-button"
-              data-open-runtime-settings="true"
-              onClick={handlers?.onOpenRuntimeSettings}
-            >
-              Open Advanced settings
-            </button>
+          <div key="asr-local-warning">
+            {renderSettingsModelMissingWarning(
+              "Model not downloaded yet. Go to Advanced settings to download it.",
+              handlers?.onOpenRuntimeSettings,
+            )}
           </div>
         )
         : null,
@@ -106,14 +104,14 @@ export function renderSettingsRemoteAsrPanelNode(
     onDismissError: handlers?.onDismissError,
     onRetry: handlers?.onRetry,
     children: (
-      <div className="settings-grid">
+      <div className={SETTINGS_GRID_CLASS}>
         {renderReadOnlyCard("Profile", state.profileName)}
         {renderReadOnlyCard("Provider", state.provider)}
         {renderReadOnlyCard("Base URL", state.baseUrl)}
         {renderReadOnlyCard("Model", state.model)}
         {renderReadOnlyCard("API key source", state.apiKeyReference)}
         {state.apiKeyReferenceError ? (
-          <p className="settings-panel-description settings-panel-warning" role="alert">
+          <p className={SETTINGS_PANEL_WARNING_CLASS} role="alert">
             {state.apiKeyReferenceError}
           </p>
         ) : null}

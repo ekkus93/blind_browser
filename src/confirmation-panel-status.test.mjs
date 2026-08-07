@@ -99,12 +99,12 @@ test("disables browser visibility toggle buttons while visibility changes are in
   });
 
   assert.match(html, /disabled="" aria-disabled="true"/);
-  assert.match(html, /status-toggle-button-active/);
+  assert.match(html, /data-browser-visibility-mode="Visible"[^>]*aria-pressed="true"/);
 });
 
 test("voice status strip renders idle state by default", () => {
   const html = renderNodeMarkup(renderVoiceStatusStripNode({ isListening: false, isSpeaking: false, isProcessing: false }));
-  assert.match(html, /voice-status-strip/);
+  assert.match(html, /data-voice-status-strip="true"/);
   assert.match(html, /data-voice-state="idle"/);
   assert.match(html, /Ready/);
   assert.match(html, /role="status"/);

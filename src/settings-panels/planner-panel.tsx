@@ -3,7 +3,32 @@ import { type ReactNode } from "react";
 import { renderSecretEntryCard } from "../confirmation-panel-helpers.tsx";
 import type { RemotePlannerPanelState } from "../panel-types.ts";
 import { renderConnectedRemotePlannerPrivacySettingsCard } from "./planner-privacy.tsx";
-import { renderSettingsPanelSection } from "./shared-controls.tsx";
+import {
+  BTN_SPINNER_CLASS,
+  CONTROL_LABEL,
+  SETTINGS_BUTTON_ROW_WRAP_CLASS,
+  SETTINGS_CONTROL_BUTTON_CLASS,
+  SETTINGS_CONTROL_BUTTON_DANGER_CLASS,
+  SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS,
+  SETTINGS_CONTROL_SELECT_CLASS,
+  SETTINGS_FIELD_GROUP_CLASS,
+  SETTINGS_GRID_SINGLE_CLASS,
+  SETTINGS_GRID_SINGLE_COMPACT_CLASS,
+  SETTINGS_INLINE_CONTROL_FILL_CLASS,
+  SETTINGS_INLINE_CONTROL_ROW_WRAP_CLASS,
+  SETTINGS_INLINE_LABEL_ROW_CLASS,
+  SETTINGS_INLINE_LOADING_CLASS,
+  SETTINGS_MODEL_FRESHNESS_INDICATOR_CLASS,
+  SETTINGS_MODEL_FRESHNESS_LABEL_CLASS,
+  SETTINGS_PANEL_WARNING_CLASS,
+  SETTINGS_PLANNER_CONNECTION_CARD_CLASS,
+  SETTINGS_RESET_CONFIRM_MESSAGE_CLASS,
+  SETTINGS_RESET_CONFIRM_ROW_CLASS,
+  SETTINGS_STATUS_LIGHT_CLASS,
+  SETTINGS_STATUS_LIGHT_FRESH_CLASS,
+  SETTINGS_STATUS_LIGHT_STALE_CLASS,
+  renderSettingsPanelSection,
+} from "./shared-controls.tsx";
 
 export interface RemotePlannerPanelHandlers {
   onApiKeyInput?: (value: string) => void;
@@ -52,7 +77,7 @@ export function renderSettingsRemotePlannerPanelNode(
     onRetry: handlers?.onRetry,
     children: [
       renderConnectedRemotePlannerPrivacySettingsCard(),
-      <div className="settings-grid settings-grid-single" key="planner-api">
+      <div className={SETTINGS_GRID_SINGLE_CLASS} key="planner-api">
         {renderSecretEntryCard(
           "planner",
           state.profileName,
@@ -70,18 +95,18 @@ export function renderSettingsRemotePlannerPanelNode(
           },
         )}
         {state.apiKeyReferenceError ? (
-          <p className="settings-panel-description settings-panel-warning" role="alert">
+          <p className={SETTINGS_PANEL_WARNING_CLASS} role="alert">
             {state.apiKeyReferenceError}
           </p>
         ) : null}
       </div>,
-      <div className="settings-grid settings-grid-single settings-grid-compact" key="planner-endpoint">
-        <div className="settings-control-card settings-planner-connection-card">
-          <label className="settings-field-group" htmlFor="settings-remote-planner-endpoint-input">
-            <span className="settings-control-label">Endpoint</span>
+      <div className={SETTINGS_GRID_SINGLE_COMPACT_CLASS} key="planner-endpoint">
+        <div className={SETTINGS_PLANNER_CONNECTION_CARD_CLASS}>
+          <label className={SETTINGS_FIELD_GROUP_CLASS} htmlFor="settings-remote-planner-endpoint-input">
+            <span className={CONTROL_LABEL}>Endpoint</span>
             <input
               id="settings-remote-planner-endpoint-input"
-              className="settings-control-select"
+              className={SETTINGS_CONTROL_SELECT_CLASS}
               data-remote-planner-endpoint-input="true"
               type="text"
               value={state.baseUrl ?? ""}
@@ -97,20 +122,20 @@ export function renderSettingsRemotePlannerPanelNode(
             />
           </label>
           {state.isLoadingModels ? (
-            <span className="settings-inline-loading" role="status" aria-live="polite">
-              <span className="btn-spinner" aria-hidden="true" /> Loading models...
+            <span className={SETTINGS_INLINE_LOADING_CLASS} data-inline-loading="true" role="status" aria-live="polite">
+              <span className={BTN_SPINNER_CLASS} data-btn-spinner="true" aria-hidden="true" /> Loading models...
             </span>
           ) : null}
         </div>
       </div>,
-      <div className="settings-grid settings-grid-single settings-grid-compact" key="planner-model">
-        <div className="settings-control-card settings-planner-connection-card">
-          <div className="settings-field-group">
-            <span className="settings-control-label settings-inline-label-row">
+      <div className={SETTINGS_GRID_SINGLE_COMPACT_CLASS} key="planner-model">
+        <div className={SETTINGS_PLANNER_CONNECTION_CARD_CLASS}>
+          <div className={SETTINGS_FIELD_GROUP_CLASS}>
+            <span className={`${CONTROL_LABEL} ${SETTINGS_INLINE_LABEL_ROW_CLASS}`}>
               <span>Model</span>
-              <span className="settings-model-freshness-indicator" aria-hidden="true">
-                <span className={`settings-status-light ${modelsAreFresh ? "settings-status-light-fresh" : "settings-status-light-stale"}`} />
-                <span className="settings-model-freshness-label">
+              <span className={SETTINGS_MODEL_FRESHNESS_INDICATOR_CLASS} aria-hidden="true">
+                <span className={`${SETTINGS_STATUS_LIGHT_CLASS} ${modelsAreFresh ? SETTINGS_STATUS_LIGHT_FRESH_CLASS : SETTINGS_STATUS_LIGHT_STALE_CLASS}`} />
+                <span className={SETTINGS_MODEL_FRESHNESS_LABEL_CLASS}>
                   {modelsAreFresh ? "Model list up to date" : "Model list may be outdated — reload to refresh"}
                 </span>
               </span>
@@ -121,10 +146,10 @@ export function renderSettingsRemotePlannerPanelNode(
               </span>
             </span>
             {hasLoadedModels ? (
-              <div className="settings-inline-control-row settings-inline-control-row-wrap">
+              <div className={SETTINGS_INLINE_CONTROL_ROW_WRAP_CLASS}>
                 <select
                   id="settings-remote-planner-model-select"
-                  className="settings-control-select settings-inline-control-fill"
+                  className={`${SETTINGS_CONTROL_SELECT_CLASS} ${SETTINGS_INLINE_CONTROL_FILL_CLASS}`}
                   data-remote-planner-model-select="true"
                   value={state.model ?? ""}
                   disabled={modelDisabled || undefined}
@@ -139,40 +164,40 @@ export function renderSettingsRemotePlannerPanelNode(
                 </select>
                 <button
                   type="button"
-                  className="settings-control-button settings-control-button-secondary"
+                  className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
                   data-remote-planner-models-refresh="true"
                   disabled={loadModelsDisabled || undefined}
                   aria-disabled={loadModelsDisabled ? "true" : undefined}
                   onClick={handlers?.onLoadModels}
                 >
                   {state.isLoadingModels
-                    ? <><span className="btn-spinner" aria-hidden="true" />Loading models...</>
+                    ? <><span className={BTN_SPINNER_CLASS} data-btn-spinner="true" aria-hidden="true" />Loading models...</>
                     : "Refresh model list"}
                 </button>
               </div>
             ) : (
-              <div className="settings-inline-control-row settings-inline-control-row-wrap">
+              <div className={SETTINGS_INLINE_CONTROL_ROW_WRAP_CLASS}>
                 <button
                   type="button"
-                  className="settings-control-button settings-control-button-secondary"
+                  className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
                   data-remote-planner-models-refresh="true"
                   disabled={loadModelsDisabled || undefined}
                   aria-disabled={loadModelsDisabled ? "true" : undefined}
                   onClick={handlers?.onLoadModels}
                 >
                   {state.isLoadingModels
-                    ? <><span className="btn-spinner" aria-hidden="true" />Loading models...</>
+                    ? <><span className={BTN_SPINNER_CLASS} data-btn-spinner="true" aria-hidden="true" />Loading models...</>
                     : "Refresh model list"}
                 </button>
               </div>
             )}
-            <label className="settings-field-group" htmlFor="settings-remote-planner-model-input">
-              <span className="settings-control-label">
+            <label className={SETTINGS_FIELD_GROUP_CLASS} htmlFor="settings-remote-planner-model-input">
+              <span className={CONTROL_LABEL}>
                 {hasLoadedModels ? "Or enter a model name manually" : "Model name"}
               </span>
               <input
                 id="settings-remote-planner-model-input"
-                className="settings-control-select"
+                className={SETTINGS_CONTROL_SELECT_CLASS}
                 data-remote-planner-model-input="true"
                 type="text"
                 value={state.model ?? ""}
@@ -187,18 +212,18 @@ export function renderSettingsRemotePlannerPanelNode(
               />
             </label>
             {modelsNotLoadedForEndpoint && !state.isLoadingModels ? (
-              <p className="settings-panel-description settings-panel-warning">
+              <p className={SETTINGS_PANEL_WARNING_CLASS}>
                 Model list hasn't been loaded for this endpoint — make sure the model name is correct before saving.
               </p>
             ) : null}
           </div>
           {state.isConfirmingReset
             ? (
-              <div className="settings-button-row settings-reset-confirm-row">
-                <p className="settings-reset-confirm-message">Reset all settings to defaults? This cannot be undone.</p>
+              <div className={SETTINGS_RESET_CONFIRM_ROW_CLASS}>
+                <p className={SETTINGS_RESET_CONFIRM_MESSAGE_CLASS}>Reset all settings to defaults? This cannot be undone.</p>
                 <button
                   type="button"
-                  className="settings-control-button settings-control-button-danger"
+                  className={SETTINGS_CONTROL_BUTTON_DANGER_CLASS}
                   data-remote-planner-settings-confirm-reset="true"
                   disabled={resetSettingsDisabled || undefined}
                   aria-disabled={resetSettingsDisabled ? "true" : undefined}
@@ -208,7 +233,7 @@ export function renderSettingsRemotePlannerPanelNode(
                 </button>
                 <button
                   type="button"
-                  className="settings-control-button settings-control-button-secondary"
+                  className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
                   data-remote-planner-settings-cancel-reset="true"
                   disabled={resetSettingsDisabled || undefined}
                   aria-disabled={resetSettingsDisabled ? "true" : undefined}
@@ -219,22 +244,22 @@ export function renderSettingsRemotePlannerPanelNode(
               </div>
             )
             : (
-              <div className="settings-button-row settings-button-row-wrap">
+              <div className={SETTINGS_BUTTON_ROW_WRAP_CLASS}>
                 <button
                   type="button"
-                  className="settings-control-button"
+                  className={SETTINGS_CONTROL_BUTTON_CLASS}
                   data-remote-planner-settings-save="true"
                   disabled={saveSettingsDisabled || undefined}
                   aria-disabled={saveSettingsDisabled ? "true" : undefined}
                   onClick={handlers?.onSaveSettings}
                 >
                   {state.isSavingConnection
-                    ? <><span className="btn-spinner" aria-hidden="true" />Saving...</>
+                    ? <><span className={BTN_SPINNER_CLASS} data-btn-spinner="true" aria-hidden="true" />Saving...</>
                     : "Save settings"}
                 </button>
                 <button
                   type="button"
-                  className="settings-control-button settings-control-button-secondary"
+                  className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
                   data-remote-planner-settings-reset="true"
                   disabled={resetSettingsDisabled || undefined}
                   aria-disabled={resetSettingsDisabled ? "true" : undefined}

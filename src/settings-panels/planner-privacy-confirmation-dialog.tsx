@@ -5,6 +5,12 @@ import {
   activatePrivacyConfirmationFocus,
   handlePrivacyConfirmationKeyboard,
 } from "./planner-privacy-confirmation-interactions.ts";
+import {
+  REMOTE_PRIVACY_SETTINGS_CONFIRMATION_CLASS,
+  SETTINGS_BUTTON_ROW_WRAP_CLASS,
+  SETTINGS_CONTROL_BUTTON_DANGER_CLASS,
+  SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS,
+} from "./shared-controls.tsx";
 
 function confirmationCopy(kind: PrivacyConfirmationKind): {
   title: string;
@@ -83,7 +89,7 @@ export function PrivacySettingsConfirmationDialog(props: {
   return (
     <div
       ref={rootRef}
-      className="remote-privacy-settings-confirmation"
+      className={REMOTE_PRIVACY_SETTINGS_CONFIRMATION_CLASS}
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="remote-privacy-settings-confirmation-title"
@@ -95,11 +101,14 @@ export function PrivacySettingsConfirmationDialog(props: {
     >
       <h4 id="remote-privacy-settings-confirmation-title">{copy.title}</h4>
       <p id="remote-privacy-settings-confirmation-description">{copy.description}</p>
-      <div className="settings-button-row settings-button-row-wrap">
+      {/* `.remote-privacy-settings-confirmation .settings-button-row` added an
+          extra top margin in the old CSS — applied directly here since this
+          is the only place that specific nesting occurs. */}
+      <div className={`${SETTINGS_BUTTON_ROW_WRAP_CLASS} mt-4`}>
         <button
           ref={cancelRef}
           type="button"
-          className="settings-control-button settings-control-button-secondary"
+          className={SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS}
           disabled={props.busy || undefined}
           onClick={props.onCancel}
         >
@@ -107,7 +116,7 @@ export function PrivacySettingsConfirmationDialog(props: {
         </button>
         <button
           type="button"
-          className="settings-control-button settings-control-button-danger"
+          className={SETTINGS_CONTROL_BUTTON_DANGER_CLASS}
           disabled={props.busy || undefined}
           onClick={() => { void props.onConfirm(); }}
         >

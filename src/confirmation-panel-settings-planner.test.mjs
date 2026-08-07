@@ -116,7 +116,7 @@ test("renders model management busy and error states", () => {
 
   assert.match(html, /Download failed\./);
   assert.match(html, /Downloading\.\.\./);
-  assert.match(html, /btn-spinner/);
+  assert.match(html, /data-btn-spinner="true"/);
   assert.match(html, /disabled="" aria-disabled="true"/);
   assert.match(html, /Download Whisper tiny model/);
 });
@@ -336,10 +336,10 @@ test("renders remote planner API key test status while testing", () => {
   });
 
   assert.match(html, /Testing\.\.\./);
-  assert.match(html, /btn-spinner/);
+  assert.match(html, /data-btn-spinner="true"/);
   assert.match(html, /Latest test result/);
   assert.match(html, /OpenAI accepted the configured API key\./);
-  assert.match(html, /settings-api-key-test-status/);
+  assert.match(html, /data-api-key-test-status="true"/);
   assert.match(html, /role="status"/);
   assert.match(html, /Model list is loaded for the current endpoint/);
 });
@@ -460,8 +460,8 @@ test("renders spinner on the Load models button while models are loading", () =>
   });
 
   assert.match(html, /Loading models\.\.\./);
-  assert.match(html, /btn-spinner/);
-  assert.match(html, /settings-inline-loading/);
+  assert.match(html, /data-btn-spinner="true"/);
+  assert.match(html, /data-inline-loading="true"/);
 });
 
 test("renders spinner on the Save settings button while saving", () => {
@@ -490,7 +490,7 @@ test("renders spinner on the Save settings button while saving", () => {
   });
 
   assert.match(html, /Saving\.\.\./);
-  assert.match(html, /btn-spinner/);
+  assert.match(html, /data-btn-spinner="true"/);
 });
 
 test("manual planner model does not render as a verified loaded model list", () => {

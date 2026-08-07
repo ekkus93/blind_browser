@@ -29,27 +29,27 @@ test("renders the planner-change badge only for non-retryable backend failures",
 test("renders the exact backend metadata block for retryable and non-retryable errors", () => {
   const { nonRetryableHtml, retryableHtml, transportHtml } = renderFixtures();
 
-  assert.match(nonRetryableHtml, /<div class="confirmation-error-meta-block">/);
+  assert.match(nonRetryableHtml, /data-confirmation-error-meta-block="true"/);
   assert.match(
     nonRetryableHtml,
-    /<p class="confirmation-error-meta">\s*Error code: confirmation_denied\. Non-retryable backend failure\.\s*<\/p>/,
+    /<p[^>]*data-confirmation-error-meta="true"[^>]*>\s*Error code: confirmation_denied\. Non-retryable backend failure\.\s*<\/p>/,
   );
   assert.match(
     nonRetryableHtml,
-    /<p class="confirmation-error-retry-status">Cannot retry\.<\/p>/,
+    /<p[^>]*data-confirmation-error-retry-status="true"[^>]*>Cannot retry\.<\/p>/,
   );
 
-  assert.match(retryableHtml, /<div class="confirmation-error-meta-block">/);
+  assert.match(retryableHtml, /data-confirmation-error-meta-block="true"/);
   assert.match(
     retryableHtml,
-    /<p class="confirmation-error-meta">\s*Error code: runtime_busy\. Retryable backend failure\.\s*<\/p>/,
+    /<p[^>]*data-confirmation-error-meta="true"[^>]*>\s*Error code: runtime_busy\. Retryable backend failure\.\s*<\/p>/,
   );
   assert.match(
     retryableHtml,
-    /<p class="confirmation-error-retry-status">Can retry\.<\/p>/,
+    /<p[^>]*data-confirmation-error-retry-status="true"[^>]*>Can retry\.<\/p>/,
   );
 
-  assert.doesNotMatch(transportHtml, /confirmation-error-meta-block/);
+  assert.doesNotMatch(transportHtml, /data-confirmation-error-meta-block="true"/);
 });
 
 test("confirmation error container always present in DOM with aria-live assertive", () => {
@@ -116,7 +116,7 @@ test("renders the talk button active while holding", () => {
   });
 
   assert.match(html, /aria-label="Release to send"/);
-  assert.match(html, /push-to-talk-button-active/);
+  assert.match(html, /data-ptt-holding="true"/);
   assert.match(html, /Listening…/);
 });
 
@@ -132,8 +132,8 @@ test("renders push-to-talk errors when voice input fails", () => {
 
   assert.match(html, /The microphone is unavailable\./);
   assert.match(html, /role="alert"/);
-  assert.match(html, /push-to-talk-error/);
-  assert.doesNotMatch(html, /push-to-talk-error[^>]*sr-only/);
+  assert.match(html, /data-ptt-error="true"/);
+  assert.doesNotMatch(html, /data-ptt-error="true"[^>]*sr-only/);
 });
 
 test("renders setup banner when push-to-talk is disabled, hides it when enabled", () => {
@@ -154,10 +154,10 @@ test("renders setup banner when push-to-talk is disabled, hides it when enabled"
     lastError: null,
   });
 
-  assert.match(disabledHtml, /ptt-setup-banner/);
+  assert.match(disabledHtml, /data-ptt-setup-banner="true"/);
   assert.match(disabledHtml, /Voice input isn&#x27;t set up yet/);
   assert.match(disabledHtml, /data-ptt-open-settings="true"/);
   assert.doesNotMatch(disabledHtml, /data-push-to-talk-button="true"/);
-  assert.doesNotMatch(enabledHtml, /ptt-setup-banner/);
+  assert.doesNotMatch(enabledHtml, /data-ptt-setup-banner="true"/);
   assert.match(enabledHtml, /data-push-to-talk-button="true"/);
 });

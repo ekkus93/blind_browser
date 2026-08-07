@@ -5,6 +5,15 @@ import type {
   StatusPanelState,
   UrlInputPanelState,
 } from "../panel-types.ts";
+import { SETTINGS_PANEL_SECTION_CLASS } from "./shared-controls.tsx";
+
+const FOCUS_RING = "focus-visible:[outline:var(--focus-ring)] focus-visible:[outline-offset:var(--focus-offset)]";
+const DISMISS_BUTTON_CLASS = "appearance-none bg-transparent border-none pl-2 [font:inherit] text-[0.84rem] font-bold text-inherit cursor-pointer opacity-70 underline hover:opacity-100";
+
+const URL_ACTION_BUTTON_BASE_CLASS = `appearance-none w-11 h-11 p-0 inline-flex items-center justify-center border-none rounded-[14px] text-[#fffdf8] cursor-pointer enabled:hover:-translate-y-px focus-visible:-translate-y-px ${FOCUS_RING} disabled:cursor-progress disabled:opacity-[0.62] disabled:shadow-none`;
+const URL_ACTION_BUTTON_GREEN_CLASS = "bg-gradient-to-br from-[var(--color-green-primary)] to-[var(--color-green-active)] shadow-[0_12px_24px_rgba(31,127,92,0.18)] enabled:hover:shadow-[0_16px_28px_rgba(31,127,92,0.24)] focus-visible:shadow-[0_16px_28px_rgba(31,127,92,0.24)]";
+const URL_ACTION_BUTTON_STOP_CLASS = "bg-gradient-to-br from-[var(--color-error-primary)] to-[var(--color-error-active)] shadow-[0_12px_24px_rgba(176,71,54,0.18)] enabled:hover:shadow-[0_16px_28px_rgba(176,71,54,0.24)] focus-visible:shadow-[0_16px_28px_rgba(176,71,54,0.24)]";
+const URL_ACTION_BUTTON_NAV_CLASS = "bg-gradient-to-br from-[var(--btn-nav-start)] to-[var(--btn-nav-end)] shadow-[0_12px_24px_var(--btn-nav-shadow)] enabled:hover:shadow-[0_16px_28px_var(--btn-nav-shadow)] focus-visible:shadow-[0_16px_28px_var(--btn-nav-shadow)]";
 
 type UrlActionIcon = "open" | "read" | "stop" | "previous" | "next";
 
@@ -18,7 +27,7 @@ function UrlActionSvgIcon({ icon }: { icon: UrlActionIcon }) {
   } as const;
 
   return (
-    <svg className="icon-button-glyph" viewBox="0 0 24 24" aria-hidden={true} focusable="false">
+    <svg className="w-6 h-6 block" viewBox="0 0 24 24" aria-hidden={true} focusable="false">
       <path d={pathByIcon[icon]} fill="currentColor" />
     </svg>
   );
@@ -89,12 +98,15 @@ export function renderUrlInputPanelNode(
   const actionsDisabled = state.isOpening || state.isReading || state.isStopping || state.isAdvancing || state.isRewinding;
 
   return (
-    <section className="url-input-panel" aria-label="Page navigation">
-      <div className="url-input-actions">
-        <div className="url-input-row url-input-row-primary">
+    <section
+      className="block m-0 p-[22px_24px] rounded-[22px] bg-[var(--color-surface-card)] border border-[var(--card-border)] shadow-[0_18px_36px_rgba(49,63,74,0.08)]"
+      aria-label="Page navigation"
+    >
+      <div className="grid gap-3">
+        <div className="grid gap-3 items-center [grid-template-columns:minmax(0,1fr)_auto] max-sm:[grid-template-columns:1fr]">
           <input
             id="url-input-control"
-            className="url-input-control"
+            className={`w-full p-[14px_16px] rounded-[16px] border border-[rgba(123,98,70,0.18)] bg-[var(--color-surface-inner)] text-[var(--color-text-primary)] [font:inherit] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] focus-visible:border-[rgba(122,87,39,0.32)] disabled:cursor-progress disabled:opacity-[0.72] ${FOCUS_RING}`}
             data-url-input="true"
             aria-label="Page URL"
             type="url"
@@ -110,7 +122,7 @@ export function renderUrlInputPanelNode(
               : undefined}
           />
           {renderUrlActionButton(
-            "url-action-button url-open-button",
+            `${URL_ACTION_BUTTON_BASE_CLASS} ${URL_ACTION_BUTTON_GREEN_CLASS}`,
             "data-url-open-button",
             state.isOpening ? "Opening" : "Open",
             "open",
@@ -118,9 +130,13 @@ export function renderUrlInputPanelNode(
             handlers?.onOpen,
           )}
         </div>
-        <div className="url-input-row url-input-row-secondary" role="group" aria-label="Page reading controls">
+        <div
+          className="grid gap-3 items-center [grid-template-columns:repeat(4,minmax(0,44px))] max-sm:[grid-template-columns:repeat(4,minmax(0,1fr))]"
+          role="group"
+          aria-label="Page reading controls"
+        >
           {renderUrlActionButton(
-            "url-action-button url-read-button",
+            `${URL_ACTION_BUTTON_BASE_CLASS} ${URL_ACTION_BUTTON_GREEN_CLASS}`,
             "data-url-read-button",
             state.isReading ? "Reading" : "Read",
             "read",
@@ -128,7 +144,7 @@ export function renderUrlInputPanelNode(
             handlers?.onRead,
           )}
           {renderUrlActionButton(
-            "url-action-button url-stop-button",
+            `${URL_ACTION_BUTTON_BASE_CLASS} ${URL_ACTION_BUTTON_STOP_CLASS}`,
             "data-url-stop-button",
             state.isStopping ? "Stopping" : "Stop",
             "stop",
@@ -136,7 +152,7 @@ export function renderUrlInputPanelNode(
             handlers?.onStop,
           )}
           {renderUrlActionButton(
-            "url-action-button url-previous-button",
+            `${URL_ACTION_BUTTON_BASE_CLASS} ${URL_ACTION_BUTTON_NAV_CLASS}`,
             "data-url-previous-button",
             state.isRewinding ? "Moving to previous section" : "Previous",
             "previous",
@@ -144,7 +160,7 @@ export function renderUrlInputPanelNode(
             handlers?.onPrevious,
           )}
           {renderUrlActionButton(
-            "url-action-button url-next-button",
+            `${URL_ACTION_BUTTON_BASE_CLASS} ${URL_ACTION_BUTTON_NAV_CLASS}`,
             "data-url-next-button",
             state.isAdvancing ? "Moving to next section" : "Next",
             "next",
@@ -153,10 +169,10 @@ export function renderUrlInputPanelNode(
           )}
         </div>
         {state.error ? (
-          <p className="url-input-error" role="alert">
+          <p className="mt-[10px] text-[var(--color-error-primary)] font-semibold" role="alert">
             {state.error}
             {handlers?.onDismissError ? (
-              <button type="button" className="panel-error-dismiss" onClick={handlers.onDismissError} aria-label="Dismiss error">Dismiss</button>
+              <button type="button" className={DISMISS_BUTTON_CLASS} onClick={handlers.onDismissError} aria-label="Dismiss error">Dismiss</button>
             ) : null}
           </p>
         ) : null}
@@ -177,48 +193,58 @@ export function renderStatusPanelNode(
   const headlessPressed = state.browserVisibility === "Headless";
 
   return (
-    <section className="status-panel" aria-labelledby="status-panel-title">
-      <div className="status-panel-copy">
-        <p className="status-panel-eyebrow">
+    <section className={`${SETTINGS_PANEL_SECTION_CLASS} max-sm:p-5`} aria-labelledby="status-panel-title">
+      <div className="max-w-[60ch]">
+        <p className="mb-2 uppercase tracking-[0.18em] text-[0.76rem] text-[var(--eyebrow-color)]">
           Runtime status
-          {state.plannerBusy ? <span className="status-panel-busy" aria-live="polite" aria-label="Working">Working…</span> : null}
+          {state.plannerBusy ? (
+            <span
+              className="ml-2 text-[0.78rem] font-semibold text-[var(--color-text-muted)] [animation:status-panel-busy-pulse_1.4s_ease-in-out_infinite] motion-reduce:[animation:none] motion-reduce:opacity-[0.75]"
+              aria-live="polite"
+              aria-label="Working"
+            >
+              Working…
+            </span>
+          ) : null}
         </p>
-        <h2 id="status-panel-title">Current browser state</h2>
+        <h2 id="status-panel-title" className="mb-[10px] [font-family:var(--font-display)] text-[clamp(1.1rem,2vw,1.4rem)] leading-[1.05]">Current browser state</h2>
         {state.error ? (
-          <p className="status-panel-error" role="alert">
+          <p className="mt-[10px] leading-[1.55] text-[var(--color-error-primary)] font-semibold" role="alert">
             {state.error}
             {handlers?.onDismissError ? (
-              <button type="button" className="panel-error-dismiss" onClick={handlers.onDismissError} aria-label="Dismiss error">Dismiss</button>
+              <button type="button" className={DISMISS_BUTTON_CLASS} onClick={handlers.onDismissError} aria-label="Dismiss error">Dismiss</button>
             ) : null}
           </p>
         ) : null}
       </div>
       {isFirstLoad
-        ? <p className="status-panel-empty" aria-live="polite">Hold the Talk button and say a URL or command to get started.</p>
+        ? <p className="mt-[18px] leading-[1.55] text-[var(--color-text-muted)] italic" aria-live="polite">Hold the Talk button and say a URL or command to get started.</p>
         : (
-          <dl className="status-panel-grid">
-            <div className="status-card status-card-wide">
-              <dt>Page title</dt>
-              <dd>{title}</dd>
+          <dl className="grid [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))] gap-4 mt-[18px]">
+            <div className="m-0 p-[16px_18px] rounded-[18px] bg-[var(--color-surface-inner)] border border-[rgba(123,98,70,0.12)] [grid-column:span_2] max-sm:[grid-column:span_1]">
+              <dt className="m-[0_0_6px] text-[0.84rem] uppercase tracking-[0.08em] text-[var(--color-text-label)]">Page title</dt>
+              <dd className="m-0 text-[var(--color-text-primary)] font-semibold leading-[1.45]">{title}</dd>
             </div>
-            <div className="status-card">
-              <dt>Current section</dt>
-              <dd aria-live="polite" aria-atomic="true">{region}</dd>
+            <div className="m-0 p-[16px_18px] rounded-[18px] bg-[var(--color-surface-inner)] border border-[rgba(123,98,70,0.12)]">
+              <dt className="m-[0_0_6px] text-[0.84rem] uppercase tracking-[0.08em] text-[var(--color-text-label)]">Current section</dt>
+              <dd className="m-0 text-[var(--color-text-primary)] font-semibold leading-[1.45]" aria-live="polite" aria-atomic="true">{region}</dd>
             </div>
-            <div className="status-card status-card-wide status-card-transcript">
-              <dt>Last transcript</dt>
-              <dd aria-live="polite" aria-atomic="true">{transcript}</dd>
+            <div className="m-0 p-[16px_18px] rounded-[18px] bg-[var(--color-surface-inner)] border border-[rgba(123,98,70,0.12)] [grid-column:span_2] max-sm:[grid-column:span_1]">
+              <dt className="m-[0_0_6px] text-[0.84rem] uppercase tracking-[0.08em] text-[var(--color-text-label)]">Last transcript</dt>
+              <dd className="m-0 text-[var(--color-text-primary)] font-medium leading-[1.45] [overflow-wrap:anywhere]" aria-live="polite" aria-atomic="true">{transcript}</dd>
             </div>
-            <div className="status-card">
-              <dt>Browser mode</dt>
-              <dd>
-                <span className="status-mode-label" role="status" aria-live="polite" aria-atomic="true">
+            <div className="m-0 p-[16px_18px] rounded-[18px] bg-[var(--color-surface-inner)] border border-[rgba(123,98,70,0.12)]">
+              <dt className="m-[0_0_6px] text-[0.84rem] uppercase tracking-[0.08em] text-[var(--color-text-label)]">Browser mode</dt>
+              <dd className="m-0 text-[var(--color-text-primary)] font-semibold leading-[1.45]">
+                <span className="block mb-[10px]" role="status" aria-live="polite" aria-atomic="true">
                   {state.browserVisibility}
                 </span>
-                <div className="status-toggle-group" role="group" aria-label="Browser visibility mode">
+                <div className="inline-flex gap-2 flex-wrap" role="group" aria-label="Browser visibility mode">
                   <button
                     type="button"
-                    className={`status-toggle-button${visiblePressed ? " status-toggle-button-active" : ""}`}
+                    className={`appearance-none border border-[rgba(123,98,70,0.2)] rounded-full py-2 px-3 bg-[var(--color-surface-inner)] text-[var(--color-text-secondary)] [font:inherit] font-semibold cursor-pointer transition-[transform,box-shadow,background-color] duration-[140ms] hover:-translate-y-px hover:shadow-[0_10px_22px_rgba(42,55,66,0.12)] focus-visible:-translate-y-px focus-visible:shadow-[0_10px_22px_rgba(42,55,66,0.12)] ${FOCUS_RING} disabled:cursor-progress disabled:translate-y-0 disabled:shadow-none disabled:opacity-60 ${
+                      visiblePressed ? "bg-[rgba(41,88,63,0.14)] border-[rgba(41,88,63,0.28)] text-[var(--color-green-active)]" : ""
+                    }`}
                     data-browser-visibility-mode="Visible"
                     aria-label="Browser visibility mode: Visible"
                     aria-pressed={visiblePressed}
@@ -230,7 +256,9 @@ export function renderStatusPanelNode(
                   </button>
                   <button
                     type="button"
-                    className={`status-toggle-button${headlessPressed ? " status-toggle-button-active" : ""}`}
+                    className={`appearance-none border border-[rgba(123,98,70,0.2)] rounded-full py-2 px-3 bg-[var(--color-surface-inner)] text-[var(--color-text-secondary)] [font:inherit] font-semibold cursor-pointer transition-[transform,box-shadow,background-color] duration-[140ms] hover:-translate-y-px hover:shadow-[0_10px_22px_rgba(42,55,66,0.12)] focus-visible:-translate-y-px focus-visible:shadow-[0_10px_22px_rgba(42,55,66,0.12)] ${FOCUS_RING} disabled:cursor-progress disabled:translate-y-0 disabled:shadow-none disabled:opacity-60 ${
+                      headlessPressed ? "bg-[rgba(41,88,63,0.14)] border-[rgba(41,88,63,0.28)] text-[var(--color-green-active)]" : ""
+                    }`}
                     data-browser-visibility-mode="Headless"
                     aria-label="Browser visibility mode: Headless"
                     aria-pressed={headlessPressed}
@@ -243,9 +271,9 @@ export function renderStatusPanelNode(
                 </div>
               </dd>
             </div>
-            <div className="status-card">
-              <dt>History</dt>
-              <dd>{`Back: ${state.canGoBack ? "Available" : "Unavailable"}. Forward: ${state.canGoForward ? "Available" : "Unavailable"}.`}</dd>
+            <div className="m-0 p-[16px_18px] rounded-[18px] bg-[var(--color-surface-inner)] border border-[rgba(123,98,70,0.12)]">
+              <dt className="m-[0_0_6px] text-[0.84rem] uppercase tracking-[0.08em] text-[var(--color-text-label)]">History</dt>
+              <dd className="m-0 text-[var(--color-text-primary)] font-semibold leading-[1.45]">{`Back: ${state.canGoBack ? "Available" : "Unavailable"}. Forward: ${state.canGoForward ? "Available" : "Unavailable"}.`}</dd>
             </div>
           </dl>
         )}

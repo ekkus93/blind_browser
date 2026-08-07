@@ -1,5 +1,4 @@
 import "./styles.css";
-import "./remote-planner-privacy.css";
 
 import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";

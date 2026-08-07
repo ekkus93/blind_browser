@@ -412,13 +412,13 @@ test("settings overview cards render status badges when settingsStatuses are pro
   );
 
   const statuses = Object.fromEntries(
-    statusElements.map((el) => [el.props["data-settings-card-status"], el.props.className]),
+    statusElements.map((el) => [el.props["data-settings-card-status"], el.props["data-settings-card-status-kind"]]),
   );
 
-  assert.match(statuses.planner, /settings-subpage-card-status-ok/);
-  assert.match(statuses.tts, /settings-subpage-card-status-warning/);
-  assert.match(statuses.asr, /settings-subpage-card-status-unconfigured/);
-  assert.match(statuses.runtime, /settings-subpage-card-status-error/);
+  assert.equal(statuses.planner, "ok");
+  assert.equal(statuses.tts, "warning");
+  assert.equal(statuses.asr, "unconfigured");
+  assert.equal(statuses.runtime, "error");
 });
 
 test("settings overview cards have accessible aria-labels when status is provided", () => {

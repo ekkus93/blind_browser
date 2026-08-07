@@ -15,6 +15,15 @@ import type {
   SettingsGuidancePanelState,
 } from "../panel-types.ts";
 import {
+  BTN_SPINNER_CLASS,
+  CONTROL_CARD,
+  CONTROL_LABEL,
+  CONTROL_VALUE,
+  SETTINGS_CONTROL_BUTTON_CLASS,
+  SETTINGS_CONTROL_INPUT_CLASS,
+  SETTINGS_CONTROL_SELECT_CLASS,
+  SETTINGS_GRID_CLASS,
+  SETTINGS_PANEL_DESCRIPTION_CLASS,
   renderCheckboxControlCard,
   renderSettingsPanelSection,
 } from "./shared-controls.tsx";
@@ -50,6 +59,13 @@ function renderConfirmationThresholdValueText(value: number): string {
   return `${Math.round(value * 100)} percent confidence`;
 }
 
+// `.url-open-button` alone (without the `.url-action-button` base it's paired
+// with in workspace.tsx's icon buttons) only ever contributed its gradient
+// background and shadow in the old CSS — no dimensions, no focus outline.
+// These text-label guidance buttons faithfully inherit just that: no custom
+// focus ring override, matching the original scoped rule.
+const GUIDANCE_ACTION_BUTTON_CLASS = "bg-gradient-to-br from-[var(--color-green-primary)] to-[var(--color-green-active)] shadow-[0_12px_24px_rgba(31,127,92,0.18)] enabled:hover:shadow-[0_16px_28px_rgba(31,127,92,0.24)] focus-visible:shadow-[0_16px_28px_rgba(31,127,92,0.24)]";
+
 // Not wired into the app shell until the backend failover feature ships.
 // Re-add "settings-provider-failover" to PanelRootKey in app-shell-nav.tsx and wire
 // the panel in main.ts once automatic failover is implemented in the Rust runtime.
@@ -60,15 +76,15 @@ export function renderSettingsProviderFailoverPanelNode(state: ProviderFailoverP
     available: boolean,
   ) => (
     <label
-      className="settings-control-card"
+      className={CONTROL_CARD}
       htmlFor={`settings-provider-failover-${providerKey}`}
       key={providerKey}
     >
-      <span className="settings-control-label">{providerLabel}</span>
-      <span className="settings-control-value">{renderFailoverAvailabilityLabel(available)}</span>
+      <span className={CONTROL_LABEL}>{providerLabel}</span>
+      <span className={CONTROL_VALUE}>{renderFailoverAvailabilityLabel(available)}</span>
       <input
         id={`settings-provider-failover-${providerKey}`}
-        className="settings-control-input"
+        className={SETTINGS_CONTROL_INPUT_CLASS}
         data-provider-failover-toggle={providerKey}
         type="checkbox"
         disabled={true}
@@ -83,7 +99,7 @@ export function renderSettingsProviderFailoverPanelNode(state: ProviderFailoverP
     title: "Failover",
     description: "Remote-to-local failover is not available yet. These toggles stay read-only until it is.",
     children: (
-      <div className="settings-grid">
+      <div className={SETTINGS_GRID_CLASS}>
         {renderFailoverCard("planner", "Planner", state.plannerAvailable)}
         {renderFailoverCard("tts", "TTS", state.ttsAvailable)}
         {renderFailoverCard("asr", "ASR", state.asrAvailable)}
@@ -104,15 +120,15 @@ export function renderSettingsConfirmationPanelNode(
     error: state.error,
     onDismissError: handlers?.onDismissError,
     children: (
-      <div className="settings-grid">
-        <label className="settings-control-card" htmlFor="settings-confirmation-threshold-control">
-          <span className="settings-control-label">Click threshold</span>
-          <span className="settings-control-value">
+      <div className={SETTINGS_GRID_CLASS}>
+        <label className={CONTROL_CARD} htmlFor="settings-confirmation-threshold-control">
+          <span className={CONTROL_LABEL}>Click threshold</span>
+          <span className={CONTROL_VALUE}>
             {renderConfirmationThresholdValue(state.confirmationConfidenceThreshold)}
           </span>
           <input
             id="settings-confirmation-threshold-control"
-            className="settings-control-input"
+            className={SETTINGS_CONTROL_INPUT_CLASS}
             data-confirmation-threshold-control="true"
             type="range"
             min="0"
@@ -136,9 +152,9 @@ export function renderSettingsConfirmationPanelNode(
           dataAttributes: { "data-click-without-confirmation-toggle": "true" },
           onChange: handlers?.onClickWithoutConfirmationChange,
         })}
-        <div className="settings-control-card" aria-live="polite">
-          <span className="settings-control-label">Submit actions</span>
-          <span className="settings-control-value">
+        <div className={CONTROL_CARD} aria-live="polite">
+          <span className={CONTROL_LABEL}>Submit actions</span>
+          <span className={CONTROL_VALUE}>
             {state.alwaysConfirmSubmit ? "Always require confirmation" : "Confirmation not required"}
           </span>
         </div>
@@ -158,13 +174,13 @@ export function renderSettingsOcrThresholdPanelNode(
     error: state.error,
     onDismissError: handlers?.onDismissError,
     children: (
-      <div className="settings-grid">
-        <label className="settings-control-card" htmlFor="settings-ocr-char-threshold-control">
-          <span className="settings-control-label">Character threshold</span>
-          <span className="settings-control-value">{renderOcrThresholdValue(state.sparseTextCharThreshold)}</span>
+      <div className={SETTINGS_GRID_CLASS}>
+        <label className={CONTROL_CARD} htmlFor="settings-ocr-char-threshold-control">
+          <span className={CONTROL_LABEL}>Character threshold</span>
+          <span className={CONTROL_VALUE}>{renderOcrThresholdValue(state.sparseTextCharThreshold)}</span>
           <input
             id="settings-ocr-char-threshold-control"
-            className="settings-control-input"
+            className={SETTINGS_CONTROL_INPUT_CLASS}
             data-ocr-threshold-control="char"
             type="number"
             min="1"
@@ -177,12 +193,12 @@ export function renderSettingsOcrThresholdPanelNode(
               : undefined}
           />
         </label>
-        <label className="settings-control-card" htmlFor="settings-ocr-region-threshold-control">
-          <span className="settings-control-label">Region threshold</span>
-          <span className="settings-control-value">{renderOcrThresholdValue(state.sparseTextRegionThreshold)}</span>
+        <label className={CONTROL_CARD} htmlFor="settings-ocr-region-threshold-control">
+          <span className={CONTROL_LABEL}>Region threshold</span>
+          <span className={CONTROL_VALUE}>{renderOcrThresholdValue(state.sparseTextRegionThreshold)}</span>
           <input
             id="settings-ocr-region-threshold-control"
-            className="settings-control-input"
+            className={SETTINGS_CONTROL_INPUT_CLASS}
             data-ocr-threshold-control="region"
             type="number"
             min="1"
@@ -214,12 +230,12 @@ export function renderSettingsGuidancePanelNode(
     description: renderTextWithKnownLinkNodes(state.message, handlers?.onOpenExternalLink),
     eyebrow: "Guidance",
     children: (
-      <div className="url-input-actions">
+      <div className="grid gap-3">
         {state.actions.map((action) => (
           <button
             key={action.targetId}
             type="button"
-            className="url-open-button"
+            className={GUIDANCE_ACTION_BUTTON_CLASS}
             data-settings-target={action.targetId}
             onClick={handlers?.onSelectTarget ? () => { handlers.onSelectTarget?.(action.targetId); } : undefined}
           >
@@ -246,13 +262,13 @@ export function renderSettingsModelManagementPanelNode(
     onDismissError: handlers?.onDismissError,
     onRetry: handlers?.onRetry,
     children: (
-      <div className="settings-grid">
-        <label className="settings-control-card" htmlFor="settings-models-dir-input">
-          <span className="settings-control-label">Model folder</span>
-          <span className="settings-control-value">{state.modelsDir || "Not configured"}</span>
+      <div className={SETTINGS_GRID_CLASS}>
+        <label className={CONTROL_CARD} htmlFor="settings-models-dir-input">
+          <span className={CONTROL_LABEL}>Model folder</span>
+          <span className={CONTROL_VALUE}>{state.modelsDir || "Not configured"}</span>
           <input
             id="settings-models-dir-input"
-            className="settings-control-select"
+            className={SETTINGS_CONTROL_SELECT_CLASS}
             data-model-management-input="models-dir"
             type="text"
             value={state.modelsDir}
@@ -266,7 +282,7 @@ export function renderSettingsModelManagementPanelNode(
               : undefined}
             onBlur={handlers?.onPersistModelsDir}
           />
-          <span id="settings-models-dir-description" className="settings-panel-description">
+          <span id="settings-models-dir-description" className={SETTINGS_PANEL_DESCRIPTION_CLASS}>
             Updates here change where downloads and startup checks look for speech models.
           </span>
         </label>
@@ -288,35 +304,35 @@ export function renderSettingsModelManagementPanelNode(
           dataAttributes: { "data-model-management-toggle": "auto-download-missing" },
           onChange: handlers?.onAutoDownloadMissingChange,
         })}
-        <div className="settings-control-card">
-          <span className="settings-control-label">Local TTS</span>
-          <span className="settings-control-value">{renderModelAvailabilityLabel(state.localTtsAvailable)}</span>
+        <div className={CONTROL_CARD}>
+          <span className={CONTROL_LABEL}>Local TTS</span>
+          <span className={CONTROL_VALUE}>{renderModelAvailabilityLabel(state.localTtsAvailable)}</span>
           <button
             type="button"
-            className="settings-control-button"
+            className={SETTINGS_CONTROL_BUTTON_CLASS}
             data-model-download="tts"
             disabled={ttsDownloadDisabled || undefined}
             aria-disabled={ttsDownloadDisabled ? "true" : undefined}
             onClick={handlers?.onDownloadModel ? () => { handlers.onDownloadModel?.("tts"); } : undefined}
           >
             {state.isDownloadingTts
-              ? <><span className="btn-spinner" aria-hidden="true" />Downloading...</>
+              ? <><span className={BTN_SPINNER_CLASS} data-btn-spinner="true" aria-hidden="true" />Downloading...</>
               : (state.localTtsDownloadLabel ?? "Download unavailable")}
           </button>
         </div>
-        <div className="settings-control-card">
-          <span className="settings-control-label">Local ASR</span>
-          <span className="settings-control-value">{renderModelAvailabilityLabel(state.localAsrAvailable)}</span>
+        <div className={CONTROL_CARD}>
+          <span className={CONTROL_LABEL}>Local ASR</span>
+          <span className={CONTROL_VALUE}>{renderModelAvailabilityLabel(state.localAsrAvailable)}</span>
           <button
             type="button"
-            className="settings-control-button"
+            className={SETTINGS_CONTROL_BUTTON_CLASS}
             data-model-download="asr"
             disabled={asrDownloadDisabled || undefined}
             aria-disabled={asrDownloadDisabled ? "true" : undefined}
             onClick={handlers?.onDownloadModel ? () => { handlers.onDownloadModel?.("asr"); } : undefined}
           >
             {state.isDownloadingAsr
-              ? <><span className="btn-spinner" aria-hidden="true" />Downloading...</>
+              ? <><span className={BTN_SPINNER_CLASS} data-btn-spinner="true" aria-hidden="true" />Downloading...</>
               : (state.localAsrDownloadLabel ?? "Download unavailable")}
           </button>
         </div>
