@@ -61,13 +61,33 @@ struct LiveExtractedInteractiveElement {
     attributes: BTreeMap<String, String>,
 }
 
+// Module-level (rather than a local inside extract_live_page_model) so a
+// test can assert on its content directly -- there is no live-browser test
+// harness in this codebase to exercise the script end-to-end (see the
+// coordinate-space regression test below for why that gap is accepted for
+// now), so a string-content check on the script itself is the narrowest
+// thing that still catches someone reintroducing the viewport-relative bug
+// this script was fixed for.
 #[cfg(feature = "browser")]
-async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError> {
-    let evaluation = r#"(() => {
+const EXTRACTION_SCRIPT: &str = r#"(() => {
         const normalizeText = (value) => {
             const text = String(value ?? '').replace(/\s+/g, ' ').trim();
             return text.length > 0 ? text : null;
         };
+
+        // getBoundingClientRect() is viewport-relative (it moves as the page
+        // scrolls); every bbox consumer (CDP Page.captureScreenshot's clip,
+        // and Tesseract set_rectangle cropping a full-page raster) expects
+        // document/page-absolute coordinates instead. Adding the current
+        // scroll offset here, once, at the source, means every consumer
+        // inherits the fix rather than each having to know to correct for
+        // scroll itself.
+        const documentAbsoluteRect = (rect) => ({
+            x: rect.x + window.scrollX,
+            y: rect.y + window.scrollY,
+            width: rect.width,
+            height: rect.height,
+        });
 
         const isVisible = (node) => {
             if (!(node instanceof Element)) {
@@ -234,12 +254,7 @@ async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError>
                 placeholder,
                 href,
                 value,
-                bbox: isVisible(node) ? {
-                    x: rect.x,
-                    y: rect.y,
-                    width: rect.width,
-                    height: rect.height,
-                } : null,
+                bbox: isVisible(node) ? documentAbsoluteRect(rect) : null,
                 visible: isVisible(node),
                 enabled: isEnabled(node),
                 attributes: Object.fromEntries(
@@ -287,15 +302,7 @@ async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError>
                 role: regionRoleFor(node),
                 label: normalizeText(node.getAttribute('aria-label')),
                 text,
-                bbox: (() => {
-                    const rect = node.getBoundingClientRect();
-                    return {
-                        x: rect.x,
-                        y: rect.y,
-                        width: rect.width,
-                        height: rect.height,
-                    };
-                })(),
+                bbox: documentAbsoluteRect(node.getBoundingClientRect()),
                 source: 'Dom'
             });
         }
@@ -308,8 +315,10 @@ async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError>
         };
     })()"#;
 
+#[cfg(feature = "browser")]
+async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError> {
     let extracted = page
-        .evaluate(evaluation)
+        .evaluate(EXTRACTION_SCRIPT)
         .await
         .map_err(|error| BrowserError::Inspect(error.to_string()))?
         .into_value::<LiveExtractedPage>()
@@ -373,4 +382,81 @@ async fn extract_live_page_model(page: &Page) -> Result<PageModel, BrowserError>
             })
             .collect(),
     })
+}
+
+// CR3 P1.3: region/element bboxes were being extracted viewport-relative
+// (getBoundingClientRect(), which moves with scroll) but consumed as
+// document-absolute (CDP Page.captureScreenshot's clip.x/y, confirmed
+// empirically to always be document-absolute regardless of
+// captureBeyondViewport; and Tesseract set_rectangle cropping a full-page
+// raster whose pixel origin is the document origin). On a scrolled page,
+// "read that section" silently captured/OCR'd the wrong part of the page.
+//
+// There is no live-browser (real CDP/chromiumoxide session) test harness
+// anywhere in this codebase to exercise the fix end-to-end -- every
+// browser-dependent test here uses a mock executor instead (see
+// commands/tests/tool_dispatch/*.rs) -- so this is a narrower,
+// string-content regression test on the actual extraction script: it
+// catches someone reintroducing a raw getBoundingClientRect() bbox (the
+// exact shape of this bug) without asserting anything about a live page.
+// The empirical CDP verification that document-absolute clip coordinates
+// are in fact what's needed (raw viewport-relative clip on a page scrolled
+// 1500px landed on blank content; document-absolute clip landed on the
+// intended element) was done once, ad hoc, during the review that found
+// this bug, and is recorded in docs/BB_CODE_REVIEW3_TODO.md's P1.3 note
+// rather than re-run on every test invocation.
+#[cfg(all(test, feature = "browser"))]
+mod tests {
+    use super::EXTRACTION_SCRIPT;
+
+    #[test]
+    fn extraction_script_corrects_both_bbox_sources_for_scroll() {
+        assert!(
+            EXTRACTION_SCRIPT.contains("x: rect.x + window.scrollX"),
+            "the extraction script must add window.scrollX to every bbox.x, \
+             not just some -- see the documentAbsoluteRect helper"
+        );
+        assert!(
+            EXTRACTION_SCRIPT.contains("y: rect.y + window.scrollY"),
+            "the extraction script must add window.scrollY to every bbox.y, \
+             not just some -- see the documentAbsoluteRect helper"
+        );
+        // Both the interactive-element bbox and the region bbox must route
+        // through the shared correction helper -- not just one of the two
+        // sources getBoundingClientRect() is called from in this script.
+        // (The helper's own definition, `documentAbsoluteRect = (rect) =>`,
+        // doesn't match this substring itself -- only call sites do.)
+        assert_eq!(
+            EXTRACTION_SCRIPT.matches("documentAbsoluteRect(").count(),
+            2,
+            "expected exactly two call sites of the helper (interactive-\
+             element bbox, region bbox); a bbox source that stopped \
+             calling it would silently reintroduce the viewport-relative \
+             bug"
+        );
+        // No remaining raw `rect.x`/`rect.y` bbox construction outside the
+        // helper itself: every occurrence of `rect.x`/`rect.y` in the
+        // script must be inside documentAbsoluteRect's own body.
+        let helper_start = EXTRACTION_SCRIPT
+            .find("const documentAbsoluteRect")
+            .expect("helper definition should exist");
+        let helper_end = helper_start
+            + EXTRACTION_SCRIPT[helper_start..]
+                .find("});")
+                .expect("helper definition should close")
+            + "});".len();
+        for needle in ["rect.x", "rect.y"] {
+            let mut search_from = 0;
+            while let Some(found) = EXTRACTION_SCRIPT[search_from..].find(needle) {
+                let absolute = search_from + found;
+                assert!(
+                    absolute >= helper_start && absolute < helper_end,
+                    "found a raw `{needle}` bbox reference at byte {absolute}, \
+                     outside documentAbsoluteRect's body ({helper_start}..{helper_end}) -- \
+                     every bbox construction must go through the scroll-correcting helper"
+                );
+                search_from = absolute + needle.len();
+            }
+        }
+    }
 }

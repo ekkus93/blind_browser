@@ -1061,7 +1061,72 @@ capture sleep occurs between `lock_app_core` and the guard drop.
 
 ## P1.3 — Resolve the region bbox coordinate space
 
-**Status:** PENDING · `[VERIFY FIRST]`
+**Status:** DONE · `[VERIFIED — reproduced empirically]`
+**Note:** P1.3.1's reproduction was done, not skipped, using a real headless
+Chromium session over raw CDP (not through this app, since it has no
+live-browser test harness to reuse): a 3000px-tall page with marker
+elements, scrolled to y=1500, `getBoundingClientRect()` read for a marker at
+document `(50, 1550)` (→ viewport-relative `(50, 50)`), and three
+`Page.captureScreenshot` calls compared:
+- raw viewport-relative `clip=(50,50)`, `captureBeyondViewport` unset →
+  **blank** (wrong region).
+- document-absolute `clip=(50, 1550)` → **correct**, lands on the marker.
+- raw viewport-relative `clip=(50,50)` with `captureBeyondViewport=true` →
+  **wrong**, lands on an unrelated marker sitting at the document origin.
+
+This conclusively confirms `Page.captureScreenshot`'s `clip.x`/`clip.y` are
+always document/page-absolute, independent of `captureBeyondViewport` —
+matching the predicted failure exactly: passing a raw
+`getBoundingClientRect()` bbox as `clip` silently captures the wrong region
+whenever the page is scrolled.
+
+**Fix (P1.3.2)**, at extraction (`browser/dom_extraction.rs`), as preferred
+so every consumer inherits it: a `documentAbsoluteRect(rect)` helper adds
+`window.scrollX`/`window.scrollY` to `rect.x`/`rect.y` once, used by both
+bbox sources (interactive-element bbox and region bbox). `page_model::Rect`
+now documents the coordinate-space contract explicitly. No consumer-side
+change was needed for the CDP `clip` path (`page_inspection.rs`, now
+commented explaining why) or for the dominant, actually-used OCR fallback
+path (`extraction_tools/page_extraction.rs`'s region-first OCR always
+sources from a `ScreenshotScope::FullPage` capture, whose raster origin is
+already the document origin) — both now line up with document-absolute
+bboxes automatically.
+
+**P1.3.3 confirmed as a correct, incidental mitigation, not a second bug**:
+`extractor.rs`'s dom_smoothie regions set `bbox: None` (no live DOM to
+measure offline), and `region_first_ocr_target_ids`/`has_positive_bbox`
+already exclude `None` bboxes from region-first OCR targeting — that path
+was never exposed to this bug in the first place, so nothing needed fixing
+there beyond confirming it.
+
+**Residual gap found but left out of scope**: `execute_run_ocr` accepts an
+arbitrary caller-supplied `image_id` plus `region_id`, with no check that
+the underlying persisted image was a full-page capture. If a plain viewport
+screenshot (`capture_screenshot` with no scope/bbox, at whatever scroll
+position was active then) is later OCR'd by `region_id`, the now-document-
+absolute bbox doesn't line up with that raster's pixel origin, since
+neither `BrowserScreenshotState` nor the image cache record the scroll
+offset active at capture time. This is a real edge case, but distinct from
+and narrower than the review's described failure (which is about the
+region-capture and full-page-OCR-fallback paths, both now fixed) — closing
+it needs new capture-time scroll metadata threaded through the image cache,
+which is its own follow-up rather than bundled into this fix.
+
+**Tests**: no live-browser (real CDP) test harness exists anywhere in this
+codebase — every browser-dependent test uses a mock executor instead — so
+building one as a first-of-its-kind permanent CI test was judged out of
+proportion to this fix; the empirical CDP reproduction above stands as the
+recorded verification instead, per P1.3.1's instruction to "record the
+result here." Added a narrower, always-runnable regression test instead:
+`dom_extraction::tests::extraction_script_corrects_both_bbox_sources_for_scroll`
+asserts (by string content) that the extraction script's two bbox sources
+both route through `documentAbsoluteRect`, that no raw `rect.x`/`rect.y`
+bbox construction exists outside that helper, and that the helper itself
+adds the scroll offset — narrow, but catches someone reintroducing the
+exact shape of this bug (a raw `getBoundingClientRect()` bbox) even without
+a live page.
+
+**Original problem text preserved below for reference.**
 **Spec:** — (reported; not a numbered constraint pending verification)
 **Files:**
 

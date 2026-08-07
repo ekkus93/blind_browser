@@ -3,6 +3,20 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// A bounding box in **document/page-absolute** CSS pixels — i.e. relative
+/// to the top-left of the full document, not the current viewport/scroll
+/// position. This is the coordinate space CDP's `Page.captureScreenshot`
+/// `clip` parameter expects (confirmed empirically: `clip`'s x/y are always
+/// document-absolute, independent of `captureBeyondViewport`) and the space
+/// a full-page screenshot raster's pixel origin corresponds to.
+///
+/// Live DOM extraction (`browser::dom_extraction`) computes this via
+/// `getBoundingClientRect()` (viewport-relative) plus `window.scrollX`/
+/// `window.scrollY`, once, at the source — every consumer (region/element
+/// screenshot capture, OCR region cropping) can therefore treat a `Rect` as
+/// already scroll-corrected and must not add or assume any further scroll
+/// offset itself. `dom_smoothie`-derived regions (`extractor.rs`, no live
+/// DOM to measure) set `bbox: None` rather than fabricate one.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct Rect {
     pub x: f32,

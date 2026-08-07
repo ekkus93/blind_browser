@@ -58,6 +58,15 @@ impl super::BrowserController {
                             "bbox screenshots require positive width and height",
                         )));
                     }
+                    // CDP's Page.captureScreenshot clip.x/y are always
+                    // document/page-absolute (confirmed empirically, not
+                    // just from docs -- independent of full_page/
+                    // captureBeyondViewport), which is exactly the
+                    // coordinate space Rect::bbox is documented to be in
+                    // (see page_model::Rect). Passed straight through here
+                    // with no scroll correction because none is needed --
+                    // the correction already happened once, at extraction
+                    // (dom_extraction.rs), not here.
                     builder = builder.clip(Viewport {
                         x: f64::from(bbox.x),
                         y: f64::from(bbox.y),
