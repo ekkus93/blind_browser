@@ -41,6 +41,7 @@ import {
   REMOTE_PRIVACY_SETTINGS_BUTTON_CLASS,
   REMOTE_PRIVACY_STATUS_CLASS,
   REMOTE_PRIVACY_STATUS_COPY_CLASS,
+  REMOTE_PRIVACY_SUBHEADING_CLASS,
   REMOTE_PRIVACY_WARNING_CLASS,
 } from "./settings-panels/shared-controls.tsx";
 
@@ -254,7 +255,7 @@ function RemotePlannerConsentDialog(props: {
         <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Model</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{challenge.model_label}</dd></div>
       </dl>
 
-      <h3 className={REMOTE_PRIVACY_HEADING_CLASS}>Information categories</h3>
+      <h3 className={REMOTE_PRIVACY_SUBHEADING_CLASS}>Information categories</h3>
       <ul className={REMOTE_CONSENT_DISCLOSURES_CLASS}>
         {challenge.disclosure_classes.map((disclosureClass) => (
           <li key={disclosureClass}>{DISCLOSURE_LABELS[disclosureClass]}</li>

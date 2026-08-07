@@ -8,6 +8,7 @@ import {
 import {
   REMOTE_PRIVACY_SETTINGS_CONFIRMATION_CLASS,
   SETTINGS_BUTTON_ROW_WRAP_CLASS,
+  SETTINGS_CARD_HEADING_CLASS,
   SETTINGS_CONTROL_BUTTON_DANGER_CLASS,
   SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS,
 } from "./shared-controls.tsx";
@@ -99,7 +100,7 @@ export function PrivacySettingsConfirmationDialog(props: {
       onKeyDown={handleKeyDown}
       data-remote-planner-privacy-confirmation={props.kind}
     >
-      <h4 id="remote-privacy-settings-confirmation-title">{copy.title}</h4>
+      <h4 id="remote-privacy-settings-confirmation-title" className={SETTINGS_CARD_HEADING_CLASS}>{copy.title}</h4>
       <p id="remote-privacy-settings-confirmation-description">{copy.description}</p>
       {/* `.remote-privacy-settings-confirmation .settings-button-row` added an
           extra top margin in the old CSS — applied directly here since this

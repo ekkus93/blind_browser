@@ -6,7 +6,7 @@ import {
   resolveConfirmationErrorPresentation,
 } from "../confirmation-panel-helpers.tsx";
 import type { ConfirmationUiState } from "../planner-orchestration";
-import { FOCUS_RING } from "../settings-panels/shared-controls.tsx";
+import { FOCUS_RING, SETTINGS_SECTION_HEADING_CLASS } from "../settings-panels/shared-controls.tsx";
 
 export interface ConfirmationPanelHandlers {
   onRespond?: (action: "approve" | "reject", confirmationId: string) => void;
@@ -35,7 +35,7 @@ export function renderConfirmationPanelNode(
     >
       <div className="max-w-[62ch]">
         <p className="mb-[10px] uppercase tracking-[0.18em] text-[0.76rem] text-[var(--eyebrow-color)]">Awaiting confirmation</p>
-        <h2 id="confirmation-title" className="[font-family:var(--font-display)] text-[clamp(1.2rem,2.2vw,1.6rem)] leading-[1.05] mb-3">Action requires your approval.</h2>
+        <h2 id="confirmation-title" className={`${SETTINGS_SECTION_HEADING_CLASS} mb-3`}>Action requires your approval.</h2>
         <p className="text-base leading-[1.6] text-[var(--color-text-secondary)]">
           {state.promptText || "Please approve or reject the pending action."}
         </p>

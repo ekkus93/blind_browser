@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 
 import type { AppAlertState } from "./panel-types.ts";
-import { DISMISS_BUTTON_CLASS } from "./settings-panels/shared-controls.tsx";
+import { DISMISS_BUTTON_CLASS, SETTINGS_CARD_HEADING_CLASS } from "./settings-panels/shared-controls.tsx";
 
 export interface AppAlertPanelHandlers {
   onDismiss?: () => void;
@@ -31,7 +31,7 @@ export function renderAppAlertPanelNode(
     >
       <div className="flex flex-col gap-[6px] min-w-0">
         <p className="m-0 uppercase tracking-[0.08em] text-[0.76rem] font-bold text-[var(--color-error-primary)]">{state.kind}</p>
-        <h2 id="app-alert-title" className="m-0">{title}</h2>
+        <h2 id="app-alert-title" className={`m-0 ${SETTINGS_CARD_HEADING_CLASS}`}>{title}</h2>
         <p className="m-0 [overflow-wrap:anywhere] leading-[1.5]">{state.message}</p>
       </div>
       <button

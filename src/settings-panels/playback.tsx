@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 
 import type { AudioControlsPanelState } from "../panel-types.ts";
-import { DISMISS_BUTTON_CLASS, SETTINGS_PANEL_SECTION_CLASS } from "./shared-controls.tsx";
+import { DISMISS_BUTTON_CLASS, SETTINGS_CARD_HEADING_CLASS, SETTINGS_PANEL_SECTION_CLASS } from "./shared-controls.tsx";
 
 export interface AudioControlsPanelHandlers {
   onVolumeChange?: (value: number) => void;
@@ -31,7 +31,7 @@ export function renderAudioControlsPanelNode(
     <section className={`${SETTINGS_PANEL_SECTION_CLASS} max-sm:p-5`} aria-labelledby="audio-controls-title">
       <div className="max-w-[60ch]">
         <p className="mb-2 uppercase tracking-[0.18em] text-[0.76rem] text-[var(--eyebrow-color)]">Speech output</p>
-        <h2 id="audio-controls-title" className="mb-[10px] [font-family:var(--font-display)] text-[clamp(1.1rem,2vw,1.4rem)] leading-[1.05]">Playback volume and speed</h2>
+        <h2 id="audio-controls-title" className={`mb-[10px] ${SETTINGS_CARD_HEADING_CLASS}`}>Playback volume and speed</h2>
         {state.error ? (
           <p className="leading-[1.55] mt-[10px] text-[var(--color-error-primary)] font-semibold" role="alert">
             {state.error}

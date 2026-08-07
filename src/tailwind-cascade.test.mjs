@@ -21,9 +21,10 @@ import path from "node:path";
 
 import { compile } from "tailwindcss";
 
-import { SETTINGS_PANEL_SECTION_CLASS, CONTROL_CARD, CONTROL_CARD_READONLY_CLASS, REMOTE_PRIVACY_STATUS_CLASS, REMOTE_PRIVACY_SETTINGS_BUTTON_CLASS, REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS, REMOTE_PRIVACY_ROW_CLASS } from "./settings-panels/shared-controls.tsx";
+import { SETTINGS_PANEL_SECTION_CLASS, CONTROL_CARD, CONTROL_CARD_READONLY_CLASS, REMOTE_PRIVACY_STATUS_CLASS, REMOTE_PRIVACY_SETTINGS_BUTTON_CLASS, REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS, REMOTE_PRIVACY_ROW_CLASS, SETTINGS_SECTION_HEADING_CLASS, SETTINGS_CARD_HEADING_CLASS } from "./settings-panels/shared-controls.tsx";
 import { AUDIO_CONTROL_CLASS } from "./settings-panels/playback.tsx";
 import { TOGGLE_BUTTON_PRESSED_CLASS, TOGGLE_BUTTON_UNPRESSED_CLASS } from "./settings-panels/workspace.tsx";
+import { GUIDANCE_ACTION_BUTTON_CLASS } from "./settings-panels/runtime.tsx";
 
 const require = createRequire(import.meta.url);
 
@@ -163,4 +164,33 @@ test("the remote privacy/consent breakpoint is 768px (max-md), not 640px (max-sm
     assert.match(css, /@media \(width < 48rem\)/, `expected a 48rem (max-md) breakpoint in:\n${css}`);
     assert.doesNotMatch(css, /@media \(width < 40rem\)/, `found the narrower 40rem (max-sm) breakpoint in:\n${css}`);
   }
+});
+
+// CR3 P3.3.1: Tailwind's preflight resets `h1..h6{font-size:inherit;
+// font-weight:inherit}`, so a heading with no explicit size utility silently
+// renders as plain body text -- these two shared scales are now the one
+// place every heading in the app draws its size from. Pin that each one
+// actually emits a `font-size`/`font-family` declaration (not just an
+// unclamped `inherit`), so a future edit that accidentally strips the
+// `text-[clamp(...)]`/`[font-family:...]` piece fails here.
+test("the shared heading scales emit real font-size and font-family declarations", async () => {
+  const section = await compileClassString(SETTINGS_SECTION_HEADING_CLASS);
+  const card = await compileClassString(SETTINGS_CARD_HEADING_CLASS);
+
+  assert.match(section, /font-size:\s*clamp\(1\.2rem,\s*2\.2vw,\s*1\.6rem\)/);
+  assert.match(section, /font-family:\s*var\(--font-display\)/);
+  assert.match(card, /font-size:\s*clamp\(1\.1rem,\s*2vw,\s*1\.4rem\)/);
+  assert.match(card, /font-family:\s*var\(--font-display\)/);
+});
+
+// CR3 P3.3.2: the guidance CTA's label had no `text-*` utility at all, so it
+// fell back to inherited near-black body text against a dark-green
+// gradient background -- well below 4.5:1. Pin that a `color` declaration
+// is present now, guarding against the missing-utility shape recurring
+// silently (compiling cleanly either way, since Tailwind has no way to know
+// a class string is "missing" a color).
+test("the guidance CTA sets an explicit light text color", async () => {
+  const css = await compileClassString(GUIDANCE_ACTION_BUTTON_CLASS);
+
+  assert.match(css, /color:\s*#fffdf8/);
 });

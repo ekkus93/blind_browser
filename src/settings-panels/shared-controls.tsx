@@ -13,6 +13,20 @@ export const FOCUS_RING = "focus-visible:[outline:var(--focus-ring)] focus-visib
 // string too.
 export const DISMISS_BUTTON_CLASS = "appearance-none bg-transparent border-none pl-2 [font:inherit] text-[0.84rem] font-bold text-inherit cursor-pointer opacity-70 underline hover:opacity-100";
 
+// CR3 P3.3.1: Tailwind's preflight resets `h1..h6{font-size:inherit;
+// font-weight:inherit}`, so any heading with no explicit size/weight utility
+// silently renders as plain body text -- a bug family found in several
+// places (four settings-subpage `<h2>`s, seven headings in
+// planner-privacy.tsx, one in planner-privacy-confirmation-dialog.tsx, one
+// in app-alert-panel.tsx, and remote-planner-privacy-ui.tsx's own heading
+// class, which set only margins). These two shared scales -- previously
+// duplicated inline (or missing outright) at each call site -- are now the
+// one place that combination is defined, so every heading in the app is
+// visually one of exactly two sizes rather than N slightly-different
+// hand-copied clamp ranges.
+export const SETTINGS_SECTION_HEADING_CLASS = "[font-family:var(--font-display)] text-[clamp(1.2rem,2.2vw,1.6rem)] leading-[1.05]";
+export const SETTINGS_CARD_HEADING_CLASS = "[font-family:var(--font-display)] text-[clamp(1.1rem,2vw,1.4rem)] leading-[1.05]";
+
 // Structural anatomy shared by every `.settings-control-card` variant, with
 // no background of its own -- each variant below appends exactly one
 // background utility so two never end up stacked on the same element
@@ -119,7 +133,14 @@ export const REMOTE_CONSENT_DIALOG_CLASS = `${REMOTE_PRIVACY_CARD_BASE} relative
 export const REMOTE_PRIVACY_STATUS_COPY_CLASS = "min-w-0";
 export const REMOTE_PRIVACY_EYEBROW_CLASS = "mb-1 text-[0.85rem] font-bold tracking-[0.04em] uppercase";
 // `.remote-privacy-status h2, .remote-consent-dialog h2, .remote-consent-dialog h3`
-export const REMOTE_PRIVACY_HEADING_CLASS = "mt-1 mb-3";
+// CR3 P3.3.1: the old CSS's bare `h2`/`h3` element selectors picked up real
+// heading font-size/weight from the pre-Tailwind global stylesheet; this
+// migration only carried over the margins, so both headings rendered as
+// plain body text under Tailwind's preflight reset. Split into two classes
+// (the old selector covered an `h2` in two places and an `h3` in one, at
+// two different visual levels) so each keeps its own scale.
+export const REMOTE_PRIVACY_HEADING_CLASS = `mt-1 mb-3 ${SETTINGS_SECTION_HEADING_CLASS}`;
+export const REMOTE_PRIVACY_SUBHEADING_CLASS = `mt-1 mb-3 ${SETTINGS_CARD_HEADING_CLASS}`;
 
 export const REMOTE_PRIVACY_DETAIL_CLASS = "my-2";
 export const REMOTE_PRIVACY_GUIDANCE_CLASS = "my-2";
@@ -279,7 +300,7 @@ export function renderSettingsPanelSection({
     <section className={sectionClassName} aria-labelledby={titleId}>
       <div className="max-w-[60ch]">
         <p className="mb-2 uppercase tracking-[0.18em] text-[0.76rem] text-[var(--eyebrow-color)]">{eyebrow}</p>
-        <h2 id={titleId} className="mb-[10px] [font-family:var(--font-display)] text-[clamp(1.1rem,2vw,1.4rem)] leading-[1.05]">{title}</h2>
+        <h2 id={titleId} className={`mb-[10px] ${SETTINGS_CARD_HEADING_CLASS}`}>{title}</h2>
         <p className="leading-[1.55]">{description}</p>
         {error ? (
           <p className="mt-2 leading-[1.55] text-[var(--color-error-primary)] font-semibold" role="alert">

@@ -64,7 +64,27 @@ function renderConfirmationThresholdValueText(value: number): string {
 // background and shadow in the old CSS — no dimensions, no focus outline.
 // These text-label guidance buttons faithfully inherit just that: no custom
 // focus ring override, matching the original scoped rule.
-const GUIDANCE_ACTION_BUTTON_CLASS = "bg-gradient-to-br from-[var(--color-green-primary)] to-[var(--color-green-active)] shadow-[0_12px_24px_rgba(31,127,92,0.18)] enabled:hover:shadow-[0_16px_28px_rgba(31,127,92,0.24)] focus-visible:shadow-[0_16px_28px_rgba(31,127,92,0.24)]";
+//
+// CR3 P3.3.2: that inherited-from-the-old-CSS anatomy never set a text
+// color either, so the label fell back to inherited body text
+// (`--color-text-primary`, near-black) against this dark-green gradient —
+// well below 4.5:1 on what is the primary remediation CTA. Added
+// `text-[#fffdf8]` (the same near-white `shared-controls.tsx`'s
+// `SETTINGS_CONTROL_BUTTON_DANGER_CLASS` already uses). Computed against
+// the *lighter* end of this gradient (`--color-green-active` #1f7f5c, the
+// worse case -- its higher luminance than `--color-green-primary` #29583f
+// means less contrast, not more) via the WCAG relative-luminance formula:
+// ~4.93:1. `shared-controls.tsx`'s slightly warmer `#f6f2eb` was
+// considered first (it's the established convention for
+// `SETTINGS_CONTROL_BUTTON_CLASS`) but only clears ~4.43:1 here -- under
+// 4.5:1 -- because that convention was tuned against a different, lighter
+// gradient end color (`#347f55`), not this one; `#fffdf8` clears the
+// target with real margin instead of copying a convention that happens to
+// fall just short against this particular background.
+// Exported so tailwind-cascade.test.mjs can compile this exact string and
+// pin that a `color` declaration is actually present, guarding against the
+// contrast bug (a missing `text-*` utility) recurring silently.
+export const GUIDANCE_ACTION_BUTTON_CLASS = "bg-gradient-to-br from-[var(--color-green-primary)] to-[var(--color-green-active)] text-[#fffdf8] shadow-[0_12px_24px_rgba(31,127,92,0.18)] enabled:hover:shadow-[0_16px_28px_rgba(31,127,92,0.24)] focus-visible:shadow-[0_16px_28px_rgba(31,127,92,0.24)]";
 
 // Not wired into the app shell until the backend failover feature ships.
 // Re-add "settings-provider-failover" to PanelRootKey in app-shell-nav.tsx and wire

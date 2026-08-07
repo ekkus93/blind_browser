@@ -51,9 +51,11 @@ import {
   SETTINGS_CONTROL_BUTTON_DANGER_CLASS,
   SETTINGS_CONTROL_BUTTON_SECONDARY_CLASS,
   SETTINGS_CONTROL_SELECT_CLASS,
+  SETTINGS_CARD_HEADING_CLASS,
   SETTINGS_FIELD_GROUP_CLASS,
   SETTINGS_PANEL_DESCRIPTION_CLASS,
   SETTINGS_PANEL_WARNING_CLASS,
+  SETTINGS_SECTION_HEADING_CLASS,
 } from "./shared-controls.tsx";
 import type {
   PersistedOriginDecision,
@@ -157,7 +159,7 @@ function RemotePlannerPrivacySettingsCard(props: {
   if (status === null) {
     return (
       <div className={REMOTE_PRIVACY_SETTINGS_CARD_CLASS} data-remote-planner-privacy-settings="true">
-        <h3>Planner privacy and site permissions</h3>
+        <h3 className={SETTINGS_SECTION_HEADING_CLASS}>Planner privacy and site permissions</h3>
         <p className={SETTINGS_PANEL_DESCRIPTION_CLASS} role="status" aria-live="polite">
           {state.refreshBusy ? "Loading authoritative planner privacy status…" : "Planner privacy status is unavailable."}
         </p>
@@ -199,7 +201,7 @@ function RemotePlannerPrivacySettingsCard(props: {
     <div className={REMOTE_PRIVACY_SETTINGS_CARD_CLASS} data-remote-planner-privacy-settings="true">
       <div className={REMOTE_PRIVACY_ROW_CLASS}>
         <div className="min-w-0">
-          <h3>Planner privacy and site permissions</h3>
+          <h3 className={SETTINGS_SECTION_HEADING_CLASS}>Planner privacy and site permissions</h3>
           <p className={SETTINGS_PANEL_DESCRIPTION_CLASS}>
             These controls govern whether sanitized page context may reach a non-loopback planner. They never approve clicks, typing, submissions, downloads, credentials, or other protected actions.
           </p>
@@ -222,7 +224,7 @@ function RemotePlannerPrivacySettingsCard(props: {
 
       {status.migration_notice_pending ? (
         <section className={REMOTE_PRIVACY_BOX_ACCENT_CLASS} aria-labelledby="remote-privacy-migration-title">
-          <h4 id="remote-privacy-migration-title">Privacy settings were migrated</h4>
+          <h4 id="remote-privacy-migration-title" className={SETTINGS_CARD_HEADING_CLASS}>Privacy settings were migrated</h4>
           <p>
             Legacy consent and blocked-origin settings were converted to the typed network mode and structured site rules. Review the choices below; broad legacy consent was not converted into destination-bound site allows.
           </p>
@@ -296,7 +298,7 @@ function RemotePlannerPrivacySettingsCard(props: {
         aria-labelledby="remote-privacy-loopback-title"
         data-remote-planner-loopback-status="true"
       >
-        <h4 id="remote-privacy-loopback-title">Current planner destination</h4>
+        <h4 id="remote-privacy-loopback-title" className={SETTINGS_CARD_HEADING_CLASS}>Current planner destination</h4>
         {status.endpoint_is_loopback === true ? (
           <p>
             <strong>On device:</strong> <code className={REMOTE_PRIVACY_CODE_CLASS}>{status.endpoint_display ?? "loopback planner"}</code>. Context stays on this device; saved remote-data permissions are not used for this destination.
@@ -315,7 +317,7 @@ function RemotePlannerPrivacySettingsCard(props: {
         aria-labelledby="remote-privacy-current-origin-title"
         data-remote-planner-current-origin="true"
       >
-        <h4 id="remote-privacy-current-origin-title">Current site</h4>
+        <h4 id="remote-privacy-current-origin-title" className={SETTINGS_CARD_HEADING_CLASS}>Current site</h4>
         {status.current_page_origin ? (
           <>
             <p><strong>Origin:</strong> <code className={REMOTE_PRIVACY_CODE_CLASS}>{status.current_page_origin}</code></p>
@@ -404,7 +406,7 @@ function RemotePlannerPrivacySettingsCard(props: {
       >
         <div className={REMOTE_PRIVACY_ROW_CLASS}>
           <div className="min-w-0">
-            <h4 id="remote-privacy-rules-title">Saved site rules</h4>
+            <h4 id="remote-privacy-rules-title" className={SETTINGS_CARD_HEADING_CLASS}>Saved site rules</h4>
             <p>{allowCount} allow rule{allowCount === 1 ? "" : "s"}; {blockCount} block rule{blockCount === 1 ? "" : "s"}.</p>
           </div>
           {status.stale_allow_rule_count > 0 ? (
@@ -517,7 +519,7 @@ function RemotePlannerPrivacySettingsCard(props: {
         aria-labelledby="remote-privacy-clear-title"
         data-remote-planner-clear-controls="true"
       >
-        <h4 id="remote-privacy-clear-title">Clear permissions and rules</h4>
+        <h4 id="remote-privacy-clear-title" className={SETTINGS_CARD_HEADING_CLASS}>Clear permissions and rules</h4>
         <p className={SETTINGS_PANEL_DESCRIPTION_CLASS}>
           Session permissions exist only in memory. Saved rules are durable and remain until explicitly revoked or cleared.
         </p>

@@ -207,9 +207,19 @@ function confirmationErrorVariant(
 // Each variant is a full, self-contained class string (base anatomy +
 // its own border/background/color) rather than base-plus-delta, matching
 // this migration's established pattern for mutually exclusive visual states.
+//
+// CR3 P3.3.3: the container itself is always mounted (deliberate and
+// correct -- an aria-live region has to already be in the DOM before its
+// content changes for assistive tech to announce it), but the "none" variant
+// used to reuse the same padding/rounded-corners/1px-border anatomy as every
+// error variant, so a permanent empty red-bordered strip rendered even with
+// no error. "none" is the only variant with no visible chrome at all -- an
+// empty string, not `CONFIRMATION_ERROR_CONTAINER_BASE` plus zero color --
+// so nothing (no box, no spacing) is visible until there is actually an
+// error to show.
 const CONFIRMATION_ERROR_CONTAINER_BASE = "mt-3 p-[12px_14px] rounded-[14px] leading-[1.5]";
 const CONFIRMATION_ERROR_CONTAINER_CLASS: Record<ConfirmationErrorVariant, string> = {
-  none: `${CONFIRMATION_ERROR_CONTAINER_BASE} border border-[rgba(150,39,39,0.18)] text-[var(--color-error-primary)]`,
+  none: "",
   transport: `${CONFIRMATION_ERROR_CONTAINER_BASE} border border-[rgba(122,87,39,0.22)] text-[var(--color-amber-active)] bg-[var(--color-amber-light)]`,
   "tool-retryable": `${CONFIRMATION_ERROR_CONTAINER_BASE} border border-[rgba(150,39,39,0.18)] border-l-4 border-l-[rgba(150,39,39,0.48)] text-[var(--color-error-primary)] bg-[rgba(150,39,39,0.09)]`,
   "tool-hard-stop": `${CONFIRMATION_ERROR_CONTAINER_BASE} border border-[rgba(108,16,16,0.5)] border-l-[6px] border-l-[var(--color-error-dark)] text-[var(--color-error-dark)] bg-gradient-to-b from-[rgba(108,16,16,0.12)] to-[rgba(150,39,39,0.18)] shadow-[inset_0_0_0_1px_rgba(108,16,16,0.1)]`,

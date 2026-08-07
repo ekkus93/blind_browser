@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  renderConfirmationPanel,
   renderFixtures,
   renderPushToTalkPanel,
 } from "./confirmation-panel-test-helpers.mjs";
@@ -57,6 +58,35 @@ test("confirmation error container always present in DOM with aria-live assertiv
 
   assert.match(nonRetryableHtml, /aria-live="assertive"/);
   assert.match(nonRetryableHtml, /aria-atomic="true"/);
+});
+
+// CR3 P3.3.3: the error container is deliberately always mounted (an
+// aria-live region has to already exist in the DOM before its content
+// changes for assistive tech to announce it) -- but before this fix, the
+// "none" variant reused the same padding/rounded-corners/1px-red-border
+// anatomy as every real error variant, so an empty red-bordered strip
+// rendered even with no error. Assert the aria-live region is still present
+// (unchanged) while none of the visible-chrome utilities specific to the
+// error box's anatomy appear anywhere in the no-error render.
+test("confirmation error container has no visible chrome when there is no error", () => {
+  const noErrorHtml = renderConfirmationPanel({
+    kind: "awaiting-confirmation",
+    isSubmitting: false,
+    submissionError: null,
+    confirmationId: "confirmation-none",
+    confirmationDigest: "digest-none",
+    promptText: "Submit the form?",
+    requestId: "request-none",
+    selectedSkills: ["form_submit"],
+    nextStepId: "step-2",
+    queuedStepIds: ["step-2"],
+  });
+
+  assert.match(noErrorHtml, /aria-live="assertive"/);
+  assert.match(noErrorHtml, /aria-atomic="true"/);
+  assert.doesNotMatch(noErrorHtml, /p-\[12px_14px\]/);
+  assert.doesNotMatch(noErrorHtml, /rounded-\[14px\]/);
+  assert.doesNotMatch(noErrorHtml, /rgba\(150,39,39,0\.18\)/);
 });
 
 test("renders a compact talk icon button for the idle state", () => {

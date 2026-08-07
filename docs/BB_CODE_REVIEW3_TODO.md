@@ -2158,8 +2158,14 @@ they become permanent.
 
 ## P3.3 — Pre-existing visual issues (not migration regressions)
 
-**Status:** PENDING
-**Files:** `src/app-shell.tsx`, `src/settings-panels/planner-privacy.tsx`, `src/remote-planner-privacy-ui.tsx`, `src/settings-panels/runtime.tsx`, `src/confirmation-panels/confirmation.tsx`
+**Status:** DONE · `[VERIFIED]`
+**Files:** `src/app-shell.tsx`, `src/app-alert-panel.tsx`,
+`src/settings-panels/shared-controls.tsx`, `src/settings-panels/planner-privacy.tsx`,
+`src/settings-panels/planner-privacy-confirmation-dialog.tsx`,
+`src/settings-panels/playback.tsx`, `src/settings-panels/workspace.tsx`,
+`src/settings-panels/runtime.tsx`, `src/remote-planner-privacy-ui.tsx`,
+`src/confirmation-panels/confirmation.tsx`, `src/confirmation-panel-helpers.tsx`,
+`src/confirmation-panel-core.test.mjs`, `src/tailwind-cascade.test.mjs`
 
 ### Problem
 
@@ -2189,6 +2195,75 @@ Add an explicit light `text-*` to the guidance button and verify ≥ 4.5:1.
 
 Keep the `aria-live` region mounted (that is deliberate and correct) but render no
 visible box when there is no error.
+
+### Implementation note
+
+- **Count corrections found during investigation**: `planner-privacy.tsx`
+  actually has 7 unstyled headings, not 8 — the 8th is in the *separate*
+  file `planner-privacy-confirmation-dialog.tsx` (an `<h4>` for the
+  destructive-action confirmation dialog), which wasn't named in the
+  Problem statement or the **Files** list but is the same bug and clearly
+  in scope (part of the same privacy-settings surface). Fixed both.
+  `app-alert-panel.tsx`'s `<h2>` did have a `className` (`"m-0"`) — just no
+  size/weight utility in it, same net effect.
+- **P3.3.1**: added two exported shared constants in `shared-controls.tsx`,
+  `SETTINGS_SECTION_HEADING_CLASS` and `SETTINGS_CARD_HEADING_CLASS` (the
+  two `clamp()` scales already in ad hoc use around the codebase), per the
+  task's own wording ("define heading utilities once... and apply them" —
+  read as an instruction to consolidate, not just patch the missing ones).
+  Applied to: the 4 missing settings-subpage `<h2>`s and the 5 already-styled
+  ones in `app-shell.tsx` (replacing that file's own private
+  `SETTINGS_GROUP_H2_CLASS`, which held the identical string); the 2 `<h3>`s
+  and 5 `<h4>`s in `planner-privacy.tsx`; the `<h4>` in
+  `planner-privacy-confirmation-dialog.tsx`; the `<h2>` in
+  `app-alert-panel.tsx` (kept its existing `m-0`); the `<h2>` in
+  `confirmation.tsx`; and the inline-duplicated card-heading literal in
+  `playback.tsx`, `workspace.tsx`, and `shared-controls.tsx`'s own
+  `renderSettingsPanelSection`. Also found and fixed a related instance not
+  named in the Problem statement: `remote-planner-privacy-ui.tsx`'s
+  `REMOTE_PRIVACY_HEADING_CLASS` (`"mt-1 mb-3"`) was margin-only — the exact
+  same bug shape, just via a class name that reads as if it does more than
+  it does. Split it into `REMOTE_PRIVACY_HEADING_CLASS` (h2, section scale)
+  and a new `REMOTE_PRIVACY_SUBHEADING_CLASS` (h3, card scale), since that
+  file's 3 headings aren't all the same visual level. The once-used h1 in
+  `app-shell.tsx` was left as its own inline literal — no duplication to
+  consolidate.
+- **P3.3.2**: computed contrast against the *lighter* end of
+  `GUIDANCE_ACTION_BUTTON_CLASS`'s own gradient (`--color-green-active`
+  `#1f7f5c` — the worse case, since it has *higher* luminance than
+  `--color-green-primary` `#29583f`, despite looking like the "darker"
+  accent color) via the WCAG relative-luminance formula, not just visual
+  inspection. `shared-controls.tsx`'s established `#f6f2eb` convention
+  (used by `SETTINGS_CONTROL_BUTTON_CLASS`) was tried first and only
+  clears ~4.43:1 against this specific background — under the 4.5:1
+  target, because that convention was tuned against a different, lighter
+  gradient end color (`#347f55`), not `#1f7f5c`. Used `#fffdf8` instead
+  (`shared-controls.tsx`'s own `SETTINGS_CONTROL_BUTTON_DANGER_CLASS`
+  convention), which clears ~4.93:1. Exported the class (previously
+  module-local) and added a `tailwind-cascade.test.mjs` test compiling it
+  through Tailwind's own compiler to pin the `color:` declaration is
+  actually present.
+- **P3.3.3**: the `"none"` entry in `CONFIRMATION_ERROR_CONTAINER_CLASS`
+  (`confirmation-panel-helpers.tsx`) was the bug — not conditional logic
+  that failed, but a variant authored with the exact same padding/rounded-
+  corners/1px-border anatomy as every real error variant. Changed it to an
+  empty string; the container `<div>` stays unconditionally mounted (its
+  `aria-live`/`aria-atomic` attributes are untouched) so assistive tech
+  still has the live region in the DOM before content changes, exactly as
+  intended — only the always-visible chrome is gone.
+- **Tests added** (none were required by existing coverage — verified no
+  test asserted on any of the exact class strings touched — but added
+  regression coverage matching this codebase's established pattern of
+  compiling shared class constants through Tailwind's own compiler):
+  `tailwind-cascade.test.mjs` gained two tests (the heading scales emit real
+  `font-size`/`font-family`, not inherited; the guidance button emits a
+  `color` declaration) and `confirmation-panel-core.test.mjs` gained one
+  (the no-error render has none of the error box's padding/border/radius
+  utilities while `aria-live`/`aria-atomic` remain present).
+- Full validation green: `pnpm lint`, `pnpm build` (tsc + vite), `pnpm
+  test:ui` (250 passed vs. 247 before — 3 net-new tests); `cargo test
+  --all-features` (551 passed, unchanged — no Rust files touched) and all 4
+  CI guard scripts re-run for completeness.
 
 ---
 

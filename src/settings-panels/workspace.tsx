@@ -5,7 +5,7 @@ import type {
   StatusPanelState,
   UrlInputPanelState,
 } from "../panel-types.ts";
-import { DISMISS_BUTTON_CLASS, FOCUS_RING, SETTINGS_PANEL_SECTION_CLASS } from "./shared-controls.tsx";
+import { DISMISS_BUTTON_CLASS, FOCUS_RING, SETTINGS_CARD_HEADING_CLASS, SETTINGS_PANEL_SECTION_CLASS } from "./shared-controls.tsx";
 
 const URL_ACTION_BUTTON_BASE_CLASS = `appearance-none w-11 h-11 p-0 inline-flex items-center justify-center border-none rounded-[14px] text-[#fffdf8] cursor-pointer enabled:hover:-translate-y-px focus-visible:-translate-y-px ${FOCUS_RING} disabled:cursor-progress disabled:opacity-[0.62] disabled:shadow-none`;
 const URL_ACTION_BUTTON_GREEN_CLASS = "bg-gradient-to-br from-[var(--color-green-primary)] to-[var(--color-green-active)] shadow-[0_12px_24px_rgba(31,127,92,0.18)] enabled:hover:shadow-[0_16px_28px_rgba(31,127,92,0.24)] focus-visible:shadow-[0_16px_28px_rgba(31,127,92,0.24)]";
@@ -216,7 +216,7 @@ export function renderStatusPanelNode(
             </span>
           ) : null}
         </p>
-        <h2 id="status-panel-title" className="mb-[10px] [font-family:var(--font-display)] text-[clamp(1.1rem,2vw,1.4rem)] leading-[1.05]">Current browser state</h2>
+        <h2 id="status-panel-title" className={`mb-[10px] ${SETTINGS_CARD_HEADING_CLASS}`}>Current browser state</h2>
         {state.error ? (
           <p className="mt-[10px] leading-[1.55] text-[var(--color-error-primary)] font-semibold" role="alert">
             {state.error}
