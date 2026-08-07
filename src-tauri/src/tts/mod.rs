@@ -129,6 +129,8 @@ pub enum TtsRuntimeError {
     LocalModelLoad { model_path: String, reason: String },
     #[error("failed to synthesize narration audio: {reason}")]
     SynthesisFailed { reason: String },
+    #[error("tts synthesis produced no audio samples for non-empty narration text")]
+    EmptySynthesizedAudio,
 }
 
 pub struct TtsController {
@@ -169,10 +171,27 @@ impl TtsController {
                     reason: limit.to_string(),
                 })?;
 
-        match config.providers.tts.mode {
+        let speech = match config.providers.tts.mode {
             ProviderMode::Local => self.synthesize_local(config, runtime_audio, normalized_text),
             ProviderMode::Remote => self.synthesize_remote(config, runtime_audio, normalized_text),
+        }?;
+
+        // The input-text emptiness check above only guards what goes IN to
+        // synthesis. Both providers can legitimately return zero samples for
+        // non-empty input: the local kitten model returns Ok(vec![]) for
+        // punctuation-only text (e.g. "...", "?!" -- ordinary on the web),
+        // and a remote WAV response with a zero-length data chunk decodes to
+        // an empty sample vector. Without this check, play_samples happily
+        // plays nothing, the tool reports success, and a blind user gets
+        // silence with no error -- exactly the failure "optional features
+        // must fail clearly" exists to prevent. Checked here rather than
+        // separately in synthesize_local/synthesize_remote so every current
+        // and future provider is covered by one guard.
+        if speech.samples.is_empty() {
+            return Err(TtsRuntimeError::EmptySynthesizedAudio);
         }
+
+        Ok(speech)
     }
 
     fn cached_speech(&mut self, key: &CachedSpeechKey) -> Option<SynthesizedSpeech> {
@@ -190,6 +209,15 @@ impl TtsController {
     }
 
     fn store_cached_speech(&mut self, key: CachedSpeechKey, speech: SynthesizedSpeech) {
+        // Never cache empty audio: synthesize_narration converts an empty
+        // result into TtsRuntimeError::EmptySynthesizedAudio before handing
+        // it to the caller, and caching it here would mean re-reading the
+        // same (punctuation-only, or similarly degenerate) region stays
+        // silent for the rest of the process instead of re-attempting
+        // synthesis on the next call.
+        if speech.samples.is_empty() {
+            return;
+        }
         let incoming_bytes = synthesized_speech_cache_entry_bytes(&key, &speech);
         if incoming_bytes > SYNTHESIZED_SPEECH_CACHE_MAX_BYTES {
             return;
@@ -276,7 +304,7 @@ mod tests {
 
     use super::{
         decode_wav_samples, normalized_model_path, resolved_voice, CachedSpeechKey,
-        SynthesizedSpeech, TtsController, TtsProviderKind, KITTEN_TTS_CHANNELS,
+        SynthesizedSpeech, TtsController, TtsProviderKind, TtsRuntimeError, KITTEN_TTS_CHANNELS,
         KITTEN_TTS_SAMPLE_RATE, SYNTHESIZED_SPEECH_CACHE_LIMIT,
     };
     use crate::audio_io::RuntimeAudioState;
@@ -493,6 +521,98 @@ mod tests {
 
         server.join().expect("test server should exit cleanly");
         fs::remove_file(secret_path).expect("test should clean up the temporary secret file");
+    }
+
+    #[cfg(feature = "remote-openai")]
+    #[test]
+    fn synthesize_narration_rejects_a_remote_response_with_zero_samples() {
+        // A well-formed WAV (valid RIFF/WAVE/fmt headers, non-zero channels
+        // and sample_rate) but a zero-length data chunk decodes successfully
+        // to an empty sample vector -- decode_wav_samples only validates
+        // channels/sample_rate, not that any samples were produced. This is
+        // the exact shape a remote provider could return for degenerate
+        // input, and it must surface as an error rather than silent
+        // playback of nothing.
+        let empty_data_wav_bytes: Vec<u8> = vec![
+            b'R', b'I', b'F', b'F', 36, 0, 0, 0, b'W', b'A', b'V', b'E', b'f', b'm', b't', b' ',
+            16, 0, 0, 0, 1, 0, 1, 0, 0x80, 0x3E, 0, 0, 0, 0x7D, 0, 0, 2, 0, 16, 0, b'd', b'a',
+            b't', b'a', 0, 0, 0, 0,
+        ];
+        assert_eq!(
+            decode_wav_samples(&empty_data_wav_bytes)
+                .expect("a zero-length data chunk should still decode")
+                .samples
+                .len(),
+            0,
+            "test fixture must actually exercise the zero-samples path"
+        );
+
+        let secret_path = unique_test_path("remote-tts-empty-audio-secret");
+        fs::write(&secret_path, "blind-browser-test-key\n")
+            .expect("test should write a temporary secret file");
+
+        let (base_url, server) = spawn_remote_tts_test_server(empty_data_wav_bytes);
+
+        let mut config = AppConfig::default();
+        config.providers.tts.mode = ProviderMode::Remote;
+        config.providers.tts.remote_profile = Some(String::from("openai-tts-default"));
+        let profile = config
+            .remote_tts_profiles
+            .get_mut("openai-tts-default")
+            .expect("default config should include the remote tts profile");
+        profile.base_url = base_url;
+        profile.api_key = SecretRef::FromFile {
+            from_file: secret_path.display().to_string(),
+        };
+        profile.voice = String::from("alloy");
+
+        let runtime_audio = RuntimeAudioState::default();
+        let mut controller = TtsController::new();
+
+        // The mock server asserts the exact request body it expects; use the
+        // same non-empty narration text as the sibling "returns remote
+        // audio" test above rather than degenerate punctuation-only text --
+        // this test is only about the response being empty, not the input.
+        let error = controller
+            .synthesize_narration(&config, &runtime_audio, "Hello remote world")
+            .expect_err("empty synthesized audio should be rejected, not returned as success");
+        assert!(matches!(error, TtsRuntimeError::EmptySynthesizedAudio));
+
+        server.join().expect("test server should exit cleanly");
+        fs::remove_file(secret_path).expect("test should clean up the temporary secret file");
+    }
+
+    #[test]
+    fn store_cached_speech_never_retains_an_empty_sample_result() {
+        // Narrower unit-level coverage of the caching guard itself, since
+        // exercising the local synthesis path end-to-end requires a real
+        // KittenTTS model load that isn't practical in a unit test.
+        let mut controller = TtsController::new();
+        let key = CachedSpeechKey {
+            provider: TtsProviderKind::Local,
+            model_identity: String::from("test-model"),
+            voice: String::from("Bruno"),
+            playback_speed_bits: 1.0_f32.to_bits(),
+            text: String::from("..."),
+        };
+        let empty_speech = SynthesizedSpeech {
+            provider: TtsProviderKind::Local,
+            voice: String::from("Bruno"),
+            sample_rate: KITTEN_TTS_SAMPLE_RATE,
+            channels: KITTEN_TTS_CHANNELS,
+            samples: Vec::new(),
+        };
+
+        controller.store_cached_speech(key.clone(), empty_speech);
+
+        assert!(
+            controller.cached_speech(&key).is_none(),
+            "an empty-sample result must never be served back from the cache"
+        );
+        assert!(
+            controller.synthesized_speech_cache.is_empty(),
+            "an empty-sample result must never be retained in the cache at all"
+        );
     }
 
     #[test]

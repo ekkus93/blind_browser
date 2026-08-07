@@ -501,7 +501,25 @@ workspace section (or the view switches automatically, per the chosen approach).
 
 ## P0.7 — Reject empty synthesized audio
 
-**Status:** PENDING · `[VERIFIED]`
+**Status:** DONE · `[VERIFIED]`
+**Note:** Implemented as specified. `TtsRuntimeError::EmptySynthesizedAudio` is
+returned from `synthesize_narration` after the provider call and before the
+cache insert, covering both providers from one call site (rather than
+duplicating the guard in `local.rs`/`remote.rs`). `store_cached_speech` also
+carries its own empty-guard as defense in depth. P0.7.2: the resulting
+`ToolError` (`tts_empty_synthesized_audio`, `retryable: false`) flows through
+the same `tts_runtime_error_to_tool_error` → caller `?` path already used by
+every other `TtsRuntimeError` variant (e.g. `RemoteHttpStatus`,
+`EmptyNarrationText`) in `narration.rs`'s `begin_feedback_narration`/region
+narration — no new or different surfacing path was needed or introduced.
+Tests: an end-to-end remote-path test via the existing mock-server harness
+(a synthetic WAV with a valid header but a zero-length `data` chunk, proven
+first to actually decode to zero samples) asserts `synthesize_narration`
+returns the new error; a narrower unit test asserts `store_cached_speech`
+never retains or serves back an empty-sample result. The local-provider path
+is not separately end-to-end tested (would require a real KittenTTS model
+load), but shares the same single guard in `synthesize_narration`, so it is
+covered by construction, not by a duplicate test.
 **Spec:** constraint 6
 **Files:**
 

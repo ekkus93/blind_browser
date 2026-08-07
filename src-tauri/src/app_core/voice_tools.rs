@@ -294,6 +294,15 @@ pub(crate) fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolErr
             retryable: false,
             details: None,
         },
+        TtsRuntimeError::EmptySynthesizedAudio => ToolError {
+            code: String::from("tts_empty_synthesized_audio"),
+            message: error.to_string(),
+            // Not retryable: this is most commonly punctuation-only or
+            // otherwise degenerate narration text (e.g. "...", "?!"), which
+            // will deterministically produce the same empty result again.
+            retryable: false,
+            details: None,
+        },
     }
 }
 
