@@ -418,7 +418,12 @@ fn source_drift_model_downloads_retain_verified_activation_wiring() {
 
     assert!(handlers.contains(".prepare_active_local_tts_model_download()"));
     assert!(handlers.contains(".prepare_active_local_asr_model_download()"));
-    assert!(handlers.matches(".finalize_local_model_download(completed)").count() >= 2);
+    assert!(
+        handlers
+            .matches(".finalize_local_model_download(completed)")
+            .count()
+            >= 2
+    );
     assert!(runtime.contains("download_hugging_face_directory"));
     assert!(runtime.contains("download_hugging_face_file"));
     assert!(download.contains("write_verified_reader_atomically"));
@@ -445,7 +450,7 @@ fn source_drift_page_context_commands_retain_privacy_sanitizer_wiring() {
     let voice_handlers = source("src/command_handlers/voice_handlers.rs");
     let replanning = source("src/app_core/replanning_orchestrator.rs");
     let consent = source("src/app_core/remote_data_consent.rs");
-    let redaction = source("src/app_core/planner_redaction.rs");
+    let redaction = source("src/app_core/planner_redaction/mod.rs");
 
     assert!(core_handlers.contains("resolve_command_lock_scoped"));
     assert!(voice_handlers.contains("run_command_with_lock_scoped_replanning"));
