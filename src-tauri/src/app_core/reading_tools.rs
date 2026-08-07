@@ -103,7 +103,13 @@ impl super::AppCore {
             }
         };
 
-        let Some(region_index) = next_region_index(&self.state.narration_cursor, regions.len())
+        // Bounds-checked regardless of what next_region_index guarantees: a
+        // narration path must never index the region list unconditionally, so
+        // a `None` index and an out-of-range index take the same "no next
+        // region" path rather than panicking.
+        let Some((region_index, region)) =
+            next_region_index(&self.state.narration_cursor, regions.len())
+                .and_then(|index| regions.get(index).map(|region| (index, region.clone())))
         else {
             return ToolResult::success(
                 ToolName::ReadNextRegion,
@@ -119,7 +125,6 @@ impl super::AppCore {
                 )],
             );
         };
-        let region = regions[region_index].clone();
         let interrupted_region_id = match self.begin_region_narration(
             region_index,
             &region,
@@ -184,7 +189,13 @@ impl super::AppCore {
             }
         };
 
-        let Some(region_index) = previous_region_index(&self.state.narration_cursor, regions.len())
+        // Bounds-checked regardless of what previous_region_index guarantees:
+        // a narration path must never index the region list unconditionally,
+        // so a `None` index and an out-of-range index take the same "no
+        // previous region" path rather than panicking.
+        let Some((region_index, region)) =
+            previous_region_index(&self.state.narration_cursor, regions.len())
+                .and_then(|index| regions.get(index).map(|region| (index, region.clone())))
         else {
             return ToolResult::success(
                 ToolName::ReadPreviousRegion,
@@ -200,7 +211,6 @@ impl super::AppCore {
                 )],
             );
         };
-        let region = regions[region_index].clone();
         let interrupted_region_id = match self.begin_region_narration(
             region_index,
             &region,

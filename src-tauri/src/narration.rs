@@ -25,6 +25,13 @@ pub fn cursor_for_index(regions: &[PageRegion], index: usize) -> NarrationCursor
     }
 }
 
+/// Returns the index narration should advance to, or `None` if there is no
+/// next region to read.
+///
+/// If `cursor.current_index` is stale relative to `region_count` (e.g. the
+/// page re-extracted with fewer regions than when the cursor was set), this
+/// never subtracts and only ever compares, so an out-of-range cursor safely
+/// falls through to "no next region" rather than indexing past the end.
 pub fn next_region_index(cursor: &NarrationCursor, region_count: usize) -> Option<usize> {
     if region_count == 0 {
         return None;
@@ -37,12 +44,22 @@ pub fn next_region_index(cursor: &NarrationCursor, region_count: usize) -> Optio
     }
 }
 
+/// Returns the index narration should move to when reading backward, or
+/// `None` if there is no previous region to read.
+///
+/// If `cursor.current_index` is stale relative to `region_count` (e.g. the
+/// page re-extracted with fewer regions than when the cursor was set — a
+/// SPA re-render, a cookie banner replacing content, lazy content
+/// collapsing), the position is clamped to the last valid index before
+/// stepping backward, rather than indexing past the end of the now-shorter
+/// region list. The returned index, if any, is always `< region_count`.
 pub fn previous_region_index(cursor: &NarrationCursor, region_count: usize) -> Option<usize> {
     if region_count == 0 {
         return None;
     }
 
     match cursor.current_index {
+        Some(index) if index >= region_count => Some(region_count - 1),
         Some(index) if index > 0 => Some(index - 1),
         _ => None,
     }
@@ -144,6 +161,49 @@ mod tests {
             ),
             None
         );
+    }
+
+    #[test]
+    fn previous_region_index_clamps_a_stale_cursor_instead_of_underflowing() {
+        // Regression test: the region list can shrink out from under the
+        // cursor (e.g. a re-extraction after an SPA re-render) without a
+        // navigation event resetting narration_cursor. A cursor pointing past
+        // the end of the new, shorter list must clamp rather than compute an
+        // out-of-bounds index.
+        let stale_cursor = NarrationCursor {
+            current_region_id: Some(String::from("region-8")),
+            current_index: Some(7),
+            total_regions: 10,
+        };
+
+        // region_count shrank to 3; a naive `index - 1` would compute 6, which
+        // is out of bounds for a 3-element list.
+        assert_eq!(previous_region_index(&stale_cursor, 3), Some(2));
+
+        // The clamped index is always a valid position, never region_count
+        // itself or higher.
+        for region_count in 1..=10 {
+            let index = previous_region_index(&stale_cursor, region_count);
+            if let Some(index) = index {
+                assert!(
+                    index < region_count,
+                    "previous_region_index returned {index} for region_count {region_count}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn next_region_index_does_not_advance_past_a_shrunk_region_list() {
+        // Same stale-cursor scenario for the "next" direction: it must never
+        // panic or return an out-of-range index, even though this direction
+        // was already bounds-safe before the previous_region_index fix.
+        let stale_cursor = NarrationCursor {
+            current_region_id: Some(String::from("region-8")),
+            current_index: Some(7),
+            total_regions: 10,
+        };
+        assert_eq!(next_region_index(&stale_cursor, 3), None);
     }
 
     #[test]

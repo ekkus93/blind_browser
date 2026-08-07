@@ -53,7 +53,7 @@ remove its allowlist entry in the same change — the inventory check is exact.
 
 ## P0.1 — Restore the element label in click confirmations
 
-**Status:** PENDING · `[VERIFIED]`
+**Status:** DONE · `[VERIFIED]`
 **Spec:** constraint 1
 **Files:**
 
@@ -118,7 +118,7 @@ test exists and asserts the label appears.
 
 ## P0.2 — Bound the narration cursor against the current region list
 
-**Status:** PENDING · `[VERIFIED]`
+**Status:** DONE · `[VERIFIED]`
 **Spec:** constraint 2
 **Files:**
 
