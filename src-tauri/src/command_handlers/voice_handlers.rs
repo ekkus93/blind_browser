@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use crate::app_core::{AppCore, TranscribeDrainOutcome};
+use crate::app_core::{microphone_consent_required_error, AppCore, TranscribeDrainOutcome};
 use crate::commands::{
     StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
     ToolName, ToolResult, TranscribeAndExecuteCommandData, TranscribeCommandData,
@@ -37,19 +37,43 @@ fn run_phased_transcribe(
     // guard is dropped, so other commands can run against the same AppCore.
     thread::sleep(Duration::from_millis(plan.effective_duration_ms));
 
-    let pending = {
+    let (pending, remote_authorization) = {
         let mut guard = lock_app_core(core)?;
-        match guard.drain_transcribe_command(plan) {
+        let pending = match guard.drain_transcribe_command(plan) {
             TranscribeDrainOutcome::Terminal(result) => return Ok(*result),
             TranscribeDrainOutcome::Pending(pending) => pending,
-        }
+        };
+        let authorization = match guard.prepare_microphone_transcription(pending.input())? {
+            crate::app_core::remote_data_consent::MicrophonePreparation::Authorized(
+                authorization,
+            ) => authorization,
+            crate::app_core::remote_data_consent::MicrophonePreparation::ConsentRequired {
+                challenge,
+            } => {
+                return Ok(ToolResult::failure(
+                    ToolName::TranscribeCommand,
+                    pending.input().request_id.clone(),
+                    microphone_consent_required_error(&challenge),
+                    vec![String::from(
+                        "Remote transcription paused before microphone audio was sent; captured audio was discarded.",
+                    )],
+                ));
+            }
+        };
+        (pending, authorization)
     };
 
     // Unlocked transcription window: the ASR backend (CPU for local whisper, a
     // network round-trip for remote) runs with the guard dropped, against the
-    // drained audio + config snapshot the pending capture carries.
+    // drained audio + config snapshot the pending capture carries. A remote
+    // provider cannot dispatch without the unforgeable authorization token
+    // returned by the shared privacy gate above.
     let (config, captured_audio) = pending.transcription_inputs();
-    let transcript_result = crate::asr::transcribe_captured_audio(config, captured_audio);
+    let transcript_result = crate::asr::transcribe_captured_audio(
+        config,
+        captured_audio,
+        remote_authorization.as_ref(),
+    );
 
     let mut guard = lock_app_core(core)?;
     Ok(guard.record_transcribe_command(*pending, transcript_result))

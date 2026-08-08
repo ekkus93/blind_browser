@@ -9,6 +9,7 @@ import {
   type PlannerOutput,
   type RemotePlannerConsentChallenge,
   type RemotePlannerExecutionOutcome,
+  type ToolError,
 } from "./tauri-api.ts";
 
 export {
@@ -107,6 +108,7 @@ export interface ExecutionUiStore {
     confirmationId: string,
     submissionError: ConfirmationSubmissionFailure | null,
   ) => ExecutionUiState;
+  stageRemoteDataConsent: (challenge: RemotePlannerConsentChallenge) => ExecutionUiState;
   setRemoteDataConsentSubmitting: (
     challengeId: string,
     isSubmitting: boolean,
@@ -143,6 +145,93 @@ export function isNeedsRemoteDataConsentOutcome(
   return "NeedsRemoteDataConsent" in outcome;
 }
 
+const REMOTE_CONSENT_DISCLOSURE_CLASSES = new Set([
+  "user_transcript",
+  "page_origin",
+  "selected_page_regions",
+  "selected_element_metadata",
+  "ocr_derived_regions",
+  "tool_observation_summaries",
+  "skill_summaries",
+  "trusted_runtime_contracts",
+  "narration_text",
+  "microphone_audio",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export function isRemoteDataConsentChallenge(value: unknown): value is RemotePlannerConsentChallenge {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const counts = value.disclosure_counts;
+  return typeof value.challenge_id === "string"
+    && typeof value.challenge_digest === "string"
+    && typeof value.request_id === "string"
+    && typeof value.page_origin === "string"
+    && typeof value.endpoint_display === "string"
+    && typeof value.endpoint_scope === "string"
+    && typeof value.profile_name === "string"
+    && typeof value.model_label === "string"
+    && typeof value.policy_version === "number"
+    && Array.isArray(value.disclosure_classes)
+    && value.disclosure_classes.length > 0
+    && value.disclosure_classes.every(
+      (entry) => typeof entry === "string" && REMOTE_CONSENT_DISCLOSURE_CLASSES.has(entry),
+    )
+    && isRecord(counts)
+    && typeof counts.selected_region_count === "number"
+    && typeof counts.selected_element_count === "number"
+    && typeof counts.ocr_derived_region_count === "number"
+    && typeof counts.tool_history_count === "number"
+    && typeof counts.skill_summary_count === "number"
+    && typeof counts.sanitized_serialized_bytes === "number"
+    && typeof counts.narration_text_bytes === "number"
+    && typeof counts.microphone_audio_duration_ms === "number"
+    && typeof value.expires_at_ms === "number"
+    && typeof value.allow_once === "boolean"
+    && typeof value.allow_session === "boolean"
+    && typeof value.allow_persistent === "boolean"
+    && typeof value.block_persistent === "boolean";
+}
+
+export function remoteDataConsentChallengeFromToolError(
+  error: ToolError,
+): RemotePlannerConsentChallenge | null {
+  if (error.code !== "remote_data_consent_required" || !isRecord(error.details)) {
+    return null;
+  }
+  return isRemoteDataConsentChallenge(error.details.challenge)
+    ? error.details.challenge
+    : null;
+}
+
+export function remoteDataConsentChallengeFromInvokeError(
+  error: unknown,
+): RemotePlannerConsentChallenge | null {
+  const failure = classifyInvokeFailure(error);
+  return failure.kind === "tool-error"
+    ? remoteDataConsentChallengeFromToolError(failure.toolError)
+    : null;
+}
+
+export function awaitingRemoteDataConsentUiState(
+  challenge: RemotePlannerConsentChallenge,
+): ExecutionUiState {
+  return {
+    lastOutcome: null,
+    confirmation: { kind: "idle" },
+    remoteDataConsent: {
+      kind: "awaiting-remote-data-consent",
+      isSubmitting: false,
+      submissionError: null,
+      challenge,
+    },
+  };
+}
+
 export function applyExecutionOutcomeToUiState(
   outcome: RemotePlannerExecutionOutcome,
 ): ExecutionUiState {
@@ -162,14 +251,22 @@ export function applyExecutionOutcomeToUiState(
   }
 
   if (!isAwaitingConfirmationOutcome(outcome)) {
+    const challenge = "Aborted" in outcome
+      ? remoteDataConsentChallengeFromToolError(outcome.Aborted.error)
+      : null;
     return {
       lastOutcome: outcome,
       confirmation: {
         kind: "idle",
       },
-      remoteDataConsent: {
-        kind: "idle",
-      },
+      remoteDataConsent: challenge
+        ? {
+            kind: "awaiting-remote-data-consent",
+            isSubmitting: false,
+            submissionError: null,
+            challenge,
+          }
+        : { kind: "idle" },
     };
   }
 

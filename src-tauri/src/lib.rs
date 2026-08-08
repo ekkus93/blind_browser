@@ -76,6 +76,7 @@ pub fn run() {
             submit_confirmation_response,
             submit_remote_planner_consent_response,
             submit_narration_consent_response,
+            submit_microphone_consent_response,
             start_listening,
             stop_listening,
             transcribe_command,

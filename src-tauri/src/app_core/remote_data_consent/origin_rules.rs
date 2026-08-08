@@ -20,6 +20,7 @@ impl AppCore {
         match kind {
             RemoteDataDisclosureKind::PlannerPayload => &self.config.remote_planner_privacy,
             RemoteDataDisclosureKind::NarrationText => &self.config.remote_narration_privacy,
+            RemoteDataDisclosureKind::MicrophoneAudio => &self.config.remote_microphone_privacy,
         }
     }
 
@@ -86,6 +87,9 @@ fn persist_origin_rules_settings(
         RemoteDataDisclosureKind::NarrationText => {
             AppConfig::persist_remote_narration_privacy_settings_for_app(app_handle, settings)
         }
+        RemoteDataDisclosureKind::MicrophoneAudio => {
+            AppConfig::persist_remote_microphone_privacy_settings_for_app(app_handle, settings)
+        }
     }
 }
 
@@ -93,5 +97,6 @@ pub(super) fn disclosure_kind_label(kind: RemoteDataDisclosureKind) -> &'static 
     match kind {
         RemoteDataDisclosureKind::PlannerPayload => "network planning",
         RemoteDataDisclosureKind::NarrationText => "remote narration",
+        RemoteDataDisclosureKind::MicrophoneAudio => "remote transcription",
     }
 }

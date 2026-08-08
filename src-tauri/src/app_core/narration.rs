@@ -1,4 +1,6 @@
-use super::remote_data_consent::{NarrationPreparation, NarrationResumeContext};
+use super::remote_data_consent::{
+    NarrationPreparation, NarrationResumeContext, RemoteNarrationAuthorization,
+};
 use super::voice_tools::{audio_playback_error_to_tool_error, tts_runtime_error_to_tool_error};
 use super::AppCore;
 use crate::commands::{RemotePlannerConsentChallenge, ToolError};
@@ -131,22 +133,34 @@ impl AppCore {
             });
         }
 
-        if matches!(self.config.providers.tts.mode, ProviderMode::Remote) {
-            let resume = NarrationResumeContext::Region {
-                region_id: region.region_id.clone(),
-                interrupt_current,
-            };
-            match self.prepare_narration_request(&spoken_text, request_id.to_string(), resume)? {
-                NarrationPreparation::ConsentRequired { challenge } => {
-                    return Ok(NarrationAttempt::ConsentRequired(challenge));
+        let remote_authorization: Option<RemoteNarrationAuthorization> =
+            if matches!(self.config.providers.tts.mode, ProviderMode::Remote) {
+                let resume = NarrationResumeContext::Region {
+                    region_id: region.region_id.clone(),
+                    interrupt_current,
+                };
+                match self.prepare_narration_request(
+                    &spoken_text,
+                    request_id.to_string(),
+                    resume,
+                )? {
+                    NarrationPreparation::ConsentRequired { challenge } => {
+                        return Ok(NarrationAttempt::ConsentRequired(challenge));
+                    }
+                    NarrationPreparation::Authorized(authorization) => Some(authorization),
                 }
-                NarrationPreparation::Authorized => {}
-            }
-        }
+            } else {
+                None
+            };
 
         let speech = self
             .tts
-            .synthesize_narration(&self.config, &self.state.audio, &spoken_text)
+            .synthesize_narration(
+                &self.config,
+                &self.state.audio,
+                &spoken_text,
+                remote_authorization.as_ref(),
+            )
             .map_err(tts_runtime_error_to_tool_error)?;
 
         let interrupted_region_id = if self.state.speaking {
@@ -192,21 +206,29 @@ impl AppCore {
         // the current page -- bound to the same page origin as region
         // narration rather than left ungated, per the P1.1.3 spec note
         // requiring this case be handled explicitly.
-        if matches!(self.config.providers.tts.mode, ProviderMode::Remote) {
-            let resume = NarrationResumeContext::Feedback {
-                spoken_text: spoken_text.to_string(),
-            };
-            match self.prepare_narration_request(spoken_text, request_id.to_string(), resume)? {
-                NarrationPreparation::ConsentRequired { challenge } => {
-                    return Ok(NarrationAttempt::ConsentRequired(challenge));
+        let remote_authorization: Option<RemoteNarrationAuthorization> =
+            if matches!(self.config.providers.tts.mode, ProviderMode::Remote) {
+                let resume = NarrationResumeContext::Feedback {
+                    spoken_text: spoken_text.to_string(),
+                };
+                match self.prepare_narration_request(spoken_text, request_id.to_string(), resume)? {
+                    NarrationPreparation::ConsentRequired { challenge } => {
+                        return Ok(NarrationAttempt::ConsentRequired(challenge));
+                    }
+                    NarrationPreparation::Authorized(authorization) => Some(authorization),
                 }
-                NarrationPreparation::Authorized => {}
-            }
-        }
+            } else {
+                None
+            };
 
         let speech = self
             .tts
-            .synthesize_narration(&self.config, &self.state.audio, spoken_text)
+            .synthesize_narration(
+                &self.config,
+                &self.state.audio,
+                spoken_text,
+                remote_authorization.as_ref(),
+            )
             .map_err(tts_runtime_error_to_tool_error)?;
 
         if self.state.speaking {

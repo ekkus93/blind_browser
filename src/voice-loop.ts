@@ -4,6 +4,7 @@ import { refreshRuntimePanels } from "./refresh-handle";
 import { uiStore } from "./ui-store";
 import {
   describeConfirmationSubmissionFailure,
+  remoteDataConsentChallengeFromInvokeError,
   resolveConfirmationResponse,
 } from "./planner-orchestration";
 import { describePushToTalkFailure } from "./main-errors";
@@ -116,8 +117,15 @@ export async function ensureContinuousListeningLoop() {
       }
     }
   } catch (error: unknown) {
-    const message = describePushToTalkFailure(error);
-    await stopContinuousListeningAfterFailure(message);
+    const challenge = remoteDataConsentChallengeFromInvokeError(error);
+    if (challenge) {
+      uiStore.stageRemoteDataConsent(challenge);
+      await stopContinuousListeningAfterFailure(
+        "Remote transcription is paused for privacy permission. The captured audio was not sent and has been discarded; review the privacy request, then repeat the voice input.",
+      );
+    } else {
+      await stopContinuousListeningAfterFailure(describePushToTalkFailure(error));
+    }
     await refreshRuntimePanels();
   } finally {
     continuousListeningLoopActive = false;
@@ -245,6 +253,18 @@ export async function releasePushToTalk(source: "keyboard" | "pointer") {
       void ensureContinuousListeningLoop();
     }
   } catch (error: unknown) {
+    const challenge = remoteDataConsentChallengeFromInvokeError(error);
+    if (challenge) {
+      uiStore.stageRemoteDataConsent(challenge);
+      setPushToTalkState({
+        isHolding: false,
+        isListening: false,
+        isBusy: false,
+        lastError: "Remote transcription is paused for privacy permission. The captured audio was not sent and has been discarded; review the privacy request, then repeat the voice input.",
+      });
+      await refreshRuntimePanels();
+      return;
+    }
     await reportPushToTalkFailureWithoutInventingListeningState(
       describePushToTalkFailure(error),
     );

@@ -3,13 +3,27 @@ use crate::asr::{
     AsrTranscription, CapturedAudio, DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS,
 };
 use crate::commands::{
-    StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
-    ToolName, ToolResult, TranscribeCommandData, TranscribeCommandInput,
+    RemotePlannerConsentChallenge, StartListeningData, StartListeningInput, StopListeningData,
+    StopListeningInput, ToolError, ToolName, ToolResult, TranscribeCommandData,
+    TranscribeCommandInput,
 };
 use crate::config::AppConfig;
 use crate::state::ListeningState;
 
 /// Build the observation strings shared by both transcription success paths.
+pub(crate) fn microphone_consent_required_error(
+    challenge: &RemotePlannerConsentChallenge,
+) -> ToolError {
+    ToolError {
+        code: String::from("remote_data_consent_required"),
+        message: String::from(
+            "Sending microphone audio to remote transcription requires your permission first. Review the pending privacy decision, then repeat the voice input.",
+        ),
+        retryable: false,
+        details: Some(serde_json::json!({ "challenge": challenge })),
+    }
+}
+
 fn build_transcribe_observations(
     requested_duration_ms: u64,
     effective_duration_ms: u64,
@@ -75,6 +89,7 @@ fn transcribe_success_result(
 /// [`super::AppCore::drain_transcribe_command`]. Holds only plain owned data so
 /// the `AppCore` lock can be released while the microphone captures audio.
 pub struct TranscribeCapturePlan {
+    input: TranscribeCommandInput,
     request_id: String,
     requested_duration_ms: u64,
     pub effective_duration_ms: u64,
@@ -95,6 +110,12 @@ pub struct TranscribePending {
 }
 
 impl TranscribePending {
+    /// Borrow the exact request that this capture belongs to. The remote
+    /// microphone consent gate binds authorization to these request semantics.
+    pub(crate) fn input(&self) -> &TranscribeCommandInput {
+        &self.plan.input
+    }
+
     /// Borrow the snapshot the unlocked transcription step needs.
     pub(crate) fn transcription_inputs(&self) -> (&AppConfig, &CapturedAudio) {
         (&self.config, &self.captured_audio)
@@ -202,10 +223,39 @@ impl super::AppCore {
             effective_duration_ms = effective_duration_ms.min(timeout_ms.max(1));
         }
 
+        let remote_authorization = match self.prepare_microphone_transcription(&input) {
+            Ok(super::remote_data_consent::MicrophonePreparation::Authorized(authorization)) => {
+                authorization
+            }
+            Ok(super::remote_data_consent::MicrophonePreparation::ConsentRequired {
+                challenge,
+            }) => {
+                return ToolResult::failure(
+                    ToolName::TranscribeCommand,
+                    input.request_id,
+                    microphone_consent_required_error(&challenge),
+                    vec![String::from(
+                        "Remote transcription paused before microphone audio was sent.",
+                    )],
+                );
+            }
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::TranscribeCommand,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Remote transcription was blocked by the microphone privacy policy.",
+                    )],
+                );
+            }
+        };
+
         match self.asr.transcribe_command(
             &self.config,
             effective_duration_ms,
             input.stop_mode.auto_stops(),
+            remote_authorization.as_ref(),
         ) {
             Ok(result) => {
                 self.state.set_listening(result.listening_active);
@@ -272,6 +322,7 @@ impl super::AppCore {
             Ok(started_for_this_request) => {
                 self.state.set_listening(self.asr.is_listening());
                 Ok(TranscribeCapturePlan {
+                    input: input.clone(),
                     request_id: input.request_id.clone(),
                     requested_duration_ms,
                     effective_duration_ms,

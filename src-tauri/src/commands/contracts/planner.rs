@@ -261,3 +261,14 @@ pub enum NarrationConsentResponseOutcome {
     BlockedPersistent,
     Spoken,
 }
+
+/// Remote-ASR consent never retains pre-consent audio. After authorization the
+/// user repeats the voice input, so the only successful non-terminal response
+/// is an explicit retry request rather than a silently replayed recording.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum MicrophoneConsentResponseOutcome {
+    Denied,
+    BlockedPersistent,
+    AuthorizedRetryRequired,
+}

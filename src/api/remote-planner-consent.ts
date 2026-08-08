@@ -20,7 +20,9 @@ export type RemotePlannerConsentDisclosureClass =
   | "ocr_derived_regions"
   | "tool_observation_summaries"
   | "skill_summaries"
-  | "trusted_runtime_contracts";
+  | "trusted_runtime_contracts"
+  | "narration_text"
+  | "microphone_audio";
 
 export interface RemotePlannerConsentDisclosureCounts {
   selected_region_count: number;
@@ -29,6 +31,8 @@ export interface RemotePlannerConsentDisclosureCounts {
   tool_history_count: number;
   skill_summary_count: number;
   sanitized_serialized_bytes: number;
+  narration_text_bytes: number;
+  microphone_audio_duration_ms: number;
 }
 
 export interface RemotePlannerConsentChallenge {
@@ -71,6 +75,22 @@ export type RemotePlannerConsentResponseOutcome =
       outcome: RemotePlannerExecutionOutcome;
     };
 
+
+export type NarrationConsentResponseOutcome =
+  | { status: "denied" }
+  | { status: "blocked_persistent" }
+  | { status: "spoken" };
+
+export type MicrophoneConsentResponseOutcome =
+  | { status: "denied" }
+  | { status: "blocked_persistent" }
+  | { status: "authorized_retry_required" };
+
+export type RemoteDataConsentResponseOutcome =
+  | RemotePlannerConsentResponseOutcome
+  | NarrationConsentResponseOutcome
+  | MicrophoneConsentResponseOutcome;
+
 export interface SubmitRemotePlannerConsentResponseInput {
   challengeId: string;
   challengeDigest: string;
@@ -82,6 +102,32 @@ export async function submitRemotePlannerConsentResponse(
 ): Promise<RemotePlannerConsentResponseOutcome> {
   return invokeCommand<RemotePlannerConsentResponseOutcome>(
     "submit_remote_planner_consent_response",
+    {
+      challengeId: input.challengeId,
+      challengeDigest: input.challengeDigest,
+      decision: input.decision,
+    },
+  );
+}
+
+export async function submitNarrationConsentResponse(
+  input: SubmitRemotePlannerConsentResponseInput,
+): Promise<NarrationConsentResponseOutcome> {
+  return invokeCommand<NarrationConsentResponseOutcome>(
+    "submit_narration_consent_response",
+    {
+      challengeId: input.challengeId,
+      challengeDigest: input.challengeDigest,
+      decision: input.decision,
+    },
+  );
+}
+
+export async function submitMicrophoneConsentResponse(
+  input: SubmitRemotePlannerConsentResponseInput,
+): Promise<MicrophoneConsentResponseOutcome> {
+  return invokeCommand<MicrophoneConsentResponseOutcome>(
+    "submit_microphone_consent_response",
     {
       challengeId: input.challengeId,
       challengeDigest: input.challengeDigest,

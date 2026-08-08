@@ -25,6 +25,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::app_core::remote_data_consent::RemoteMicrophoneAuthorization;
 use crate::config::{AppConfig, ProviderMode};
 use crate::resource_limits::asr_requests;
 
@@ -69,6 +70,8 @@ pub enum AsrRuntimeError {
     MissingLocalProfileDefinition { profile_name: String },
     #[error("asr remote profile is not configured")]
     MissingRemoteProfile,
+    #[error("remote asr dispatch was not authorized by the remote-data consent policy")]
+    RemoteConsentMissing,
     #[error("asr remote profile '{profile_name}' was not found")]
     MissingRemoteProfileDefinition { profile_name: String },
     #[error("asr remote profile '{profile_name}' uses unsupported provider '{provider}'")]
@@ -183,15 +186,16 @@ impl AsrController {
         }
     }
 
-    pub fn transcribe_command(
+    pub(crate) fn transcribe_command(
         &mut self,
         config: &AppConfig,
         capture_duration_ms: u64,
         auto_stop: bool,
+        remote_authorization: Option<&RemoteMicrophoneAuthorization>,
     ) -> Result<AsrTranscription, AsrRuntimeError> {
         let captured_audio = self.capture_audio(capture_duration_ms, auto_stop)?;
         let audio_duration_ms = Some(captured_audio.duration_ms());
-        let transcript = transcribe_captured_audio(config, &captured_audio)?;
+        let transcript = transcribe_captured_audio(config, &captured_audio, remote_authorization)?;
         Ok(self.finalize_transcription(transcript, audio_duration_ms))
     }
 
@@ -348,6 +352,7 @@ impl AsrController {
 pub(crate) fn transcribe_captured_audio(
     config: &AppConfig,
     captured_audio: &CapturedAudio,
+    remote_authorization: Option<&RemoteMicrophoneAuthorization>,
 ) -> Result<String, AsrRuntimeError> {
     let _permit =
         asr_requests()
@@ -357,7 +362,12 @@ pub(crate) fn transcribe_captured_audio(
             })?;
     match config.providers.asr.mode {
         ProviderMode::Local => transcribe_local(config, captured_audio),
-        ProviderMode::Remote => transcribe_remote(config, captured_audio),
+        ProviderMode::Remote => {
+            let Some(_authorization) = remote_authorization else {
+                return Err(AsrRuntimeError::RemoteConsentMissing);
+            };
+            transcribe_remote(config, captured_audio)
+        }
     }
 }
 
@@ -380,8 +390,9 @@ fn normalize_transcript(transcript: &str) -> Option<String> {
 mod tests {
     use super::{
         encode_wav_pcm16, interleaved_to_mono, normalize_transcript, normalized_optional_string,
-        resample_linear,
+        resample_linear, transcribe_captured_audio, AsrRuntimeError, CapturedAudio,
     };
+    use crate::config::{AppConfig, ProviderMode};
 
     #[test]
     fn interleaved_to_mono_averages_channels() {
@@ -409,6 +420,22 @@ mod tests {
         );
         assert_eq!(normalized_optional_string(Some("   ")), None);
         assert_eq!(normalized_optional_string(None), None);
+    }
+
+    #[test]
+    fn remote_asr_dispatch_fails_closed_without_consent_authorization() {
+        let mut config = AppConfig::default();
+        config.providers.asr.mode = ProviderMode::Remote;
+        let captured_audio = CapturedAudio {
+            samples: vec![0.25],
+            sample_rate: 16_000,
+            channels: 1,
+        };
+
+        let error = transcribe_captured_audio(&config, &captured_audio, None)
+            .expect_err("remote ASR must require consent authorization");
+
+        assert!(matches!(error, AsrRuntimeError::RemoteConsentMissing));
     }
 
     #[test]

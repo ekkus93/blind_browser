@@ -11,6 +11,7 @@ import {
   createAppShellStore,
   setRemoteDataConsentError,
   setRemoteDataConsentSubmitting,
+  stageRemoteDataConsent,
 } from "./app-shell-store.ts";
 
 function challenge() {
@@ -32,6 +33,8 @@ function challenge() {
       tool_history_count: 0,
       skill_summary_count: 0,
       sanitized_serialized_bytes: 64,
+      narration_text_bytes: 0,
+      microphone_audio_duration_ms: 0,
     },
     expires_at_ms: 123456789,
     allow_once: true,
@@ -133,4 +136,58 @@ test("consent submission is challenge-bound and preserves visible failures", () 
   const state = store.getState().executionUi.remoteDataConsent;
   assert.equal(state.isSubmitting, false);
   assert.equal(state.submissionError.code, "remote_data_consent_state_changed");
+});
+
+test("an aborted speech tool error promotes its remote-data challenge into the consent dialog", () => {
+  const pendingChallenge = challenge();
+  pendingChallenge.disclosure_classes = ["narration_text"];
+  pendingChallenge.disclosure_counts.narration_text_bytes = 77;
+  const outcome = {
+    Aborted: {
+      trace: { executed_step_ids: [], tool_results: [] },
+      error: {
+        code: "remote_data_consent_required",
+        message: "Remote narration requires permission.",
+        retryable: false,
+        details: { challenge: pendingChallenge },
+      },
+    },
+  };
+
+  const state = applyExecutionOutcomeToUiState(outcome);
+
+  assert.equal(state.remoteDataConsent.kind, "awaiting-remote-data-consent");
+  assert.equal(state.remoteDataConsent.challenge.challenge_id, "challenge-1");
+  assert.deepEqual(state.remoteDataConsent.challenge.disclosure_classes, ["narration_text"]);
+});
+
+test("malformed consent-shaped tool errors stay fail-closed as ordinary aborted outcomes", () => {
+  const outcome = {
+    Aborted: {
+      trace: { executed_step_ids: [], tool_results: [] },
+      error: {
+        code: "remote_data_consent_required",
+        message: "Malformed challenge.",
+        retryable: false,
+        details: { challenge: { challenge_id: "incomplete" } },
+      },
+    },
+  };
+
+  const state = applyExecutionOutcomeToUiState(outcome);
+  assert.equal(state.remoteDataConsent.kind, "idle");
+});
+
+test("the production execution reducer can stage a direct microphone challenge", () => {
+  const store = createAppShellStore();
+  const pendingChallenge = challenge();
+  pendingChallenge.disclosure_classes = ["microphone_audio"];
+  pendingChallenge.disclosure_counts.microphone_audio_duration_ms = 3000;
+
+  store.dispatch(stageRemoteDataConsent({ challenge: pendingChallenge }));
+
+  const state = store.getState().executionUi;
+  assert.equal(state.confirmation.kind, "idle");
+  assert.equal(state.remoteDataConsent.kind, "awaiting-remote-data-consent");
+  assert.equal(state.remoteDataConsent.challenge.challenge_id, "challenge-1");
 });

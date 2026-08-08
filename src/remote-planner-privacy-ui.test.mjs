@@ -65,6 +65,8 @@ function consentState(overrides = {}) {
         tool_history_count: 1,
         skill_summary_count: 2,
         sanitized_serialized_bytes: 512,
+        narration_text_bytes: 0,
+        microphone_audio_duration_ms: 0,
       },
       expires_at_ms: Date.UTC(2030, 0, 1),
       allow_once: true,
@@ -230,4 +232,38 @@ test("stale allow warnings use a textual status region rather than color alone",
 
   assert.match(html, /role="status"/);
   assert.match(html, /saved allow rule is inactive because the destination or privacy policy changed/);
+});
+
+test("narration consent uses speech-specific disclosure copy instead of planner sanitization copy", () => {
+  const state = consentState();
+  state.challenge.disclosure_classes = ["narration_text"];
+  state.challenge.disclosure_counts.narration_text_bytes = 321;
+
+  const html = renderToStaticMarkup(
+    renderRemotePlannerPrivacyWorkspaceNode(privacyState(), state),
+  );
+
+  assert.match(html, /Send this page narration text to the remote speech provider/);
+  assert.match(html, /No narration text has been sent yet/);
+  assert.match(html, /Page narration text sent to the remote speech provider/);
+  assert.match(html, /Narration text size/);
+  assert.match(html, />321 bytes</);
+  assert.doesNotMatch(html, /Sanitized request size/);
+});
+
+test("microphone consent says audio is discarded until the user retries", () => {
+  const state = consentState();
+  state.challenge.disclosure_classes = ["microphone_audio"];
+  state.challenge.disclosure_counts.microphone_audio_duration_ms = 3000;
+
+  const html = renderToStaticMarkup(
+    renderRemotePlannerPrivacyWorkspaceNode(privacyState(), state),
+  );
+
+  assert.match(html, /Send microphone audio to the remote transcription provider/);
+  assert.match(html, /Captured audio from the paused attempt is not retained or sent/);
+  assert.match(html, /Captured microphone audio sent to the remote transcription provider/);
+  assert.match(html, /Requested microphone capture/);
+  assert.match(html, />3000 ms</);
+  assert.match(html, /Allow one new microphone upload with the same request settings/);
 });

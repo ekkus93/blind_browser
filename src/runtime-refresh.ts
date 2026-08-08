@@ -134,6 +134,9 @@ export function applyAgentStateToPanels(
     language: agentState.remote_asr_settings.language,
     temperatureMilli: agentState.remote_asr_settings.temperature_milli,
     timeoutMs: agentState.remote_asr_settings.timeout_ms,
+    privacyNetworkMode: agentState.remote_asr_settings.privacy_network_mode,
+    privacyOriginRuleCount: agentState.remote_asr_settings.privacy_origin_rule_count,
+    privacyNotice: agentState.remote_asr_settings.privacy_notice,
   });
   dependencies.setTtsProviderPanelState({
     activeMode: agentState.tts_provider_settings.active_mode,
@@ -170,6 +173,9 @@ export function applyAgentStateToPanels(
     voice: agentState.remote_tts_settings.voice,
     audioFormat: agentState.remote_tts_settings.audio_format,
     timeoutMs: agentState.remote_tts_settings.timeout_ms,
+    privacyNetworkMode: agentState.remote_tts_settings.privacy_network_mode,
+    privacyOriginRuleCount: agentState.remote_tts_settings.privacy_origin_rule_count,
+    privacyNotice: agentState.remote_tts_settings.privacy_notice,
   });
   dependencies.setTtsVoicePanelState({
     mode: agentState.tts_voice_settings.mode,
