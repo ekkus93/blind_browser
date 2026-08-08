@@ -50,20 +50,26 @@ jobs:
       - name: Format and capture hygiene result
         shell: bash
         run: |
-          set -euo pipefail
-          cargo fmt --manifest-path src-tauri/Cargo.toml
           set +e
-          git diff --check > /tmp/remote-speech-hygiene.txt 2>&1
-          hygiene_status=$?
+          cargo fmt --manifest-path src-tauri/Cargo.toml > /tmp/remote-speech-rustfmt.txt 2>&1
+          fmt_status=$?
+          if [ "$fmt_status" -eq 0 ]; then
+            git diff --check > /tmp/remote-speech-hygiene.txt 2>&1
+            hygiene_status=$?
+          else
+            hygiene_status=0
+            : > /tmp/remote-speech-hygiene.txt
+          fi
           set -e
-          if [ "$hygiene_status" -ne 0 ]; then
+          if [ "$fmt_status" -ne 0 ] || [ "$hygiene_status" -ne 0 ]; then
             git reset --hard HEAD
+            cp /tmp/remote-speech-rustfmt.txt .github/remote-speech-rustfmt.txt
             cp /tmp/remote-speech-hygiene.txt .github/remote-speech-hygiene.txt
-            printf '%s\n' "$hygiene_status" > .github/remote-speech-hygiene.exit
-            git add .github/remote-speech-hygiene.txt .github/remote-speech-hygiene.exit
+            printf 'rustfmt=%s\nhygiene=%s\n' "$fmt_status" "$hygiene_status" > .github/remote-speech-format-status.txt
+            git add .github/remote-speech-rustfmt.txt .github/remote-speech-hygiene.txt .github/remote-speech-format-status.txt
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "ci: capture remote speech hygiene diagnostic"
+            git commit -m "ci: capture remote speech format diagnostic"
             git push origin HEAD:remote-speech-capability-ralph
             exit 1
           fi
@@ -84,8 +90,9 @@ jobs:
             rm -f .github/remote-speech-backend-wip.patch.gz.b64 \
                   .github/remote-speech-backend-validate.trigger \
                   .github/workflows/remote-speech-backend-validate.yml \
+                  .github/remote-speech-rustfmt.txt \
                   .github/remote-speech-hygiene.txt \
-                  .github/remote-speech-hygiene.exit \
+                  .github/remote-speech-format-status.txt \
                   .github/remote-speech-cargo-check.txt \
                   .github/remote-speech-clippy.txt \
                   .github/remote-speech-cargo-check.exit \
