@@ -779,99 +779,70 @@ the cascade regression test exists and passes.
 
 ## P1.1 — Gate remote TTS and ASR through the shared consent layer
 
-**Status:** PARTIAL · narration (remote TTS) DONE end-to-end; remote ASR
-DEFERRED to a follow-up (scoped below, groundwork already in place).
-**Note:** Scope check with the user (mid-implementation, once the real size
-became clear) confirmed the full interactive dialog, not the cheaper
-fail-closed-only or narrow-enforcement alternatives — see the design notes
-below for what that ruled out.
+**Status:** DONE · `[VERIFIED]`
 
-**What shipped for narration:**
-- `evaluate_remote_planner_policy` is reused **completely unchanged** for
-  narration — it already took no planner-specific types, so "generalizing"
-  it (P1.1.1) turned out to mean "call it a second time," not rewrite it.
-- `AppConfig.remote_narration_privacy: RemotePlannerPrivacySettings` — an
-  independent network-mode/origin-rules instance, config-schema documented
-  in `config.example.toml`, so a planner-only grant can never silently
-  authorize narration text leaving the device too (a real privacy question,
-  not just plumbing — a user who trusts an origin with sanitized planner
-  context has not thereby agreed to raw page text going to a TTS vendor).
-- `AppCore` gained parallel (not unified) `remote_narration_ephemeral_grants`
-  / `pending_narration_consent` state, chosen deliberately over folding into
-  the existing `pending_remote_planner_consent` slot/types to avoid touching
-  the planner's own delicate, already-well-tested consent code at all — a
-  narrower, lower-risk diff for an "active, current-focus" subsystem.
-- `remote_data_consent::grants`/`origin_rules` were generalized in place
-  (a `RemoteDataDisclosureKind` selector, not three reimplementations);
-  `challenge.rs` grew one shared `build_consent_challenge_from_fields` +
-  a small per-kind field-extraction wrapper.
-- `app_core::narration.rs`'s `begin_region_narration`/`begin_feedback_narration`
-  are the **single choke point** every narration call site already funneled
-  through (read_region, read_next_region, read_previous_region,
-  report_result's spoken feedback) — gating there covered all four
-  call sites with zero changes to any of them beyond one new match arm each
-  for the `ConsentRequired` outcome.
-- **Real interactive dialog, not just fail-closed enforcement**: when the
-  policy says `ConsentRequired`, the challenge is stored as pending state
-  and a new `submit_narration_consent_response` Tauri command (registered in
-  `direct_command_policy.rs`'s security-evidence registry, same as every
-  other networked/credential-bearing/page-context-transmitting command)
-  resolves it and, if authorized, **redoes the exact paused narration**
-  (`NarrationResumeContext::Region`/`Feedback`, storing the *resolved*
-  region id so a stale "next"/"previous" never redirects mid-flow) by
-  re-entering `begin_region_narration`/`begin_feedback_narration`, which
-  proceeds this time because the freshly installed grant makes the
-  re-evaluation pass.
-- Two new disclosure vocabulary additions reused everywhere: a
-  `NarrationText` (P1.1.4-equivalent) `RemotePlannerDisclosureClass` variant
-  and `narration_text_bytes` disclosure count; `NarrationConsentResponseOutcome`
-  contract type. The origin-binding decision from P1.1.2's spec text is
-  resolved explicitly, not defaulted: both page-derived region text and
-  `execute_report_result`'s assistant-generated feedback text are bound to
-  the current page origin (feedback isn't literally page text, but it can
-  echo page-derived details and describes that page, so it's gated the same
-  way rather than left ungated by omission).
-- Tests: a new isolated-Wry evidence test
-  (`narration_consent_tests::remote_narration_consent_policy_matrix_is_fail_closed`,
-  registered in `scripts/run-rust-tests-linux.sh` alongside the planner's
-  own evidence tests) proves high-risk blocks remote narration, an
-  origin-block rule blocks it, a planner-only origin allow does **not**
-  cross-authorize narration, and a loopback endpoint stays ungated.
+**Final implementation / closure note (2026-08-08):**
 
-**What did NOT ship (deferred, not silently dropped):**
-- P1.1.3 (remote ASR / microphone audio) — `execute_transcribe_command`'s
-  synchronous capture-then-transcribe call is one opaque `AsrController`
-  call with no separation point to insert a policy gate before the network
-  send, unlike narration's already-separated choke point. Wiring it
-  correctly needs that call split into phases first (mirroring the
-  already-separated `begin_transcribe_command`/`drain_transcribe_command`
-  path), which is its own well-scoped follow-up, not a design ambiguity.
-  The disclosure-kind-generic policy/grants/origin-rules/challenge
-  machinery built here is already shaped to add a `MicrophoneAudio`
-  kind back onto — the machinery originally written for it during this pass
-  was removed rather than left half-wired (dead code with no execution
-  path), consistent with not shipping stubs; re-add it alongside the actual
-  gate rather than ahead of it.
-- P1.1.5 (settings surfacing) — `config.example.toml` documents the new
-  `[remote_narration_privacy]`/`[remote_microphone_privacy]` sections, but
-  there is no in-app settings UI yet to view/manage narration's origin
-  rules (the planner has one: `settings-panels/planner-privacy.tsx`).
-  Users on the default `ask_per_origin` mode can only grant narration access
-  by editing `config.toml` directly until this lands.
-- Frontend dialog wiring — the backend embeds the full
-  `RemotePlannerConsentChallenge` in the `remote_data_consent_required`
-  `ToolError`'s `details` (since no "fetch the pending challenge" status
-  query exists yet for this disclosure kind), so a future pass has
-  everything needed to reuse `remote-planner-privacy-ui.tsx`'s existing
-  dialog rendering (already keyed by a `Record<DisclosureClass, string>`
-  label lookup, so adding the `NarrationText` label is small) — but no
-  frontend code was written to detect the error, show the dialog, or call
-  `submit_narration_consent_response`. **Practical consequence**: under the
-  default `ask_per_origin` mode, remote narration for a not-yet-granted
-  origin currently fails with a clear, honest error and no way to grant
-  access from the UI, until either the settings UI or the dialog wiring
-  above lands. This is a real UX gap, not a security one — the gate fails
-  closed either way.
+- Remote narration and remote microphone transcription now reuse the shared
+  `evaluate_remote_planner_policy` decision path with independent disclosure
+  kinds/configured origin-rule state; local TTS/ASR remain ungated.
+- Remote provider dispatch is type-state guarded. Crate-private
+  `RemoteNarrationAuthorization` and `RemoteMicrophoneAuthorization` values are
+  constructed only by the consent layer; the TTS and ASR remote branches reject
+  dispatch with `RemoteConsentMissing` when the corresponding authorization is
+  absent. Callers cannot manufacture an authorized remote request through the
+  public command surface.
+- Top-level remote ASR now evaluates privacy **before microphone capture starts**.
+  The provider/profile/endpoint snapshot is bound at that point, capture happens
+  only after authorization, and remote transcription consumes the authorization
+  at the provider boundary. A consent-required or policy-rejected request starts
+  no new capture; any already-active listening buffer is stopped/discarded before
+  the challenge/error is returned.
+- Microphone consent pending state contains request/policy metadata only — no
+  captured audio. `Allow once` is bound to the current page origin, normalized
+  endpoint, ASR profile/model, effective duration, stop mode, and runtime state.
+  After an interactive microphone approval the user repeats the voice input; no
+  pre-consent audio is retained or replayed. Session/persistent decisions remain
+  scoped to the microphone disclosure kind and endpoint/origin rules.
+- Narration one-shot consent was corrected so the exact narration payload digest
+  is the one-shot binding. The previous implementation consumed the one-shot
+  grant before the resumed narration re-entered policy evaluation, causing a
+  second prompt; the grant is now consumed by the exact authorized retry instead.
+- Frontend consent orchestration recognizes planner, narration-text, and
+  microphone-audio challenges separately, routes each to its matching Tauri
+  consent command, rejects malformed mixed speech-disclosure challenges, and
+  stages consent-required transcription errors instead of collapsing them into a
+  generic failure. Microphone approval reports that the voice input must be
+  repeated and that earlier audio was not retained/sent.
+- TTS and ASR settings now surface the governing privacy network mode, current
+  site-rule count, and an explicit notice that remote narration text / microphone
+  audio leaves the device only under the remote-data policy.
+- The direct-command security evidence inventory includes
+  `submit_microphone_consent_response` as a non-networked, non-credential-bearing
+  consent-state command. The isolated-Wry inventory guard also includes the new
+  ignored narration/microphone privacy tests so no security evidence test can be
+  silently skipped.
+- Required evidence covers: high-risk/origin-block narration denial; planner grant
+  isolation from narration; `local_only` remote-ASR blocking; loopback exemption;
+  exact one-shot narration/microphone retry; remote TTS/ASR fail-closed behavior
+  without authorization; pre-capture ASR authorization ordering; frontend dialog
+  promotion/routing; and settings-state plumbing.
+
+**Validated implementation SHA:**
+`15b1f5890b17722ab126c97acdc6a050168a108d`
+
+**Permanent CI evidence:** run `31277834628`, job `93154218640` — success.
+The exact SHA passed all permanent gates: silent-fallback/security-fallback
+scanners, accepted-fallback inventory, sensitive-diagnostics scanner, remote
+planner privacy-state scanner, rustfmt, default-feature `cargo check`, strict
+all-target/all-feature Clippy with `-D warnings`, focused direct-command semantic
+evidence, the complete Rust/Wry suite (including the guarded isolated tests),
+frontend lint, UI tests, and production build.
+
+**Scope boundary preserved:** P1.2 is still explicitly `BLOCKED`; this change fixes
+the remote-speech privacy boundary but does not claim that planner-embedded TTS
+or ASR has been made lock-free. The existing executor-wide lock requires a larger
+pausable/resumable plan-execution refactor.
 
 **Original problem/required-behavior text preserved below for reference.**
 **Spec:** constraint 5
@@ -2266,6 +2237,21 @@ visible box when there is no error.
   CI guard scripts re-run for completeness.
 
 ---
+
+## CR3 closure evidence — 2026-08-08
+
+- P0.1-P0.9: `DONE`.
+- P1.1: `DONE` with remote TTS + remote ASR consent/type-state enforcement and
+  interactive frontend/settings integration.
+- P1.2: `BLOCKED` for the recorded executor-lock structural reason; not silently
+  waived or relabeled as fixed.
+- P1.3-P1.4: `DONE`.
+- P2/P3 tasks remain as recorded `DONE` in their individual sections.
+- Implementation candidate `15b1f5890b17722ab126c97acdc6a050168a108d` passed permanent CI run `31277834628`, job
+  `93154218640`.
+- Final documentation/memory closure is intentionally validated as a separate
+  exact commit before `master` is advanced; no unvalidated closure commit may be
+  treated as complete.
 
 ## Completion criteria
 
