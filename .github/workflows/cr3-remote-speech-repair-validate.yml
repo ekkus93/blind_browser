@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-          test "$(cat .github/cr3-remote-speech-repair.trigger)" = "validate"
+          test "$(cat .github/cr3-remote-speech-repair.trigger)" = "validate-v2"
           git merge-base --is-ancestor "${REPAIR_BASE_SHA}" HEAD
           git diff --name-only "${REPAIR_BASE_SHA}"..HEAD | sort > /tmp/actual-transport.txt
           cat > /tmp/expected-transport.txt <<'EOF'
@@ -44,7 +44,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "c9e32417ac5401b440e9c66fe58233f3c820a0b82b7456861695387cafb7519b  .github/cr3-remote-speech-repair.patch.gz.b64" | sha256sum --check --strict
           base64 --decode .github/cr3-remote-speech-repair.patch.gz.b64 > /tmp/cr3-remote-speech-repair.patch.gz
           echo "408578fc1299114f6feb237e168df9593efcd6cb2633df3e15e490828e76b926  /tmp/cr3-remote-speech-repair.patch.gz" | sha256sum --check --strict
           gzip --test /tmp/cr3-remote-speech-repair.patch.gz
