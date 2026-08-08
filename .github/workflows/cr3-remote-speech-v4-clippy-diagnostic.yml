@@ -1,0 +1,108 @@
+name: CR3 Remote Speech V4 Clippy Diagnostic
+
+on:
+  push:
+    branches:
+      - cr3-remote-speech-materialize
+    paths:
+      - .github/cr3-remote-speech-v4-clippy.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: "${{ github.event.head_commit.message == 'ci: capture exact V4 clippy diagnostics' }}"
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_TERM_COLOR: never
+    steps:
+      - name: Check out exact trigger SHA
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reconstruct proven V4 source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(cat .github/cr3-remote-speech-v4-clippy.trigger)" = "capture"
+          cat \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-00 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-01 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-02 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-03 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-04 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-05 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-06 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-07 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-08-0 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-08-1 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-08-2 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-08-3 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-08-4 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-09 \
+            > /tmp/cr3-remote-speech-repair.patch.gz.b64
+          test "$(wc -c < /tmp/cr3-remote-speech-repair.patch.gz.b64)" -eq 49012
+          echo "c9e32417ac5401b440e9c66fe58233f3c820a0b82b7456861695387cafb7519b  /tmp/cr3-remote-speech-repair.patch.gz.b64" | sha256sum --check --strict
+          base64 --decode /tmp/cr3-remote-speech-repair.patch.gz.b64 > /tmp/cr3-remote-speech-repair.patch.gz
+          echo "408578fc1299114f6feb237e168df9593efcd6cb2633df3e15e490828e76b926  /tmp/cr3-remote-speech-repair.patch.gz" | sha256sum --check --strict
+          gzip --test /tmp/cr3-remote-speech-repair.patch.gz
+          gzip --decompress --stdout /tmp/cr3-remote-speech-repair.patch.gz > /tmp/cr3-remote-speech-repair.patch
+          echo "82d44226a5853167cec6778fbc240a9df3cc2639131e9343b47201b9e7cc30c9  /tmp/cr3-remote-speech-repair.patch" | sha256sum --check --strict
+          git apply --check /tmp/cr3-remote-speech-repair.patch
+          git apply /tmp/cr3-remote-speech-repair.patch
+          git diff --check
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install Ubuntu native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Apply deterministic Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml
+
+      - name: Capture exact strict Clippy diagnostics
+        shell: bash
+        run: |
+          set -o pipefail
+          set +e
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings 2>&1 | tee .github/cr3-remote-speech-v4-clippy.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          printf '%s\n' "${status}" > .github/cr3-remote-speech-v4-clippy.exit
+          test "${status}" -ne 0
+
+      - name: Commit diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add .github/cr3-remote-speech-v4-clippy.txt .github/cr3-remote-speech-v4-clippy.exit
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "ci: capture exact V4 strict clippy output"
+          git push origin HEAD:cr3-remote-speech-materialize
