@@ -1,0 +1,110 @@
+name: Remote Speech Exact Candidate CI
+
+on:
+  push:
+    branches:
+      - remote-speech-capability-v2
+    paths:
+      - .github/remote-speech-exact-ci.trigger
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact candidate source
+        uses: actions/checkout@v4
+        with:
+          ref: dcf7c735161c76dc47cba8e6a0c2005bb2b70d79
+          fetch-depth: 0
+
+      - name: Verify exact candidate source
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "dcf7c735161c76dc47cba8e6a0c2005bb2b70d79"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install Ubuntu native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for reintroduced silent-fallback patterns
+        run: bash scripts/check-silent-fallbacks.sh
+
+      - name: Check reviewed security fallbacks
+        run: |
+          python3 scripts/check-security-fallbacks.py --self-test
+          python3 scripts/check-security-fallbacks.py
+
+      - name: Check exact accepted-fallback inventory
+        run: |
+          python3 scripts/check-security-fallback-inventory.py --self-test
+          python3 scripts/check-security-fallback-inventory.py
+
+      - name: Check for sensitive diagnostics
+        run: |
+          python3 scripts/check-sensitive-diagnostics.py --self-test
+          python3 scripts/check-sensitive-diagnostics.py
+
+      - name: Check remote planner privacy state boundaries
+        run: |
+          python3 scripts/check-remote-planner-privacy-state.py --self-test
+          python3 scripts/check-remote-planner-privacy-state.py
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      - name: Check default feature configuration
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Run Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Run focused direct-command semantic evidence
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features --test post_batch8_direct_command_policy_evidence
+
+      - name: Run Rust tests
+        run: bash scripts/run-rust-tests-linux.sh
+
+      - name: Run frontend lint
+        run: pnpm lint
+
+      - name: Run UI tests
+        run: pnpm test:ui
+
+      - name: Build frontend
+        run: pnpm build
