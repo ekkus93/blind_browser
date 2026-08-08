@@ -261,3 +261,20 @@ pub enum NarrationConsentResponseOutcome {
     BlockedPersistent,
     Spoken,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum MicrophoneConsentResponseOutcome {
+    Denied,
+    BlockedPersistent,
+    ListeningStarted {
+        result: ToolResult<StartListeningData>,
+    },
+    Transcribed {
+        result: ToolResult<TranscribeCommandData>,
+    },
+    TranscribedAndExecuted {
+        result: Box<TranscribeAndExecuteCommandData>,
+    },
+    PlannerResumeBlocked,
+}

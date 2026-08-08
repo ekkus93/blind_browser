@@ -12,12 +12,15 @@ import {
   setConfirmationSettingsPanelState,
   setModelManagementPanelState,
   setOcrThresholdSettingsPanelState,
+  setRemoteAsrPanelState,
+  setRemoteTtsPanelState,
   setStatusPanelState,
   setTtsModelPanelState,
   setTtsProviderPanelState,
   setTtsVoicePanelState,
 } from "./panel-state-setters";
 import { refreshRuntimePanels } from "./refresh-handle";
+import type { RemoteSpeechPrivacyNetworkMode } from "./tauri-types.ts";
 import {
   setAllowClickWithoutConfirmation,
   setAsrProviderSelection,
@@ -27,6 +30,7 @@ import {
   setOcrThresholds,
   setPlaybackSpeed,
   setPlaybackVolume,
+  setRemoteSpeechPrivacyNetworkMode,
   setTtsModelSelection,
   setTtsProviderSelection,
   setTtsVoice,
@@ -165,6 +169,67 @@ export async function persistAsrProviderSelection(nextMode: "Local" | "Remote") 
     setAsrProviderPanelState({
       activeMode: previousState.activeMode,
       isBusy: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+
+export async function persistRemoteAsrPrivacyNetworkMode(
+  nextMode: RemoteSpeechPrivacyNetworkMode,
+) {
+  const previousState = getPanelStates().remoteAsrPanelState;
+  if (previousState.isSavingPrivacy) {
+    return;
+  }
+  setRemoteAsrPanelState({ isSavingPrivacy: true, error: null });
+  try {
+    const result = await setRemoteSpeechPrivacyNetworkMode({
+      requestId: createRequestId("asr-privacy-mode"),
+      purpose: "microphone",
+      networkMode: nextMode,
+    });
+    setRemoteAsrPanelState({
+      privacyNetworkMode: result.network_mode,
+      privacyOriginRuleCount: result.origin_rule_count,
+      isSavingPrivacy: false,
+      error: null,
+    });
+  } catch (error: unknown) {
+    setRemoteAsrPanelState({
+      privacyNetworkMode: previousState.privacyNetworkMode,
+      privacyOriginRuleCount: previousState.privacyOriginRuleCount,
+      isSavingPrivacy: false,
+      error: describeAudioControlFailure(error),
+    });
+  }
+}
+
+export async function persistRemoteTtsPrivacyNetworkMode(
+  nextMode: RemoteSpeechPrivacyNetworkMode,
+) {
+  const previousState = getPanelStates().remoteTtsPanelState;
+  if (previousState.isSavingPrivacy) {
+    return;
+  }
+  setRemoteTtsPanelState({ isSavingPrivacy: true, error: null });
+  try {
+    const result = await setRemoteSpeechPrivacyNetworkMode({
+      requestId: createRequestId("tts-privacy-mode"),
+      purpose: "narration",
+      networkMode: nextMode,
+    });
+    setRemoteTtsPanelState({
+      privacyNetworkMode: result.network_mode,
+      privacyOriginRuleCount: result.origin_rule_count,
+      isSavingPrivacy: false,
+      error: null,
+    });
+  } catch (error: unknown) {
+    setRemoteTtsPanelState({
+      privacyNetworkMode: previousState.privacyNetworkMode,
+      privacyOriginRuleCount: previousState.privacyOriginRuleCount,
+      isSavingPrivacy: false,
       error: describeAudioControlFailure(error),
     });
   }

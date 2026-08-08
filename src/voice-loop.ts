@@ -9,6 +9,7 @@ import {
 import { describePushToTalkFailure } from "./main-errors";
 import { classifyInvokeFailure } from "./api/errors";
 import {
+  remoteDataConsentChallengeFromInvokeError,
   startListening,
   stopListening,
   transcribeAndExecuteCommand,
@@ -21,6 +22,18 @@ let continuousListeningLoopActive = false;
 
 function getPushToTalkState() {
   return appShellStore.getState().panelStates.pushToTalkState;
+}
+
+function microphoneConsentChallengeFromInvokeError(error: unknown) {
+  const challenge = remoteDataConsentChallengeFromInvokeError(error);
+  if (
+    challenge
+    && challenge.disclosure_classes.length === 1
+    && challenge.disclosure_classes[0] === "microphone_audio"
+  ) {
+    return challenge;
+  }
+  return null;
 }
 
 // Report a stop/transcribe failure without asserting a listening state the backend
@@ -116,8 +129,23 @@ export async function ensureContinuousListeningLoop() {
       }
     }
   } catch (error: unknown) {
-    const message = describePushToTalkFailure(error);
-    await stopContinuousListeningAfterFailure(message);
+    const challenge = microphoneConsentChallengeFromInvokeError(error);
+    if (challenge) {
+      uiStore.setState({
+        ...uiStore.getState(),
+        remoteDataConsent: {
+          kind: "awaiting-remote-data-consent",
+          isSubmitting: false,
+          submissionError: null,
+          challenge,
+        },
+      });
+      await stopContinuousListeningAfterFailure(
+        "Remote transcription is paused for privacy permission. No new microphone capture will begin while permission is pending, and buffered audio was not sent.",
+      );
+    } else {
+      await stopContinuousListeningAfterFailure(describePushToTalkFailure(error));
+    }
     await refreshRuntimePanels();
   } finally {
     continuousListeningLoopActive = false;
@@ -156,6 +184,26 @@ export async function beginPushToTalk(source: "keyboard" | "pointer") {
     await refreshRuntimePanels();
   } catch (error: unknown) {
     activePushToTalkSource = null;
+    const challenge = microphoneConsentChallengeFromInvokeError(error);
+    if (challenge) {
+      uiStore.setState({
+        ...uiStore.getState(),
+        remoteDataConsent: {
+          kind: "awaiting-remote-data-consent",
+          isSubmitting: false,
+          submissionError: null,
+          challenge,
+        },
+      });
+      setPushToTalkState({
+        isHolding: false,
+        isListening: false,
+        isBusy: false,
+        lastError: "Remote microphone use is waiting for privacy permission. Capture did not start.",
+      });
+      await refreshRuntimePanels();
+      return;
+    }
     setPushToTalkState({
       isHolding: false,
       isListening: false,
@@ -245,6 +293,26 @@ export async function releasePushToTalk(source: "keyboard" | "pointer") {
       void ensureContinuousListeningLoop();
     }
   } catch (error: unknown) {
+    const challenge = microphoneConsentChallengeFromInvokeError(error);
+    if (challenge) {
+      uiStore.setState({
+        ...uiStore.getState(),
+        remoteDataConsent: {
+          kind: "awaiting-remote-data-consent",
+          isSubmitting: false,
+          submissionError: null,
+          challenge,
+        },
+      });
+      setPushToTalkState({
+        isHolding: false,
+        isListening: false,
+        isBusy: false,
+        lastError: "Remote transcription is waiting for privacy permission. Audio from before authorization was not sent and will not be reused.",
+      });
+      await refreshRuntimePanels();
+      return;
+    }
     await reportPushToTalkFailureWithoutInventingListeningState(
       describePushToTalkFailure(error),
     );

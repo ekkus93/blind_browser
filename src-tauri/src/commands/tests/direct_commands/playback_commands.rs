@@ -97,6 +97,9 @@ fn resolve_direct_repeat_command_replays_current_region() {
             timeout_ms: Some(30_000),
             endpoint_is_loopback: None,
             availability_reason: None,
+            privacy_network_mode: Default::default(),
+            privacy_origin_rule_count: 0,
+            privacy_notice: String::new(),
         },
         remote_asr_settings: RemoteAsrSettings {
             profile_name: Some(String::from("openai-transcribe-default")),
@@ -113,6 +116,9 @@ fn resolve_direct_repeat_command_replays_current_region() {
             timeout_ms: Some(30_000),
             endpoint_is_loopback: None,
             availability_reason: None,
+            privacy_network_mode: Default::default(),
+            privacy_origin_rule_count: 0,
+            privacy_notice: String::new(),
         },
         provider_failover_settings: ProviderFailoverSettings {
             planner_available: false,
@@ -248,6 +254,9 @@ fn resolve_direct_repeat_command_reports_missing_current_region() {
             timeout_ms: Some(30_000),
             endpoint_is_loopback: None,
             availability_reason: None,
+            privacy_network_mode: Default::default(),
+            privacy_origin_rule_count: 0,
+            privacy_notice: String::new(),
         },
         remote_asr_settings: RemoteAsrSettings {
             profile_name: Some(String::from("openai-transcribe-default")),
@@ -264,6 +273,9 @@ fn resolve_direct_repeat_command_reports_missing_current_region() {
             timeout_ms: Some(30_000),
             endpoint_is_loopback: None,
             availability_reason: None,
+            privacy_network_mode: Default::default(),
+            privacy_origin_rule_count: 0,
+            privacy_notice: String::new(),
         },
         provider_failover_settings: ProviderFailoverSettings {
             planner_available: false,
@@ -404,6 +416,9 @@ fn resolve_direct_read_title_command_reports_current_title() {
             timeout_ms: Some(30_000),
             endpoint_is_loopback: None,
             availability_reason: None,
+            privacy_network_mode: Default::default(),
+            privacy_origin_rule_count: 0,
+            privacy_notice: String::new(),
         },
         remote_asr_settings: RemoteAsrSettings {
             profile_name: Some(String::from("openai-transcribe-default")),
@@ -420,6 +435,9 @@ fn resolve_direct_read_title_command_reports_current_title() {
             timeout_ms: Some(30_000),
             endpoint_is_loopback: None,
             availability_reason: None,
+            privacy_network_mode: Default::default(),
+            privacy_origin_rule_count: 0,
+            privacy_notice: String::new(),
         },
         provider_failover_settings: ProviderFailoverSettings {
             planner_available: false,
@@ -554,6 +572,9 @@ fn resolve_direct_read_title_command_reports_missing_title() {
             timeout_ms: Some(30_000),
             endpoint_is_loopback: None,
             availability_reason: None,
+            privacy_network_mode: Default::default(),
+            privacy_origin_rule_count: 0,
+            privacy_notice: String::new(),
         },
         remote_asr_settings: RemoteAsrSettings {
             profile_name: Some(String::from("openai-transcribe-default")),
@@ -570,6 +591,9 @@ fn resolve_direct_read_title_command_reports_missing_title() {
             timeout_ms: Some(30_000),
             endpoint_is_loopback: None,
             availability_reason: None,
+            privacy_network_mode: Default::default(),
+            privacy_origin_rule_count: 0,
+            privacy_notice: String::new(),
         },
         provider_failover_settings: ProviderFailoverSettings {
             planner_available: false,

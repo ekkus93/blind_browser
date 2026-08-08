@@ -57,7 +57,7 @@ impl super::AppCore {
         let user_message = normalize_optional_text(input.user_message);
         let spoken_message = user_message.clone().unwrap_or_else(|| summary.clone());
 
-        match self.begin_feedback_narration(&spoken_message, &input.request_id) {
+        match self.begin_feedback_narration(&spoken_message, &input.request_id, None) {
             Ok(NarrationAttempt::Completed(())) => {}
             Ok(NarrationAttempt::ConsentRequired(challenge)) => {
                 return ToolResult::failure(

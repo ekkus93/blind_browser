@@ -44,6 +44,8 @@ function challenge() {
       tool_history_count: 0,
       skill_summary_count: 0,
       sanitized_serialized_bytes: 64,
+      narration_text_bytes: 0,
+      microphone_audio_duration_ms: 0,
     },
     expires_at_ms: 123456789,
     allow_once: true,
@@ -80,6 +82,14 @@ function createHarness(overrides = {}) {
     },
     submitConsentResponse: async (input) => {
       calls.push(["submitConsentResponse", input]);
+      return { status: "denied" };
+    },
+    submitNarrationConsentResponse: async (input) => {
+      calls.push(["submitNarrationConsentResponse", input]);
+      return { status: "denied" };
+    },
+    submitMicrophoneConsentResponse: async (input) => {
+      calls.push(["submitMicrophoneConsentResponse", input]);
       return { status: "denied" };
     },
     executePlannerOutput: async (requestId, plannerOutput) => {
@@ -123,6 +133,9 @@ function createHarness(overrides = {}) {
     },
     reportGlobalError: (message) => {
       calls.push(["reportGlobalError", message]);
+    },
+    reportGlobalInfo: (message) => {
+      calls.push(["reportGlobalInfo", message]);
     },
     warn: (message, details) => {
       calls.push(["warn", { message, details }]);
@@ -321,4 +334,89 @@ test("backend rejection reports a refresh failure without restoring the challeng
     .map(([, message]) => message);
   assert.equal(errors.length, 2);
   assert.match(errors[1], /runtime status could not be refreshed/);
+});
+
+
+test("narration consent is routed to the narration command and resumes directly", async () => {
+  const harness = createHarness({
+    submitNarrationConsentResponse: async (input) => {
+      harness.calls.push(["submitNarrationConsentResponse", input]);
+      return { status: "spoken" };
+    },
+  });
+  harness.executionState.remoteDataConsent.challenge.disclosure_classes = ["narration_text"];
+  harness.executionState.remoteDataConsent.challenge.disclosure_counts.narration_text_bytes = 128;
+
+  const result = await harness.controller.submitConsentDecision("allow_once", "challenge-1");
+
+  assert.equal(result.status, "spoken");
+  assert.equal(harness.calls.some(([name]) => name === "submitConsentResponse"), false);
+  assert.equal(harness.calls.some(([name]) => name === "submitNarrationConsentResponse"), true);
+  assert.equal(harness.executionState.remoteDataConsent.kind, "idle");
+});
+
+test("microphone consent is routed to the microphone command without a planner retry", async () => {
+  const harness = createHarness({
+    submitMicrophoneConsentResponse: async (input) => {
+      harness.calls.push(["submitMicrophoneConsentResponse", input]);
+      return {
+        status: "transcribed",
+        result: {
+          ok: true,
+          tool_name: "TranscribeCommand",
+          request_id: "request-1",
+          timestamp_ms: 1,
+          data: {
+            transcript: "open settings",
+            confidence: 0.99,
+            audio_duration_ms: 500,
+            listening_state: { push_to_talk_enabled: true, is_listening: false },
+          },
+          error: null,
+          warnings: [],
+          observations: [],
+        },
+      };
+    },
+  });
+  harness.executionState.remoteDataConsent.challenge.disclosure_classes = ["microphone_audio"];
+  harness.executionState.remoteDataConsent.challenge.disclosure_counts.microphone_audio_duration_ms = 500;
+
+  const result = await harness.controller.submitConsentDecision("allow_once", "challenge-1");
+
+  assert.equal(result.status, "transcribed");
+  assert.equal(harness.calls.some(([name]) => name === "submitMicrophoneConsentResponse"), true);
+  assert.equal(harness.calls.some(([name]) => name === "submitConsentResponse"), false);
+  assert.equal(harness.executionState.remoteDataConsent.kind, "idle");
+});
+
+test("planner-embedded microphone resume blocker is visible and never reported as success", async () => {
+  const harness = createHarness({
+    submitMicrophoneConsentResponse: async () => ({ status: "planner_resume_blocked" }),
+  });
+  harness.executionState.remoteDataConsent.challenge.disclosure_classes = ["microphone_audio"];
+
+  const result = await harness.controller.submitConsentDecision("allow_once", "challenge-1");
+
+  assert.equal(result.status, "planner_resume_blocked");
+  assert.equal(harness.executionState.remoteDataConsent.kind, "idle");
+  const error = harness.calls.find(([name]) => name === "reportGlobalError")[1];
+  assert.match(error, /cannot safely resume/i);
+  assert.match(error, /No microphone audio was captured or sent/i);
+});
+
+test("mixed speech disclosure challenge is rejected instead of guessed", async () => {
+  const harness = createHarness();
+  harness.executionState.remoteDataConsent.challenge.disclosure_classes = [
+    "narration_text",
+    "microphone_audio",
+  ];
+
+  const result = await harness.controller.submitConsentDecision("allow_once", "challenge-1");
+
+  assert.equal(result, null);
+  assert.equal(harness.calls.some(([name]) => name === "submitConsentResponse"), false);
+  assert.equal(harness.calls.some(([name]) => name === "submitNarrationConsentResponse"), false);
+  assert.equal(harness.calls.some(([name]) => name === "submitMicrophoneConsentResponse"), false);
+  assert.match(harness.executionState.remoteDataConsent.submissionError.message, /incompatible/i);
 });

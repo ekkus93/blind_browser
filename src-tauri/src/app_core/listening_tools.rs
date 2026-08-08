@@ -1,13 +1,30 @@
+use super::remote_data_consent::{
+    MicrophonePreparation, MicrophoneResumeContext, RemoteMicrophoneAuthorization,
+};
 use super::voice_tools::asr_runtime_error_to_tool_error;
 use crate::asr::{
     AsrTranscription, CapturedAudio, DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS,
 };
 use crate::commands::{
-    StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
-    ToolName, ToolResult, TranscribeCommandData, TranscribeCommandInput,
+    RemotePlannerConsentChallenge, StartListeningData, StartListeningInput, StopListeningData,
+    StopListeningInput, ToolError, ToolName, ToolResult, TranscribeCommandData,
+    TranscribeCommandInput,
 };
 use crate::config::AppConfig;
 use crate::state::ListeningState;
+
+pub(crate) fn microphone_consent_required_error(
+    challenge: &RemotePlannerConsentChallenge,
+) -> ToolError {
+    ToolError {
+        code: String::from("remote_data_consent_required"),
+        message: String::from(
+            "Sending microphone audio to remote transcription requires your permission before capture begins. Review the pending privacy decision to continue.",
+        ),
+        retryable: false,
+        details: Some(serde_json::json!({ "challenge": challenge })),
+    }
+}
 
 /// Build the observation strings shared by both transcription success paths.
 fn build_transcribe_observations(
@@ -113,8 +130,47 @@ impl super::AppCore {
         &mut self,
         input: StartListeningInput,
     ) -> ToolResult<StartListeningData> {
+        let preparation =
+            self.prepare_microphone_request(MicrophoneResumeContext::StartListening {
+                input: input.clone(),
+            });
+        let remote_authorization = match preparation {
+            Ok(MicrophonePreparation::Local) => None,
+            Ok(MicrophonePreparation::Authorized(authorization)) => Some(authorization),
+            Ok(MicrophonePreparation::ConsentRequired { challenge }) => {
+                return ToolResult::failure(
+                    ToolName::StartListening,
+                    input.request_id,
+                    microphone_consent_required_error(&challenge),
+                    vec![String::from(
+                        "Remote microphone capture did not start because privacy permission is required first.",
+                    )],
+                );
+            }
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::StartListening,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Remote microphone capture was blocked before the microphone was activated.",
+                    )],
+                );
+            }
+        };
+        self.execute_authorized_start_listening(input, remote_authorization)
+    }
+
+    pub(crate) fn execute_authorized_start_listening(
+        &mut self,
+        input: StartListeningInput,
+        remote_authorization: Option<RemoteMicrophoneAuthorization>,
+    ) -> ToolResult<StartListeningData> {
         match self.asr.start_listening() {
             Ok(activated) => {
+                if let Some(authorization) = remote_authorization {
+                    self.install_active_remote_microphone_authorization(authorization);
+                }
                 self.state.set_listening(self.asr.is_listening());
                 ToolResult::success(
                     ToolName::StartListening,
@@ -132,15 +188,24 @@ impl super::AppCore {
                     }],
                 )
             }
-            Err(error) => ToolResult::failure(
-                ToolName::StartListening,
-                input.request_id,
-                asr_runtime_error_to_tool_error(&error),
-                vec![String::from(
-                    "Could not activate voice input listening in the configured ASR backend.",
-                )],
-            ),
+            Err(error) => {
+                self.clear_active_remote_microphone_authorization();
+                ToolResult::failure(
+                    ToolName::StartListening,
+                    input.request_id,
+                    asr_runtime_error_to_tool_error(&error),
+                    vec![String::from(
+                        "Could not activate voice input listening in the configured ASR backend.",
+                    )],
+                )
+            }
         }
+    }
+
+    pub(crate) fn stop_microphone_capture_for_pending_consent(&mut self) {
+        self.asr.stop_listening();
+        self.clear_active_remote_microphone_authorization();
+        self.state.set_listening(self.asr.is_listening());
     }
 
     pub fn execute_stop_listening(
@@ -148,6 +213,7 @@ impl super::AppCore {
         input: StopListeningInput,
     ) -> ToolResult<StopListeningData> {
         let deactivated = self.asr.stop_listening();
+        self.clear_active_remote_microphone_authorization();
         self.state.set_listening(self.asr.is_listening());
 
         ToolResult::success(
@@ -202,10 +268,40 @@ impl super::AppCore {
             effective_duration_ms = effective_duration_ms.min(timeout_ms.max(1));
         }
 
+        let remote_authorization = match self.prepare_microphone_request(
+            MicrophoneResumeContext::PlannerTool {
+                input: input.clone(),
+            },
+        ) {
+            Ok(MicrophonePreparation::Local) => None,
+            Ok(MicrophonePreparation::Authorized(authorization)) => Some(authorization),
+            Ok(MicrophonePreparation::ConsentRequired { challenge }) => {
+                return ToolResult::failure(
+                    ToolName::TranscribeCommand,
+                    input.request_id,
+                    microphone_consent_required_error(&challenge),
+                    vec![String::from(
+                        "Planner-driven remote transcription paused before microphone capture; executor resume is blocked by BB_CODE_REVIEW3 P1.2.",
+                    )],
+                );
+            }
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::TranscribeCommand,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Remote transcription was blocked by the microphone privacy policy before capture.",
+                    )],
+                );
+            }
+        };
+
         match self.asr.transcribe_command(
             &self.config,
             effective_duration_ms,
             input.stop_mode.auto_stops(),
+            remote_authorization,
         ) {
             Ok(result) => {
                 self.state.set_listening(result.listening_active);

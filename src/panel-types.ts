@@ -1,3 +1,5 @@
+import type { RemoteSpeechPrivacyNetworkMode } from "./tauri-types.ts";
+
 export interface PushToTalkPanelState {
   enabled: boolean;
   isHolding: boolean;
@@ -131,6 +133,10 @@ export interface RemoteTtsPanelState {
   voice: string | null;
   audioFormat: string | null;
   timeoutMs: number | null;
+  privacyNetworkMode: RemoteSpeechPrivacyNetworkMode;
+  privacyOriginRuleCount: number;
+  privacyNotice: string;
+  isSavingPrivacy: boolean;
   apiKeyDraft: string;
   isSavingApiKey: boolean;
   isTestingApiKey: boolean;
@@ -151,6 +157,10 @@ export interface RemoteAsrPanelState {
   language: string | null;
   temperatureMilli: number | null;
   timeoutMs: number | null;
+  privacyNetworkMode: RemoteSpeechPrivacyNetworkMode;
+  privacyOriginRuleCount: number;
+  privacyNotice: string;
+  isSavingPrivacy: boolean;
   apiKeyDraft: string;
   isSavingApiKey: boolean;
   isTestingApiKey: boolean;

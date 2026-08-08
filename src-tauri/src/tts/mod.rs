@@ -8,6 +8,7 @@ use thiserror::Error;
 #[cfg(feature = "local-tts")]
 use kitten_tts::model::KittenTTS;
 
+use crate::app_core::RemoteNarrationAuthorization;
 use crate::audio_io::RuntimeAudioState;
 use crate::config::{AppConfig, ProviderMode};
 use crate::resource_limits::{
@@ -90,6 +91,8 @@ pub enum TtsRuntimeError {
     MissingLocalProfileDefinition { profile_name: String },
     #[error("tts remote profile is not configured")]
     MissingRemoteProfile,
+    #[error("remote tts dispatch was not authorized by the remote-data consent policy")]
+    RemoteConsentMissing,
     #[error("tts remote profile '{profile_name}' was not found")]
     MissingRemoteProfileDefinition { profile_name: String },
     #[error("tts remote profile '{profile_name}' uses unsupported provider '{provider}'")]
@@ -148,11 +151,12 @@ impl TtsController {
         }
     }
 
-    pub fn synthesize_narration(
+    pub(crate) fn synthesize_narration(
         &mut self,
         config: &AppConfig,
         runtime_audio: &RuntimeAudioState,
         text: &str,
+        remote_authorization: Option<RemoteNarrationAuthorization>,
     ) -> Result<SynthesizedSpeech, TtsRuntimeError> {
         let normalized_text = text.trim();
         if normalized_text.is_empty() {
@@ -173,7 +177,11 @@ impl TtsController {
 
         let speech = match config.providers.tts.mode {
             ProviderMode::Local => self.synthesize_local(config, runtime_audio, normalized_text),
-            ProviderMode::Remote => self.synthesize_remote(config, runtime_audio, normalized_text),
+            ProviderMode::Remote => {
+                let _authorization =
+                    remote_authorization.ok_or(TtsRuntimeError::RemoteConsentMissing)?;
+                self.synthesize_remote(config, runtime_audio, normalized_text)
+            }
         }?;
 
         // The input-text emptiness check above only guards what goes IN to
@@ -307,6 +315,7 @@ mod tests {
         SynthesizedSpeech, TtsController, TtsProviderKind, TtsRuntimeError, KITTEN_TTS_CHANNELS,
         KITTEN_TTS_SAMPLE_RATE, SYNTHESIZED_SPEECH_CACHE_LIMIT,
     };
+    use crate::app_core::RemoteNarrationAuthorization;
     use crate::audio_io::RuntimeAudioState;
     use crate::config::{AppConfig, LocalTtsBackend, LocalTtsProfile, ProviderMode};
 
@@ -473,6 +482,22 @@ mod tests {
     }
 
     #[test]
+    fn remote_tts_dispatch_fails_closed_without_consent_authorization() {
+        let mut config = AppConfig::default();
+        config.providers.tts.mode = ProviderMode::Remote;
+        let runtime_audio = RuntimeAudioState::default();
+        let mut controller = TtsController::new();
+
+        let error = controller
+            .synthesize_narration(&config, &runtime_audio, "remote narration", None)
+            .expect_err(
+                "remote TTS must reject dispatch without authorization before provider setup",
+            );
+
+        assert!(matches!(error, TtsRuntimeError::RemoteConsentMissing));
+    }
+
+    #[test]
     fn decode_wav_samples_parses_pcm16_mono_audio() {
         let decoded = decode_wav_samples(&test_wav_bytes()).expect("wav bytes should decode");
         assert_eq!(decoded.channels, 1);
@@ -508,7 +533,12 @@ mod tests {
         let mut controller = TtsController::new();
 
         let speech = controller
-            .synthesize_narration(&config, &runtime_audio, "Hello remote world")
+            .synthesize_narration(
+                &config,
+                &runtime_audio,
+                "Hello remote world",
+                Some(RemoteNarrationAuthorization::for_test()),
+            )
             .expect("remote synthesis should succeed");
 
         assert_eq!(speech.provider, TtsProviderKind::Remote);
@@ -574,7 +604,12 @@ mod tests {
         // audio" test above rather than degenerate punctuation-only text --
         // this test is only about the response being empty, not the input.
         let error = controller
-            .synthesize_narration(&config, &runtime_audio, "Hello remote world")
+            .synthesize_narration(
+                &config,
+                &runtime_audio,
+                "Hello remote world",
+                Some(RemoteNarrationAuthorization::for_test()),
+            )
             .expect_err("empty synthesized audio should be rejected, not returned as success");
         assert!(matches!(error, TtsRuntimeError::EmptySynthesizedAudio));
 

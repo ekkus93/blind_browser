@@ -1,6 +1,7 @@
 import {
   classifyInvokeFailure,
   executePlannerOutput,
+  remoteDataConsentChallengeFromToolError,
   submitConfirmationResponse,
   type ConfirmActionResolution,
   type ConfirmActionResponseInput,
@@ -146,6 +147,24 @@ export function isNeedsRemoteDataConsentOutcome(
 export function applyExecutionOutcomeToUiState(
   outcome: RemotePlannerExecutionOutcome,
 ): ExecutionUiState {
+  if ("Aborted" in outcome) {
+    const challenge = remoteDataConsentChallengeFromToolError(outcome.Aborted.error);
+    if (challenge) {
+      return {
+        lastOutcome: outcome,
+        confirmation: {
+          kind: "idle",
+        },
+        remoteDataConsent: {
+          kind: "awaiting-remote-data-consent",
+          isSubmitting: false,
+          submissionError: null,
+          challenge,
+        },
+      };
+    }
+  }
+
   if (isNeedsRemoteDataConsentOutcome(outcome)) {
     return {
       lastOutcome: outcome,

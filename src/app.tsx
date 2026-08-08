@@ -57,6 +57,7 @@ import { beginPushToTalk, submitConfirmationAction } from "./voice-loop";
 import {
   persistAllowClickWithoutConfirmation,
   persistAsrProviderSelection,
+  persistRemoteAsrPrivacyNetworkMode,
   persistBrowserVisibility,
   persistConfirmationThreshold,
   persistModelManagementSettings,
@@ -65,6 +66,7 @@ import {
   persistPlaybackVolume,
   persistTtsModelSelection,
   persistTtsProviderSelection,
+  persistRemoteTtsPrivacyNetworkMode,
   persistTtsVoiceSelection,
 } from "./settings-actions";
 import {
@@ -220,6 +222,7 @@ export function BlindBrowserApp() {
           onRetry: () => { void persistModelManagementSettings(); },
         }),
         "settings-remote-asr": renderSettingsRemoteAsrPanelNode(panelStates.remoteAsrPanelState, {
+          onPrivacyModeSelect: (mode) => { void persistRemoteAsrPrivacyNetworkMode(mode); },
           onApiKeyInput: (value) => {
             setRemoteAsrPanelState({ apiKeyDraft: value, apiKeyTestMessage: null, error: null });
           },
@@ -242,6 +245,7 @@ export function BlindBrowserApp() {
           { onOpenRuntimeSettings: () => { setSettingsView("runtime"); setAppView("settings"); } },
         ),
         "settings-remote-tts": renderSettingsRemoteTtsPanelNode(panelStates.remoteTtsPanelState, {
+          onPrivacyModeSelect: (mode) => { void persistRemoteTtsPrivacyNetworkMode(mode); },
           onApiKeyInput: (value) => {
             setRemoteTtsPanelState({ apiKeyDraft: value, apiKeyTestMessage: null, error: null });
           },

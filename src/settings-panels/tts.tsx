@@ -1,5 +1,7 @@
 import { type ReactNode } from "react";
 
+import type { RemoteSpeechPrivacyNetworkMode } from "../tauri-types.ts";
+
 import {
   renderProviderModeLabel,
   renderSecretEntryCard,
@@ -15,12 +17,27 @@ import type {
 } from "../panel-types.ts";
 import {
   SETTINGS_GRID_CLASS,
+  SETTINGS_PANEL_DESCRIPTION_CLASS,
   SETTINGS_PANEL_WARNING_CLASS,
   renderReadOnlyCard,
   renderSelectControlCard,
   renderSettingsModelMissingWarning,
   renderSettingsPanelSection,
 } from "./shared-controls.tsx";
+
+
+function remoteSpeechPrivacyModeLabel(mode: string): string {
+  switch (mode) {
+    case "local_only":
+      return "Local only — block network speech";
+    case "ask_per_origin":
+      return "Ask before network speech";
+    case "allow_sanitized_non_high_risk":
+      return "Allow non-high-risk network speech by policy";
+    default:
+      return "Unknown privacy mode — treated as unavailable";
+  }
+}
 
 export interface TtsProviderPanelHandlers {
   onProviderSelect?: (mode: "Local" | "Remote") => void;
@@ -38,6 +55,7 @@ export interface TtsVoicePanelHandlers {
 }
 
 export interface RemoteTtsPanelHandlers {
+  onPrivacyModeSelect?: (mode: RemoteSpeechPrivacyNetworkMode) => void;
   onApiKeyInput?: (value: string) => void;
   onSaveApiKey?: () => void;
   onTestApiKey?: () => void;
@@ -106,6 +124,26 @@ export function renderSettingsRemoteTtsPanelNode(
         {renderReadOnlyCard("Voice", state.voice)}
         {renderReadOnlyCard("Audio format", state.audioFormat)}
         {renderReadOnlyCard("Timeout", state.timeoutMs != null ? `${(state.timeoutMs / 1000).toFixed(0)} seconds` : null)}
+        {renderSelectControlCard({
+          id: "settings-remote-narration-privacy-control",
+          label: "Remote narration privacy",
+          valueText: remoteSpeechPrivacyModeLabel(state.privacyNetworkMode),
+          selectedValue: state.privacyNetworkMode,
+          disabled: state.isSavingPrivacy,
+          dataAttributes: { "data-remote-tts-privacy-select": "true" },
+          options: [
+            { value: "local_only", label: remoteSpeechPrivacyModeLabel("local_only") },
+            { value: "ask_per_origin", label: remoteSpeechPrivacyModeLabel("ask_per_origin") },
+            { value: "allow_sanitized_non_high_risk", label: remoteSpeechPrivacyModeLabel("allow_sanitized_non_high_risk") },
+          ],
+          onChange: handlers?.onPrivacyModeSelect
+            ? (value) => { handlers.onPrivacyModeSelect?.(value as RemoteSpeechPrivacyNetworkMode); }
+            : undefined,
+        })}
+        {renderReadOnlyCard("Saved narration privacy rules", String(state.privacyOriginRuleCount))}
+        <p className={SETTINGS_PANEL_DESCRIPTION_CLASS} data-remote-tts-privacy-notice="true">
+          {state.privacyNotice}
+        </p>
         {renderSecretEntryCard(
           "tts",
           state.profileName,

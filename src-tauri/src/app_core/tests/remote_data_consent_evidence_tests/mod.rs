@@ -5,6 +5,7 @@
 //! - [`identity_scope_and_restart_tests`] — challenge binding, unrelated-change tolerance, restart
 //! - [`policy_and_disclosure_matrix_tests`] — the full allow/block/consent-required matrix
 //! - [`narration_consent_tests`] — the same policy matrix for the narration
+//! - [`microphone_consent_tests`] — pre-capture remote ASR consent and one-shot semantics
 //!   (remote TTS) disclosure kind, proving it shares the engine rather than
 //!   reimplementing it, and that its grant/origin-rule store stays independent
 //!
@@ -18,6 +19,7 @@ use helpers::*;
 
 mod expiry_and_hostile_state_tests;
 mod identity_scope_and_restart_tests;
+mod microphone_consent_tests;
 mod narration_consent_tests;
 mod policy_and_disclosure_matrix_tests;
 mod replay_and_concurrency_tests;

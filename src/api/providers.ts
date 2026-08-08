@@ -1,8 +1,39 @@
 import { invokeCommand } from "./errors.ts";
 import type {
   RemotePlannerConnectionSettingsData,
+  RemoteSpeechPrivacyNetworkMode,
   SelectableProviderMode,
 } from "../tauri-types.ts";
+
+
+export type RemoteSpeechPrivacyPurpose = "narration" | "microphone";
+
+export async function setRemoteSpeechPrivacyNetworkMode(input: {
+  requestId: string;
+  timeoutMs?: number;
+  purpose: RemoteSpeechPrivacyPurpose;
+  networkMode: RemoteSpeechPrivacyNetworkMode;
+}): Promise<{
+  purpose: RemoteSpeechPrivacyPurpose;
+  network_mode: RemoteSpeechPrivacyNetworkMode;
+  origin_rule_count: number;
+  changed: boolean;
+}> {
+  return invokeCommand<{
+    purpose: RemoteSpeechPrivacyPurpose;
+    network_mode: RemoteSpeechPrivacyNetworkMode;
+    origin_rule_count: number;
+    changed: boolean;
+  }>(
+    "set_remote_speech_privacy_network_mode",
+    {
+      requestId: input.requestId,
+      timeoutMs: input.timeoutMs,
+      purpose: input.purpose,
+      networkMode: input.networkMode,
+    },
+  );
+}
 
 export async function setAsrProviderSelection(input: {
   requestId: string;

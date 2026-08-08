@@ -6,7 +6,8 @@
 use crate::app_core::planner_redaction::RemotePlannerInput;
 use crate::commands::{
     RemotePlannerConsentChallenge, RemotePlannerConsentResponseOutcome,
-    RemotePlannerDisclosureClass, RemotePlannerDisclosureCounts,
+    RemotePlannerDisclosureClass, RemotePlannerDisclosureCounts, StartListeningInput,
+    TranscribeCommandInput,
 };
 use crate::config::RemotePlannerProfile;
 use crate::provider_endpoint::ProviderEndpointScope;
@@ -94,22 +95,7 @@ pub(crate) enum PendingConsentResolution {
 }
 
 // --- Narration (remote TTS) disclosure ---
-//
-// Narration has no planner-style sanitization step (the whole point is to
-// speak the text; there is nothing to redact without breaking that), so
-// unlike the planner there is no separate draft/prepared-request split --
-// preparing a narration request either succeeds immediately (Authorized) or
-// yields a challenge to answer (ConsentRequired), never an intermediate
-// sanitized-but-not-yet-authorized value.
 
-/// What to redo once a pending narration consent is authorized. Covers every
-/// call site that reaches `AppCore::begin_region_narration`/
-/// `begin_feedback_narration` (execute_read_region, execute_read_next_region,
-/// execute_read_previous_region all resolve to a concrete region id before
-/// calling in; execute_report_result supplies feedback text directly) --
-/// storing the *resolved* target rather than "next"/"previous" semantics, so
-/// resuming re-reads exactly the region the user was told about in the
-/// consent dialog, not whatever "next" has drifted to become.
 #[derive(Debug, Clone)]
 pub(crate) enum NarrationResumeContext {
     Region {
@@ -132,9 +118,28 @@ pub(crate) struct NarrationRequestDraft {
     pub(crate) resume: NarrationResumeContext,
 }
 
+/// Crate-internal proof that one remote TTS dispatch has already passed the
+/// shared remote-data policy. The field is private so ordinary callers cannot
+/// manufacture authorization and bypass consent.
+#[derive(Debug)]
+pub(crate) struct RemoteNarrationAuthorization {
+    _private: (),
+}
+
+impl RemoteNarrationAuthorization {
+    pub(super) fn new() -> Self {
+        Self { _private: () }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum NarrationPreparation {
-    Authorized,
+    Authorized(RemoteNarrationAuthorization),
     ConsentRequired {
         challenge: Box<RemotePlannerConsentChallenge>,
     },
@@ -144,14 +149,108 @@ pub(crate) struct PendingNarrationConsent {
     pub(crate) challenge: RemotePlannerConsentChallenge,
     pub(super) page_origin: String,
     pub(super) endpoint_scope: String,
+    pub(super) profile_name: String,
+    pub(super) model_label: String,
     pub(super) runtime_state_token: String,
     pub(super) resume: NarrationResumeContext,
 }
 
 pub(crate) enum NarrationConsentResolution {
     Terminal(RemotePlannerConsentResponseOutcome),
-    Authorized { resume: NarrationResumeContext },
+    Authorized {
+        resume: NarrationResumeContext,
+        authorization: RemoteNarrationAuthorization,
+    },
 }
 
-// Remote ASR (microphone audio) is not yet gated through this module -- see
-// the module-level doc comment in mod.rs for why.
+// --- Microphone audio (remote ASR) disclosure ---
+
+/// Exact operation that should continue after microphone consent. Top-level
+/// transcription can resume directly without re-running policy. Planner-tool
+/// execution remains explicit because the planner executor cannot currently
+/// release/reacquire AppCore mid-plan (BB_CODE_REVIEW3 P1.2).
+#[derive(Debug, Clone)]
+pub(crate) enum MicrophoneResumeContext {
+    Transcribe {
+        input: TranscribeCommandInput,
+        execute_after: bool,
+    },
+    StartListening {
+        input: StartListeningInput,
+    },
+    PlannerTool {
+        input: TranscribeCommandInput,
+    },
+}
+
+impl MicrophoneResumeContext {
+    pub(crate) fn request_id(&self) -> &str {
+        match self {
+            Self::Transcribe { input, .. } | Self::PlannerTool { input } => &input.request_id,
+            Self::StartListening { input } => &input.request_id,
+        }
+    }
+
+    pub(crate) fn transcribe_input(&self) -> Option<&TranscribeCommandInput> {
+        match self {
+            Self::Transcribe { input, .. } | Self::PlannerTool { input } => Some(input),
+            Self::StartListening { .. } => None,
+        }
+    }
+}
+
+pub(crate) struct MicrophoneRequestDraft {
+    pub(crate) endpoint_scope: ProviderEndpointScope,
+    pub(crate) profile_name: String,
+    pub(crate) model_label: String,
+    pub(crate) page_origin: String,
+    pub(crate) request_binding_digest: String,
+    pub(crate) runtime_state_token: String,
+    pub(crate) effective_duration_ms: u64,
+    pub(crate) resume: MicrophoneResumeContext,
+}
+
+/// Crate-internal proof that one remote ASR disclosure has already passed the
+/// shared remote-data policy. It is intentionally not Clone/Copy/Serialize.
+#[derive(Debug)]
+pub(crate) struct RemoteMicrophoneAuthorization {
+    _private: (),
+}
+
+impl RemoteMicrophoneAuthorization {
+    pub(super) fn new() -> Self {
+        Self { _private: () }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum MicrophonePreparation {
+    Local,
+    Authorized(RemoteMicrophoneAuthorization),
+    ConsentRequired {
+        challenge: Box<RemotePlannerConsentChallenge>,
+    },
+}
+
+pub(crate) struct PendingMicrophoneConsent {
+    pub(crate) challenge: RemotePlannerConsentChallenge,
+    pub(super) page_origin: String,
+    pub(super) endpoint_scope: String,
+    pub(super) profile_name: String,
+    pub(super) model_label: String,
+    pub(super) runtime_state_token: String,
+    pub(super) resume: MicrophoneResumeContext,
+}
+
+pub(crate) enum MicrophoneConsentResolution {
+    Terminal(RemotePlannerConsentResponseOutcome),
+    Authorized {
+        resume: MicrophoneResumeContext,
+        authorization: RemoteMicrophoneAuthorization,
+    },
+}

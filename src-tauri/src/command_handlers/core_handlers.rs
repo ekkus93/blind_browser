@@ -3,8 +3,9 @@ use std::sync::{Arc, Mutex};
 use crate::app_core::AppCore;
 use crate::commands::{
     AgentStateData, ConfirmActionResolution, ExecutionOutcome, GetAgentStateInput,
-    NarrationConsentResponseOutcome, PlannerOutput, RemotePlannerConsentDecision,
-    RemotePlannerConsentResponseOutcome, ResolveCommandOutcome, ToolError, ToolResult,
+    MicrophoneConsentResponseOutcome, NarrationConsentResponseOutcome, PlannerOutput,
+    RemotePlannerConsentDecision, RemotePlannerConsentResponseOutcome, ResolveCommandOutcome,
+    ToolError, ToolResult,
 };
 use crate::{join_error_to_tool_error, lock_app_core};
 
@@ -82,6 +83,93 @@ pub async fn submit_narration_consent_response(
     tauri::async_runtime::spawn_blocking(move || {
         let mut guard = lock_app_core(&core)?;
         guard.submit_narration_consent_response(&challenge_id, &challenge_digest, decision)
+    })
+    .await
+    .map_err(join_error_to_tool_error)?
+}
+
+#[tauri::command]
+pub async fn submit_microphone_consent_response(
+    challenge_id: String,
+    challenge_digest: String,
+    decision: RemotePlannerConsentDecision,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
+) -> Result<MicrophoneConsentResponseOutcome, ToolError> {
+    let core = Arc::clone(&app_core);
+    tauri::async_runtime::spawn_blocking(move || {
+        use crate::app_core::{MicrophoneConsentResolution, MicrophoneResumeContext};
+
+        let resolution = {
+            let mut guard = lock_app_core(&core)?;
+            guard.resolve_microphone_consent(&challenge_id, &challenge_digest, decision)?
+        };
+
+        match resolution {
+            MicrophoneConsentResolution::Terminal(RemotePlannerConsentResponseOutcome::Denied) => {
+                Ok(MicrophoneConsentResponseOutcome::Denied)
+            }
+            MicrophoneConsentResolution::Terminal(
+                RemotePlannerConsentResponseOutcome::BlockedPersistent,
+            ) => Ok(MicrophoneConsentResponseOutcome::BlockedPersistent),
+            MicrophoneConsentResolution::Terminal(_) => Err(ToolError {
+                code: String::from("remote_data_consent_internal_error"),
+                message: String::from(
+                    "microphone consent resolution returned an unexpected terminal outcome",
+                ),
+                retryable: false,
+                details: None,
+            }),
+            MicrophoneConsentResolution::Authorized {
+                resume: MicrophoneResumeContext::StartListening { input },
+                authorization,
+            } => {
+                let mut guard = lock_app_core(&core)?;
+                let result = guard.execute_authorized_start_listening(input, Some(authorization));
+                Ok(MicrophoneConsentResponseOutcome::ListeningStarted { result })
+            }
+            MicrophoneConsentResolution::Authorized {
+                resume:
+                    MicrophoneResumeContext::Transcribe {
+                        input,
+                        execute_after: false,
+                    },
+                authorization,
+            } => {
+                let result = super::voice_handlers::run_authorized_phased_transcribe(
+                    &core,
+                    input,
+                    Some(authorization),
+                )?;
+                Ok(MicrophoneConsentResponseOutcome::Transcribed { result })
+            }
+            MicrophoneConsentResolution::Authorized {
+                resume:
+                    MicrophoneResumeContext::Transcribe {
+                        input,
+                        execute_after: true,
+                    },
+                authorization,
+            } => {
+                let request_id = input.request_id.clone();
+                let transcription = super::voice_handlers::run_authorized_phased_transcribe(
+                    &core,
+                    input,
+                    Some(authorization),
+                )?;
+                let result = super::voice_handlers::finish_transcribe_and_execute(
+                    &core,
+                    request_id,
+                    transcription,
+                )?;
+                Ok(MicrophoneConsentResponseOutcome::TranscribedAndExecuted {
+                    result: Box::new(result),
+                })
+            }
+            MicrophoneConsentResolution::Authorized {
+                resume: MicrophoneResumeContext::PlannerTool { .. },
+                authorization: _,
+            } => Ok(MicrophoneConsentResponseOutcome::PlannerResumeBlocked),
+        }
     })
     .await
     .map_err(join_error_to_tool_error)?

@@ -4,8 +4,8 @@
 
 use crate::commands::{current_timestamp_ms, ToolError};
 use crate::config::{
-    AppConfig, PersistedOriginDecision, RemotePlannerOriginRule, RemotePlannerPrivacySettings,
-    REMOTE_DATA_POLICY_VERSION,
+    AppConfig, PersistedOriginDecision, RemotePlannerNetworkMode, RemotePlannerOriginRule,
+    RemotePlannerPrivacySettings, REMOTE_DATA_POLICY_VERSION,
 };
 
 use super::super::AppCore;
@@ -20,7 +20,55 @@ impl AppCore {
         match kind {
             RemoteDataDisclosureKind::PlannerPayload => &self.config.remote_planner_privacy,
             RemoteDataDisclosureKind::NarrationText => &self.config.remote_narration_privacy,
+            RemoteDataDisclosureKind::MicrophoneAudio => &self.config.remote_microphone_privacy,
         }
+    }
+
+    pub(crate) fn set_remote_speech_privacy_network_mode(
+        &mut self,
+        kind: RemoteDataDisclosureKind,
+        network_mode: RemotePlannerNetworkMode,
+    ) -> Result<bool, ToolError> {
+        if matches!(kind, RemoteDataDisclosureKind::PlannerPayload) {
+            return Err(consent_error(
+                "remote_speech_privacy_purpose_invalid",
+                "the speech privacy operation cannot modify planner privacy",
+                None,
+            ));
+        }
+
+        let mut settings = self.origin_rules_settings(kind).clone();
+        if settings.network_mode == network_mode {
+            return Ok(false);
+        }
+        settings.network_mode = network_mode;
+        settings.policy_schema_version = REMOTE_DATA_POLICY_VERSION;
+
+        let config =
+            persist_origin_rules_settings(&self.app_handle, kind, &settings).map_err(|error| {
+                consent_error(
+                    "remote_speech_privacy_persist_failed",
+                    "remote speech privacy policy could not be persisted",
+                    Some(serde_json::json!({ "reason": error.to_string() })),
+                )
+            })?;
+        self.config = config;
+
+        // A policy change invalidates every ambient/pending authorization for
+        // that disclosure class. Do this only after persistence succeeds, so
+        // a failed save cannot silently mutate the effective runtime policy.
+        match kind {
+            RemoteDataDisclosureKind::NarrationText => {
+                self.clear_remote_narration_consent_runtime();
+            }
+            RemoteDataDisclosureKind::MicrophoneAudio => {
+                self.clear_remote_microphone_consent_runtime();
+            }
+            RemoteDataDisclosureKind::PlannerPayload => {
+                unreachable!("planner disclosure was rejected before speech privacy persistence")
+            }
+        }
+        Ok(true)
     }
 
     pub(super) fn persist_origin_rule(
@@ -86,6 +134,9 @@ fn persist_origin_rules_settings(
         RemoteDataDisclosureKind::NarrationText => {
             AppConfig::persist_remote_narration_privacy_settings_for_app(app_handle, settings)
         }
+        RemoteDataDisclosureKind::MicrophoneAudio => {
+            AppConfig::persist_remote_microphone_privacy_settings_for_app(app_handle, settings)
+        }
     }
 }
 
@@ -93,5 +144,6 @@ pub(super) fn disclosure_kind_label(kind: RemoteDataDisclosureKind) -> &'static 
     match kind {
         RemoteDataDisclosureKind::PlannerPayload => "network planning",
         RemoteDataDisclosureKind::NarrationText => "remote narration",
+        RemoteDataDisclosureKind::MicrophoneAudio => "remote transcription",
     }
 }

@@ -283,6 +283,21 @@ pub struct RemotePlannerPrivacyOperationResult {
     pub blocked_origins: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RemoteSpeechPrivacyPurpose {
+    Narration,
+    Microphone,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct SetRemoteSpeechPrivacyNetworkModeData {
+    pub purpose: RemoteSpeechPrivacyPurpose,
+    pub network_mode: RemotePlannerNetworkMode,
+    pub origin_rule_count: usize,
+    pub changed: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct RemoteTtsSettings {
     pub profile_name: Option<String>,
@@ -299,6 +314,9 @@ pub struct RemoteTtsSettings {
     pub timeout_ms: Option<u64>,
     pub endpoint_is_loopback: Option<bool>,
     pub availability_reason: Option<CapabilityAbsenceReason>,
+    pub privacy_network_mode: RemotePlannerNetworkMode,
+    pub privacy_origin_rule_count: usize,
+    pub privacy_notice: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -317,6 +335,9 @@ pub struct RemoteAsrSettings {
     pub timeout_ms: Option<u64>,
     pub endpoint_is_loopback: Option<bool>,
     pub availability_reason: Option<CapabilityAbsenceReason>,
+    pub privacy_network_mode: RemotePlannerNetworkMode,
+    pub privacy_origin_rule_count: usize,
+    pub privacy_notice: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

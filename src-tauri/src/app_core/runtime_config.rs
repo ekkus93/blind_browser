@@ -186,7 +186,8 @@ impl AppCore {
         profile_name: impl Into<String>,
     ) -> Result<(), ConfigError> {
         let profile_name = profile_name.into();
-        let mut selection = self.config.providers.tts.clone();
+        let previous_selection = self.config.providers.tts.clone();
+        let mut selection = previous_selection.clone();
         // Validate the profile actually exists before persisting the
         // reference: writing an unknown profile name would pass this
         // function's own document-shape checks, but the very next config
@@ -216,6 +217,9 @@ impl AppCore {
         let config =
             AppConfig::persist_tts_provider_selection_for_app(&self.app_handle, &selection)?;
         self.config = config;
+        if selection != previous_selection {
+            self.clear_remote_narration_consent_runtime();
+        }
         Ok(())
     }
 
@@ -223,12 +227,16 @@ impl AppCore {
         &mut self,
         mode: crate::config::ProviderMode,
     ) -> Result<(), ConfigError> {
-        let mut selection = self.config.providers.tts.clone();
+        let previous_selection = self.config.providers.tts.clone();
+        let mut selection = previous_selection.clone();
         selection.mode = mode;
 
         let config =
             AppConfig::persist_tts_provider_selection_for_app(&self.app_handle, &selection)?;
         self.config = config;
+        if selection != previous_selection {
+            self.clear_remote_narration_consent_runtime();
+        }
         Ok(())
     }
 
@@ -236,12 +244,16 @@ impl AppCore {
         &mut self,
         mode: crate::config::ProviderMode,
     ) -> Result<(), ConfigError> {
-        let mut selection = self.config.providers.asr.clone();
+        let previous_selection = self.config.providers.asr.clone();
+        let mut selection = previous_selection.clone();
         selection.mode = mode;
 
         let config =
             AppConfig::persist_asr_provider_selection_for_app(&self.app_handle, &selection)?;
         self.config = config;
+        if selection != previous_selection {
+            self.clear_remote_microphone_consent_runtime();
+        }
         Ok(())
     }
 

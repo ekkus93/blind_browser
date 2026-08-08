@@ -14,7 +14,7 @@ use crate::commands::{
 use crate::config::REMOTE_DATA_POLICY_VERSION;
 
 use super::errors::consent_error;
-use super::types::{NarrationRequestDraft, RemotePlannerRequestDraft};
+use super::types::{MicrophoneRequestDraft, NarrationRequestDraft, RemotePlannerRequestDraft};
 
 const CONSENT_CHALLENGE_TTL_MS: u64 = 120_000;
 
@@ -102,6 +102,29 @@ pub(super) fn build_narration_consent_challenge(
                 ..RemotePlannerDisclosureCounts::default()
             },
             payload_digest: draft.payload_digest.clone(),
+            runtime_state_token: draft.runtime_state_token.clone(),
+        },
+        now_ms,
+    )
+}
+
+pub(super) fn build_microphone_consent_challenge(
+    draft: &MicrophoneRequestDraft,
+    now_ms: u64,
+) -> Result<RemotePlannerConsentChallenge, ToolError> {
+    build_consent_challenge_from_fields(
+        ChallengeFields {
+            request_id: draft.resume.request_id().to_string(),
+            page_origin: draft.page_origin.clone(),
+            endpoint: draft.endpoint_scope.normalized_base_url().to_string(),
+            profile_name: draft.profile_name.clone(),
+            model_label: draft.model_label.clone(),
+            disclosure_classes: vec![RemotePlannerDisclosureClass::MicrophoneAudio],
+            disclosure_counts: RemotePlannerDisclosureCounts {
+                microphone_audio_duration_ms: draft.effective_duration_ms,
+                ..RemotePlannerDisclosureCounts::default()
+            },
+            payload_digest: draft.request_binding_digest.clone(),
             runtime_state_token: draft.runtime_state_token.clone(),
         },
         now_ms,

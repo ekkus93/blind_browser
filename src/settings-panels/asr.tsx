@@ -1,5 +1,7 @@
 import { type ReactNode } from "react";
 
+import type { RemoteSpeechPrivacyNetworkMode } from "../tauri-types.ts";
+
 import {
   renderProviderModeLabel,
   renderSecretEntryCard,
@@ -11,6 +13,7 @@ import type {
 } from "../panel-types.ts";
 import {
   SETTINGS_GRID_CLASS,
+  SETTINGS_PANEL_DESCRIPTION_CLASS,
   SETTINGS_PANEL_WARNING_CLASS,
   renderReadOnlyCard,
   renderSelectControlCard,
@@ -18,12 +21,27 @@ import {
   renderSettingsPanelSection,
 } from "./shared-controls.tsx";
 
+
+function remoteSpeechPrivacyModeLabel(mode: string): string {
+  switch (mode) {
+    case "local_only":
+      return "Local only — block network speech";
+    case "ask_per_origin":
+      return "Ask before network speech";
+    case "allow_sanitized_non_high_risk":
+      return "Allow non-high-risk network speech by policy";
+    default:
+      return "Unknown privacy mode — treated as unavailable";
+  }
+}
+
 export interface AsrProviderPanelHandlers {
   onProviderSelect?: (mode: "Local" | "Remote") => void;
   onDismissError?: () => void;
 }
 
 export interface RemoteAsrPanelHandlers {
+  onPrivacyModeSelect?: (mode: RemoteSpeechPrivacyNetworkMode) => void;
   onApiKeyInput?: (value: string) => void;
   onSaveApiKey?: () => void;
   onTestApiKey?: () => void;
@@ -120,6 +138,26 @@ export function renderSettingsRemoteAsrPanelNode(
         {renderReadOnlyCard("Language", state.language)}
         {renderReadOnlyCard("Creativity", state.temperatureMilli != null ? (state.temperatureMilli / 1000).toFixed(2) : null)}
         {renderReadOnlyCard("Timeout", state.timeoutMs != null ? `${(state.timeoutMs / 1000).toFixed(0)} seconds` : null)}
+        {renderSelectControlCard({
+          id: "settings-remote-microphone-privacy-control",
+          label: "Remote microphone privacy",
+          valueText: remoteSpeechPrivacyModeLabel(state.privacyNetworkMode),
+          selectedValue: state.privacyNetworkMode,
+          disabled: state.isSavingPrivacy,
+          dataAttributes: { "data-remote-asr-privacy-select": "true" },
+          options: [
+            { value: "local_only", label: remoteSpeechPrivacyModeLabel("local_only") },
+            { value: "ask_per_origin", label: remoteSpeechPrivacyModeLabel("ask_per_origin") },
+            { value: "allow_sanitized_non_high_risk", label: remoteSpeechPrivacyModeLabel("allow_sanitized_non_high_risk") },
+          ],
+          onChange: handlers?.onPrivacyModeSelect
+            ? (value) => { handlers.onPrivacyModeSelect?.(value as RemoteSpeechPrivacyNetworkMode); }
+            : undefined,
+        })}
+        {renderReadOnlyCard("Saved microphone privacy rules", String(state.privacyOriginRuleCount))}
+        <p className={SETTINGS_PANEL_DESCRIPTION_CLASS} data-remote-asr-privacy-notice="true">
+          {state.privacyNotice}
+        </p>
         {renderSecretEntryCard(
           "asr",
           state.profileName,

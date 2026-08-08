@@ -1,8 +1,9 @@
 use std::sync::{Arc, Mutex};
 
-use crate::app_core::AppCore;
+use crate::app_core::{AppCore, RemoteDataDisclosureKind};
 use crate::commands::{
-    RemotePlannerPrivacyOperation, RemotePlannerPrivacyOperationResult, ToolError,
+    RemotePlannerPrivacyOperation, RemotePlannerPrivacyOperationResult, RemoteSpeechPrivacyPurpose,
+    SetRemoteSpeechPrivacyNetworkModeData, ToolError,
 };
 use crate::lock_app_core;
 
@@ -165,6 +166,34 @@ pub fn set_remote_planner_privacy_settings(
         consent_to_remote_page_data: current.consent_to_remote_page_data,
         local_only: current.local_only,
         blocked_origins: current.blocked_origins,
+    })
+}
+
+#[tauri::command]
+pub fn set_remote_speech_privacy_network_mode(
+    request_id: String,
+    timeout_ms: Option<u64>,
+    purpose: RemoteSpeechPrivacyPurpose,
+    network_mode: crate::config::RemotePlannerNetworkMode,
+    app_core: tauri::State<'_, Arc<Mutex<AppCore>>>,
+) -> Result<SetRemoteSpeechPrivacyNetworkModeData, ToolError> {
+    let _ = request_id;
+    let _ = timeout_ms;
+    let mut app_core = lock_app_core(&app_core)?;
+    let kind = match purpose {
+        RemoteSpeechPrivacyPurpose::Narration => RemoteDataDisclosureKind::NarrationText,
+        RemoteSpeechPrivacyPurpose::Microphone => RemoteDataDisclosureKind::MicrophoneAudio,
+    };
+    let changed = app_core.set_remote_speech_privacy_network_mode(kind, network_mode)?;
+    let settings = match purpose {
+        RemoteSpeechPrivacyPurpose::Narration => &app_core.config.remote_narration_privacy,
+        RemoteSpeechPrivacyPurpose::Microphone => &app_core.config.remote_microphone_privacy,
+    };
+    Ok(SetRemoteSpeechPrivacyNetworkModeData {
+        purpose,
+        network_mode: settings.network_mode.clone(),
+        origin_rule_count: settings.origin_rules.len(),
+        changed,
     })
 }
 

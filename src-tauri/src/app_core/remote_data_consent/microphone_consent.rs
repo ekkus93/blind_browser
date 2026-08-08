@@ -1,73 +1,115 @@
-//! The narration (remote TTS) disclosure kind: gates page text sent to a
-//! remote narration provider through the exact same policy engine
-//! ([`super::evaluate_remote_planner_policy`]) as the remote planner, with
-//! its own independent origin-rules/grants store (see
-//! [`crate::config::AppConfig::remote_narration_privacy`]) so a planner
-//! grant never silently authorizes narration text leaving the device too.
-//!
-//! Unlike the planner, narration has no sanitization step -- the whole point
-//! is to speak the text -- so there is no separate draft/prepared-request
-//! split: [`AppCore::prepare_narration_request`] either authorizes
-//! immediately or returns a challenge to answer.
+//! Remote-ASR privacy gate. A remote transcription request must be authorized
+//! before microphone capture begins. Pending consent stores metadata only; it
+//! never stores pre-consent audio.
 
 use sha2::{Digest, Sha256};
 
 use crate::app_core::planner_redaction::high_risk_page_context_reason;
 use crate::app_core::remote_privacy_api::page_origin_from_url;
+use crate::asr::{DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS};
 use crate::commands::{
     current_timestamp_ms, RemotePlannerConsentDecision, RemotePlannerConsentResponseOutcome,
     ToolError,
 };
-use crate::config::PersistedOriginDecision;
+use crate::config::{PersistedOriginDecision, ProviderMode};
 use crate::provider_endpoint::ProviderEndpointScope;
 
-use super::challenge::build_narration_consent_challenge;
+use super::challenge::build_microphone_consent_challenge;
 use super::errors::{consent_error, policy_block_error_for};
 use super::grants::RemoteDataDisclosureKind;
 use super::origin_rules::disclosure_kind_label;
 use super::types::{
-    NarrationConsentResolution, NarrationPreparation, NarrationRequestDraft,
-    NarrationResumeContext, PendingNarrationConsent, RemoteNarrationAuthorization,
+    MicrophoneConsentResolution, MicrophonePreparation, MicrophoneRequestDraft,
+    MicrophoneResumeContext, PendingMicrophoneConsent, RemoteMicrophoneAuthorization,
 };
 use super::{evaluate_remote_planner_policy, RemotePlannerPolicyResult, SESSION_GRANT_TTL_MS};
 
-const KIND: RemoteDataDisclosureKind = RemoteDataDisclosureKind::NarrationText;
+const KIND: RemoteDataDisclosureKind = RemoteDataDisclosureKind::MicrophoneAudio;
+
+fn effective_duration_ms(resume: &MicrophoneResumeContext) -> u64 {
+    let Some(input) = resume.transcribe_input() else {
+        // Start-listening has no bounded transcription window yet. Zero means
+        // "no audio has been captured for this consent request" in disclosure
+        // metadata, not a promise that future capture is zero-length.
+        return 0;
+    };
+    let requested = input
+        .max_duration_ms
+        .unwrap_or(DEFAULT_TRANSCRIBE_DURATION_MS);
+    let mut effective = requested.min(MAX_TRANSCRIBE_DURATION_MS);
+    if let Some(timeout_ms) = input.timeout_ms {
+        effective = effective.min(timeout_ms.max(1));
+    }
+    effective
+}
+
+fn binding_digest(
+    page_origin: &str,
+    endpoint: &str,
+    profile_name: &str,
+    model_label: &str,
+    resume: &MicrophoneResumeContext,
+    duration_ms: u64,
+) -> String {
+    let operation = match resume {
+        MicrophoneResumeContext::Transcribe {
+            input,
+            execute_after,
+        } => format!(
+            "transcribe:{}:{}:{}",
+            input.request_id,
+            if input.stop_mode.auto_stops() {
+                "auto"
+            } else {
+                "keep"
+            },
+            execute_after
+        ),
+        MicrophoneResumeContext::StartListening { input } => {
+            format!("start-listening:{}", input.request_id)
+        }
+        MicrophoneResumeContext::PlannerTool { input } => format!(
+            "planner-transcribe:{}:{}",
+            input.request_id,
+            if input.stop_mode.auto_stops() {
+                "auto"
+            } else {
+                "keep"
+            }
+        ),
+    };
+    let material = format!(
+        "microphone-audio-v2\n{page_origin}\n{endpoint}\n{profile_name}\n{model_label}\n{duration_ms}\n{operation}"
+    );
+    format!("{:x}", Sha256::digest(material.as_bytes()))
+}
 
 impl super::super::AppCore {
-    /// Evaluate whether `text` may be sent to the currently configured
-    /// remote TTS profile, bound to the current page's origin (narration
-    /// text is always page-derived: region text comes directly from the
-    /// current page, and feedback text -- execute_report_result -- is bound
-    /// to the same page it describes, per the P1.1.3 spec note requiring
-    /// this case be handled explicitly rather than left to default). Returns
-    /// `Authorized` when playback should proceed immediately, or
-    /// `ConsentRequired` with a challenge already stored as pending (see
-    /// [`Self::resolve_narration_consent`]) -- the caller only needs to
-    /// surface the "consent required" outcome, not build or store anything.
-    pub(crate) fn prepare_narration_request(
+    pub(crate) fn prepare_microphone_request(
         &mut self,
-        text: &str,
-        request_id: String,
-        resume: NarrationResumeContext,
-    ) -> Result<NarrationPreparation, ToolError> {
-        let Some(profile_name) = self.config.providers.tts.remote_profile.clone() else {
+        resume: MicrophoneResumeContext,
+    ) -> Result<MicrophonePreparation, ToolError> {
+        if !matches!(self.config.providers.asr.mode, ProviderMode::Remote) {
+            return Ok(MicrophonePreparation::Local);
+        }
+        let Some(profile_name) = self.config.providers.asr.remote_profile.clone() else {
             return Err(consent_error(
-                "tts_remote_profile_missing",
-                "remote tts profile is not configured",
+                "asr_remote_profile_missing",
+                "remote asr profile is not configured",
                 None,
             ));
         };
-        let Some(profile) = self.config.remote_tts_profiles.get(&profile_name).cloned() else {
+        let Some(profile) = self.config.remote_asr_profiles.get(&profile_name).cloned() else {
             return Err(consent_error(
-                "tts_remote_profile_missing",
-                "the configured remote tts profile was not found",
+                "asr_remote_profile_missing",
+                "the configured remote asr profile was not found",
                 None,
             ));
         };
         let endpoint_scope = ProviderEndpointScope::parse(&profile.base_url).map_err(|reason| {
             consent_error(
-                "tts_remote_endpoint_invalid",
-                "remote tts endpoint is invalid",
+                "asr_remote_endpoint_invalid",
+                "remote asr endpoint is invalid",
                 Some(serde_json::json!({ "reason": reason })),
             )
         })?;
@@ -88,6 +130,9 @@ impl super::super::AppCore {
             None,
             &[],
         );
+        let duration_ms = effective_duration_ms(&resume);
+        let endpoint = endpoint_scope.normalized_base_url().to_string();
+
         match evaluate_remote_planner_policy(
             self.origin_rules_settings(KIND),
             &endpoint_scope,
@@ -96,8 +141,8 @@ impl super::super::AppCore {
             self.ephemeral_grants(KIND),
             now_ms,
         ) {
-            RemotePlannerPolicyResult::Allowed(_) => Ok(NarrationPreparation::Authorized(
-                RemoteNarrationAuthorization::new(),
+            RemotePlannerPolicyResult::Allowed(_) => Ok(MicrophonePreparation::Authorized(
+                RemoteMicrophoneAuthorization::new(),
             )),
             RemotePlannerPolicyResult::ConsentRequired => {
                 let Some(page_origin) = page_origin else {
@@ -107,19 +152,26 @@ impl super::super::AppCore {
                         None,
                     ));
                 };
-                let payload_digest = format!("{:x}", Sha256::digest(text.as_bytes()));
-                let draft = NarrationRequestDraft {
-                    text: text.to_string(),
+                let request_binding_digest = binding_digest(
+                    &page_origin,
+                    &endpoint,
+                    &profile_name,
+                    &profile.model,
+                    &resume,
+                    duration_ms,
+                );
+                let draft = MicrophoneRequestDraft {
                     endpoint_scope,
                     profile_name,
                     model_label: profile.model,
                     page_origin,
-                    payload_digest,
+                    request_binding_digest,
                     runtime_state_token: self.current_runtime_state_token(),
+                    effective_duration_ms: duration_ms,
                     resume,
                 };
-                let challenge = build_narration_consent_challenge(&draft, request_id, now_ms)?;
-                self.pending_narration_consent = Some(PendingNarrationConsent {
+                let challenge = build_microphone_consent_challenge(&draft, now_ms)?;
+                self.pending_microphone_consent = Some(PendingMicrophoneConsent {
                     challenge: challenge.clone(),
                     page_origin: draft.page_origin,
                     endpoint_scope: draft.endpoint_scope.normalized_base_url().to_string(),
@@ -128,7 +180,7 @@ impl super::super::AppCore {
                     runtime_state_token: draft.runtime_state_token,
                     resume: draft.resume,
                 });
-                Ok(NarrationPreparation::ConsentRequired {
+                Ok(MicrophonePreparation::ConsentRequired {
                     challenge: Box::new(challenge),
                 })
             }
@@ -138,16 +190,16 @@ impl super::super::AppCore {
         }
     }
 
-    pub(crate) fn resolve_narration_consent(
+    pub(crate) fn resolve_microphone_consent(
         &mut self,
         challenge_id: &str,
         challenge_digest: &str,
         decision: RemotePlannerConsentDecision,
-    ) -> Result<NarrationConsentResolution, ToolError> {
-        let pending = self.pending_narration_consent.take().ok_or_else(|| {
+    ) -> Result<MicrophoneConsentResolution, ToolError> {
+        let pending = self.pending_microphone_consent.take().ok_or_else(|| {
             consent_error(
                 "remote_data_consent_missing",
-                "no remote-data consent request is pending",
+                "no microphone remote-data consent request is pending",
                 None,
             )
         })?;
@@ -165,10 +217,7 @@ impl super::super::AppCore {
             return Err(consent_error(
                 "remote_data_consent_expired",
                 "remote-data consent challenge expired before it was answered",
-                Some(serde_json::json!({
-                    "expired_at_ms": pending.challenge.expires_at_ms,
-                    "observed_at_ms": now_ms,
-                })),
+                None,
             ));
         }
         if pending.runtime_state_token != self.current_runtime_state_token() {
@@ -178,18 +227,13 @@ impl super::super::AppCore {
                 None,
             ));
         }
-        let Some(current_profile_name) = self.config.providers.tts.remote_profile.as_deref() else {
+        let current_name = self.config.providers.asr.remote_profile.as_deref();
+        let current_profile =
+            current_name.and_then(|name| self.config.remote_asr_profiles.get(name));
+        let Some(current_profile) = current_profile else {
             return Err(consent_error(
                 "remote_data_consent_destination_changed",
-                "remote narration destination is no longer configured",
-                None,
-            ));
-        };
-        let Some(current_profile) = self.config.remote_tts_profiles.get(current_profile_name)
-        else {
-            return Err(consent_error(
-                "remote_data_consent_destination_changed",
-                "remote narration destination is no longer configured",
+                "remote asr destination is no longer configured",
                 None,
             ));
         };
@@ -197,17 +241,17 @@ impl super::super::AppCore {
             ProviderEndpointScope::parse(&current_profile.base_url).map_err(|_| {
                 consent_error(
                     "remote_data_consent_destination_changed",
-                    "remote narration destination became invalid after consent was requested",
+                    "remote asr destination became invalid after consent was requested",
                     None,
                 )
             })?;
-        if current_profile_name != pending.profile_name
+        if current_name != Some(pending.profile_name.as_str())
             || current_profile.model != pending.model_label
             || current_scope.normalized_base_url() != pending.endpoint_scope
         {
             return Err(consent_error(
                 "remote_data_consent_destination_changed",
-                "remote narration destination changed after consent was requested",
+                "remote asr destination changed after consent was requested",
                 None,
             ));
         }
@@ -238,7 +282,7 @@ impl super::super::AppCore {
         }
 
         match decision {
-            RemotePlannerConsentDecision::Deny => Ok(NarrationConsentResolution::Terminal(
+            RemotePlannerConsentDecision::Deny => Ok(MicrophoneConsentResolution::Terminal(
                 RemotePlannerConsentResponseOutcome::Denied,
             )),
             RemotePlannerConsentDecision::BlockPersistent => {
@@ -248,9 +292,9 @@ impl super::super::AppCore {
                     PersistedOriginDecision::Block,
                     None,
                 )?;
-                self.remote_narration_ephemeral_grants
+                self.remote_microphone_ephemeral_grants
                     .retain(|grant| grant.page_origin != pending.page_origin);
-                Ok(NarrationConsentResolution::Terminal(
+                Ok(MicrophoneConsentResolution::Terminal(
                     RemotePlannerConsentResponseOutcome::BlockedPersistent,
                 ))
             }
@@ -259,34 +303,50 @@ impl super::super::AppCore {
                     KIND,
                     &pending.page_origin,
                     PersistedOriginDecision::Allow,
-                    Some(pending.endpoint_scope.clone()),
+                    Some(pending.endpoint_scope),
                 )?;
-                Ok(NarrationConsentResolution::Authorized {
+                Ok(MicrophoneConsentResolution::Authorized {
                     resume: pending.resume,
-                    authorization: RemoteNarrationAuthorization::new(),
+                    authorization: RemoteMicrophoneAuthorization::new(),
                 })
             }
             RemotePlannerConsentDecision::AllowSession => {
                 self.install_session_grant(
                     KIND,
-                    pending.page_origin.clone(),
-                    pending.endpoint_scope.clone(),
+                    pending.page_origin,
+                    pending.endpoint_scope,
                     now_ms.saturating_add(SESSION_GRANT_TTL_MS),
                 );
-                Ok(NarrationConsentResolution::Authorized {
+                Ok(MicrophoneConsentResolution::Authorized {
                     resume: pending.resume,
-                    authorization: RemoteNarrationAuthorization::new(),
+                    authorization: RemoteMicrophoneAuthorization::new(),
                 })
             }
             RemotePlannerConsentDecision::AllowOnce => {
-                // One-shot consent authorizes this already-validated pending
-                // operation directly. Do not install a grant and re-enter policy:
-                // the capability itself is the one-use proof consumed by dispatch.
-                Ok(NarrationConsentResolution::Authorized {
+                Ok(MicrophoneConsentResolution::Authorized {
                     resume: pending.resume,
-                    authorization: RemoteNarrationAuthorization::new(),
+                    authorization: RemoteMicrophoneAuthorization::new(),
                 })
             }
         }
+    }
+}
+
+impl super::super::AppCore {
+    pub(crate) fn install_active_remote_microphone_authorization(
+        &mut self,
+        authorization: RemoteMicrophoneAuthorization,
+    ) {
+        self.active_remote_microphone_authorization = Some(authorization);
+    }
+
+    pub(crate) fn take_active_remote_microphone_authorization(
+        &mut self,
+    ) -> Option<RemoteMicrophoneAuthorization> {
+        self.active_remote_microphone_authorization.take()
+    }
+
+    pub(crate) fn clear_active_remote_microphone_authorization(&mut self) {
+        self.active_remote_microphone_authorization = None;
     }
 }

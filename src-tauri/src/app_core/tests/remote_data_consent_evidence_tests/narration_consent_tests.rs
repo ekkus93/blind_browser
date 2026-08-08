@@ -10,10 +10,14 @@
 
 use super::*;
 
-use crate::app_core::remote_data_consent::{NarrationPreparation, NarrationResumeContext};
+use crate::app_core::remote_data_consent::{
+    NarrationConsentResolution, NarrationPreparation, NarrationResumeContext,
+    RemoteDataDisclosureKind,
+};
+use crate::commands::RemotePlannerConsentDecision;
 use crate::config::{
-    PersistedOriginDecision, ProviderMode, RemoteProviderKind, RemoteTtsAudioFormat,
-    RemoteTtsProfile, SecretRef,
+    PersistedOriginDecision, ProviderMode, RemotePlannerNetworkMode, RemoteProviderKind,
+    RemoteTtsAudioFormat, RemoteTtsProfile, SecretRef,
 };
 
 const TTS_PROFILE: &str = "openai-tts-narration-evidence";
@@ -128,21 +132,69 @@ fn remote_narration_consent_policy_matrix_is_fail_closed() {
             policy_version: crate::config::REMOTE_DATA_POLICY_VERSION,
             created_at_ms: crate::commands::current_timestamp_ms(),
         });
-    let still_needs_consent = core
+    let challenge = match core
         .prepare_narration_request(
             "read this region aloud",
             String::from("narration-cross-kind"),
             resume("intro"),
         )
-        .expect("ask-per-origin mode should still evaluate, not error, for narration");
-    assert!(
-        matches!(
-            still_needs_consent,
-            NarrationPreparation::ConsentRequired { .. }
-        ),
-        "a planner-only origin allow must not silently authorize narration"
-    );
+        .expect("ask-per-origin mode should still evaluate, not error, for narration")
+    {
+        NarrationPreparation::ConsentRequired { challenge } => *challenge,
+        NarrationPreparation::Authorized(_) => {
+            panic!("a planner-only origin allow must not silently authorize narration")
+        }
+    };
     core.config.remote_planner_privacy.origin_rules.clear();
+
+    let once = core
+        .resolve_narration_consent(
+            &challenge.challenge_id,
+            &challenge.challenge_digest,
+            RemotePlannerConsentDecision::AllowOnce,
+        )
+        .expect("allow-once should authorize the exact pending narration request");
+    assert!(matches!(
+        once,
+        NarrationConsentResolution::Authorized { .. }
+    ));
+    assert!(
+        core.remote_narration_ephemeral_grants.is_empty(),
+        "allow-once must not install an ambient narration grant"
+    );
+    let replay = core
+        .resolve_narration_consent(
+            &challenge.challenge_id,
+            &challenge.challenge_digest,
+            RemotePlannerConsentDecision::AllowOnce,
+        )
+        .expect_err("a consumed narration challenge must not authorize twice");
+    assert_eq!(replay.code, "remote_data_consent_missing");
+
+    let fresh = core
+        .prepare_narration_request(
+            "read this region aloud again",
+            String::from("narration-after-once"),
+            resume("intro"),
+        )
+        .expect("a later narration request should evaluate normally");
+    assert!(matches!(
+        fresh,
+        NarrationPreparation::ConsentRequired { .. }
+    ));
+
+    let policy_changed = core
+        .set_remote_speech_privacy_network_mode(
+            RemoteDataDisclosureKind::NarrationText,
+            RemotePlannerNetworkMode::LocalOnly,
+        )
+        .expect("narration privacy mode should persist through the typed speech operation");
+    assert!(policy_changed);
+    assert!(
+        core.pending_narration_consent.is_none(),
+        "changing narration privacy policy must invalidate the pending challenge"
+    );
+    assert!(core.remote_narration_ephemeral_grants.is_empty());
 
     // A loopback narration endpoint stays ungated -- no data leaves the
     // device, so no consent is required, the same as the planner's own
@@ -156,7 +208,7 @@ fn remote_narration_consent_policy_matrix_is_fail_closed() {
         )
         .expect("loopback narration endpoint should not require consent");
     assert!(
-        matches!(loopback, NarrationPreparation::Authorized),
+        matches!(loopback, NarrationPreparation::Authorized(_)),
         "loopback narration endpoint unexpectedly required consent"
     );
 }

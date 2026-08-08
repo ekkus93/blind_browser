@@ -45,6 +45,7 @@ impl super::AppCore {
             &region,
             input.interruption_mode.interrupts_current_playback(),
             &input.request_id,
+            None,
         ) {
             Ok(NarrationAttempt::Completed(interrupted_region_id)) => interrupted_region_id,
             Ok(NarrationAttempt::ConsentRequired(challenge)) => {
@@ -142,6 +143,7 @@ impl super::AppCore {
             &region,
             input.interruption_mode.interrupts_current_playback(),
             &input.request_id,
+            None,
         ) {
             Ok(NarrationAttempt::Completed(interrupted_region_id)) => interrupted_region_id,
             Ok(NarrationAttempt::ConsentRequired(challenge)) => {
@@ -239,6 +241,7 @@ impl super::AppCore {
             &region,
             input.interruption_mode.interrupts_current_playback(),
             &input.request_id,
+            None,
         ) {
             Ok(NarrationAttempt::Completed(interrupted_region_id)) => interrupted_region_id,
             Ok(NarrationAttempt::ConsentRequired(challenge)) => {

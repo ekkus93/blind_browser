@@ -17,6 +17,7 @@ import type {
   RemoteDataConsentUiState,
 } from "./planner-orchestration.ts";
 import type {
+  RemotePlannerConsentChallenge,
   RemotePlannerConsentDecision,
   RemotePlannerConsentDisclosureClass,
 } from "./tauri-api.ts";
@@ -67,7 +68,79 @@ const DISCLOSURE_LABELS: Record<RemotePlannerConsentDisclosureClass, string> = {
   tool_observation_summaries: "Recent tool-result summaries",
   skill_summaries: "Relevant skill summaries",
   trusted_runtime_contracts: "Trusted runtime safety and tool contracts",
+  narration_text: "Text selected for remote narration",
+  microphone_audio: "Microphone audio captured after approval",
 };
+
+type ConsentPurpose = "planner" | "narration" | "microphone" | "invalid";
+
+function consentPurpose(challenge: RemotePlannerConsentChallenge): ConsentPurpose {
+  const hasNarration = challenge.disclosure_classes.includes("narration_text");
+  const hasMicrophone = challenge.disclosure_classes.includes("microphone_audio");
+  if (hasNarration && hasMicrophone) {
+    return "invalid";
+  }
+  if (hasNarration) {
+    return challenge.disclosure_classes.length === 1 ? "narration" : "invalid";
+  }
+  if (hasMicrophone) {
+    return challenge.disclosure_classes.length === 1 ? "microphone" : "invalid";
+  }
+  return "planner";
+}
+
+function consentCopy(purpose: ConsentPurpose) {
+  switch (purpose) {
+    case "narration":
+      return {
+        title: "Send narration text to the remote voice service?",
+        description: "Blind Browser paused before remote narration. No narration text has been sent to the remote voice service yet.",
+        destinationLabel: "Voice service",
+        warning: "This permission allows the displayed narration text to be sent to the selected remote voice service. It does not approve clicks, typing, submissions, downloads, credentials, or planner actions.",
+        choicesLabel: "Remote narration privacy choices",
+        allowOnceAria: "Allow remote narration for this request only",
+        allowSessionAria: "Allow remote narration for this site and destination for this application session",
+        allowPersistentAria: "Always allow remote narration for this site and exact destination",
+        blockAria: "Keep narration for this site local for every remote voice destination",
+      };
+    case "microphone":
+      return {
+        title: "Send microphone audio to the remote transcription service?",
+        description: "Blind Browser paused before a new authorized microphone capture. No microphone audio for this pending request will be captured or sent until you approve it.",
+        destinationLabel: "Transcription service",
+        warning: "Microphone capture for this request begins only after approval. This permission authorizes remote transcription; it does not approve any action that a resulting spoken command might request.",
+        choicesLabel: "Remote microphone privacy choices",
+        allowOnceAria: "Allow remote microphone transcription for this request only",
+        allowSessionAria: "Allow remote microphone transcription for this site and destination for this application session",
+        allowPersistentAria: "Always allow remote microphone transcription for this site and exact destination",
+        blockAria: "Keep microphone transcription for this site local for every remote transcription destination",
+      };
+    case "invalid":
+      return {
+        title: "Invalid privacy request",
+        description: "Blind Browser cannot safely determine what this privacy request would disclose. The request will not be authorized.",
+        destinationLabel: "Destination",
+        warning: "Cancel this request and retry the original action. No network disclosure should be approved from this malformed request.",
+        choicesLabel: "Invalid remote privacy request",
+        allowOnceAria: "Unavailable",
+        allowSessionAria: "Unavailable",
+        allowPersistentAria: "Unavailable",
+        blockAria: "Unavailable",
+      };
+    case "planner":
+      return {
+        title: "Send sanitized information to the network planner?",
+        description: "Blind Browser paused before network planner access. No planner request has been sent yet.",
+        destinationLabel: "Planner",
+        warning: "The request is locally selected and sanitized, but it may still contain page or user information. This permission does not approve clicks, typing, submissions, downloads, credentials, or other actions.",
+        choicesLabel: "Remote planner data choices",
+        allowOnceAria: "Allow sanitized planner data for this request only",
+        allowSessionAria: "Allow sanitized planner data for this site and planner for this application session",
+        allowPersistentAria: "Always allow sanitized planner data for this site and exact planner destination",
+        blockAria: "Keep this site local for every network planner",
+      };
+  }
+}
 
 export interface RemotePlannerPrivacyWorkspaceHandlers {
   onOpenSettings?: () => void;
@@ -145,8 +218,36 @@ function renderPrivacyStatus(
 
 function disclosureCountSummary(
   consentState: Extract<RemoteDataConsentUiState, { kind: "awaiting-remote-data-consent" }>,
+  purpose: ConsentPurpose,
 ): ReactNode {
   const counts = consentState.challenge.disclosure_counts;
+  if (purpose === "narration") {
+    return (
+      <dl className={REMOTE_CONSENT_DESTINATION_COUNTS_CLASS} data-remote-consent-counts="true">
+        <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}>
+          <dt className={REMOTE_CONSENT_DT_CLASS}>Narration text size</dt>
+          <dd className={REMOTE_CONSENT_DD_CLASS}>{counts.narration_text_bytes} bytes</dd>
+        </div>
+      </dl>
+    );
+  }
+  if (purpose === "microphone") {
+    return (
+      <dl className={REMOTE_CONSENT_DESTINATION_COUNTS_CLASS} data-remote-consent-counts="true">
+        <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}>
+          <dt className={REMOTE_CONSENT_DT_CLASS}>Maximum authorized capture</dt>
+          <dd className={REMOTE_CONSENT_DD_CLASS}>
+            {counts.microphone_audio_duration_ms > 0
+              ? `${counts.microphone_audio_duration_ms} ms`
+              : "Begins after approval; duration not fixed yet"}
+          </dd>
+        </div>
+      </dl>
+    );
+  }
+  if (purpose === "invalid") {
+    return null;
+  }
   return (
     <dl className={REMOTE_CONSENT_DESTINATION_COUNTS_CLASS} data-remote-consent-counts="true">
       <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Selected text regions</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{counts.selected_region_count}</dd></div>
@@ -180,6 +281,8 @@ function RemotePlannerConsentDialog(props: {
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const submissionGateRef = useRef({ started: false });
   const { challenge, isSubmitting, submissionError } = props.consentState;
+  const purpose = consentPurpose(challenge);
+  const copy = consentCopy(purpose);
   const expiry = safeExpiryDisplay(challenge.expires_at_ms);
 
   useEffect(() => {
@@ -243,14 +346,12 @@ function RemotePlannerConsentDialog(props: {
       onKeyDown={handleKeyDown}
     >
       <p className={REMOTE_PRIVACY_EYEBROW_CLASS}>Permission required</p>
-      <h2 id="remote-consent-title" className={REMOTE_PRIVACY_HEADING_CLASS}>Send sanitized information to the network planner?</h2>
-      <p id="remote-consent-description">
-        Blind Browser paused before network access. No planner request has been sent yet.
-      </p>
+      <h2 id="remote-consent-title" className={REMOTE_PRIVACY_HEADING_CLASS}>{copy.title}</h2>
+      <p id="remote-consent-description">{copy.description}</p>
 
       <dl className={REMOTE_CONSENT_DESTINATION_COUNTS_CLASS}>
         <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Site</dt><dd className={REMOTE_CONSENT_DD_CLASS}><code>{challenge.page_origin}</code></dd></div>
-        <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Planner</dt><dd className={REMOTE_CONSENT_DD_CLASS}><code>{challenge.endpoint_display}</code></dd></div>
+        <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>{copy.destinationLabel}</dt><dd className={REMOTE_CONSENT_DD_CLASS}><code>{challenge.endpoint_display}</code></dd></div>
         <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Profile</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{challenge.profile_name}</dd></div>
         <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Model</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{challenge.model_label}</dd></div>
       </dl>
@@ -261,10 +362,10 @@ function RemotePlannerConsentDialog(props: {
           <li key={disclosureClass}>{DISCLOSURE_LABELS[disclosureClass]}</li>
         ))}
       </ul>
-      {disclosureCountSummary(props.consentState)}
+      {disclosureCountSummary(props.consentState, purpose)}
 
       <p id="remote-consent-warning" className={REMOTE_PRIVACY_WARNING_CLASS}>
-        The request is locally selected and sanitized, but it may still contain page or user information. This permission does not approve clicks, typing, submissions, downloads, credentials, or other actions.
+        {copy.warning}
       </p>
       <p className={REMOTE_PRIVACY_DETAIL_CLASS}>
         This request expires at {expiry.dateTime
@@ -280,50 +381,50 @@ function RemotePlannerConsentDialog(props: {
         </div>
       ) : null}
 
-      <div className={REMOTE_CONSENT_ACTIONS_CLASS} aria-label="Remote data choices">
-        {challenge.allow_once ? (
+      <div className={REMOTE_CONSENT_ACTIONS_CLASS} aria-label={copy.choicesLabel}>
+        {challenge.allow_once && purpose !== "invalid" ? (
           <button
             type="button"
             className={REMOTE_CONSENT_ACTION_BUTTON_CLASS}
             data-remote-consent-decision="allow_once"
             disabled={isSubmitting || undefined}
-            aria-label="Allow sanitized data for this request only"
+            aria-label={copy.allowOnceAria}
             onClick={() => { submitDecision("allow_once"); }}
           >
             Allow this request
           </button>
         ) : null}
-        {challenge.allow_session ? (
+        {challenge.allow_session && purpose !== "invalid" ? (
           <button
             type="button"
             className={REMOTE_CONSENT_ACTION_BUTTON_CLASS}
             data-remote-consent-decision="allow_session"
             disabled={isSubmitting || undefined}
-            aria-label="Allow sanitized data for this site and planner for this application session"
+            aria-label={copy.allowSessionAria}
             onClick={() => { submitDecision("allow_session"); }}
           >
             Allow for this session
           </button>
         ) : null}
-        {challenge.allow_persistent ? (
+        {challenge.allow_persistent && purpose !== "invalid" ? (
           <button
             type="button"
             className={REMOTE_CONSENT_ACTION_BUTTON_CLASS}
             data-remote-consent-decision="allow_persistent"
             disabled={isSubmitting || undefined}
-            aria-label="Always allow sanitized data for this site and exact planner destination"
+            aria-label={copy.allowPersistentAria}
             onClick={() => { submitDecision("allow_persistent"); }}
           >
             Always allow for this site
           </button>
         ) : null}
-        {challenge.block_persistent ? (
+        {challenge.block_persistent && purpose !== "invalid" ? (
           <button
             type="button"
             className={`${REMOTE_CONSENT_ACTION_BUTTON_CLASS} ${REMOTE_CONSENT_LOCAL_CANCEL_BUTTON_CLASS}`}
             data-remote-consent-decision="block_persistent"
             disabled={isSubmitting || undefined}
-            aria-label="Keep this site local for every network planner"
+            aria-label={copy.blockAria}
             onClick={() => { submitDecision("block_persistent"); }}
           >
             Keep this site local

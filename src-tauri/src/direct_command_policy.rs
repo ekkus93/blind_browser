@@ -7,6 +7,7 @@ pub(crate) enum DirectCommandName {
     SubmitConfirmationResponse,
     SubmitRemotePlannerConsentResponse,
     SubmitNarrationConsentResponse,
+    SubmitMicrophoneConsentResponse,
     StartListening,
     StopListening,
     TranscribeCommand,
@@ -47,6 +48,7 @@ impl DirectCommandName {
         Self::SubmitConfirmationResponse,
         Self::SubmitRemotePlannerConsentResponse,
         Self::SubmitNarrationConsentResponse,
+        Self::SubmitMicrophoneConsentResponse,
         Self::StartListening,
         Self::StopListening,
         Self::TranscribeCommand,
@@ -87,6 +89,7 @@ impl DirectCommandName {
             Self::SubmitConfirmationResponse => "submit_confirmation_response",
             Self::SubmitRemotePlannerConsentResponse => "submit_remote_planner_consent_response",
             Self::SubmitNarrationConsentResponse => "submit_narration_consent_response",
+            Self::SubmitMicrophoneConsentResponse => "submit_microphone_consent_response",
             Self::StartListening => "start_listening",
             Self::StopListening => "stop_listening",
             Self::TranscribeCommand => "transcribe_command",
@@ -150,6 +153,7 @@ pub(crate) enum DirectCommandPageContextPolicy {
     // difference stays visible in the registry rather than being folded into
     // `SanitizedRemotePlanner`, which would misrepresent it.
     UnsanitizedNarrationText,
+    MicrophoneAudio,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -173,6 +177,7 @@ pub(crate) const fn direct_command_network_policy(
         D::TranscribeCommand => Some(DirectCommandNetworkPolicy::RemoteAsr),
         D::TranscribeAndExecuteCommand => Some(DirectCommandNetworkPolicy::RemoteAsrAndPlanner),
         D::SubmitNarrationConsentResponse => Some(DirectCommandNetworkPolicy::RemoteNarration),
+        D::SubmitMicrophoneConsentResponse => Some(DirectCommandNetworkPolicy::RemoteAsr),
         D::OpenUrl => Some(DirectCommandNetworkPolicy::BrowserNavigation),
         D::ListRemotePlannerModels
         | D::TestRemotePlannerApiKey
@@ -192,6 +197,7 @@ pub(crate) const fn direct_command_credential_policy(
         DirectCommandName::ResolveCommand
         | DirectCommandName::SubmitRemotePlannerConsentResponse
         | DirectCommandName::SubmitNarrationConsentResponse
+        | DirectCommandName::SubmitMicrophoneConsentResponse
         | DirectCommandName::TranscribeCommand
         | DirectCommandName::TranscribeAndExecuteCommand
         | DirectCommandName::ListRemotePlannerModels
@@ -215,6 +221,9 @@ pub(crate) const fn direct_command_page_context_policy(
         }
         DirectCommandName::SubmitNarrationConsentResponse => {
             Some(DirectCommandPageContextPolicy::UnsanitizedNarrationText)
+        }
+        DirectCommandName::SubmitMicrophoneConsentResponse => {
+            Some(DirectCommandPageContextPolicy::MicrophoneAudio)
         }
         _ => None,
     }
@@ -339,6 +348,18 @@ pub(crate) const fn direct_command_policy(name: DirectCommandName) -> DirectComm
             false,
         ),
         D::SubmitNarrationConsentResponse => policy(
+            A::OtherSideEffect,
+            true,
+            true,
+            true,
+            false,
+            true,
+            true,
+            true,
+            false,
+            false,
+        ),
+        D::SubmitMicrophoneConsentResponse => policy(
             A::OtherSideEffect,
             true,
             true,

@@ -65,6 +65,8 @@ function consentState(overrides = {}) {
         tool_history_count: 1,
         skill_summary_count: 2,
         sanitized_serialized_bytes: 512,
+        narration_text_bytes: 0,
+        microphone_audio_duration_ms: 0,
       },
       expires_at_ms: Date.UTC(2030, 0, 1),
       allow_once: true,
@@ -184,9 +186,9 @@ test("consent choices expose distinct scope labels in deterministic keyboard ord
     renderRemotePlannerPrivacyWorkspaceNode(privacyState(), consentState()),
   );
   const ordered = [
-    ["allow_once", "Allow sanitized data for this request only"],
-    ["allow_session", "Allow sanitized data for this site and planner for this application session"],
-    ["allow_persistent", "Always allow sanitized data for this site and exact planner destination"],
+    ["allow_once", "Allow sanitized planner data for this request only"],
+    ["allow_session", "Allow sanitized planner data for this site and planner for this application session"],
+    ["allow_persistent", "Always allow sanitized planner data for this site and exact planner destination"],
     ["block_persistent", "Keep this site local for every network planner"],
     ["deny", "Cancel and do not send data"],
   ];
@@ -230,4 +232,72 @@ test("stale allow warnings use a textual status region rather than color alone",
 
   assert.match(html, /role="status"/);
   assert.match(html, /saved allow rule is inactive because the destination or privacy policy changed/);
+});
+
+
+test("narration consent uses purpose-specific copy and never claims microphone disclosure", () => {
+  const state = consentState({
+    challenge: {
+      ...consentState().challenge,
+      disclosure_classes: ["narration_text"],
+      disclosure_counts: {
+        ...consentState().challenge.disclosure_counts,
+        sanitized_serialized_bytes: 0,
+        narration_text_bytes: 321,
+      },
+    },
+  });
+  const html = renderToStaticMarkup(
+    renderRemotePlannerPrivacyWorkspaceNode(privacyState(), state),
+  );
+
+  assert.match(html, /Send narration text to the remote voice service/);
+  assert.match(html, /No narration text has been sent/);
+  assert.match(html, /Text selected for remote narration/);
+  assert.match(html, /Narration text size/);
+  assert.match(html, />321 bytes</);
+  assert.match(html, /Allow remote narration for this request only/);
+  assert.doesNotMatch(html, /microphone audio/i);
+});
+
+test("microphone consent states that capture begins only after approval", () => {
+  const state = consentState({
+    challenge: {
+      ...consentState().challenge,
+      disclosure_classes: ["microphone_audio"],
+      disclosure_counts: {
+        ...consentState().challenge.disclosure_counts,
+        sanitized_serialized_bytes: 0,
+        microphone_audio_duration_ms: 750,
+      },
+    },
+  });
+  const html = renderToStaticMarkup(
+    renderRemotePlannerPrivacyWorkspaceNode(privacyState(), state),
+  );
+
+  assert.match(html, /Send microphone audio to the remote transcription service/);
+  assert.match(html, /No microphone audio for this pending request will be captured or sent until you approve it/);
+  assert.match(html, /Microphone capture for this request begins only after approval/);
+  assert.match(html, /Maximum authorized capture/);
+  assert.match(html, />750 ms</);
+  assert.match(html, /Allow remote microphone transcription for this request only/);
+});
+
+test("mixed speech challenge renders fail-closed copy and no allow controls", () => {
+  const state = consentState({
+    challenge: {
+      ...consentState().challenge,
+      disclosure_classes: ["narration_text", "microphone_audio"],
+    },
+  });
+  const html = renderToStaticMarkup(
+    renderRemotePlannerPrivacyWorkspaceNode(privacyState(), state),
+  );
+
+  assert.match(html, /Invalid privacy request/);
+  assert.match(html, /will not be authorized/);
+  assert.doesNotMatch(html, /data-remote-consent-decision="allow_once"/);
+  assert.doesNotMatch(html, /data-remote-consent-decision="allow_session"/);
+  assert.match(html, /data-remote-consent-decision="deny"/);
 });
