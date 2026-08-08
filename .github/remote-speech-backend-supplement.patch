@@ -1,0 +1,344 @@
+diff --git a/src-tauri/src/app_core/tests/remote_data_consent_evidence_tests/narration_consent_tests.rs b/src-tauri/src/app_core/tests/remote_data_consent_evidence_tests/narration_consent_tests.rs
+index 1438a83..a17d374 100644
+--- a/src-tauri/src/app_core/tests/remote_data_consent_evidence_tests/narration_consent_tests.rs
++++ b/src-tauri/src/app_core/tests/remote_data_consent_evidence_tests/narration_consent_tests.rs
+@@ -156,7 +156,7 @@ fn remote_narration_consent_policy_matrix_is_fail_closed() {
+         )
+         .expect("loopback narration endpoint should not require consent");
+     assert!(
+-        matches!(loopback, NarrationPreparation::Authorized),
++        matches!(loopback, NarrationPreparation::Authorized(_)),
+         "loopback narration endpoint unexpectedly required consent"
+     );
+ }
+diff --git a/src-tauri/src/app_core/remote_data_consent/microphone_consent.rs b/src-tauri/src/app_core/remote_data_consent/microphone_consent.rs
+new file mode 100644
+index 0000000..c388c7c
+--- /dev/null
++++ b/src-tauri/src/app_core/remote_data_consent/microphone_consent.rs
+@@ -0,0 +1,325 @@
++//! Remote-ASR privacy gate. A remote transcription request must be authorized
++//! before microphone capture begins. Pending consent stores metadata only; it
++//! never stores pre-consent audio.
++
++use sha2::{Digest, Sha256};
++
++use crate::app_core::planner_redaction::high_risk_page_context_reason;
++use crate::app_core::remote_privacy_api::page_origin_from_url;
++use crate::asr::{DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS};
++use crate::commands::{
++    current_timestamp_ms, RemotePlannerConsentDecision, RemotePlannerConsentResponseOutcome,
++    ToolError,
++};
++use crate::config::{PersistedOriginDecision, ProviderMode};
++use crate::provider_endpoint::ProviderEndpointScope;
++
++use super::challenge::build_microphone_consent_challenge;
++use super::errors::{consent_error, policy_block_error_for};
++use super::grants::RemoteDataDisclosureKind;
++use super::origin_rules::disclosure_kind_label;
++use super::types::{
++    MicrophoneConsentResolution, MicrophonePreparation, MicrophoneRequestDraft,
++    MicrophoneResumeContext, PendingMicrophoneConsent, RemoteMicrophoneAuthorization,
++};
++use super::{evaluate_remote_planner_policy, RemotePlannerPolicyResult, SESSION_GRANT_TTL_MS};
++
++const KIND: RemoteDataDisclosureKind = RemoteDataDisclosureKind::MicrophoneAudio;
++
++fn effective_duration_ms(resume: &MicrophoneResumeContext) -> u64 {
++    let Some(input) = resume.transcribe_input() else {
++        // Start-listening has no bounded transcription window yet. Zero means
++        // "no audio has been captured for this consent request" in disclosure
++        // metadata, not a promise that future capture is zero-length.
++        return 0;
++    };
++    let requested = input
++        .max_duration_ms
++        .unwrap_or(DEFAULT_TRANSCRIBE_DURATION_MS);
++    let mut effective = requested.min(MAX_TRANSCRIBE_DURATION_MS);
++    if let Some(timeout_ms) = input.timeout_ms {
++        effective = effective.min(timeout_ms.max(1));
++    }
++    effective
++}
++
++fn binding_digest(
++    page_origin: &str,
++    endpoint: &str,
++    profile_name: &str,
++    model_label: &str,
++    resume: &MicrophoneResumeContext,
++    duration_ms: u64,
++) -> String {
++    let operation = match resume {
++        MicrophoneResumeContext::Transcribe { input, execute_after } => format!(
++            "transcribe:{}:{}:{}",
++            input.request_id,
++            if input.stop_mode.auto_stops() { "auto" } else { "keep" },
++            execute_after
++        ),
++        MicrophoneResumeContext::StartListening { input } => {
++            format!("start-listening:{}", input.request_id)
++        }
++        MicrophoneResumeContext::PlannerTool { input } => format!(
++            "planner-transcribe:{}:{}",
++            input.request_id,
++            if input.stop_mode.auto_stops() { "auto" } else { "keep" }
++        ),
++    };
++    let material = format!(
++        "microphone-audio-v2\n{page_origin}\n{endpoint}\n{profile_name}\n{model_label}\n{duration_ms}\n{operation}"
++    );
++    format!("{:x}", Sha256::digest(material.as_bytes()))
++}
++
++impl super::super::AppCore {
++    pub(crate) fn prepare_microphone_request(
++        &mut self,
++        resume: MicrophoneResumeContext,
++    ) -> Result<MicrophonePreparation, ToolError> {
++        if !matches!(self.config.providers.asr.mode, ProviderMode::Remote) {
++            return Ok(MicrophonePreparation::Local);
++        }
++        let Some(profile_name) = self.config.providers.asr.remote_profile.clone() else {
++            return Err(consent_error(
++                "asr_remote_profile_missing",
++                "remote asr profile is not configured",
++                None,
++            ));
++        };
++        let Some(profile) = self.config.remote_asr_profiles.get(&profile_name).cloned() else {
++            return Err(consent_error(
++                "asr_remote_profile_missing",
++                "the configured remote asr profile was not found",
++                None,
++            ));
++        };
++        let endpoint_scope = ProviderEndpointScope::parse(&profile.base_url).map_err(|reason| {
++            consent_error(
++                "asr_remote_endpoint_invalid",
++                "remote asr endpoint is invalid",
++                Some(serde_json::json!({ "reason": reason })),
++            )
++        })?;
++        let page_origin = self
++            .state
++            .current_page
++            .as_ref()
++            .and_then(|page| page.url.as_deref())
++            .and_then(page_origin_from_url);
++        let now_ms = current_timestamp_ms();
++        self.prune_remote_planner_grants(KIND, now_ms);
++        let high_risk_reason = high_risk_page_context_reason(
++            self.state.current_page.as_ref().and_then(|page| page.url.as_deref()),
++            self.state.current_page.as_ref(),
++            None,
++            &[],
++        );
++        let duration_ms = effective_duration_ms(&resume);
++        let endpoint = endpoint_scope.normalized_base_url().to_string();
++
++        match evaluate_remote_planner_policy(
++            self.origin_rules_settings(KIND),
++            &endpoint_scope,
++            page_origin.as_deref(),
++            high_risk_reason,
++            self.ephemeral_grants(KIND),
++            now_ms,
++        ) {
++            RemotePlannerPolicyResult::Allowed(_) => Ok(MicrophonePreparation::Authorized(
++                RemoteMicrophoneAuthorization::new(),
++            )),
++            RemotePlannerPolicyResult::ConsentRequired => {
++                let Some(page_origin) = page_origin else {
++                    return Err(consent_error(
++                        "remote_data_opaque_origin_blocked",
++                        "the current page does not have a supported HTTP(S) origin",
++                        None,
++                    ));
++                };
++                let request_binding_digest = binding_digest(
++                    &page_origin,
++                    &endpoint,
++                    &profile_name,
++                    &profile.model,
++                    &resume,
++                    duration_ms,
++                );
++                let draft = MicrophoneRequestDraft {
++                    endpoint_scope,
++                    profile_name,
++                    model_label: profile.model,
++                    page_origin,
++                    request_binding_digest,
++                    runtime_state_token: self.current_runtime_state_token(),
++                    effective_duration_ms: duration_ms,
++                    resume,
++                };
++                let challenge = build_microphone_consent_challenge(&draft, now_ms)?;
++                self.pending_microphone_consent = Some(PendingMicrophoneConsent {
++                    challenge: challenge.clone(),
++                    page_origin: draft.page_origin,
++                    endpoint_scope: draft.endpoint_scope.normalized_base_url().to_string(),
++                    profile_name: draft.profile_name,
++                    model_label: draft.model_label,
++                    runtime_state_token: draft.runtime_state_token,
++                    resume: draft.resume,
++                });
++                Ok(MicrophonePreparation::ConsentRequired {
++                    challenge: Box::new(challenge),
++                })
++            }
++            RemotePlannerPolicyResult::Blocked { code, reason_code } => Err(
++                policy_block_error_for(disclosure_kind_label(KIND), code, reason_code),
++            ),
++        }
++    }
++
++    pub(crate) fn resolve_microphone_consent(
++        &mut self,
++        challenge_id: &str,
++        challenge_digest: &str,
++        decision: RemotePlannerConsentDecision,
++    ) -> Result<MicrophoneConsentResolution, ToolError> {
++        let pending = self.pending_microphone_consent.take().ok_or_else(|| {
++            consent_error(
++                "remote_data_consent_missing",
++                "no microphone remote-data consent request is pending",
++                None,
++            )
++        })?;
++        let now_ms = current_timestamp_ms();
++        if pending.challenge.challenge_id != challenge_id
++            || pending.challenge.challenge_digest != challenge_digest
++        {
++            return Err(consent_error(
++                "remote_data_consent_mismatch",
++                "remote-data consent response did not match the pending challenge",
++                None,
++            ));
++        }
++        if now_ms >= pending.challenge.expires_at_ms {
++            return Err(consent_error(
++                "remote_data_consent_expired",
++                "remote-data consent challenge expired before it was answered",
++                None,
++            ));
++        }
++        if pending.runtime_state_token != self.current_runtime_state_token() {
++            return Err(consent_error(
++                "remote_data_consent_state_changed",
++                "runtime state changed after the remote-data consent challenge was created",
++                None,
++            ));
++        }
++        let current_name = self.config.providers.asr.remote_profile.as_deref();
++        let current_profile = current_name.and_then(|name| self.config.remote_asr_profiles.get(name));
++        let Some(current_profile) = current_profile else {
++            return Err(consent_error(
++                "remote_data_consent_destination_changed",
++                "remote asr destination is no longer configured",
++                None,
++            ));
++        };
++        let current_scope = ProviderEndpointScope::parse(&current_profile.base_url).map_err(|_| {
++            consent_error(
++                "remote_data_consent_destination_changed",
++                "remote asr destination became invalid after consent was requested",
++                None,
++            )
++        })?;
++        if current_name != Some(pending.profile_name.as_str())
++            || current_profile.model != pending.model_label
++            || current_scope.normalized_base_url() != pending.endpoint_scope
++        {
++            return Err(consent_error(
++                "remote_data_consent_destination_changed",
++                "remote asr destination changed after consent was requested",
++                None,
++            ));
++        }
++        let current_high_risk_reason = high_risk_page_context_reason(
++            self.state.current_page.as_ref().and_then(|page| page.url.as_deref()),
++            self.state.current_page.as_ref(),
++            None,
++            &[],
++        );
++        if let RemotePlannerPolicyResult::Blocked { code, reason_code } = evaluate_remote_planner_policy(
++            self.origin_rules_settings(KIND),
++            &current_scope,
++            Some(&pending.page_origin),
++            current_high_risk_reason,
++            self.ephemeral_grants(KIND),
++            now_ms,
++        ) {
++            return Err(policy_block_error_for(disclosure_kind_label(KIND), code, reason_code));
++        }
++
++        match decision {
++            RemotePlannerConsentDecision::Deny => Ok(MicrophoneConsentResolution::Terminal(
++                RemotePlannerConsentResponseOutcome::Denied,
++            )),
++            RemotePlannerConsentDecision::BlockPersistent => {
++                self.persist_origin_rule(
++                    KIND,
++                    &pending.page_origin,
++                    PersistedOriginDecision::Block,
++                    None,
++                )?;
++                self.remote_microphone_ephemeral_grants
++                    .retain(|grant| grant.page_origin != pending.page_origin);
++                Ok(MicrophoneConsentResolution::Terminal(
++                    RemotePlannerConsentResponseOutcome::BlockedPersistent,
++                ))
++            }
++            RemotePlannerConsentDecision::AllowPersistent => {
++                self.persist_origin_rule(
++                    KIND,
++                    &pending.page_origin,
++                    PersistedOriginDecision::Allow,
++                    Some(pending.endpoint_scope),
++                )?;
++                Ok(MicrophoneConsentResolution::Authorized {
++                    resume: pending.resume,
++                    authorization: RemoteMicrophoneAuthorization::new(),
++                })
++            }
++            RemotePlannerConsentDecision::AllowSession => {
++                self.install_session_grant(
++                    KIND,
++                    pending.page_origin,
++                    pending.endpoint_scope,
++                    now_ms.saturating_add(SESSION_GRANT_TTL_MS),
++                );
++                Ok(MicrophoneConsentResolution::Authorized {
++                    resume: pending.resume,
++                    authorization: RemoteMicrophoneAuthorization::new(),
++                })
++            }
++            RemotePlannerConsentDecision::AllowOnce => Ok(MicrophoneConsentResolution::Authorized {
++                resume: pending.resume,
++                authorization: RemoteMicrophoneAuthorization::new(),
++            }),
++        }
++    }
++}
++
++impl super::super::AppCore {
++    pub(crate) fn install_active_remote_microphone_authorization(
++        &mut self,
++        authorization: RemoteMicrophoneAuthorization,
++    ) {
++        self.active_remote_microphone_authorization = Some(authorization);
++    }
++
++    pub(crate) fn take_active_remote_microphone_authorization(
++        &mut self,
++    ) -> Option<RemoteMicrophoneAuthorization> {
++        self.active_remote_microphone_authorization.take()
++    }
++
++    pub(crate) fn clear_active_remote_microphone_authorization(&mut self) {
++        self.active_remote_microphone_authorization = None;
++    }
++}
