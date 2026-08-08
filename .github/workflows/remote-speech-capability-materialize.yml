@@ -1,0 +1,64 @@
+name: Remote Speech Capability Materialize
+
+on:
+  push:
+    branches:
+      - remote-speech-capability-v2
+    paths:
+      - .github/remote-speech-capability-materialize.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: "${{ github.event.head_commit.message == 'ci: materialize exact remote speech capability candidate' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact trigger SHA
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify and apply exact candidate patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(cat .github/remote-speech-capability-materialize.trigger)" = "materialize"
+          echo "e0a963619a793e93243140d8107a30f7cd69fd3b059b4f25a9c7608cefd49d55  .github/remote-speech-full.patch.gz.b64" | sha256sum --check --strict
+          base64 --decode .github/remote-speech-full.patch.gz.b64 > /tmp/remote-speech-full.patch.gz
+          echo "8f7297b352af7c3fc9097c98c643904b98610a2ba74029e964561be6c1211b21  /tmp/remote-speech-full.patch.gz" | sha256sum --check --strict
+          gzip --test /tmp/remote-speech-full.patch.gz
+          gzip --decompress --stdout /tmp/remote-speech-full.patch.gz > /tmp/remote-speech-full.patch
+          echo "323b42896002cc77ed1f3a765576c44cac245080111dfdb9ff4d9bf35cde9711  /tmp/remote-speech-full.patch" | sha256sum --check --strict
+          git apply --check /tmp/remote-speech-full.patch
+          git apply /tmp/remote-speech-full.patch
+
+      - name: Set up Rust formatting
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Format candidate and verify hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path src-tauri/Cargo.toml
+          git diff --check
+
+      - name: Remove temporary transport and checkpoint exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/remote-speech-full.patch.gz.b64 \
+                .github/remote-speech-capability-materialize.trigger \
+                .github/workflows/remote-speech-capability-materialize.yml
+          git diff --check
+          git add -A
+          test -n "$(git diff --cached --name-only)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "wip: implement remote speech authorization capability"
+          git push origin HEAD:remote-speech-capability-v2
