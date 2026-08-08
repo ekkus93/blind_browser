@@ -26,11 +26,27 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-          test "$(cat .github/remote-speech-capability-materialize.trigger)" = "materialize-v4"
-          find .github -maxdepth 1 -type f -name 'remote-speech-full.patch.gz.b64.part-*' -print | sort > /tmp/remote-speech-parts.txt
-          test "$(wc -l < /tmp/remote-speech-parts.txt)" -eq 10
-          mapfile -t parts < /tmp/remote-speech-parts.txt
-          cat "${parts[@]}" > /tmp/remote-speech-full.patch.gz.b64
+          test "$(cat .github/remote-speech-capability-materialize.trigger)" = "materialize-v5"
+          cat \
+            .github/remote-speech-full.patch.gz.b64.part-00 \
+            .github/remote-speech-full.patch.gz.b64.part-01 \
+            .github/remote-speech-full.patch.gz.b64.part-02 \
+            .github/remote-speech-full.patch.gz.b64.part-03 \
+            .github/remote-speech-full.patch.gz.b64.part-04a \
+            .github/remote-speech-full.patch.gz.b64.part-04b \
+            .github/remote-speech-full.patch.gz.b64.part-05 \
+            .github/remote-speech-full.patch.gz.b64.part-06-00 \
+            .github/remote-speech-full.patch.gz.b64.part-06-01 \
+            .github/remote-speech-full.patch.gz.b64.part-06-02 \
+            .github/remote-speech-full.patch.gz.b64.part-06-03 \
+            .github/remote-speech-full.patch.gz.b64.part-06-04 \
+            .github/remote-speech-full.patch.gz.b64.part-06-05 \
+            .github/remote-speech-full.patch.gz.b64.part-06-06 \
+            .github/remote-speech-full.patch.gz.b64.part-06-07a \
+            .github/remote-speech-full.patch.gz.b64.part-06-07b \
+            .github/remote-speech-full.patch.gz.b64.part-07 \
+            .github/remote-speech-full.patch.gz.b64.part-08 \
+            > /tmp/remote-speech-full.patch.gz.b64
           echo "e0a963619a793e93243140d8107a30f7cd69fd3b059b4f25a9c7608cefd49d55  /tmp/remote-speech-full.patch.gz.b64" | sha256sum --check --strict
           base64 --decode /tmp/remote-speech-full.patch.gz.b64 > /tmp/remote-speech-full.patch.gz
           echo "8f7297b352af7c3fc9097c98c643904b98610a2ba74029e964561be6c1211b21  /tmp/remote-speech-full.patch.gz" | sha256sum --check --strict
@@ -56,10 +72,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f .github/remote-speech-full.patch.gz.b64 \
-                .github/remote-speech-full.patch.gz.b64.part-* \
-                .github/remote-speech-capability-materialize.trigger \
-                .github/workflows/remote-speech-capability-materialize.yml
+          rm -f .github/remote-speech-full.patch.gz.b64*
+          rm -f .github/remote-speech-capability-materialize.trigger
+          rm -f .github/workflows/remote-speech-capability-materialize.yml
           git diff --check
           git add -A
           test -n "$(git diff --cached --name-only)"
