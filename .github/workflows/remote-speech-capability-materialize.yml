@@ -26,9 +26,9 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-          test "$(cat .github/remote-speech-capability-materialize.trigger)" = "materialize-v2"
+          test "$(cat .github/remote-speech-capability-materialize.trigger)" = "materialize-v3"
           find .github -maxdepth 1 -type f -name 'remote-speech-full.patch.gz.b64.part-*' -print | sort > /tmp/remote-speech-parts.txt
-          test "$(wc -l < /tmp/remote-speech-parts.txt)" -eq 9
+          test "$(wc -l < /tmp/remote-speech-parts.txt)" -eq 10
           mapfile -t parts < /tmp/remote-speech-parts.txt
           cat "${parts[@]}" > /tmp/remote-speech-full.patch.gz.b64
           echo "e0a963619a793e93243140d8107a30f7cd69fd3b059b4f25a9c7608cefd49d55  /tmp/remote-speech-full.patch.gz.b64" | sha256sum --check --strict
