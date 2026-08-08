@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use crate::app_core::{AppCore, TranscribeDrainOutcome};
+use crate::app_core::{microphone_consent_required_error, AppCore, TranscribeDrainOutcome};
 use crate::commands::{
     StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
     ToolName, ToolResult, TranscribeAndExecuteCommandData, TranscribeCommandData,
@@ -15,22 +15,54 @@ use crate::{join_error_to_tool_error, lock_app_core};
 /// `stop_listening` / `get_agent_state` can interleave throughout. Runs inside
 /// `spawn_blocking`. Five phases:
 ///
-/// 1. lock → `begin_transcribe_command` (start capture) → unlock
+/// 1. lock → privacy authorization → `begin_transcribe_command` → unlock
 /// 2. unlocked capture sleep (the cpal stream keeps filling its buffer)
-/// 3. lock → `drain_transcribe_command` (take audio + snapshot config) → unlock
+/// 3. lock → `drain_transcribe_command` (take audio) → unlock
 /// 4. unlocked `transcribe_captured_audio` (the ASR round-trip, network for remote)
 /// 5. lock → `record_transcribe_command` (record transcript + build result)
 fn run_phased_transcribe(
     core: &Arc<Mutex<AppCore>>,
     input: TranscribeCommandInput,
 ) -> Result<ToolResult<TranscribeCommandData>, ToolError> {
-    let plan = {
+    // Privacy authorization is decided before microphone capture starts. A
+    // consent-required result therefore contains metadata only: no capture
+    // session is started and no audio buffer is created for this request.
+    if let Err(rejected) = crate::app_core::transcribe_capture_durations(&input) {
+        return Ok(*rejected);
+    }
+
+    let (plan, remote_authorization) = {
         let mut guard = lock_app_core(core)?;
-        guard.begin_transcribe_command(&input)
-    };
-    let plan = match plan {
-        Ok(plan) => plan,
-        Err(rejected) => return Ok(*rejected),
+        let preparation = match guard.prepare_microphone_transcription(&input) {
+            Ok(preparation) => preparation,
+            Err(error) => {
+                guard.discard_microphone_capture_after_privacy_rejection();
+                return Err(error);
+            }
+        };
+        let authorization = match preparation {
+            crate::app_core::remote_data_consent::MicrophonePreparation::Authorized(
+                authorization,
+            ) => authorization,
+            crate::app_core::remote_data_consent::MicrophonePreparation::ConsentRequired {
+                challenge,
+            } => {
+                guard.discard_microphone_capture_after_privacy_rejection();
+                return Ok(ToolResult::failure(
+                    ToolName::TranscribeCommand,
+                    input.request_id.clone(),
+                    microphone_consent_required_error(&challenge),
+                    vec![String::from(
+                        "Remote transcription paused before any audio was sent; active local capture was stopped and discarded.",
+                    )],
+                ));
+            }
+        };
+        let plan = match guard.begin_transcribe_command(&input) {
+            Ok(plan) => plan,
+            Err(rejected) => return Ok(*rejected),
+        };
+        (plan, authorization)
     };
 
     // Unlocked capture window: the cpal stream keeps filling its buffer while the
@@ -47,9 +79,11 @@ fn run_phased_transcribe(
 
     // Unlocked transcription window: the ASR backend (CPU for local whisper, a
     // network round-trip for remote) runs with the guard dropped, against the
-    // drained audio + config snapshot the pending capture carries.
+    // captured audio and the provider snapshot bound to the pre-capture privacy
+    // decision. A remote provider consumes the unforgeable authorization token.
     let (config, captured_audio) = pending.transcription_inputs();
-    let transcript_result = crate::asr::transcribe_captured_audio(config, captured_audio);
+    let transcript_result =
+        crate::asr::transcribe_captured_audio(config, captured_audio, remote_authorization);
 
     let mut guard = lock_app_core(core)?;
     Ok(guard.record_transcribe_command(*pending, transcript_result))

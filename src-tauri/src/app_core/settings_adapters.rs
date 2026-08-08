@@ -258,6 +258,11 @@ pub(crate) fn build_remote_tts_settings(config: &AppConfig) -> RemoteTtsSettings
         timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
         endpoint_is_loopback,
         availability_reason,
+        privacy_network_mode: config.remote_narration_privacy.network_mode.clone(),
+        privacy_origin_rule_count: config.remote_narration_privacy.origin_rules.len(),
+        privacy_notice: String::from(
+            "When Remote voice output is selected, narration text leaves this device for the configured TTS endpoint. The remote narration privacy policy is independent from planner permission.",
+        ),
     }
 }
 
@@ -294,6 +299,11 @@ pub(crate) fn build_remote_asr_settings(config: &AppConfig) -> RemoteAsrSettings
         timeout_ms: profile.map(|configured_profile| configured_profile.timeout_ms),
         endpoint_is_loopback,
         availability_reason,
+        privacy_network_mode: config.remote_microphone_privacy.network_mode.clone(),
+        privacy_origin_rule_count: config.remote_microphone_privacy.origin_rules.len(),
+        privacy_notice: String::from(
+            "When Remote voice input is selected, captured microphone audio leaves this device for the configured ASR endpoint only after the remote microphone privacy policy authorizes the disclosure.",
+        ),
     }
 }
 

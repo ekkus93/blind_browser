@@ -67,6 +67,8 @@ const DISCLOSURE_LABELS: Record<RemotePlannerConsentDisclosureClass, string> = {
   tool_observation_summaries: "Recent tool-result summaries",
   skill_summaries: "Relevant skill summaries",
   trusted_runtime_contracts: "Trusted runtime safety and tool contracts",
+  narration_text: "Page narration text sent to the remote speech provider",
+  microphone_audio: "Captured microphone audio sent to the remote transcription provider",
 };
 
 export interface RemotePlannerPrivacyWorkspaceHandlers {
@@ -143,10 +145,39 @@ function renderPrivacyStatus(
   );
 }
 
+type RemoteConsentKind = "planner" | "narration" | "microphone";
+
+function remoteConsentKind(
+  challenge: Extract<RemoteDataConsentUiState, { kind: "awaiting-remote-data-consent" }>["challenge"],
+): RemoteConsentKind {
+  if (challenge.disclosure_classes.includes("microphone_audio")) {
+    return "microphone";
+  }
+  if (challenge.disclosure_classes.includes("narration_text")) {
+    return "narration";
+  }
+  return "planner";
+}
+
 function disclosureCountSummary(
   consentState: Extract<RemoteDataConsentUiState, { kind: "awaiting-remote-data-consent" }>,
 ): ReactNode {
   const counts = consentState.challenge.disclosure_counts;
+  const kind = remoteConsentKind(consentState.challenge);
+  if (kind === "narration") {
+    return (
+      <dl className={REMOTE_CONSENT_DESTINATION_COUNTS_CLASS} data-remote-consent-counts="true">
+        <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Narration text size</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{counts.narration_text_bytes} bytes</dd></div>
+      </dl>
+    );
+  }
+  if (kind === "microphone") {
+    return (
+      <dl className={REMOTE_CONSENT_DESTINATION_COUNTS_CLASS} data-remote-consent-counts="true">
+        <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Requested microphone capture</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{counts.microphone_audio_duration_ms} ms</dd></div>
+      </dl>
+    );
+  }
   return (
     <dl className={REMOTE_CONSENT_DESTINATION_COUNTS_CLASS} data-remote-consent-counts="true">
       <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Selected text regions</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{counts.selected_region_count}</dd></div>
@@ -157,6 +188,44 @@ function disclosureCountSummary(
       <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Sanitized request size</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{counts.sanitized_serialized_bytes} bytes</dd></div>
     </dl>
   );
+}
+
+function consentDialogCopy(kind: RemoteConsentKind) {
+  switch (kind) {
+    case "narration":
+      return {
+        title: "Send this page narration text to the remote speech provider?",
+        description: "Blind Browser paused before network access. No narration text has been sent yet.",
+        destinationLabel: "Speech provider",
+        warning: "Remote narration sends the page text to the configured speech provider as-is so it can be spoken. This permission is separate from planner permission and does not approve clicks, typing, submissions, downloads, credentials, or other actions.",
+        onceLabel: "Allow narration text for this request only",
+        sessionLabel: "Allow narration text for this site and speech provider for this application session",
+        persistentLabel: "Always allow narration text for this site and exact speech destination",
+        blockLabel: "Keep narration text local for this site",
+      };
+    case "microphone":
+      return {
+        title: "Send microphone audio to the remote transcription provider?",
+        description: "Blind Browser paused before remote transcription. Captured audio from the paused attempt is not retained or sent; after allowing access, repeat the voice input.",
+        destinationLabel: "Transcription provider",
+        warning: "Remote voice input sends captured microphone audio to the configured transcription provider. This permission is separate from planner and narration permission. Pre-consent audio is discarded, so authorization applies to a new voice capture.",
+        onceLabel: "Allow one new microphone upload with the same request settings",
+        sessionLabel: "Allow microphone audio for this site and transcription provider for this application session",
+        persistentLabel: "Always allow microphone audio for this site and exact transcription destination",
+        blockLabel: "Keep microphone audio local for this site",
+      };
+    case "planner":
+      return {
+        title: "Send sanitized information to the network planner?",
+        description: "Blind Browser paused before network access. No planner request has been sent yet.",
+        destinationLabel: "Planner",
+        warning: "The request is locally selected and sanitized, but it may still contain page or user information. This permission does not approve clicks, typing, submissions, downloads, credentials, or other actions.",
+        onceLabel: "Allow sanitized data for this request only",
+        sessionLabel: "Allow sanitized data for this site and planner for this application session",
+        persistentLabel: "Always allow sanitized data for this site and exact planner destination",
+        blockLabel: "Keep this site local for every network planner",
+      };
+  }
 }
 
 function safeExpiryDisplay(expiresAtMs: number): {
@@ -181,6 +250,8 @@ function RemotePlannerConsentDialog(props: {
   const submissionGateRef = useRef({ started: false });
   const { challenge, isSubmitting, submissionError } = props.consentState;
   const expiry = safeExpiryDisplay(challenge.expires_at_ms);
+  const consentKind = remoteConsentKind(challenge);
+  const dialogCopy = consentDialogCopy(consentKind);
 
   useEffect(() => {
     returnFocusRef.current = document.activeElement instanceof HTMLElement
@@ -243,14 +314,12 @@ function RemotePlannerConsentDialog(props: {
       onKeyDown={handleKeyDown}
     >
       <p className={REMOTE_PRIVACY_EYEBROW_CLASS}>Permission required</p>
-      <h2 id="remote-consent-title" className={REMOTE_PRIVACY_HEADING_CLASS}>Send sanitized information to the network planner?</h2>
-      <p id="remote-consent-description">
-        Blind Browser paused before network access. No planner request has been sent yet.
-      </p>
+      <h2 id="remote-consent-title" className={REMOTE_PRIVACY_HEADING_CLASS}>{dialogCopy.title}</h2>
+      <p id="remote-consent-description">{dialogCopy.description}</p>
 
       <dl className={REMOTE_CONSENT_DESTINATION_COUNTS_CLASS}>
         <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Site</dt><dd className={REMOTE_CONSENT_DD_CLASS}><code>{challenge.page_origin}</code></dd></div>
-        <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Planner</dt><dd className={REMOTE_CONSENT_DD_CLASS}><code>{challenge.endpoint_display}</code></dd></div>
+        <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>{dialogCopy.destinationLabel}</dt><dd className={REMOTE_CONSENT_DD_CLASS}><code>{challenge.endpoint_display}</code></dd></div>
         <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Profile</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{challenge.profile_name}</dd></div>
         <div className={REMOTE_CONSENT_DESTINATION_COUNTS_ROW_CLASS}><dt className={REMOTE_CONSENT_DT_CLASS}>Model</dt><dd className={REMOTE_CONSENT_DD_CLASS}>{challenge.model_label}</dd></div>
       </dl>
@@ -264,7 +333,7 @@ function RemotePlannerConsentDialog(props: {
       {disclosureCountSummary(props.consentState)}
 
       <p id="remote-consent-warning" className={REMOTE_PRIVACY_WARNING_CLASS}>
-        The request is locally selected and sanitized, but it may still contain page or user information. This permission does not approve clicks, typing, submissions, downloads, credentials, or other actions.
+        {dialogCopy.warning}
       </p>
       <p className={REMOTE_PRIVACY_DETAIL_CLASS}>
         This request expires at {expiry.dateTime
@@ -287,7 +356,7 @@ function RemotePlannerConsentDialog(props: {
             className={REMOTE_CONSENT_ACTION_BUTTON_CLASS}
             data-remote-consent-decision="allow_once"
             disabled={isSubmitting || undefined}
-            aria-label="Allow sanitized data for this request only"
+            aria-label={dialogCopy.onceLabel}
             onClick={() => { submitDecision("allow_once"); }}
           >
             Allow this request
@@ -299,7 +368,7 @@ function RemotePlannerConsentDialog(props: {
             className={REMOTE_CONSENT_ACTION_BUTTON_CLASS}
             data-remote-consent-decision="allow_session"
             disabled={isSubmitting || undefined}
-            aria-label="Allow sanitized data for this site and planner for this application session"
+            aria-label={dialogCopy.sessionLabel}
             onClick={() => { submitDecision("allow_session"); }}
           >
             Allow for this session
@@ -311,7 +380,7 @@ function RemotePlannerConsentDialog(props: {
             className={REMOTE_CONSENT_ACTION_BUTTON_CLASS}
             data-remote-consent-decision="allow_persistent"
             disabled={isSubmitting || undefined}
-            aria-label="Always allow sanitized data for this site and exact planner destination"
+            aria-label={dialogCopy.persistentLabel}
             onClick={() => { submitDecision("allow_persistent"); }}
           >
             Always allow for this site
@@ -323,7 +392,7 @@ function RemotePlannerConsentDialog(props: {
             className={`${REMOTE_CONSENT_ACTION_BUTTON_CLASS} ${REMOTE_CONSENT_LOCAL_CANCEL_BUTTON_CLASS}`}
             data-remote-consent-decision="block_persistent"
             disabled={isSubmitting || undefined}
-            aria-label="Keep this site local for every network planner"
+            aria-label={dialogCopy.blockLabel}
             onClick={() => { submitDecision("block_persistent"); }}
           >
             Keep this site local

@@ -198,6 +198,12 @@ pub(crate) fn tts_runtime_error_to_tool_error(error: TtsRuntimeError) -> ToolErr
             retryable: true,
             details: None,
         },
+        TtsRuntimeError::RemoteConsentMissing => ToolError {
+            code: String::from("tts_remote_consent_missing"),
+            message: error.to_string(),
+            retryable: false,
+            details: None,
+        },
         TtsRuntimeError::MissingLocalProfile
         | TtsRuntimeError::MissingLocalProfileDefinition { .. }
         | TtsRuntimeError::MissingRemoteProfile
@@ -337,6 +343,7 @@ pub(crate) fn asr_runtime_error_to_tool_error(error: &AsrRuntimeError) -> ToolEr
         | AsrRuntimeError::MissingLocalProfileDefinition { .. }
         | AsrRuntimeError::MissingRemoteProfile
         | AsrRuntimeError::MissingRemoteProfileDefinition { .. } => "asr_profile_unavailable",
+        AsrRuntimeError::RemoteConsentMissing => "asr_remote_consent_missing",
         AsrRuntimeError::UnsupportedRemoteProvider { .. } => "unsupported_asr_provider",
         AsrRuntimeError::AudioFeatureUnavailable => "audio_backend_unavailable",
         AsrRuntimeError::LocalAsrFeatureUnavailable

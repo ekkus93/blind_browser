@@ -15,7 +15,7 @@ import {
   remotePlannerPrivacyReducer,
   type RemotePlannerPrivacyState,
 } from "./remote-planner-privacy-state.ts";
-import type { RemotePlannerExecutionOutcome } from "./tauri-api.ts";
+import type { RemotePlannerConsentChallenge, RemotePlannerExecutionOutcome } from "./tauri-api.ts";
 
 interface AppShellViewState {
   appView: AppView;
@@ -165,6 +165,21 @@ const executionUiSlice = createSlice({
         },
       };
     },
+    stageRemoteDataConsent(
+      state,
+      action: PayloadAction<{ challenge: RemotePlannerConsentChallenge }>,
+    ) {
+      return {
+        ...state,
+        confirmation: { kind: "idle" },
+        remoteDataConsent: {
+          kind: "awaiting-remote-data-consent" as const,
+          isSubmitting: false,
+          submissionError: null,
+          challenge: action.payload.challenge,
+        },
+      };
+    },
     setRemoteDataConsentSubmitting(
       state,
       action: PayloadAction<{ challengeId: string; isSubmitting: boolean }>,
@@ -254,6 +269,7 @@ export const {
   applyExecutionOutcome,
   setConfirmationSubmitting,
   setConfirmationError,
+  stageRemoteDataConsent,
   setRemoteDataConsentSubmitting,
   setRemoteDataConsentError,
   clearRemoteDataConsent,

@@ -299,6 +299,9 @@ pub struct RemoteTtsSettings {
     pub timeout_ms: Option<u64>,
     pub endpoint_is_loopback: Option<bool>,
     pub availability_reason: Option<CapabilityAbsenceReason>,
+    pub privacy_network_mode: RemotePlannerNetworkMode,
+    pub privacy_origin_rule_count: usize,
+    pub privacy_notice: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -317,6 +320,9 @@ pub struct RemoteAsrSettings {
     pub timeout_ms: Option<u64>,
     pub endpoint_is_loopback: Option<bool>,
     pub availability_reason: Option<CapabilityAbsenceReason>,
+    pub privacy_network_mode: RemotePlannerNetworkMode,
+    pub privacy_origin_rule_count: usize,
+    pub privacy_notice: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

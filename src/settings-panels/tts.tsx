@@ -82,6 +82,12 @@ export function renderSettingsRemoteTtsPanelNode(
   state: RemoteTtsPanelState,
   handlers?: RemoteTtsPanelHandlers,
 ): ReactNode {
+  const privacyModeLabel = {
+    local_only: "Local only",
+    ask_per_origin: "Ask for each site",
+    allow_sanitized_non_high_risk: "Allow non-high-risk sites",
+  }[state.privacyNetworkMode];
+
   return renderSettingsPanelSection({
     titleId: "settings-remote-tts-title",
     title: "Remote voice output profile",
@@ -89,8 +95,13 @@ export function renderSettingsRemoteTtsPanelNode(
     error: state.error,
     onDismissError: handlers?.onDismissError,
     onRetry: handlers?.onRetry,
-    children: (
-      <div className={SETTINGS_GRID_CLASS}>
+    children: [
+      <p className={SETTINGS_PANEL_WARNING_CLASS} key="remote-tts-privacy-notice" role="status">
+        {state.privacyNotice}
+      </p>,
+      <div className={SETTINGS_GRID_CLASS} key="remote-tts-grid">
+        {renderReadOnlyCard("Narration privacy mode", privacyModeLabel)}
+        {renderReadOnlyCard("Saved narration site rules", String(state.privacyOriginRuleCount))}
         {renderReadOnlyCard("Profile", state.profileName)}
         {renderReadOnlyCard("Provider", state.provider)}
         {renderReadOnlyCard("Base URL", state.baseUrl)}
@@ -122,8 +133,8 @@ export function renderSettingsRemoteTtsPanelNode(
             onOpenExternalLink: handlers?.onOpenExternalLink,
           },
         )}
-      </div>
-    ),
+      </div>,
+    ],
   });
 }
 

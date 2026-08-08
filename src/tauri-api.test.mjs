@@ -137,6 +137,11 @@ test("getAgentState requests includeLastTranscript and unwraps the backend tool 
         language: null,
         temperature_milli: null,
         timeout_ms: null,
+        endpoint_is_loopback: null,
+        availability_reason: null,
+        privacy_network_mode: "ask_per_origin",
+        privacy_origin_rule_count: 0,
+        privacy_notice: "Remote microphone privacy notice",
       },
       tts_provider_settings: {
         active_mode: "Local",
@@ -167,6 +172,11 @@ test("getAgentState requests includeLastTranscript and unwraps the backend tool 
         voice: null,
         audio_format: null,
         timeout_ms: null,
+        endpoint_is_loopback: null,
+        availability_reason: null,
+        privacy_network_mode: "ask_per_origin",
+        privacy_origin_rule_count: 0,
+        privacy_notice: "Remote narration privacy notice",
       },
       tts_voice_settings: {
         mode: "Local",
@@ -427,4 +437,38 @@ test("unwrapToolResult preserves structured backend tool errors", () => {
       },
     });
   }
+});
+
+test("speech consent API functions route to their dedicated backend commands", async () => {
+  invokeImplementation = async (command) => {
+    if (command === "submit_narration_consent_response") {
+      return { status: "spoken" };
+    }
+    if (command === "submit_microphone_consent_response") {
+      return { status: "authorized_retry_required" };
+    }
+    throw new Error(`unexpected command ${command}`);
+  };
+
+  const input = {
+    challengeId: "challenge-1",
+    challengeDigest: "digest-1",
+    decision: "allow_once",
+  };
+  assert.deepEqual(await tauriApi.submitNarrationConsentResponse(input), { status: "spoken" });
+  assert.deepEqual(await tauriApi.submitMicrophoneConsentResponse(input), {
+    status: "authorized_retry_required",
+  });
+  assert.deepEqual(invokeCalls, [
+    ["submit_narration_consent_response", {
+      challengeId: "challenge-1",
+      challengeDigest: "digest-1",
+      decision: "allow_once",
+    }],
+    ["submit_microphone_consent_response", {
+      challengeId: "challenge-1",
+      challengeDigest: "digest-1",
+      decision: "allow_once",
+    }],
+  ]);
 });

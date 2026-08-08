@@ -6,7 +6,7 @@
 use crate::app_core::planner_redaction::RemotePlannerInput;
 use crate::commands::{
     RemotePlannerConsentChallenge, RemotePlannerConsentResponseOutcome,
-    RemotePlannerDisclosureClass, RemotePlannerDisclosureCounts,
+    RemotePlannerDisclosureClass, RemotePlannerDisclosureCounts, TranscribeCommandInput,
 };
 use crate::config::RemotePlannerProfile;
 use crate::provider_endpoint::ProviderEndpointScope;
@@ -132,9 +132,29 @@ pub(crate) struct NarrationRequestDraft {
     pub(crate) resume: NarrationResumeContext,
 }
 
+/// Unforgeable crate-internal proof that the shared remote-data policy
+/// authorized one remote-TTS dispatch. The private field prevents TTS
+/// callers from constructing this token without going through
+/// `narration_consent`.
+#[derive(Debug)]
+pub(crate) struct RemoteNarrationAuthorization {
+    _private: (),
+}
+
+impl RemoteNarrationAuthorization {
+    pub(super) fn new() -> Self {
+        Self { _private: () }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum NarrationPreparation {
-    Authorized,
+    Authorized(RemoteNarrationAuthorization),
     ConsentRequired {
         challenge: Box<RemotePlannerConsentChallenge>,
     },
@@ -144,6 +164,7 @@ pub(crate) struct PendingNarrationConsent {
     pub(crate) challenge: RemotePlannerConsentChallenge,
     pub(super) page_origin: String,
     pub(super) endpoint_scope: String,
+    pub(super) payload_digest: String,
     pub(super) runtime_state_token: String,
     pub(super) resume: NarrationResumeContext,
 }
@@ -153,5 +174,56 @@ pub(crate) enum NarrationConsentResolution {
     Authorized { resume: NarrationResumeContext },
 }
 
-// Remote ASR (microphone audio) is not yet gated through this module -- see
-// the module-level doc comment in mod.rs for why.
+// --- Microphone audio (remote ASR) disclosure ---
+//
+// Consent is evaluated before a transcription capture/dispatch begins. Unlike
+// narration, microphone audio cannot be replayed safely from a pre-consent
+// buffer: after an interactive authorization the caller must repeat the voice
+// input. A pending challenge therefore stores only policy/request metadata,
+// never captured audio.
+
+pub(crate) struct MicrophoneRequestDraft {
+    pub(crate) endpoint_scope: ProviderEndpointScope,
+    pub(crate) profile_name: String,
+    pub(crate) model_label: String,
+    pub(crate) page_origin: String,
+    pub(crate) request_binding_digest: String,
+    pub(crate) runtime_state_token: String,
+    pub(crate) effective_duration_ms: u64,
+    pub(crate) input: TranscribeCommandInput,
+}
+
+/// Unforgeable crate-internal proof that the shared remote-data policy
+/// authorized one remote-ASR dispatch. The private field prevents ASR callers
+/// from constructing this token without going through `microphone_consent`.
+#[derive(Debug)]
+pub(crate) struct RemoteMicrophoneAuthorization {
+    _private: (),
+}
+
+impl RemoteMicrophoneAuthorization {
+    pub(super) fn new() -> Self {
+        Self { _private: () }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum MicrophonePreparation {
+    Authorized(Option<RemoteMicrophoneAuthorization>),
+    ConsentRequired {
+        challenge: Box<RemotePlannerConsentChallenge>,
+    },
+}
+
+pub(crate) struct PendingMicrophoneConsent {
+    pub(crate) challenge: RemotePlannerConsentChallenge,
+    pub(super) page_origin: String,
+    pub(super) endpoint_scope: String,
+    pub(super) request_binding_digest: String,
+    pub(super) runtime_state_token: String,
+}
+
+pub(crate) enum MicrophoneConsentResolution {
+    Terminal(RemotePlannerConsentResponseOutcome),
+    AuthorizedRetryRequired,
+}

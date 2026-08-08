@@ -2,9 +2,15 @@ import { classifyInvokeFailure } from "./api/errors.ts";
 import {
   applyRemotePlannerPrivacyOperation,
   executePlannerOutput,
+  submitMicrophoneConsentResponse,
+  submitNarrationConsentResponse,
   submitRemotePlannerConsentResponse,
+  type MicrophoneConsentResponseOutcome,
+  type NarrationConsentResponseOutcome,
   type PlannerOutput,
   type RemotePlannerConsentDecision,
+  type RemoteDataConsentResponseOutcome,
+  type RemotePlannerConsentChallenge,
   type RemotePlannerConsentResponseOutcome,
   type RemotePlannerExecutionOutcome,
   type RemotePlannerPrivacyOperation,
@@ -41,6 +47,16 @@ export interface RemotePlannerPrivacyControllerDependencies {
     challengeDigest: string;
     decision: RemotePlannerConsentDecision;
   }) => Promise<RemotePlannerConsentResponseOutcome>;
+  submitNarrationConsentResponse: (input: {
+    challengeId: string;
+    challengeDigest: string;
+    decision: RemotePlannerConsentDecision;
+  }) => Promise<NarrationConsentResponseOutcome>;
+  submitMicrophoneConsentResponse: (input: {
+    challengeId: string;
+    challengeDigest: string;
+    decision: RemotePlannerConsentDecision;
+  }) => Promise<MicrophoneConsentResponseOutcome>;
   executePlannerOutput: (
     requestId: string,
     plannerOutput: PlannerOutput,
@@ -61,6 +77,7 @@ export interface RemotePlannerPrivacyControllerDependencies {
   applyExecutionOutcome: (outcome: RemotePlannerExecutionOutcome) => void;
   refreshRuntime: () => Promise<void>;
   reportGlobalError: (message: string) => void;
+  reportGlobalInfo: (message: string) => void;
   warn: (message: string, details?: Record<string, unknown>) => void;
 }
 
@@ -71,7 +88,7 @@ export interface RemotePlannerPrivacyController {
   submitConsentDecision: (
     decision: RemotePlannerConsentDecision,
     challengeId: string,
-  ) => Promise<RemotePlannerConsentResponseOutcome | null>;
+  ) => Promise<RemoteDataConsentResponseOutcome | null>;
 }
 
 export function describeRemotePlannerPrivacyOperationFailure(error: unknown): string {
@@ -89,6 +106,25 @@ function staleConsentFailure(): RemoteDataConsentSubmissionFailure {
     message: "That privacy request is no longer the active request.",
     guidance: "Review the current privacy request before choosing an option.",
   };
+}
+
+type ConsentSubmissionKind = "planner" | "narration" | "microphone";
+
+function consentSubmissionKind(
+  challenge: RemotePlannerConsentChallenge,
+): ConsentSubmissionKind | null {
+  const hasNarration = challenge.disclosure_classes.includes("narration_text");
+  const hasMicrophone = challenge.disclosure_classes.includes("microphone_audio");
+  if (hasNarration && hasMicrophone) {
+    return null;
+  }
+  if (hasNarration) {
+    return "narration";
+  }
+  if (hasMicrophone) {
+    return "microphone";
+  }
+  return "planner";
 }
 
 export function createRemotePlannerPrivacyController(
@@ -149,14 +185,33 @@ export function createRemotePlannerPrivacyController(
         return null;
       }
 
-      dependencies.setConsentSubmitting(challengeId, true);
-      let response: RemotePlannerConsentResponseOutcome;
-      try {
-        response = await dependencies.submitConsentResponse({
-          challengeId,
-          challengeDigest: consentState.challenge.challenge_digest,
-          decision,
+      const submissionKind = consentSubmissionKind(consentState.challenge);
+      if (submissionKind === null) {
+        dependencies.setConsentError(activeChallengeId, {
+          kind: "transport-error",
+          title: "Invalid privacy request",
+          message: "The active privacy request mixes incompatible disclosure categories.",
+          guidance: "Cancel this request and retry the original action.",
         });
+        dependencies.warn("Rejected malformed remote-data consent challenge with mixed speech disclosure kinds.", {
+          challengeId,
+        });
+        return null;
+      }
+
+      dependencies.setConsentSubmitting(challengeId, true);
+      let response: RemoteDataConsentResponseOutcome;
+      const submission = {
+        challengeId,
+        challengeDigest: consentState.challenge.challenge_digest,
+        decision,
+      };
+      try {
+        response = submissionKind === "narration"
+          ? await dependencies.submitNarrationConsentResponse(submission)
+          : submissionKind === "microphone"
+            ? await dependencies.submitMicrophoneConsentResponse(submission)
+            : await dependencies.submitConsentResponse(submission);
       } catch (error) {
         const failure = describeRemoteDataConsentSubmissionFailure(error);
         if (failure.kind === "tool-error") {
@@ -197,8 +252,15 @@ export function createRemotePlannerPrivacyController(
             response.planner_output,
           );
           dependencies.applyExecutionOutcome(outcome);
-        } else {
+        } else if (response.status === "executed") {
           dependencies.applyExecutionOutcome(response.outcome);
+        } else if (response.status === "spoken") {
+          dependencies.clearConsent(challengeId);
+        } else if (response.status === "authorized_retry_required") {
+          dependencies.clearConsent(challengeId);
+          dependencies.reportGlobalInfo(
+            "Microphone privacy permission was saved. Repeat the voice input; audio captured before permission was not retained or sent.",
+          );
         }
       } catch (error) {
         dependencies.clearConsent(challengeId);
@@ -233,6 +295,8 @@ const productionController = createRemotePlannerPrivacyController({
   getExecutionUiState: () => uiStore.getState(),
   applyPrivacyOperation: applyRemotePlannerPrivacyOperation,
   submitConsentResponse: submitRemotePlannerConsentResponse,
+  submitNarrationConsentResponse,
+  submitMicrophoneConsentResponse,
   executePlannerOutput,
   createRequestId,
   markOperationStarted: (operation) => {
@@ -260,6 +324,9 @@ const productionController = createRemotePlannerPrivacyController({
   reportGlobalError: (message) => {
     setAppAlertState({ kind: "error", message });
   },
+  reportGlobalInfo: (message) => {
+    setAppAlertState({ kind: "info", message });
+  },
   warn: (message, details) => {
     console.warn(message, details);
   },
@@ -274,6 +341,6 @@ export function runRemotePlannerPrivacyOperation(
 export function submitRemotePlannerConsentDecision(
   decision: RemotePlannerConsentDecision,
   challengeId: string,
-): Promise<RemotePlannerConsentResponseOutcome | null> {
+): Promise<RemoteDataConsentResponseOutcome | null> {
   return productionController.submitConsentDecision(decision, challengeId);
 }

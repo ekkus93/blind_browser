@@ -118,6 +118,11 @@ export interface RemotePlannerPanelState {
   error: string | null;
 }
 
+export type RemoteSpeechPrivacyNetworkMode =
+  | "local_only"
+  | "ask_per_origin"
+  | "allow_sanitized_non_high_risk";
+
 export interface RemoteTtsPanelState {
   profileName: string | null;
   provider: string | null;
@@ -131,6 +136,9 @@ export interface RemoteTtsPanelState {
   voice: string | null;
   audioFormat: string | null;
   timeoutMs: number | null;
+  privacyNetworkMode: RemoteSpeechPrivacyNetworkMode;
+  privacyOriginRuleCount: number;
+  privacyNotice: string;
   apiKeyDraft: string;
   isSavingApiKey: boolean;
   isTestingApiKey: boolean;
@@ -151,6 +159,9 @@ export interface RemoteAsrPanelState {
   language: string | null;
   temperatureMilli: number | null;
   timeoutMs: number | null;
+  privacyNetworkMode: RemoteSpeechPrivacyNetworkMode;
+  privacyOriginRuleCount: number;
+  privacyNotice: string;
   apiKeyDraft: string;
   isSavingApiKey: boolean;
   isTestingApiKey: boolean;
