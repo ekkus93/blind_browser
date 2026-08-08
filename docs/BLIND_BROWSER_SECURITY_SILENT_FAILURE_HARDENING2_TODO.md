@@ -17,7 +17,7 @@ Validation gate:
 
 ```bash
 pnpm install
-pnpm test
+pnpm test:ui
 pnpm build
 cd src-tauri
 cargo fmt --check
@@ -482,7 +482,13 @@ If simulating rename/write failure is hard cross-platform, test helper behavior 
 ### Acceptance checks
 
 ```bash
-rg -n "fs::write\(" src-tauri/src/config/persistence.rs
+python3 - <<'PY'
+from pathlib import Path
+text = Path("src-tauri/src/config/persistence.rs").read_text()
+production = text.split("#[cfg(test)]", 1)[0]
+assert "fs::write(" not in production
+assert "std::fs::write(" not in production
+PY
 ```
 
 Expected: no direct config persistence write remains, except inside tests if intentionally testing old behavior.
@@ -907,7 +913,7 @@ bash scripts/check-silent-fallbacks.sh
 
 ```bash
 pnpm install
-pnpm test
+pnpm test:ui
 pnpm build
 cd src-tauri
 cargo fmt --check

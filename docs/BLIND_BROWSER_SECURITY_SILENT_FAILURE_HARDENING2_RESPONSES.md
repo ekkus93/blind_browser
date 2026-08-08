@@ -90,9 +90,9 @@ Fill in each `A:` line, then share the file or paste the answers back.
 ---
 
 6. Q: **Wrong file path in P2-1 acceptance check**: The acceptance `rg` command
-   in the TODO points at `src-tauri/src/commands/settings_adapters.rs`, which
-   does not exist. The actual file is
-   `src-tauri/src/app_core/settings_adapters.rs`. I plan to silently correct
+   in the original TODO pointed at a non-existent `commands/` copy of
+   `settings_adapters.rs`. The actual file is
+   `src-tauri/src/app_core/settings_adapters.rs`. I plan to correct
    this in the acceptance check when implementing. Is that fine, or do you want
    it flagged separately?
 

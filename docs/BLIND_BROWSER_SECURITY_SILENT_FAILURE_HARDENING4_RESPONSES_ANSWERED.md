@@ -12,7 +12,7 @@
    If a document is explicitly describing the earlier mistake, then phrase it like this:
 
    ```text
-   Historical note: an earlier TODO incorrectly referenced `src-tauri/src/commands/settings_adapters.rs`; the correct file is `src-tauri/src/app_core/settings_adapters.rs`.
+   Historical note: an earlier TODO incorrectly referenced a non-existent `commands/` copy of `settings_adapters.rs`; the correct file is `src-tauri/src/app_core/settings_adapters.rs`.
    ```
 
    But for specs, TODOs, responses, acceptance commands, and implementation guidance, use only the correct path.
@@ -20,7 +20,12 @@
    After editing, this should pass:
 
    ```bash
-   rg -n "src-tauri/src/commands/settings_adapters.rs" docs
+   python3 - <<'PY'
+from pathlib import Path
+needle = "src-tauri/src/commands/" + "settings_adapters.rs"
+hits = [str(path) for path in Path("docs").glob("*.md") if needle in path.read_text()]
+assert not hits, f"stale settings-adapter path remains in: {hits}"
+PY
    ```
 
    Expected: no matches, unless every remaining match explicitly says it is the old incorrect path.
@@ -163,7 +168,12 @@
    Good H3 SPEC command:
 
    ```bash
-   rg -n "src-tauri/src/commands/settings_adapters.rs" docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING2_TODO.md docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING3_TODO.md
+   python3 - <<'PY'
+from pathlib import Path
+needle = "src-tauri/src/commands/" + "settings_adapters.rs"
+hits = [str(path) for path in Path("docs").glob("*.md") if needle in path.read_text()]
+assert not hits, f"stale settings-adapter path remains in: {hits}"
+PY
    ```
 
    Expected: no matches.
@@ -171,7 +181,12 @@
    Even better, after correcting all docs, this broader command should also pass:
 
    ```bash
-   rg -n "src-tauri/src/commands/settings_adapters.rs" docs
+   python3 - <<'PY'
+from pathlib import Path
+needle = "src-tauri/src/commands/" + "settings_adapters.rs"
+hits = [str(path) for path in Path("docs").glob("*.md") if needle in path.read_text()]
+assert not hits, f"stale settings-adapter path remains in: {hits}"
+PY
    ```
 
 ---

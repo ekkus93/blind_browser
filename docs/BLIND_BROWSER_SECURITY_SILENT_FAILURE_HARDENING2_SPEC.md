@@ -69,7 +69,7 @@ Likely Rust files:
 - `src-tauri/src/config/persistence.rs`
 - `src-tauri/src/asr/remote.rs`
 - `src-tauri/src/url_policy.rs`
-- `src-tauri/src/commands/settings_adapters.rs`
+- `src-tauri/src/app_core/settings_adapters.rs`
 - relevant Rust tests under `src-tauri/src/**/tests`
 - `src-tauri/Cargo.toml` if the `url` crate is not already available
 
@@ -91,7 +91,7 @@ The implementation is complete only when:
 
 ```bash
 pnpm install
-pnpm test
+pnpm test:ui
 pnpm build
 cd src-tauri
 cargo fmt --check

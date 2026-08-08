@@ -49,13 +49,8 @@ Do not:
 
 ### 2. Stale docs paths must not make acceptance checks fail
 
-The stale path:
-
-```text
-src-tauri/src/commands/settings_adapters.rs
-```
-
-was wrong. The actual path is:
+An earlier document used a stale non-existent `commands/` copy of
+`settings_adapters.rs`. The actual path is:
 
 ```text
 src-tauri/src/app_core/settings_adapters.rs
@@ -104,9 +99,20 @@ Static checks:
 ```bash
 bash scripts/check-silent-fallbacks.sh
 rg -n '^tempfile\s*=\s*"3"' src-tauri/Cargo.toml
-rg -n "src-tauri/src/commands/settings_adapters.rs" docs
+python3 - <<'PY'
+from pathlib import Path
+needle = "src-tauri/src/commands/" + "settings_adapters.rs"
+hits = [str(path) for path in Path("docs").glob("*.md") if needle in path.read_text()]
+assert not hits, f"stale settings-adapter path remains in: {hits}"
+PY
 rg -n "File::create\(target_path\)|fs::File::create\(target_path\)" src-tauri/src/app_core/model_management.rs
-rg -n "fs::write\(" src-tauri/src/config/persistence.rs
+python3 - <<'PY'
+from pathlib import Path
+text = Path("src-tauri/src/config/persistence.rs").read_text()
+production = text.split("#[cfg(test)]", 1)[0]
+assert "fs::write(" not in production
+assert "std::fs::write(" not in production
+PY
 ```
 
 Expected:
@@ -121,7 +127,7 @@ Validation gate:
 
 ```bash
 pnpm install
-pnpm test
+pnpm test:ui
 pnpm build
 cd src-tauri
 cargo fmt --check

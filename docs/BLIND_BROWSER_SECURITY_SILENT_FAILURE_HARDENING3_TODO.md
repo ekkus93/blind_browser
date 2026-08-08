@@ -17,7 +17,7 @@ Validation gate:
 
 ```bash
 pnpm install
-pnpm test
+pnpm test:ui
 pnpm build
 cd src-tauri
 cargo fmt --check
@@ -366,13 +366,8 @@ fn atomic_model_write_success_replaces_existing_final_file() {
 
 ### Problem
 
-The Hardening 2 TODO still contains the wrong path in the P2-1 acceptance command:
-
-```text
-src-tauri/src/commands/settings_adapters.rs
-```
-
-The actual file is:
+The Hardening 2 TODO previously pointed at a non-existent `commands/` copy of
+`settings_adapters.rs` in the P2-1 acceptance command. The actual file is:
 
 ```text
 src-tauri/src/app_core/settings_adapters.rs
@@ -390,13 +385,7 @@ The Hardening 2 final checklist also remained unchecked even though tasks were m
 
 ### Patch
 
-Replace:
-
-```bash
-rg -n "masked_secret_value.*\.ok\(\)\?" src-tauri/src/commands/settings_adapters.rs
-```
-
-with:
+Use the real settings-adapter path in the acceptance command:
 
 ```bash
 rg -n "masked_secret_value.*\.ok\(\)\?" src-tauri/src/app_core/settings_adapters.rs
@@ -405,7 +394,12 @@ rg -n "masked_secret_value.*\.ok\(\)\?" src-tauri/src/app_core/settings_adapters
 ### Acceptance checks
 
 ```bash
-rg -n "src-tauri/src/commands/settings_adapters.rs" docs
+python3 - <<'PY'
+from pathlib import Path
+needle = "src-tauri/src/commands/" + "settings_adapters.rs"
+hits = [str(path) for path in Path("docs").glob("*.md") if needle in path.read_text()]
+assert not hits, f"stale settings-adapter path remains in: {hits}"
+PY
 ```
 
 Expected: no matches unless a historical note explicitly says it was the old wrong path.
@@ -462,8 +456,19 @@ Run:
 ```bash
 bash scripts/check-silent-fallbacks.sh
 rg -n "File::create\(target_path\)|fs::File::create\(target_path\)" src-tauri/src/app_core/model_management.rs
-rg -n "fs::write\(" src-tauri/src/config/persistence.rs
-rg -n "src-tauri/src/commands/settings_adapters.rs" docs
+python3 - <<'PY'
+from pathlib import Path
+text = Path("src-tauri/src/config/persistence.rs").read_text()
+production = text.split("#[cfg(test)]", 1)[0]
+assert "fs::write(" not in production
+assert "std::fs::write(" not in production
+PY
+python3 - <<'PY'
+from pathlib import Path
+needle = "src-tauri/src/commands/" + "settings_adapters.rs"
+hits = [str(path) for path in Path("docs").glob("*.md") if needle in path.read_text()]
+assert not hits, f"stale settings-adapter path remains in: {hits}"
+PY
 ```
 
 Expected:
@@ -479,7 +484,7 @@ Run:
 
 ```bash
 pnpm install
-pnpm test
+pnpm test:ui
 pnpm build
 cd src-tauri
 cargo fmt --check

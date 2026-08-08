@@ -89,8 +89,19 @@ Static checks:
 ```bash
 bash scripts/check-silent-fallbacks.sh
 rg -n "File::create\(target_path\)|fs::File::create\(target_path\)" src-tauri/src/app_core/model_management.rs
-rg -n "fs::write\(" src-tauri/src/config/persistence.rs
-rg -n "src-tauri/src/commands/settings_adapters.rs" docs
+python3 - <<'PY'
+from pathlib import Path
+text = Path("src-tauri/src/config/persistence.rs").read_text()
+production = text.split("#[cfg(test)]", 1)[0]
+assert "fs::write(" not in production
+assert "std::fs::write(" not in production
+PY
+python3 - <<'PY'
+from pathlib import Path
+needle = "src-tauri/src/commands/" + "settings_adapters.rs"
+hits = [str(path) for path in Path("docs").glob("*.md") if needle in path.read_text()]
+assert not hits, f"stale settings-adapter path remains in: {hits}"
+PY
 ```
 
 The first two `rg` checks should have no unsafe production matches. Any remaining match must be in a helper/test with a comment explaining why it is safe.
@@ -99,7 +110,7 @@ Validation gate:
 
 ```bash
 pnpm install
-pnpm test
+pnpm test:ui
 pnpm build
 cd src-tauri
 cargo fmt --check

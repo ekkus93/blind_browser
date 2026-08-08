@@ -17,7 +17,7 @@ Validation gate:
 
 ```bash
 pnpm install
-pnpm test
+pnpm test:ui
 pnpm build
 cd src-tauri
 cargo fmt --check
@@ -109,13 +109,8 @@ Expected: tests compile and pass.
 
 ### Problem
 
-Hardening 3 was supposed to correct the stale wrong path:
-
-```text
-src-tauri/src/commands/settings_adapters.rs
-```
-
-The real file is:
+Hardening 3 was supposed to correct a stale reference to a non-existent
+`commands/` copy of `settings_adapters.rs`. The real file is:
 
 ```text
 src-tauri/src/app_core/settings_adapters.rs
@@ -126,48 +121,30 @@ Review found the wrong path still appears in docs, including active Hardening 3 
 ### Required behavior
 
 - Active acceptance checks use `src-tauri/src/app_core/settings_adapters.rs`.
-- No active docs command points at `src-tauri/src/commands/settings_adapters.rs`.
+- No active docs command points at the obsolete `commands/` settings-adapter path.
 - If the old path remains in a historical note, the note must explicitly say it was the old wrong path and must not be used as an acceptance command.
 
 ### Patch shape
 
-Replace active commands like:
-
-```bash
-rg -n "masked_secret_value.*\.ok\(\)\?" src-tauri/src/commands/settings_adapters.rs
-```
-
-with:
+Active commands and file references must use the real path:
 
 ```bash
 rg -n "masked_secret_value.*\.ok\(\)\?" src-tauri/src/app_core/settings_adapters.rs
 ```
 
-For broad stale-path checks, prefer a scoped command that checks the file that matters:
+Use this exact negative check without embedding the obsolete path as one literal
+inside the document being checked:
 
 ```bash
-rg -n "src-tauri/src/commands/settings_adapters.rs" docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING2_TODO.md
+python3 - <<'PY'
+from pathlib import Path
+needle = "src-tauri/src/commands/" + "settings_adapters.rs"
+hits = [str(path) for path in Path("docs").glob("*.md") if needle in path.read_text()]
+assert not hits, f"stale settings-adapter path remains in: {hits}"
+PY
 ```
 
-rather than scanning every historical doc if those docs intentionally discuss the old path.
-
-### Acceptance checks
-
-Run:
-
-```bash
-rg -n "src-tauri/src/commands/settings_adapters.rs" docs
-```
-
-Expected: no matches, unless every match explicitly labels it as the old wrong path.
-
-Preferred stricter check:
-
-```bash
-rg -n "src-tauri/src/commands/settings_adapters.rs" docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING2_TODO.md docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING3_TODO.md
-```
-
-Expected: no matches.
+Expected: no active project document contains the obsolete path.
 
 ---
 
@@ -370,19 +347,17 @@ The Hardening 3 TODO final checklist says static checks pass, but review found t
 
 ### Patch shape
 
-In Hardening 3 TODO, replace broad stale-path check if needed:
+Hardening 3's static instructions should use the same exact negative check as
+Hardening 4 so the command itself does not self-match:
 
 ```bash
-rg -n "src-tauri/src/commands/settings_adapters.rs" docs
+python3 - <<'PY'
+from pathlib import Path
+needle = "src-tauri/src/commands/" + "settings_adapters.rs"
+hits = [str(path) for path in Path("docs").glob("*.md") if needle in path.read_text()]
+assert not hits, f"stale settings-adapter path remains in: {hits}"
+PY
 ```
-
-with:
-
-```bash
-rg -n "src-tauri/src/commands/settings_adapters.rs" docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING2_TODO.md docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING3_TODO.md
-```
-
-or remove the stale path entirely from active docs.
 
 ### Acceptance checks
 
@@ -412,8 +387,19 @@ assert 'tempfile = "3"' in dev, "tempfile must be a dev-dependency"
 PY
 
 rg -n "File::create\(target_path\)|fs::File::create\(target_path\)" src-tauri/src/app_core/model_management.rs
-rg -n "fs::write\(" src-tauri/src/config/persistence.rs
-rg -n "src-tauri/src/commands/settings_adapters.rs" docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING2_TODO.md docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING3_TODO.md
+python3 - <<'PY'
+from pathlib import Path
+text = Path("src-tauri/src/config/persistence.rs").read_text()
+production = text.split("#[cfg(test)]", 1)[0]
+assert "fs::write(" not in production
+assert "std::fs::write(" not in production
+PY
+python3 - <<'PY'
+from pathlib import Path
+needle = "src-tauri/src/commands/" + "settings_adapters.rs"
+hits = [str(path) for path in Path("docs").glob("*.md") if needle in path.read_text()]
+assert not hits, f"stale settings-adapter path remains in: {hits}"
+PY
 ```
 
 Expected:
@@ -439,7 +425,7 @@ Run:
 
 ```bash
 pnpm install
-pnpm test
+pnpm test:ui
 pnpm build
 cd src-tauri
 cargo fmt --check
@@ -496,7 +482,7 @@ Use the actual timestamp. Do not fabricate or reuse a previous timestamp.
 
 - [ ] `tempfile` is only in `[dev-dependencies]`.
 - [ ] Active docs/TODO checks use `src-tauri/src/app_core/settings_adapters.rs`.
-- [ ] No active docs/TODO acceptance command points at `src-tauri/src/commands/settings_adapters.rs`.
+- [ ] No active docs/TODO acceptance command points at the obsolete `commands/` settings-adapter path.
 - [ ] `atomic_file.rs` documents exact replacement/durability semantics.
 - [ ] Parent-directory fsync is implemented where supported, or the limitation is explicitly documented.
 - [ ] Silent-fallback guard script passes.
