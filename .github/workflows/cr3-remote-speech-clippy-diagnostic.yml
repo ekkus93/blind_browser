@@ -1,0 +1,44 @@
+name: CR3 Remote Speech Clippy Diagnostic
+
+on:
+  push:
+    branches:
+      - cr3-remote-speech-materialize
+    paths:
+      - .github/cr3-remote-speech-clippy.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_TERM_COLOR: never
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Install native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y libwebkit2gtk-4.1-dev build-essential clang libclang-dev curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libasound2-dev libleptonica-dev libtesseract-dev tesseract-ocr xvfb
+      - name: Capture strict Clippy diagnostics
+        shell: bash
+        run: |
+          set +e
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings > /tmp/cr3-clippy.txt 2>&1
+          status=$?
+          set -e
+          cp /tmp/cr3-clippy.txt .github/cr3-remote-speech-clippy.txt
+          printf '%s\n' "$status" > .github/cr3-remote-speech-clippy.exit
+          git add .github/cr3-remote-speech-clippy.txt .github/cr3-remote-speech-clippy.exit
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "ci: capture CR3 remote speech clippy diagnostics"
+          git push origin HEAD:cr3-remote-speech-materialize
