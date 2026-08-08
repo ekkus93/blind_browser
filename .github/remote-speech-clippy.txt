@@ -1,0 +1,88 @@
+ Downloading crates ...
+  Downloaded tempfile v3.27.0
+  Downloaded rustix v1.1.4
+  Downloaded linux-raw-sys v0.12.1
+    Checking bitflags v2.11.0
+   Compiling blind_browser v0.1.0 (/home/runner/work/blind_browser/blind_browser/src-tauri)
+   Compiling rustix v1.1.4
+    Checking linux-raw-sys v0.12.1
+    Checking glib v0.18.5
+    Checking tower-http v0.6.8
+    Checking keyboard-types v0.7.0
+    Checking reqwest v0.12.28
+    Checking selectors v0.36.1
+    Checking alsa v0.11.0
+    Checking reqwest-eventsource v0.6.0
+    Checking reqwest v0.13.2
+    Checking dom_query v0.26.0
+    Checking chromiumoxide v0.9.1
+    Checking cpal v0.17.3
+    Checking dom_smoothie v0.16.0
+    Checking rodio v0.22.2
+    Checking async-openai v0.33.1
+    Checking kitten-tts v0.1.0 (https://github.com/ekkus93/kitten_tts_rs.git?rev=df7718161bc68c8b13bea85e879308becf12e87b#df771816)
+    Checking fastrand v2.3.0
+    Checking gio v0.18.4
+    Checking cairo-rs v0.18.5
+    Checking atk v0.18.2
+    Checking javascriptcore-rs v1.1.2
+    Checking tempfile v3.27.0
+    Checking pango v0.18.3
+    Checking gdk-pixbuf v0.18.5
+    Checking soup3 v0.5.0
+    Checking gdk v0.18.2
+    Checking gtk v0.18.2
+    Checking gdkx11 v0.18.2
+    Checking webkit2gtk v2.0.2
+    Checking tao v0.34.8
+    Checking muda v0.17.1
+    Checking tauri-runtime v2.10.1
+    Checking wry v0.54.4
+    Checking tauri-runtime-wry v2.10.1
+    Checking tauri v2.10.3
+error[E0004]: non-exhaustive patterns: `tts::TtsRuntimeError::RemoteConsentMissing` not covered
+   --> src/app_core/voice_tools.rs:182:11
+    |
+182 |     match error {
+    |           ^^^^^ pattern `tts::TtsRuntimeError::RemoteConsentMissing` not covered
+    |
+note: `tts::TtsRuntimeError` defined here
+   --> src/tts/mod.rs:78:10
+    |
+ 78 | pub enum TtsRuntimeError {
+    |          ^^^^^^^^^^^^^^^
+...
+ 95 |     RemoteConsentMissing,
+    |     -------------------- not covered
+    = note: the matched value is of type `tts::TtsRuntimeError`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+305 ~         },
+306 ~         tts::TtsRuntimeError::RemoteConsentMissing => todo!(),
+    |
+
+error[E0004]: non-exhaustive patterns: `&asr::AsrRuntimeError::RemoteConsentMissing` not covered
+   --> src/app_core/voice_tools.rs:335:22
+    |
+335 |     let code = match error {
+    |                      ^^^^^ pattern `&asr::AsrRuntimeError::RemoteConsentMissing` not covered
+    |
+note: `asr::AsrRuntimeError` defined here
+   --> src/asr/mod.rs:66:10
+    |
+ 66 | pub enum AsrRuntimeError {
+    |          ^^^^^^^^^^^^^^^
+...
+ 74 |     RemoteConsentMissing,
+    |     -------------------- not covered
+    = note: the matched value is of type `&asr::AsrRuntimeError`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+365 ~         AsrRuntimeError::TranscriptionFailed { .. } => "asr_transcription_failed",
+366 ~         &asr::AsrRuntimeError::RemoteConsentMissing => todo!(),
+    |
+
+For more information about this error, try `rustc --explain E0004`.
+error: could not compile `blind_browser` (lib) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `blind_browser` (lib test) due to 2 previous errors
