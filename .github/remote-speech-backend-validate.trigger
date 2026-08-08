@@ -1,1 +1,1 @@
-validate backend capability checkpoint
+validate backend capability checkpoint 2
