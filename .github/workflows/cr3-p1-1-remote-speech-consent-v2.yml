@@ -1,0 +1,135 @@
+name: CR3 P1.1 Remote Speech Consent Gate V2
+
+on:
+  push:
+    branches:
+      - cr3-p1-1-remote-speech-consent-v2
+    paths:
+      - .github/cr3-p1-1-v2.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-checkpoint:
+    if: "${{ github.event.head_commit.message == 'ci: validate CR3 P1.1 patch v2' }}"
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Check out exact trigger SHA
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reconstruct exact bounded patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(cat .github/cr3-p1-1-v2.trigger)" = "cr3-p1-1-remote-speech-consent-v2"
+          find .github -maxdepth 1 -type f -name 'cr3-p1-1-v2.patch.gz.b64.part-*' -print | sort > /tmp/cr3-parts.txt
+          test "$(wc -l < /tmp/cr3-parts.txt)" -eq 3
+          mapfile -t parts < /tmp/cr3-parts.txt
+          cat "${parts[@]}" > /tmp/cr3-p1-1-v2.patch.gz.b64
+          echo "051143cbaafadfb04c4399eb8c90b8fba11c72262f8c5f5a305c08c6a3c33b0d  /tmp/cr3-p1-1-v2.patch.gz.b64" | sha256sum --check --strict
+          base64 --decode /tmp/cr3-p1-1-v2.patch.gz.b64 > /tmp/cr3-p1-1-v2.patch.gz
+          echo "8524f868dd393cfba6594e24718940f86184b82114b5ac062b0802f5bba19356  /tmp/cr3-p1-1-v2.patch.gz" | sha256sum --check --strict
+          gzip --test /tmp/cr3-p1-1-v2.patch.gz
+          gzip --decompress --stdout /tmp/cr3-p1-1-v2.patch.gz > /tmp/cr3-p1-1-v2.patch
+          echo "53490333f1c8bb44491052f3ce336f4c7ac9844c6ec21edb899db050ec173f17  /tmp/cr3-p1-1-v2.patch" | sha256sum --check --strict
+          git apply --check /tmp/cr3-p1-1-v2.patch
+          git apply /tmp/cr3-p1-1-v2.patch
+          rm -f .github/cr3-p1-1-v2.patch.gz.b64.part-* .github/cr3-p1-1-v2.trigger .github/workflows/cr3-p1-1-remote-speech-consent-v2.yml
+          git diff --check
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install Ubuntu native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply deterministic Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml
+
+      - name: Check patch whitespace after formatting
+        run: git diff --check
+
+      - name: Run permanent privacy and fallback scanners
+        run: |
+          bash scripts/check-silent-fallbacks.sh
+          python3 scripts/check-security-fallbacks.py --self-test
+          python3 scripts/check-security-fallbacks.py
+          python3 scripts/check-security-fallback-inventory.py --self-test
+          python3 scripts/check-security-fallback-inventory.py
+          python3 scripts/check-sensitive-diagnostics.py --self-test
+          python3 scripts/check-sensitive-diagnostics.py
+          python3 scripts/check-remote-planner-privacy-state.py --self-test
+          python3 scripts/check-remote-planner-privacy-state.py
+
+      - name: Check default feature configuration
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Run strict Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Run focused direct-command semantic evidence
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features --test post_batch8_direct_command_policy_evidence
+
+      - name: Run complete Rust suite
+        run: bash scripts/run-rust-tests-linux.sh
+
+      - name: Run frontend lint
+        run: pnpm lint
+
+      - name: Run UI tests
+        run: pnpm test:ui
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Commit validated checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git add -A
+          test -n "$(git diff --cached --name-only)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat: complete remote speech consent gate (CR3 P1.1)"
+          git push origin HEAD:cr3-p1-1-remote-speech-consent-v2
