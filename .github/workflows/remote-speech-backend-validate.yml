@@ -34,8 +34,12 @@ jobs:
           gzip --test /tmp/remote-speech-backend.patch.gz
           gzip --decompress --stdout /tmp/remote-speech-backend.patch.gz > /tmp/remote-speech-backend.patch
           echo "283a374c55389066bc531a8c13529d584267cfd1c7120e729f1105542da55551  /tmp/remote-speech-backend.patch" | sha256sum --check --strict
+          echo "6d233d7bc12c1c4d57695ca72e0ff940f8c7204798c1d35cd7ed7c7cd090f43c  .github/remote-speech-backend-supplement.patch" | sha256sum --check --strict
           git apply --check /tmp/remote-speech-backend.patch
           git apply /tmp/remote-speech-backend.patch
+          git apply --check .github/remote-speech-backend-supplement.patch
+          git apply .github/remote-speech-backend-supplement.patch
+          test -f src-tauri/src/app_core/remote_data_consent/microphone_consent.rs
 
       - name: Install native dependencies
         run: |
@@ -88,6 +92,7 @@ jobs:
 
           if [ "$check_status" -eq 0 ] && [ "$clippy_status" -eq 0 ]; then
             rm -f .github/remote-speech-backend-wip.patch.gz.b64 \
+                  .github/remote-speech-backend-supplement.patch \
                   .github/remote-speech-backend-validate.trigger \
                   .github/workflows/remote-speech-backend-validate.yml \
                   .github/remote-speech-rustfmt.txt \
