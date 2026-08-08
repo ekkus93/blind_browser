@@ -30,7 +30,9 @@ ISOLATED_WRY_TESTS=(
   app_core::tests::remote_data_consent_evidence_tests::identity_scope_and_restart_tests::remote_data_privacy_closure_identity_scope_and_restart_are_fail_closed
   app_core::tests::remote_data_consent_evidence_tests::policy_and_disclosure_matrix_tests::remote_data_privacy_closure_policy_and_disclosure_matrix_is_bounded
   app_core::tests::remote_data_consent_evidence_tests::narration_consent_tests::remote_narration_consent_policy_matrix_is_fail_closed
+  app_core::tests::remote_data_consent_evidence_tests::narration_consent_tests::narration_allow_once_authorizes_exact_retry_once
   app_core::tests::remote_data_consent_evidence_tests::narration_consent_tests::remote_microphone_allow_once_authorizes_exact_retry_once
+  app_core::tests::remote_data_consent_evidence_tests::narration_consent_tests::remote_microphone_consent_local_only_blocks_network_but_loopback_is_ungated
   app_core::click_authorization::tests::app_core_evidence_tests::click_authorization_subsystem_is_fail_closed
 )
 
