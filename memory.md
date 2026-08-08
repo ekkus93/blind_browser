@@ -1,3 +1,11 @@
+## 2026-08-08T23:08:22Z - ChatGPT GPT-5.6 Sol - Security/Silent-Failure Hardening 4 closure validated
+
+- Reconciled `docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING4_TODO.md` against the actual current source instead of re-implementing already-landed work. `tempfile = "3"` is already under `[dev-dependencies]`, and `replace_file_atomically` already documents its durability contract and performs fail-closed parent-directory `sync_all()` after rename on Unix.
+- Corrected stale settings-adapter path references across the active/project Hardening 2/3/4 docs so commands and guidance use `src-tauri/src/app_core/settings_adapters.rs`. The negative stale-path check now builds the obsolete path from two strings so the validation command cannot match itself.
+- Corrected stale `pnpm test` instructions to the repository's real `pnpm test:ui` command. Also fixed the config-write static check: the old broad grep matched an intentional `#[cfg(test)]` `std::fs::write` fixture; the final guard checks only production code and still forbids direct production config writes. No safety guard was weakened to permit a production fallback.
+- Exact documentation/static-check reconciliation SHA: `fc9afbb651adf9b7b175bc322997527accf3f902`. Permanent CI run `31282795594`, job `93166691767`: SUCCESS across silent-fallback/security/privacy scanners, rustfmt, default cargo check, strict Clippy `-D warnings`, direct-command semantic evidence, complete Rust/Wry tests, frontend lint/UI tests, and production build.
+- Hardening 4 is closed with all final checklist items satisfied. The source behavior was unchanged by the reconciliation commit because the source-side H4 fixes had already landed on the green base.
+
 ## 2026-08-08T21:58:00Z - ChatGPT GPT-5.6 Sol - BB_CODE_REVIEW3 P1.1 closure validated
 
 - Closed the last actionable CR3 implementation item, P1.1 (remote speech consent). Remote narration and remote ASR now pass through the shared remote-data policy; remote TTS/ASR provider boundaries require crate-private authorization tokens and fail closed without them, while local speech remains ungated.

@@ -31,7 +31,7 @@ Do not mark this TODO complete unless the validation gate actually passes.
 
 ## P0-1 — Move `tempfile` to dev-dependencies
 
-**Status:** PENDING  
+**Status:** DONE — reconciled against current source; `tempfile = "3"` is already dev-only and the exact reconciliation candidate passed the complete Rust suite.
 **Files:**
 
 - `src-tauri/Cargo.toml`
@@ -99,7 +99,7 @@ Expected: tests compile and pass.
 
 ## P0-2 — Fix stale wrong `settings_adapters.rs` path references in docs
 
-**Status:** PENDING  
+**Status:** DONE — corrected the stale path across the active/project Hardening 2/3/4 docs and replaced the self-matching negative search with an executable split-string check.
 **Files:**
 
 - `docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING2_SPEC.md`
@@ -150,7 +150,7 @@ Expected: no active project document contains the obsolete path.
 
 ## P1-1 — Clarify atomic replacement durability guarantees
 
-**Status:** PENDING  
+**Status:** DONE — current source already documents the exact rename + durability semantics, including the Unix directory-entry fsync guarantee and explicit failure behavior.
 **Files:**
 
 - `src-tauri/src/atomic_file.rs`
@@ -219,7 +219,7 @@ Expected: a clear comment exists.
 
 ## P1-2 — Optionally sync parent directory after atomic replacement
 
-**Status:** PENDING  
+**Status:** DONE — current source already fsyncs the containing directory after rename on Unix and returns directory-open/fsync failures instead of silently degrading durability.
 **Files:**
 
 - `src-tauri/src/atomic_file.rs`
@@ -329,7 +329,7 @@ Expected: limitation is documented.
 
 ## P1-3 — Verify Hardening 3 static checks are internally consistent
 
-**Status:** PENDING  
+**Status:** DONE — Hardening 3 static instructions now use the real adapter path, the repository's actual `pnpm test:ui` script, and production-only config-write checks that do not reject intentional test-fixture writes.
 **Files:**
 
 - `docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING3_TODO.md`
@@ -367,7 +367,7 @@ Run the exact static commands listed in Hardening 3 TODO and ensure they pass.
 
 ## P2-1 — Re-run final static checks
 
-**Status:** PENDING  
+**Status:** DONE — targeted Hardening 4 checks passed before commit; permanent CI also passed every fallback/privacy scanner on the exact candidate.
 **Files:**
 
 - no source files unless checks fail
@@ -416,7 +416,7 @@ For the `rg` commands, “no matches” is success.
 
 ## P2-2 — Run full validation gate
 
-**Status:** PENDING  
+**Status:** DONE — exact candidate `fc9afbb651adf9b7b175bc322997527accf3f902` passed permanent CI run `31282795594`, job `93166691767`.
 **Files:**
 
 - no source files unless validation failures require fixes
@@ -439,7 +439,7 @@ Do not mark this task done unless every command passes.
 
 ## P2-3 — Add Hardening 4 memory entry
 
-**Status:** PENDING  
+**Status:** DONE — completion entry recorded at `2026-08-08T23:08:22Z` after P2-1/P2-2 were green.
 **Files:**
 
 - `memory.md`
@@ -468,6 +468,17 @@ Use the actual timestamp. Do not fabricate or reuse a previous timestamp.
 
 ---
 
+## Closure evidence
+
+- Reconciliation/base master: `c6de7be8ec8ee2d9f6f3f834b9837eff5965e487` (already permanent-CI green).
+- Documentation/static-check reconciliation candidate: `fc9afbb651adf9b7b175bc322997527accf3f902`.
+- Permanent CI: run `31282795594`, job `93166691767`, conclusion **SUCCESS** on that exact candidate.
+- The reconciliation candidate changed documentation only. The source-side H4 requirements were already present on the green base: `tempfile` is dev-only, and Unix atomic replacement performs fail-closed parent-directory `sync_all()`.
+- Permanent CI passed silent-fallback/security/privacy scanners, rustfmt, default cargo check, strict all-target/all-feature Clippy, direct-command semantic evidence, the complete Rust/Wry suite, frontend lint, UI tests, and production build.
+- One stale H4 acceptance check was corrected during the loop: the old broad config `fs::write` grep matched an intentional `#[cfg(test)]` fixture write. The final check inspects only production code; no production direct config write is allowed.
+
+---
+
 ## Suggested commit sequence
 
 1. `chore(deps): move tempfile to dev-dependencies`
@@ -480,13 +491,13 @@ Use the actual timestamp. Do not fabricate or reuse a previous timestamp.
 
 ## Final done checklist
 
-- [ ] `tempfile` is only in `[dev-dependencies]`.
-- [ ] Active docs/TODO checks use `src-tauri/src/app_core/settings_adapters.rs`.
-- [ ] No active docs/TODO acceptance command points at the obsolete `commands/` settings-adapter path.
-- [ ] `atomic_file.rs` documents exact replacement/durability semantics.
-- [ ] Parent-directory fsync is implemented where supported, or the limitation is explicitly documented.
-- [ ] Silent-fallback guard script passes.
-- [ ] Direct final-path model write check passes.
-- [ ] Direct config `fs::write` check passes.
-- [ ] Full validation gate passes.
-- [ ] `memory.md` has a real UTC Hardening 4 completion entry.
+- [x] `tempfile` is only in `[dev-dependencies]`.
+- [x] Active docs/TODO checks use `src-tauri/src/app_core/settings_adapters.rs`.
+- [x] No active docs/TODO acceptance command points at the obsolete `commands/` settings-adapter path.
+- [x] `atomic_file.rs` documents exact replacement/durability semantics.
+- [x] Parent-directory fsync is implemented where supported, or the limitation is explicitly documented.
+- [x] Silent-fallback guard script passes.
+- [x] Direct final-path model write check passes.
+- [x] Direct config `fs::write` check passes (production code only; test-fixture writes are excluded).
+- [x] Full validation gate passes on exact candidate `fc9afbb651adf9b7b175bc322997527accf3f902` (run `31282795594`, job `93166691767`).
+- [x] `memory.md` has a real UTC Hardening 4 completion entry (`2026-08-08T23:08:22Z`).
