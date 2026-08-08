@@ -30,11 +30,21 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-          test "$(cat .github/cr3-remote-speech-repair.trigger)" = "validate-v2"
+          test "$(cat .github/cr3-remote-speech-repair.trigger)" = "validate-v3"
           git merge-base --is-ancestor "${REPAIR_BASE_SHA}" HEAD
           git diff --name-only "${REPAIR_BASE_SHA}"..HEAD | sort > /tmp/actual-transport.txt
           cat > /tmp/expected-transport.txt <<'EOF'
           .github/cr3-remote-speech-repair.patch.gz.b64
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-00
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-01
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-02
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-03
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-04
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-05
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-06
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-07
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-08
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-09
           .github/cr3-remote-speech-repair.trigger
           .github/workflows/cr3-remote-speech-repair-validate.yml
           EOF
@@ -44,7 +54,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base64 --decode .github/cr3-remote-speech-repair.patch.gz.b64 > /tmp/cr3-remote-speech-repair.patch.gz
+          cat > /tmp/part-checksums.txt <<'EOF'
+          30935b1585820f5f8a9ab0be78339a8a9ab95d0de7012282427118994a812571  .github/cr3-remote-speech-repair.patch.gz.b64.part-00
+          15070a05fd3f2433b946c814fdfcef4af56cb8a052e6658cafe98683f7480410  .github/cr3-remote-speech-repair.patch.gz.b64.part-01
+          359a99e2e08afc3122e67228b6ae8c190c5910bb89c5992094f5a13ec4472b20  .github/cr3-remote-speech-repair.patch.gz.b64.part-02
+          2bd883cf219e48460229728c1a297cd833c78564d1690f44a6591e6a3d8f50c2  .github/cr3-remote-speech-repair.patch.gz.b64.part-03
+          fd826b30fcdee7700cad4390619d9bc52e0851e240dcc7ca80f098da05931f78  .github/cr3-remote-speech-repair.patch.gz.b64.part-04
+          022bfe40035264e2247a8634abd9310c9e46589ff7bbce6ad14701a51f19bf6c  .github/cr3-remote-speech-repair.patch.gz.b64.part-05
+          3511ae79fa8ef768d3dd3ae8f7190243db5fd6c518390240c7860190befb6f8d  .github/cr3-remote-speech-repair.patch.gz.b64.part-06
+          a458c10f03ca0b0d5b3987c50435b7d8fa9c2169a2c8afc0927cbe5b582fa3ea  .github/cr3-remote-speech-repair.patch.gz.b64.part-07
+          3e5976064f564c69f217fc9546e8c1db639137c494b34d22e6a0b6675ba3afea  .github/cr3-remote-speech-repair.patch.gz.b64.part-08
+          92fa2465f2c7fa2af9d544e943d20ddf66c85bc79ad33d53f5117d2b447534a9  .github/cr3-remote-speech-repair.patch.gz.b64.part-09
+          EOF
+          sha256sum --check --strict /tmp/part-checksums.txt
+          find .github -maxdepth 1 -type f -name 'cr3-remote-speech-repair.patch.gz.b64.part-*' -print | sort > /tmp/cr3-parts.txt
+          test "$(wc -l < /tmp/cr3-parts.txt)" -eq 10
+          mapfile -t parts < /tmp/cr3-parts.txt
+          cat "${parts[@]}" > /tmp/cr3-remote-speech-repair.patch.gz.b64
+          echo "c9e32417ac5401b440e9c66fe58233f3c820a0b82b7456861695387cafb7519b  /tmp/cr3-remote-speech-repair.patch.gz.b64" | sha256sum --check --strict
+          base64 --decode /tmp/cr3-remote-speech-repair.patch.gz.b64 > /tmp/cr3-remote-speech-repair.patch.gz
           echo "408578fc1299114f6feb237e168df9593efcd6cb2633df3e15e490828e76b926  /tmp/cr3-remote-speech-repair.patch.gz" | sha256sum --check --strict
           gzip --test /tmp/cr3-remote-speech-repair.patch.gz
           gzip --decompress --stdout /tmp/cr3-remote-speech-repair.patch.gz > /tmp/cr3-remote-speech-repair.patch
@@ -53,6 +81,7 @@ jobs:
           git apply /tmp/cr3-remote-speech-repair.patch
           rm -f \
             .github/cr3-remote-speech-repair.patch.gz.b64 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-* \
             .github/cr3-remote-speech-repair.trigger \
             .github/workflows/cr3-remote-speech-repair-validate.yml
           git diff --check
@@ -153,6 +182,7 @@ jobs:
           test ! -e .github/workflows/cr3-remote-speech-clippy-diagnostic.yml
           test ! -e .github/workflows/cr3-remote-speech-export.yml
           test ! -e .github/cr3-remote-speech-repair.patch.gz.b64
+          test -z "$(find .github -maxdepth 1 -type f -name 'cr3-remote-speech-repair.patch.gz.b64.part-*' -print -quit)"
           test ! -e .github/cr3-remote-speech-repair.trigger
           test ! -e .github/workflows/cr3-remote-speech-repair-validate.yml
           git diff --check
