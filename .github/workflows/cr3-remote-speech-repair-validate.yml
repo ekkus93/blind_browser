@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-          test "$(cat .github/cr3-remote-speech-repair.trigger)" = "validate-v3"
+          test "$(cat .github/cr3-remote-speech-repair.trigger)" = "validate-v4"
           git merge-base --is-ancestor "${REPAIR_BASE_SHA}" HEAD
           git diff --name-only "${REPAIR_BASE_SHA}"..HEAD | sort > /tmp/actual-transport.txt
           cat > /tmp/expected-transport.txt <<'EOF'
@@ -44,6 +44,11 @@ jobs:
           .github/cr3-remote-speech-repair.patch.gz.b64.part-06
           .github/cr3-remote-speech-repair.patch.gz.b64.part-07
           .github/cr3-remote-speech-repair.patch.gz.b64.part-08
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-08-0
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-08-1
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-08-2
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-08-3
+          .github/cr3-remote-speech-repair.patch.gz.b64.part-08-4
           .github/cr3-remote-speech-repair.patch.gz.b64.part-09
           .github/cr3-remote-speech-repair.trigger
           .github/workflows/cr3-remote-speech-repair-validate.yml
@@ -63,14 +68,31 @@ jobs:
           022bfe40035264e2247a8634abd9310c9e46589ff7bbce6ad14701a51f19bf6c  .github/cr3-remote-speech-repair.patch.gz.b64.part-05
           3511ae79fa8ef768d3dd3ae8f7190243db5fd6c518390240c7860190befb6f8d  .github/cr3-remote-speech-repair.patch.gz.b64.part-06
           a458c10f03ca0b0d5b3987c50435b7d8fa9c2169a2c8afc0927cbe5b582fa3ea  .github/cr3-remote-speech-repair.patch.gz.b64.part-07
-          3e5976064f564c69f217fc9546e8c1db639137c494b34d22e6a0b6675ba3afea  .github/cr3-remote-speech-repair.patch.gz.b64.part-08
+          073a05e943e2f580f7ae79250dc24841cae03943474966bc8b14c87c92bb4d48  .github/cr3-remote-speech-repair.patch.gz.b64.part-08-0
+          589d21357bf84bcc12515cb84c36a1463e42b6c47cb696c9dac675fd5caabec0  .github/cr3-remote-speech-repair.patch.gz.b64.part-08-1
+          d8cd0e88600ccf07f3119d7a4075375675ed5adca1989b7cd735bc308e6fd7b1  .github/cr3-remote-speech-repair.patch.gz.b64.part-08-2
+          6f96d0eb89c747984dded04660bbf4933619d2c6d7685dfcf7509bb767361a09  .github/cr3-remote-speech-repair.patch.gz.b64.part-08-3
+          4887817753dca1f37853482e683737ef38cdc56bbbd3d87a88151167ca2dfe35  .github/cr3-remote-speech-repair.patch.gz.b64.part-08-4
           92fa2465f2c7fa2af9d544e943d20ddf66c85bc79ad33d53f5117d2b447534a9  .github/cr3-remote-speech-repair.patch.gz.b64.part-09
           EOF
           sha256sum --check --strict /tmp/part-checksums.txt
-          find .github -maxdepth 1 -type f -name 'cr3-remote-speech-repair.patch.gz.b64.part-*' -print | sort > /tmp/cr3-parts.txt
-          test "$(wc -l < /tmp/cr3-parts.txt)" -eq 10
-          mapfile -t parts < /tmp/cr3-parts.txt
-          cat "${parts[@]}" > /tmp/cr3-remote-speech-repair.patch.gz.b64
+          cat \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-00 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-01 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-02 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-03 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-04 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-05 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-06 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-07 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-08-0 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-08-1 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-08-2 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-08-3 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-08-4 \
+            .github/cr3-remote-speech-repair.patch.gz.b64.part-09 \
+            > /tmp/cr3-remote-speech-repair.patch.gz.b64
+          test "$(wc -c < /tmp/cr3-remote-speech-repair.patch.gz.b64)" -eq 49012
           echo "c9e32417ac5401b440e9c66fe58233f3c820a0b82b7456861695387cafb7519b  /tmp/cr3-remote-speech-repair.patch.gz.b64" | sha256sum --check --strict
           base64 --decode /tmp/cr3-remote-speech-repair.patch.gz.b64 > /tmp/cr3-remote-speech-repair.patch.gz
           echo "408578fc1299114f6feb237e168df9593efcd6cb2633df3e15e490828e76b926  /tmp/cr3-remote-speech-repair.patch.gz" | sha256sum --check --strict
