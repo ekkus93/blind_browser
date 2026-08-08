@@ -113,13 +113,11 @@ impl RemotePlannerEphemeralGrant {
 /// (mirroring [`super::types::RemotePlannerDataAuthorization`]'s existing
 /// style) rather than three sets of near-identical methods, so the
 /// underlying grant-management logic below stays single-sourced.
-// Remote ASR (microphone audio) doesn't have a disclosure kind here yet --
-// see the module-level doc comment on `super` for why -- so this only
-// selects between the planner and narration grant stores for now.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RemoteDataDisclosureKind {
     PlannerPayload,
     NarrationText,
+    MicrophoneAudio,
 }
 
 impl AppCore {
@@ -130,6 +128,9 @@ impl AppCore {
         match kind {
             RemoteDataDisclosureKind::PlannerPayload => &mut self.remote_planner_ephemeral_grants,
             RemoteDataDisclosureKind::NarrationText => &mut self.remote_narration_ephemeral_grants,
+            RemoteDataDisclosureKind::MicrophoneAudio => {
+                &mut self.remote_microphone_ephemeral_grants
+            }
         }
     }
 
@@ -140,6 +141,7 @@ impl AppCore {
         match kind {
             RemoteDataDisclosureKind::PlannerPayload => &self.remote_planner_ephemeral_grants,
             RemoteDataDisclosureKind::NarrationText => &self.remote_narration_ephemeral_grants,
+            RemoteDataDisclosureKind::MicrophoneAudio => &self.remote_microphone_ephemeral_grants,
         }
     }
 

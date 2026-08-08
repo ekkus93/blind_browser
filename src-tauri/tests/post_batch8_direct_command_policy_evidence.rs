@@ -48,6 +48,13 @@ const EVIDENCE: &[Evidence] = &[
         transmits_page_context: true,
     },
     Evidence {
+        name: "submit_microphone_consent_response",
+        networked: false,
+        credential_bearing: false,
+        verified_model_download: false,
+        transmits_page_context: false,
+    },
+    Evidence {
         name: "start_listening",
         networked: false,
         credential_bearing: false,

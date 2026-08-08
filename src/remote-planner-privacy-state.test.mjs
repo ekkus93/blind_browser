@@ -44,6 +44,8 @@ function createPrivacyStatus() {
         tool_history_count: 1,
         skill_summary_count: 2,
         sanitized_serialized_bytes: 512,
+        narration_text_bytes: 0,
+        microphone_audio_duration_ms: 0,
       },
       expires_at_ms: 123456789,
       allow_once: true,

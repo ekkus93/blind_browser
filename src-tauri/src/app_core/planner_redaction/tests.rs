@@ -124,6 +124,9 @@ fn fixture_agent_state() -> AgentStateData {
             timeout_ms: None,
             endpoint_is_loopback: None,
             availability_reason: None,
+            privacy_network_mode: crate::config::RemotePlannerNetworkMode::AskPerOrigin,
+            privacy_origin_rule_count: 0,
+            privacy_notice: String::new(),
         },
         remote_asr_settings: RemoteAsrSettings {
             profile_name: None,
@@ -140,6 +143,9 @@ fn fixture_agent_state() -> AgentStateData {
             timeout_ms: None,
             endpoint_is_loopback: None,
             availability_reason: None,
+            privacy_network_mode: crate::config::RemotePlannerNetworkMode::AskPerOrigin,
+            privacy_origin_rule_count: 0,
+            privacy_notice: String::new(),
         },
         provider_failover_settings: ProviderFailoverSettings {
             planner_available: false,

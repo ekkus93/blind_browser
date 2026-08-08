@@ -44,6 +44,8 @@ function challenge() {
       tool_history_count: 0,
       skill_summary_count: 0,
       sanitized_serialized_bytes: 64,
+      narration_text_bytes: 0,
+      microphone_audio_duration_ms: 0,
     },
     expires_at_ms: 123456789,
     allow_once: true,
@@ -80,6 +82,14 @@ function createHarness(overrides = {}) {
     },
     submitConsentResponse: async (input) => {
       calls.push(["submitConsentResponse", input]);
+      return { status: "denied" };
+    },
+    submitNarrationConsentResponse: async (input) => {
+      calls.push(["submitNarrationConsentResponse", input]);
+      return { status: "denied" };
+    },
+    submitMicrophoneConsentResponse: async (input) => {
+      calls.push(["submitMicrophoneConsentResponse", input]);
       return { status: "denied" };
     },
     executePlannerOutput: async (requestId, plannerOutput) => {
@@ -123,6 +133,9 @@ function createHarness(overrides = {}) {
     },
     reportGlobalError: (message) => {
       calls.push(["reportGlobalError", message]);
+    },
+    reportGlobalInfo: (message) => {
+      calls.push(["reportGlobalInfo", message]);
     },
     warn: (message, details) => {
       calls.push(["warn", { message, details }]);
@@ -321,4 +334,44 @@ test("backend rejection reports a refresh failure without restoring the challeng
     .map(([, message]) => message);
   assert.equal(errors.length, 2);
   assert.match(errors[1], /runtime status could not be refreshed/);
+});
+
+test("narration consent is submitted to the narration handler instead of the planner handler", async () => {
+  const harness = createHarness({
+    submitNarrationConsentResponse: async (input) => {
+      harness.calls.push(["submitNarrationConsentResponse", input]);
+      return { status: "spoken" };
+    },
+  });
+  harness.executionState.remoteDataConsent.challenge.disclosure_classes = ["narration_text"];
+  harness.executionState.remoteDataConsent.challenge.disclosure_counts.narration_text_bytes = 42;
+
+  const result = await harness.controller.submitConsentDecision("allow_once", "challenge-1");
+
+  assert.equal(result.status, "spoken");
+  assert.equal(harness.executionState.remoteDataConsent.kind, "idle");
+  assert.equal(harness.calls.some(([name]) => name === "submitConsentResponse"), false);
+  assert.equal(harness.calls.some(([name]) => name === "submitNarrationConsentResponse"), true);
+});
+
+test("microphone authorization is routed separately and tells the user to repeat input", async () => {
+  const calls = [];
+  const harness = createHarness({
+    submitMicrophoneConsentResponse: async (input) => {
+      calls.push(["submitMicrophoneConsentResponse", input]);
+      return { status: "authorized_retry_required" };
+    },
+    reportGlobalInfo: (message) => {
+      calls.push(["reportGlobalInfo", message]);
+    },
+  });
+  harness.executionState.remoteDataConsent.challenge.disclosure_classes = ["microphone_audio"];
+  harness.executionState.remoteDataConsent.challenge.disclosure_counts.microphone_audio_duration_ms = 3000;
+
+  const result = await harness.controller.submitConsentDecision("allow_session", "challenge-1");
+
+  assert.equal(result.status, "authorized_retry_required");
+  assert.equal(harness.executionState.remoteDataConsent.kind, "idle");
+  assert.equal(calls[0][0], "submitMicrophoneConsentResponse");
+  assert.match(calls.find(([name]) => name === "reportGlobalInfo")[1], /Repeat the voice input/);
 });

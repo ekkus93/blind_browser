@@ -5,6 +5,7 @@ import {
   setConfirmationError as setConfirmationUiError,
   setConfirmationSubmitting as setConfirmationUiSubmitting,
   setExecutionUiState,
+  stageRemoteDataConsent as stageRemoteDataConsentUi,
   setRemoteDataConsentError as setRemoteDataConsentUiError,
   setRemoteDataConsentSubmitting as setRemoteDataConsentUiSubmitting,
 } from "./app-shell-store";
@@ -25,6 +26,10 @@ export const uiStore: ExecutionUiStore = {
   },
   setConfirmationError: (confirmationId, submissionError) => {
     appShellStore.dispatch(setConfirmationUiError({ confirmationId, submissionError }));
+    return appShellStore.getState().executionUi;
+  },
+  stageRemoteDataConsent: (challenge) => {
+    appShellStore.dispatch(stageRemoteDataConsentUi({ challenge }));
     return appShellStore.getState().executionUi;
   },
   setRemoteDataConsentSubmitting: (challengeId, isSubmitting) => {

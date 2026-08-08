@@ -16,15 +16,10 @@
 //! - [`challenge`] — builds the tamper-evident consent challenge shown to the user
 //! - [`errors`] — shared `ToolError` constructors
 //! - [`narration_consent`] — the narration (remote TTS) disclosure kind
+//! - [`microphone_consent`] — microphone audio sent to remote ASR
 //!
-//! Remote ASR (microphone audio) is not yet gated through this module -- see
-//! CR3 P1.1's TODO note: the policy/grants/origin-rules/challenge machinery
-//! here is already disclosure-kind-generic and ready for it, but wiring the
-//! actual gate needs `execute_transcribe_command`'s synchronous
-//! capture-then-transcribe call to be split into separate phases first (the
-//! way the phased `begin_transcribe_command`/`drain_transcribe_command` path
-//! already is), so is deferred to its own follow-up rather than half-wired
-//! here.
+//! All network speech disclosure is fail-closed here before provider dispatch.
+//! Local TTS/ASR never enters this policy path.
 
 use crate::app_core::planner_redaction::{
     high_risk_context_reason, high_risk_page_context_reason, planner_page_origin, RemoteDataMode,
@@ -47,6 +42,7 @@ mod challenge;
 mod draft;
 mod errors;
 mod grants;
+mod microphone_consent;
 mod narration_consent;
 mod origin_rules;
 mod policy;

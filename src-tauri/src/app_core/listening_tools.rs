@@ -3,13 +3,62 @@ use crate::asr::{
     AsrTranscription, CapturedAudio, DEFAULT_TRANSCRIBE_DURATION_MS, MAX_TRANSCRIBE_DURATION_MS,
 };
 use crate::commands::{
-    StartListeningData, StartListeningInput, StopListeningData, StopListeningInput, ToolError,
-    ToolName, ToolResult, TranscribeCommandData, TranscribeCommandInput,
+    RemotePlannerConsentChallenge, StartListeningData, StartListeningInput, StopListeningData,
+    StopListeningInput, ToolError, ToolName, ToolResult, TranscribeCommandData,
+    TranscribeCommandInput,
 };
 use crate::config::AppConfig;
 use crate::state::ListeningState;
 
+/// Validate the requested capture window without touching microphone state.
+/// This runs before remote privacy evaluation in the lock-released handler so an
+/// invalid request cannot create a consent challenge, while the actual capture
+/// still cannot begin until privacy authorization succeeds.
+pub(crate) fn transcribe_capture_durations(
+    input: &TranscribeCommandInput,
+) -> Result<(u64, u64), Box<ToolResult<TranscribeCommandData>>> {
+    let requested_duration_ms = input
+        .max_duration_ms
+        .unwrap_or(DEFAULT_TRANSCRIBE_DURATION_MS);
+    if requested_duration_ms == 0 {
+        return Err(Box::new(ToolResult::failure(
+            ToolName::TranscribeCommand,
+            input.request_id.clone(),
+            ToolError {
+                code: String::from("invalid_max_duration_ms"),
+                message: String::from(
+                    "transcribe_command requires max_duration_ms to be greater than zero",
+                ),
+                retryable: false,
+                details: None,
+            },
+            vec![String::from(
+                "Transcription request was rejected because the requested capture duration was zero.",
+            )],
+        )));
+    }
+
+    let mut effective_duration_ms = requested_duration_ms.min(MAX_TRANSCRIBE_DURATION_MS);
+    if let Some(timeout_ms) = input.timeout_ms {
+        effective_duration_ms = effective_duration_ms.min(timeout_ms.max(1));
+    }
+    Ok((requested_duration_ms, effective_duration_ms))
+}
+
 /// Build the observation strings shared by both transcription success paths.
+pub(crate) fn microphone_consent_required_error(
+    challenge: &RemotePlannerConsentChallenge,
+) -> ToolError {
+    ToolError {
+        code: String::from("remote_data_consent_required"),
+        message: String::from(
+            "Sending microphone audio to remote transcription requires your permission first. Review the pending privacy decision, then repeat the voice input.",
+        ),
+        retryable: false,
+        details: Some(serde_json::json!({ "challenge": challenge })),
+    }
+}
+
 fn build_transcribe_observations(
     requested_duration_ms: u64,
     effective_duration_ms: u64,
@@ -81,6 +130,11 @@ pub struct TranscribeCapturePlan {
     timeout_ms: Option<u64>,
     auto_stop: bool,
     started_for_this_request: bool,
+    // Snapshot the provider configuration at the same lock-held point where
+    // remote microphone authorization is decided. The unlocked capture window
+    // must not let a concurrent settings change redirect already-authorized
+    // audio to a different endpoint before transcription starts.
+    config: AppConfig,
 }
 
 /// Drained capture carried across the unlocked ASR-transcription window between
@@ -90,14 +144,15 @@ pub struct TranscribeCapturePlan {
 pub struct TranscribePending {
     plan: TranscribeCapturePlan,
     captured_audio: CapturedAudio,
-    config: AppConfig,
     audio_duration_ms: Option<u64>,
 }
 
 impl TranscribePending {
-    /// Borrow the snapshot the unlocked transcription step needs.
+    /// Borrow the provider snapshot and captured audio for the unlocked
+    /// transcription step. The snapshot was taken before capture began, at the
+    /// same lock-held point as the privacy authorization decision.
     pub(crate) fn transcription_inputs(&self) -> (&AppConfig, &CapturedAudio) {
-        (&self.config, &self.captured_audio)
+        (&self.plan.config, &self.captured_audio)
     }
 }
 
@@ -165,6 +220,15 @@ impl super::AppCore {
         )
     }
 
+    /// Drop any active local microphone buffer when a remote transcription is
+    /// blocked or paused for consent. This keeps a failed privacy decision from
+    /// leaving a PTT / hands-free capture session running invisibly while the
+    /// user is resolving the privacy prompt.
+    pub(crate) fn discard_microphone_capture_after_privacy_rejection(&mut self) {
+        self.asr.stop_listening();
+        self.state.set_listening(self.asr.is_listening());
+    }
+
     /// Planner-dispatched `TranscribeCommand` tool path. Runs synchronously under
     /// the held `AppCore` lock by design — it executes inside a plan as one locked
     /// transaction (already off the main thread). The top-level handler path
@@ -176,36 +240,47 @@ impl super::AppCore {
         &mut self,
         input: TranscribeCommandInput,
     ) -> ToolResult<TranscribeCommandData> {
-        let requested_duration_ms = input
-            .max_duration_ms
-            .unwrap_or(DEFAULT_TRANSCRIBE_DURATION_MS);
-        if requested_duration_ms == 0 {
-            return ToolResult::failure(
-                ToolName::TranscribeCommand,
-                input.request_id,
-                ToolError {
-                    code: String::from("invalid_max_duration_ms"),
-                    message: String::from(
-                        "transcribe_command requires max_duration_ms to be greater than zero",
-                    ),
-                    retryable: false,
-                    details: None,
-                },
-                vec![String::from(
-                    "Transcription request was rejected because the requested capture duration was zero.",
-                )],
-            );
-        }
+        let (requested_duration_ms, effective_duration_ms) =
+            match transcribe_capture_durations(&input) {
+                Ok(durations) => durations,
+                Err(rejected) => return *rejected,
+            };
 
-        let mut effective_duration_ms = requested_duration_ms.min(MAX_TRANSCRIBE_DURATION_MS);
-        if let Some(timeout_ms) = input.timeout_ms {
-            effective_duration_ms = effective_duration_ms.min(timeout_ms.max(1));
-        }
+        let remote_authorization = match self.prepare_microphone_transcription(&input) {
+            Ok(super::remote_data_consent::MicrophonePreparation::Authorized(authorization)) => {
+                authorization
+            }
+            Ok(super::remote_data_consent::MicrophonePreparation::ConsentRequired {
+                challenge,
+            }) => {
+                self.discard_microphone_capture_after_privacy_rejection();
+                return ToolResult::failure(
+                    ToolName::TranscribeCommand,
+                    input.request_id,
+                    microphone_consent_required_error(&challenge),
+                    vec![String::from(
+                        "Remote transcription paused before microphone audio was sent.",
+                    )],
+                );
+            }
+            Err(error) => {
+                self.discard_microphone_capture_after_privacy_rejection();
+                return ToolResult::failure(
+                    ToolName::TranscribeCommand,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "Remote transcription was blocked by the microphone privacy policy.",
+                    )],
+                );
+            }
+        };
 
         match self.asr.transcribe_command(
             &self.config,
             effective_duration_ms,
             input.stop_mode.auto_stops(),
+            remote_authorization,
         ) {
             Ok(result) => {
                 self.state.set_listening(result.listening_active);
@@ -242,31 +317,7 @@ impl super::AppCore {
         &mut self,
         input: &TranscribeCommandInput,
     ) -> Result<TranscribeCapturePlan, Box<ToolResult<TranscribeCommandData>>> {
-        let requested_duration_ms = input
-            .max_duration_ms
-            .unwrap_or(DEFAULT_TRANSCRIBE_DURATION_MS);
-        if requested_duration_ms == 0 {
-            return Err(Box::new(ToolResult::failure(
-                ToolName::TranscribeCommand,
-                input.request_id.clone(),
-                ToolError {
-                    code: String::from("invalid_max_duration_ms"),
-                    message: String::from(
-                        "transcribe_command requires max_duration_ms to be greater than zero",
-                    ),
-                    retryable: false,
-                    details: None,
-                },
-                vec![String::from(
-                    "Transcription request was rejected because the requested capture duration was zero.",
-                )],
-            )));
-        }
-
-        let mut effective_duration_ms = requested_duration_ms.min(MAX_TRANSCRIBE_DURATION_MS);
-        if let Some(timeout_ms) = input.timeout_ms {
-            effective_duration_ms = effective_duration_ms.min(timeout_ms.max(1));
-        }
+        let (requested_duration_ms, effective_duration_ms) = transcribe_capture_durations(input)?;
 
         match self.asr.begin_capture(input.stop_mode.auto_stops()) {
             Ok(started_for_this_request) => {
@@ -278,6 +329,7 @@ impl super::AppCore {
                     timeout_ms: input.timeout_ms,
                     auto_stop: input.stop_mode.auto_stops(),
                     started_for_this_request,
+                    config: self.config.clone(),
                 })
             }
             Err(error) => {
@@ -314,7 +366,6 @@ impl super::AppCore {
                 TranscribeDrainOutcome::Pending(Box::new(TranscribePending {
                     plan,
                     captured_audio,
-                    config: self.config.clone(),
                     audio_duration_ms,
                 }))
             }

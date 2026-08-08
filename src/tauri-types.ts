@@ -296,6 +296,11 @@ export interface RemotePlannerSettings {
   remote_data_notice: string;
 }
 
+export type RemoteSpeechPrivacyNetworkMode =
+  | "local_only"
+  | "ask_per_origin"
+  | "allow_sanitized_non_high_risk";
+
 export interface RemoteTtsSettings {
   profile_name: string | null;
   provider: RemoteProviderLabel | null;
@@ -311,6 +316,9 @@ export interface RemoteTtsSettings {
   timeout_ms: number | null;
   endpoint_is_loopback: boolean | null;
   availability_reason: CapabilityAbsenceReason | null;
+  privacy_network_mode: RemoteSpeechPrivacyNetworkMode;
+  privacy_origin_rule_count: number;
+  privacy_notice: string;
 }
 
 export interface RemoteAsrSettings {
@@ -328,6 +336,9 @@ export interface RemoteAsrSettings {
   timeout_ms: number | null;
   endpoint_is_loopback: boolean | null;
   availability_reason: CapabilityAbsenceReason | null;
+  privacy_network_mode: RemoteSpeechPrivacyNetworkMode;
+  privacy_origin_rule_count: number;
+  privacy_notice: string;
 }
 
 export interface SetRemoteApiKeyData {

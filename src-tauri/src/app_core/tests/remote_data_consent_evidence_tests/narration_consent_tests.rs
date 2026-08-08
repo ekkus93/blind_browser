@@ -156,7 +156,203 @@ fn remote_narration_consent_policy_matrix_is_fail_closed() {
         )
         .expect("loopback narration endpoint should not require consent");
     assert!(
-        matches!(loopback, NarrationPreparation::Authorized),
+        matches!(loopback, NarrationPreparation::Authorized(_)),
         "loopback narration endpoint unexpectedly required consent"
     );
+}
+
+const ASR_PROFILE: &str = "openai-asr-consent-evidence";
+const ASR_MODEL: &str = "consent-evidence-asr-model";
+
+fn configure_remote_asr(core: &mut crate::app_core::AppCore, base_url: &str) {
+    core.config.providers.asr.mode = ProviderMode::Remote;
+    core.config.providers.asr.remote_profile = Some(String::from(ASR_PROFILE));
+    core.config.remote_asr_profiles.insert(
+        String::from(ASR_PROFILE),
+        crate::config::RemoteAsrProfile {
+            provider: RemoteProviderKind::OpenAi,
+            base_url: base_url.to_string(),
+            model: String::from(ASR_MODEL),
+            api_key: SecretRef::FromEnv {
+                from_env: String::from("BLIND_BROWSER_TEST_UNUSED_ASR_KEY"),
+            },
+            organization: None,
+            project: None,
+            language: Some(String::from("en")),
+            temperature_milli: 0,
+            timeout_ms: 5_000,
+        },
+    );
+}
+
+#[test]
+#[cfg_attr(
+    any(windows, target_os = "linux"),
+    ignore = "real Wry AppCore fixture must run in a process-isolated test invocation"
+)]
+#[cfg_attr(
+    not(any(windows, target_os = "linux")),
+    ignore = "real Wry AppCore fixture requires Tauri's any-thread desktop builder"
+)]
+fn narration_allow_once_authorizes_exact_retry_once() {
+    use crate::app_core::remote_data_consent::NarrationConsentResolution;
+    use crate::commands::RemotePlannerConsentDecision;
+
+    let (app, _config_root) = test_app();
+    let (mut core, _secret) = test_core(&app);
+    configure_remote_tts(&mut core, "https://api.example.com/v1");
+
+    let first = core
+        .prepare_narration_request(
+            "read this region aloud",
+            String::from("narration-allow-once"),
+            resume("intro"),
+        )
+        .expect("narration should reach consent");
+    let challenge = match first {
+        NarrationPreparation::ConsentRequired { challenge } => *challenge,
+        NarrationPreparation::Authorized(_) => panic!("ask-per-origin unexpectedly authorized"),
+    };
+
+    let resolution = core
+        .resolve_narration_consent(
+            &challenge.challenge_id,
+            &challenge.challenge_digest,
+            RemotePlannerConsentDecision::AllowOnce,
+        )
+        .expect("allow-once response should resolve");
+    assert!(matches!(
+        resolution,
+        NarrationConsentResolution::Authorized { .. }
+    ));
+
+    let authorized_retry = core
+        .prepare_narration_request(
+            "read this region aloud",
+            String::from("narration-allow-once-retry"),
+            resume("intro"),
+        )
+        .expect("the exact narration payload should consume the one-shot grant");
+    assert!(matches!(
+        authorized_retry,
+        NarrationPreparation::Authorized(_)
+    ));
+
+    let second_retry = core
+        .prepare_narration_request(
+            "read this region aloud",
+            String::from("narration-allow-once-second-retry"),
+            resume("intro"),
+        )
+        .expect("the consumed grant should return to normal policy evaluation");
+    assert!(matches!(
+        second_retry,
+        NarrationPreparation::ConsentRequired { .. }
+    ));
+}
+
+#[test]
+#[cfg_attr(
+    any(windows, target_os = "linux"),
+    ignore = "real Wry AppCore fixture must run in a process-isolated test invocation"
+)]
+#[cfg_attr(
+    not(any(windows, target_os = "linux")),
+    ignore = "real Wry AppCore fixture requires Tauri's any-thread desktop builder"
+)]
+fn remote_microphone_consent_local_only_blocks_network_but_loopback_is_ungated() {
+    use crate::app_core::remote_data_consent::MicrophonePreparation;
+    use crate::commands::{TranscribeCommandInput, TranscriptionStopMode};
+    use crate::config::RemotePlannerNetworkMode;
+
+    let (app, _config_root) = test_app();
+    let (mut core, _secret) = test_core(&app);
+    configure_remote_asr(&mut core, "https://api.example.com/v1");
+    core.config.remote_microphone_privacy.network_mode = RemotePlannerNetworkMode::LocalOnly;
+
+    let input = TranscribeCommandInput {
+        request_id: String::from("remote-asr-local-only"),
+        timeout_ms: None,
+        max_duration_ms: Some(250),
+        stop_mode: TranscriptionStopMode::AutoStop,
+    };
+    let blocked = core
+        .prepare_microphone_transcription(&input)
+        .expect_err("local-only mode must block non-loopback remote ASR");
+    assert_eq!(blocked.code, "remote_data_local_only");
+
+    configure_remote_asr(&mut core, "http://127.0.0.1:8089/v1");
+    let loopback = core
+        .prepare_microphone_transcription(&input)
+        .expect("loopback ASR must bypass remote-data consent");
+    assert!(matches!(
+        loopback,
+        MicrophonePreparation::Authorized(Some(_))
+    ));
+}
+#[test]
+#[cfg_attr(
+    any(windows, target_os = "linux"),
+    ignore = "real Wry AppCore fixture must run in a process-isolated test invocation"
+)]
+#[cfg_attr(
+    not(any(windows, target_os = "linux")),
+    ignore = "real Wry AppCore fixture requires Tauri's any-thread desktop builder"
+)]
+fn remote_microphone_allow_once_authorizes_exact_retry_once() {
+    use crate::app_core::remote_data_consent::{
+        MicrophoneConsentResolution, MicrophonePreparation,
+    };
+    use crate::commands::{
+        RemotePlannerConsentDecision, TranscribeCommandInput, TranscriptionStopMode,
+    };
+
+    let (app, _config_root) = test_app();
+    let (mut core, _secret) = test_core(&app);
+    configure_remote_asr(&mut core, "https://api.example.com/v1");
+
+    let input = TranscribeCommandInput {
+        request_id: String::from("remote-asr-allow-once"),
+        timeout_ms: None,
+        max_duration_ms: Some(250),
+        stop_mode: TranscriptionStopMode::AutoStop,
+    };
+    let first = core
+        .prepare_microphone_transcription(&input)
+        .expect("remote ASR should reach consent");
+    let challenge = match first {
+        MicrophonePreparation::ConsentRequired { challenge } => *challenge,
+        MicrophonePreparation::Authorized(_) => panic!("ask-per-origin unexpectedly authorized"),
+    };
+
+    let resolution = core
+        .resolve_microphone_consent(
+            &challenge.challenge_id,
+            &challenge.challenge_digest,
+            RemotePlannerConsentDecision::AllowOnce,
+        )
+        .expect("allow-once response should resolve");
+    assert!(matches!(
+        resolution,
+        MicrophoneConsentResolution::AuthorizedRetryRequired
+    ));
+
+    let mut retry = input.clone();
+    retry.request_id = String::from("remote-asr-allow-once-retry");
+    let authorized_retry = core
+        .prepare_microphone_transcription(&retry)
+        .expect("the exact microphone request semantics should consume the one-shot grant");
+    assert!(matches!(
+        authorized_retry,
+        MicrophonePreparation::Authorized(Some(_))
+    ));
+
+    retry.request_id = String::from("remote-asr-allow-once-second-retry");
+    let second_retry = core
+        .prepare_microphone_transcription(&retry)
+        .expect("the consumed microphone grant should return to normal policy evaluation");
+    assert!(matches!(
+        second_retry,
+        MicrophonePreparation::ConsentRequired { .. }
+    ));
 }
