@@ -1,0 +1,171 @@
+name: CR3 Remote Speech Authorization Repair Validation
+
+on:
+  push:
+    branches:
+      - cr3-remote-speech-materialize
+    paths:
+      - .github/cr3-remote-speech-repair.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-checkpoint:
+    if: "${{ github.event.head_commit.message == 'ci: validate remote speech authorization repair' }}"
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_TERM_COLOR: always
+      REPAIR_BASE_SHA: 5879747178df9ba77f7ac0a2f879a644c5890abc
+    steps:
+      - name: Check out exact trigger SHA
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify repair transport lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(cat .github/cr3-remote-speech-repair.trigger)" = "validate"
+          git merge-base --is-ancestor "${REPAIR_BASE_SHA}" HEAD
+          git diff --name-only "${REPAIR_BASE_SHA}"..HEAD | sort > /tmp/actual-transport.txt
+          cat > /tmp/expected-transport.txt <<'EOF'
+          .github/cr3-remote-speech-repair.patch.gz.b64
+          .github/cr3-remote-speech-repair.trigger
+          .github/workflows/cr3-remote-speech-repair-validate.yml
+          EOF
+          diff -u /tmp/expected-transport.txt /tmp/actual-transport.txt
+
+      - name: Reconstruct exact bounded repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "c9e32417ac5401b440e9c66fe58233f3c820a0b82b7456861695387cafb7519b  .github/cr3-remote-speech-repair.patch.gz.b64" | sha256sum --check --strict
+          base64 --decode .github/cr3-remote-speech-repair.patch.gz.b64 > /tmp/cr3-remote-speech-repair.patch.gz
+          echo "408578fc1299114f6feb237e168df9593efcd6cb2633df3e15e490828e76b926  /tmp/cr3-remote-speech-repair.patch.gz" | sha256sum --check --strict
+          gzip --test /tmp/cr3-remote-speech-repair.patch.gz
+          gzip --decompress --stdout /tmp/cr3-remote-speech-repair.patch.gz > /tmp/cr3-remote-speech-repair.patch
+          echo "82d44226a5853167cec6778fbc240a9df3cc2639131e9343b47201b9e7cc30c9  /tmp/cr3-remote-speech-repair.patch" | sha256sum --check --strict
+          git apply --check /tmp/cr3-remote-speech-repair.patch
+          git apply /tmp/cr3-remote-speech-repair.patch
+          rm -f \
+            .github/cr3-remote-speech-repair.patch.gz.b64 \
+            .github/cr3-remote-speech-repair.trigger \
+            .github/workflows/cr3-remote-speech-repair-validate.yml
+          git diff --check
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install Ubuntu native dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            clang \
+            libclang-dev \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libleptonica-dev \
+            libtesseract-dev \
+            tesseract-ocr \
+            xvfb
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply deterministic Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml
+
+      - name: Check repository whitespace
+        run: git diff --check
+
+      - name: Run permanent privacy and fallback scanners
+        run: |
+          bash scripts/check-silent-fallbacks.sh
+          python3 scripts/check-security-fallbacks.py --self-test
+          python3 scripts/check-security-fallbacks.py
+          python3 scripts/check-security-fallback-inventory.py --self-test
+          python3 scripts/check-security-fallback-inventory.py
+          python3 scripts/check-sensitive-diagnostics.py --self-test
+          python3 scripts/check-sensitive-diagnostics.py
+          python3 scripts/check-remote-planner-privacy-state.py --self-test
+          python3 scripts/check-remote-planner-privacy-state.py
+
+      - name: Check default feature configuration
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Run strict Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Run focused remote speech privacy evidence
+        run: |
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features remote_data_consent
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features remote_narration
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features remote_microphone
+
+      - name: Run complete Rust suite
+        run: bash scripts/run-rust-tests-linux.sh
+
+      - name: Run frontend lint
+        run: pnpm lint
+
+      - name: Run UI tests
+        run: pnpm test:ui
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Run structural authorization assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F "authorization: RemoteTtsAuthorization" src-tauri/src/tts/remote.rs
+          grep -F "authorization: RemoteAsrAuthorization" src-tauri/src/asr/remote.rs
+          ! grep -R -F "RemoteTtsAuthorization::for_test" src-tauri/src
+          ! grep -R -F "authorized_retry_required" src src-tauri/src
+          ! grep -R -F "captured audio was not sent and has been discarded" src
+          test ! -e .github/cr3-remote-speech-clippy.exit
+          test ! -e .github/cr3-remote-speech-clippy.trigger
+          test ! -e .github/cr3-remote-speech-clippy.txt
+          test ! -e .github/cr3-remote-speech-export.trigger
+          test ! -e .github/workflows/cr3-remote-speech-clippy-diagnostic.yml
+          test ! -e .github/workflows/cr3-remote-speech-export.yml
+          test ! -e .github/cr3-remote-speech-repair.patch.gz.b64
+          test ! -e .github/cr3-remote-speech-repair.trigger
+          test ! -e .github/workflows/cr3-remote-speech-repair-validate.yml
+          git diff --check
+
+      - name: Commit validated implementation checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          test -n "$(git diff --cached --name-only)"
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat: enforce typed remote speech authorization"
+          git push origin HEAD:cr3-remote-speech-materialize
