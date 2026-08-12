@@ -167,7 +167,7 @@ where
     )
 }
 
-pub(super) fn resume_after_confirmation_with_runner_and_context<Runner>(
+pub(crate) fn resume_after_confirmation_with_runner_and_context<Runner>(
     pending_plan_execution: &PendingPlanExecutionState,
     confirmation_id: &str,
     confirmation_digest: &str,

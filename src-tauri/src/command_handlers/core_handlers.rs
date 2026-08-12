@@ -20,8 +20,11 @@ pub async fn execute_planner_output(
 ) -> Result<ExecutionOutcome, ToolError> {
     let core = Arc::clone(&app_core);
     tauri::async_runtime::spawn_blocking(move || {
-        let mut guard = lock_app_core(&core)?;
-        Ok(guard.execute_planner_output(request_id, &planner_output))
+        Ok(crate::app_core::execute_planner_output_lock_scoped(
+            &core,
+            request_id,
+            &planner_output,
+        ))
     })
     .await
     .map_err(join_error_to_tool_error)?
@@ -66,12 +69,8 @@ pub async fn submit_remote_planner_consent_response(
     .map_err(join_error_to_tool_error)?
 }
 
-// Runs in `spawn_blocking` so a (possibly network-bound, for a remote TTS
-// provider) narration synthesis triggered by an authorized decision doesn't
-// block the async worker threads -- held under a single lock acquisition,
-// consistent with every other narration-triggering tool call (read_region,
-// read_next_region, ...), which already hold the lock for the same
-// synthesis + playback duration today.
+// Runs in `spawn_blocking`; remote narration synthesis uses the same
+// lock-scoped prepare -> unlocked HTTP -> commit path as planner narration.
 #[tauri::command]
 pub async fn submit_narration_consent_response(
     challenge_id: String,
@@ -81,8 +80,12 @@ pub async fn submit_narration_consent_response(
 ) -> Result<NarrationConsentResponseOutcome, ToolError> {
     let core = Arc::clone(&app_core);
     tauri::async_runtime::spawn_blocking(move || {
-        let mut guard = lock_app_core(&core)?;
-        guard.submit_narration_consent_response(&challenge_id, &challenge_digest, decision)
+        crate::app_core::submit_narration_consent_response_lock_scoped(
+            &core,
+            challenge_id,
+            challenge_digest,
+            decision,
+        )
     })
     .await
     .map_err(join_error_to_tool_error)?
@@ -134,13 +137,13 @@ pub async fn submit_confirmation_response(
 ) -> Result<ConfirmActionResolution, ToolError> {
     let core = Arc::clone(&app_core);
     tauri::async_runtime::spawn_blocking(move || {
-        let mut guard = lock_app_core(&core)?;
-        Ok(guard.submit_confirmation_response(
-            &confirmation_id,
-            &confirmation_digest,
+        crate::app_core::submit_confirmation_response_lock_scoped(
+            &core,
+            confirmation_id,
+            confirmation_digest,
             confirmed,
             timed_out,
-        ))
+        )
     })
     .await
     .map_err(join_error_to_tool_error)?

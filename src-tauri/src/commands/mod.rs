@@ -36,6 +36,10 @@ pub use routing::*;
 pub use schemas::*;
 pub use validators::*;
 
+pub(crate) use planner_executor::{
+    execute_planner_output_with_runtime_safety_and_runner, execute_serialized_step,
+    preflight_rejection, resume_after_confirmation_with_runner,
+};
 #[cfg(test)]
 pub(crate) use planner_executor::execute_planner_output_with_runner;
 #[cfg(test)]

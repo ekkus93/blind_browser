@@ -9,14 +9,7 @@ pub fn execute_planned_step<E: DeterministicToolExecutor>(
     step: &PlannedStep,
 ) -> SerializedToolResult {
     if let Err(error) = executor.preflight_planned_step(step) {
-        return ToolResult::failure(
-            step.tool_name.clone(),
-            inferred_request_id(step),
-            error,
-            vec![String::from(
-                "Runtime preflight rejected the planned step before dispatch.",
-            )],
-        );
+        return preflight_rejection(step, error);
     }
 
     match step.tool_name {
@@ -218,8 +211,21 @@ where
     Output: Serialize,
     Handler: FnOnce(&mut E, Input) -> ToolResult<Output>,
 {
+    execute_serialized_step(step, tool_name, |input| handler(executor, input))
+}
+
+pub(crate) fn execute_serialized_step<Input, Output, Handler>(
+    step: &PlannedStep,
+    tool_name: ToolName,
+    handler: Handler,
+) -> SerializedToolResult
+where
+    Input: for<'de> Deserialize<'de>,
+    Output: Serialize,
+    Handler: FnOnce(Input) -> ToolResult<Output>,
+{
     match serde_json::from_value::<Input>(step.arguments.clone()) {
-        Ok(input) => serialize_tool_result(handler(executor, input)),
+        Ok(input) => serialize_tool_result(handler(input)),
         Err(error) => ToolResult::failure(
             tool_name,
             inferred_request_id(step),
@@ -237,6 +243,17 @@ where
             )],
         ),
     }
+}
+
+pub(crate) fn preflight_rejection(step: &PlannedStep, error: ToolError) -> SerializedToolResult {
+    ToolResult::failure(
+        step.tool_name.clone(),
+        inferred_request_id(step),
+        error,
+        vec![String::from(
+            "Runtime preflight rejected the planned step before dispatch.",
+        )],
+    )
 }
 
 // "Side-effecting" here means one narrow thing: whether a step queued

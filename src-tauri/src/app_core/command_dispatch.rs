@@ -12,9 +12,9 @@ use crate::commands::{
     resolve_direct_open_url_command, resolve_direct_read_page_command,
     resolve_direct_read_title_command, resolve_direct_repeat_command,
     resolve_direct_status_query_command, resolve_direct_voice_input_command,
-    validate_planner_output_with_safety, AvailableTool, ExecutionOutcome, PlannerInput,
-    PlannerOutput, PlannerSafetySettings, PlannerToolHistoryEntry, SerializedToolResult,
-    SkillDiscoveryDiagnostics, ToolError, ToolName,
+    validate_planner_output_with_safety, AvailableTool, ConfirmationRuntimeContext,
+    ExecutionOutcome, PlannerInput, PlannerOutput, PlannerSafetySettings, PlannerToolHistoryEntry,
+    SerializedToolResult, SkillDiscoveryDiagnostics, ToolError, ToolName,
 };
 use crate::config::{RemotePlannerPrivacySettings, RemotePlannerProfile};
 
@@ -73,28 +73,73 @@ impl ValidatedPlannerOutput {
     }
 }
 
+pub(crate) struct PreparedPlannerExecution {
+    pub(crate) planner_output: PlannerOutput,
+    pub(crate) safety: PlannerSafetySettings,
+    pub(crate) confirmation_context: ConfirmationRuntimeContext,
+    pub(crate) lock_scoped_execution_token: String,
+    pub(crate) listening_state: bool,
+}
+
 impl super::AppCore {
-    pub fn execute_planner_output(
+    pub(crate) fn begin_lock_scoped_plan_execution(&mut self) -> Result<(), ToolError> {
+        if self.lock_scoped_plan_execution_active {
+            return Err(ToolError {
+                code: String::from("planner_execution_in_progress"),
+                message: String::from(
+                    "another planner execution is already in progress; retry after it finishes",
+                ),
+                retryable: true,
+                details: None,
+            });
+        }
+        self.lock_scoped_plan_execution_active = true;
+        Ok(())
+    }
+
+    pub(crate) fn end_lock_scoped_plan_execution(&mut self) {
+        self.lock_scoped_plan_execution_active = false;
+    }
+
+    pub(crate) fn prepare_planner_execution(
         &mut self,
-        request_id: String,
         planner_output: &PlannerOutput,
-    ) -> ExecutionOutcome {
+    ) -> Result<PreparedPlannerExecution, ExecutionOutcome> {
         if let Err(error) = self.validate_and_consume_planning_snapshot(planner_output) {
             let outcome = planner_snapshot_validation_outcome(error);
             self.state.apply_execution_outcome(&outcome);
-            return outcome;
+            return Err(outcome);
         }
         let prepared = match self.prepare_planner_output_for_execution(planner_output) {
             Ok(prepared) => prepared,
             Err(error) => {
                 let outcome = planner_execution_abort(error);
                 self.state.apply_execution_outcome(&outcome);
-                return outcome;
+                return Err(outcome);
             }
         };
         let safety = PlannerSafetySettings::from(&self.config.safety);
-        let mut outcome =
-            execute_planner_output_with_runtime_safety(self, request_id, &prepared, &safety);
+        let confirmation_context = ConfirmationRuntimeContext::current(
+            self.state.confirmation_page_identity(),
+            self.state
+                .current_page
+                .as_ref()
+                .and_then(|page| page.url.clone()),
+        );
+        Ok(PreparedPlannerExecution {
+            planner_output: prepared,
+            safety,
+            confirmation_context,
+            lock_scoped_execution_token: self
+                .current_lock_scoped_execution_token_without_listening(),
+            listening_state: self.current_lock_scoped_listening_state(),
+        })
+    }
+
+    pub(crate) fn finish_planner_execution(
+        &mut self,
+        mut outcome: ExecutionOutcome,
+    ) -> ExecutionOutcome {
         self.state.apply_execution_outcome(&outcome);
         if let ExecutionOutcome::AwaitingConfirmation {
             pending_plan_execution,
@@ -108,6 +153,24 @@ impl super::AppCore {
             }
         }
         outcome
+    }
+
+    pub fn execute_planner_output(
+        &mut self,
+        request_id: String,
+        planner_output: &PlannerOutput,
+    ) -> ExecutionOutcome {
+        let prepared = match self.prepare_planner_execution(planner_output) {
+            Ok(prepared) => prepared,
+            Err(outcome) => return outcome,
+        };
+        let outcome = execute_planner_output_with_runtime_safety(
+            self,
+            request_id,
+            &prepared.planner_output,
+            &prepared.safety,
+        );
+        self.finish_planner_execution(outcome)
     }
 
     /// Deterministic resolution phase: try every direct-command resolver, and if

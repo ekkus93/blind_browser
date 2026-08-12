@@ -512,3 +512,31 @@ fn source_drift_external_launch_retains_validated_url_and_user_gesture_policy() 
     assert!(policy.contains("ValidatedHttpUrlWithUserGesture"));
     assert!(policy.contains("requires_user_gesture"));
 }
+
+#[test]
+fn p1_2_planner_speech_io_is_routed_through_lock_scoped_phases() {
+    let handlers = source("src/command_handlers/core_handlers.rs");
+    let replanning = source("src/app_core/replanning_orchestrator.rs");
+    let lock_scoped = source("src/app_core/lock_scoped_tools.rs");
+    let tts_remote = source("src/tts/remote.rs");
+
+    assert!(handlers.contains("execute_planner_output_lock_scoped"));
+    assert!(handlers.contains("submit_confirmation_response_lock_scoped"));
+    assert!(handlers.contains("submit_narration_consent_response_lock_scoped"));
+    assert!(replanning.contains("LockScopedStepRunner"));
+    assert!(replanning.contains("execute_planner_output_with_runtime_safety_and_runner"));
+    assert!(replanning.contains("resume_after_confirmation_with_runner"));
+    assert!(!replanning.contains("guard.execute_planner_output("));
+
+    // The capture wait and remote synthesis call live in the lock-scoped runner,
+    // outside the lexical scopes that own an AppCore guard.
+    assert!(lock_scoped.contains("thread::sleep(Duration::from_millis(effective_duration_ms))"));
+    assert!(lock_scoped.contains("transcribe_captured_audio(config, captured_audio"));
+    assert!(lock_scoped.contains("synthesize_prepared_remote_narration(synthesis)"));
+    assert!(lock_scoped.contains("current_lock_scoped_execution_token_without_listening"));
+
+    // Remote TTS request.send() and response decoding are materialized into an
+    // owned prepared request that can execute with no AppCore reference.
+    assert!(tts_remote.contains("pub(super) fn synthesize_prepared_remote("));
+    assert!(tts_remote.contains("prepared.request.send()"));
+}

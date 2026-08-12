@@ -6,7 +6,13 @@ mod tool_dispatch;
 
 #[cfg(test)]
 pub(crate) use execution::execute_planner_output_with_runner;
+pub(crate) use execution::{
+    execute_planner_output_with_runner_and_context
+        as execute_planner_output_with_runtime_safety_and_runner,
+    resume_after_confirmation_with_runner_and_context as resume_after_confirmation_with_runner,
+};
 pub use tool_dispatch::execute_planned_step;
+pub(crate) use tool_dispatch::{execute_serialized_step, preflight_rejection};
 
 struct StepExecutionContext<'a> {
     request_id: String,

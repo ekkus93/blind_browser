@@ -1,45 +1,52 @@
 use crate::commands::{
     resume_after_confirmation_with_context, ConfirmActionData, ConfirmActionInput,
     ConfirmActionResolution, ConfirmationRuntimeContext, ExecutionOutcome, ExecutionTrace,
-    ToolError, ToolName, ToolResult,
+    PendingPlanExecutionState, ToolError, ToolName, ToolResult,
 };
 
+pub(crate) struct PreparedConfirmationResume {
+    pub(crate) pending_plan_execution: PendingPlanExecutionState,
+    pub(crate) confirmation_context: ConfirmationRuntimeContext,
+    pub(crate) lock_scoped_execution_token: String,
+    pub(crate) listening_state: bool,
+}
+
 impl super::AppCore {
-    pub fn resume_after_confirmation(
+    pub(crate) fn prepare_confirmation_resume(
         &mut self,
         confirmation_id: &str,
         confirmation_digest: &str,
         confirmed: bool,
-    ) -> ExecutionOutcome {
+    ) -> Result<PreparedConfirmationResume, ExecutionOutcome> {
         let Some(pending_plan_execution) = self.state.pending_plan_execution.clone() else {
-            return confirmation_abort(
+            return Err(confirmation_abort(
                 "missing_pending_execution",
                 "there is no pending plan execution to resume for confirmation",
                 None,
-            );
+            ));
         };
 
         if self.state.pending_confirmation_id.as_deref() != Some(confirmation_id)
             || pending_plan_execution.confirmation_id != confirmation_id
         {
-            return confirmation_abort(
+            return Err(confirmation_abort(
                 "confirmation_id_mismatch",
                 "confirmation response did not match the stored pending confirmation id",
                 Some(serde_json::json!({
                     "expected_confirmation_id": self.state.pending_confirmation_id,
                     "received_confirmation_id": confirmation_id,
                 })),
-            );
+            ));
         }
 
         if pending_plan_execution.manifest_digest != confirmation_digest {
-            return confirmation_abort(
+            return Err(confirmation_abort(
                 "confirmation_digest_mismatch",
                 "confirmation response did not match the stored pending action manifest",
                 Some(serde_json::json!({
                     "received_digest_present": !confirmation_digest.trim().is_empty(),
                 })),
-            );
+            ));
         }
 
         let confirmation_context = ConfirmationRuntimeContext::current(
@@ -54,13 +61,13 @@ impl super::AppCore {
             if let Err(error) =
                 self.preflight_pending_click_authorizations(&pending_plan_execution.queued_steps)
             {
-                return ExecutionOutcome::Aborted {
+                return Err(ExecutionOutcome::Aborted {
                     trace: ExecutionTrace {
                         executed_step_ids: Vec::new(),
                         tool_results: Vec::new(),
                     },
                     error,
-                };
+                });
             }
 
             let observed_runtime_state_token = self.current_runtime_state_token();
@@ -70,27 +77,48 @@ impl super::AppCore {
                 let expected_runtime_state_token =
                     pending_plan_execution.runtime_state_token.clone();
                 self.state.clear_pending_execution();
-                return confirmation_abort(
+                return Err(confirmation_abort(
                     "stale_confirmation_runtime_state",
                     "runtime or relevant configuration state changed while confirmation was pending",
                     Some(serde_json::json!({
                         "expected_runtime_state_token": expected_runtime_state_token,
                         "observed_runtime_state_token": observed_runtime_state_token,
                     })),
-                );
+                ));
             }
         }
 
-        // Matching challenges are consumed before dispatch so duplicate responses,
-        // re-entrant UI events, and retries cannot execute the protected action twice.
         self.state.clear_pending_execution();
-        let outcome = resume_after_confirmation_with_context(
-            self,
-            &pending_plan_execution,
+        Ok(PreparedConfirmationResume {
+            pending_plan_execution,
+            confirmation_context,
+            lock_scoped_execution_token: self
+                .current_lock_scoped_execution_token_without_listening(),
+            listening_state: self.current_lock_scoped_listening_state(),
+        })
+    }
+
+    pub fn resume_after_confirmation(
+        &mut self,
+        confirmation_id: &str,
+        confirmation_digest: &str,
+        confirmed: bool,
+    ) -> ExecutionOutcome {
+        let prepared = match self.prepare_confirmation_resume(
             confirmation_id,
             confirmation_digest,
             confirmed,
-            &confirmation_context,
+        ) {
+            Ok(prepared) => prepared,
+            Err(outcome) => return outcome,
+        };
+        let outcome = resume_after_confirmation_with_context(
+            self,
+            &prepared.pending_plan_execution,
+            confirmation_id,
+            confirmation_digest,
+            confirmed,
+            &prepared.confirmation_context,
         );
         self.state.apply_execution_outcome(&outcome);
         outcome

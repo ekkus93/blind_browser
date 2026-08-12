@@ -43,6 +43,37 @@ impl super::AppCore {
         self.runtime_state_components().runtime_state_token
     }
 
+    /// Runtime token used only while one already-authorized plan is executing
+    /// across a deliberately unlocked speech-I/O window. It excludes the
+    /// listening flag so `stop_listening` can interrupt capture, but includes
+    /// the rest of the planner-relevant configuration plus narration state.
+    /// The runner separately verifies that a listening-state change is only
+    /// the permitted true -> false transition.
+    pub(crate) fn current_lock_scoped_execution_token_without_listening(&self) -> String {
+        let page_id = self.state.current_page_id.clone();
+        let origin = normalized_origin(
+            self.state
+                .current_page
+                .as_ref()
+                .and_then(|page| page.url.as_deref()),
+        );
+        let safety = PlannerSafetySettings::from(&self.config.safety);
+        let relevant_config_fingerprint = self.lock_scoped_execution_fingerprint();
+        build_runtime_state_token(
+            page_id.as_deref(),
+            self.state.page_generation,
+            origin.as_deref(),
+            &self.state.browser_history,
+            &safety,
+            &relevant_config_fingerprint,
+            self.state.pending_confirmation_id.as_deref(),
+        )
+    }
+
+    pub(crate) fn current_lock_scoped_listening_state(&self) -> bool {
+        self.state.listening.is_listening
+    }
+
     pub(crate) fn register_planning_snapshot(
         &mut self,
         planner_output: &PlannerOutput,
@@ -180,6 +211,27 @@ impl super::AppCore {
         });
         let encoded =
             serde_json::to_vec(&value).expect("relevant runtime configuration should serialize");
+        format!("{:x}", Sha256::digest(encoded))
+    }
+
+    fn lock_scoped_execution_fingerprint(&self) -> String {
+        let value = serde_json::json!({
+            "safety": &self.config.safety,
+            "planner_provider": &self.config.providers.planner,
+            "remote_planner_privacy": &self.config.remote_planner_privacy,
+            "tts_provider": &self.config.providers.tts,
+            "asr_provider": &self.config.providers.asr,
+            "ocr": &self.config.ocr,
+            "browser_visibility": self.state.browser_visibility,
+            "audio": &self.state.audio,
+            "speaking": self.state.speaking,
+            "speaking_region_id": &self.state.speaking_region_id,
+            "narration_cursor": &self.state.narration_cursor,
+            "last_transcript": &self.state.last_transcript,
+            "push_to_talk_enabled": self.state.listening.push_to_talk_enabled,
+        });
+        let encoded = serde_json::to_vec(&value)
+            .expect("lock-scoped execution state should serialize");
         format!("{:x}", Sha256::digest(encoded))
     }
 }

@@ -90,6 +90,9 @@ pub struct AppCore {
     pending_narration_consent: Option<remote_data_consent::PendingNarrationConsent>,
     remote_microphone_ephemeral_grants: Vec<remote_data_consent::RemotePlannerEphemeralGrant>,
     pending_microphone_consent: Option<remote_data_consent::PendingMicrophoneConsent>,
+    // Preserve the old executor's serialization guarantee while allowing the
+    // AppCore mutex itself to be released around blocking speech I/O.
+    lock_scoped_plan_execution_active: bool,
 }
 
 mod api_key_tools;
@@ -117,6 +120,7 @@ use element_scoring::region_bbox_by_id;
 mod interaction_tools;
 
 mod listening_tools;
+mod lock_scoped_tools;
 pub(crate) use listening_tools::{microphone_consent_required_error, transcribe_capture_durations};
 pub use listening_tools::{TranscribeCapturePlan, TranscribeDrainOutcome, TranscribePending};
 mod reading_tools;
@@ -138,7 +142,9 @@ mod planning_snapshot;
 mod replanning;
 mod replanning_orchestrator;
 pub(crate) use replanning_orchestrator::{
-    resolve_command_lock_scoped, run_command_with_lock_scoped_replanning,
+    execute_planner_output_lock_scoped, resolve_command_lock_scoped,
+    run_command_with_lock_scoped_replanning, submit_confirmation_response_lock_scoped,
+    submit_narration_consent_response_lock_scoped,
     submit_remote_planner_consent_response_lock_scoped,
 };
 
@@ -181,6 +187,7 @@ impl AppCore {
             pending_narration_consent: None,
             remote_microphone_ephemeral_grants: Vec::new(),
             pending_microphone_consent: None,
+            lock_scoped_plan_execution_active: false,
         })
     }
 

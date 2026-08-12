@@ -125,7 +125,7 @@ where
     }
 }
 
-pub(in crate::commands::planner_executor) fn inferred_request_id(step: &PlannedStep) -> String {
+pub(crate) fn inferred_request_id(step: &PlannedStep) -> String {
     step.arguments
         .get("request_id")
         .and_then(serde_json::Value::as_str)

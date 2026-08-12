@@ -7,6 +7,7 @@ use crate::commands::{RemotePlannerConsentChallenge, ToolError};
 use crate::config::ProviderMode;
 use crate::narration::{cursor_for_index, find_region_index, spoken_text_for_region};
 use crate::page_model::PageRegion;
+use crate::tts::{CompletedRemoteNarration, PreparedRemoteNarration};
 
 /// Outcome of a narration attempt that may need to pause for remote-data
 /// consent instead of completing: mirrors the planner's own
@@ -97,6 +98,104 @@ impl AppCore {
         Ok((region_index, regions[region_index].clone()))
     }
 
+    pub(crate) fn prepare_remote_region_narration(
+        &mut self,
+        region_index: usize,
+        region: &PageRegion,
+        interrupt_current: bool,
+        request_id: &str,
+    ) -> Result<NarrationAttempt<PreparedRemoteNarration>, ToolError> {
+        self.sync_narration_playback_state();
+        if self.state.speaking && !interrupt_current {
+            return Err(ToolError {
+                code: String::from("speech_in_progress"),
+                message: String::from(
+                    "a narration region is already active; set interruption_mode to Interrupt to replace it",
+                ),
+                retryable: false,
+                details: Some(serde_json::json!({
+                    "active_region_id": self.state.speaking_region_id.clone(),
+                })),
+            });
+        }
+
+        let spoken_text = spoken_text_for_region(region);
+        if spoken_text.trim().is_empty() {
+            return Err(ToolError {
+                code: String::from("empty_region_text"),
+                message: String::from(
+                    "narration tool requires the selected region to contain readable text",
+                ),
+                retryable: false,
+                details: Some(serde_json::json!({
+                    "region_id": region.region_id,
+                    "region_index": region_index,
+                })),
+            });
+        }
+        if !matches!(self.config.providers.tts.mode, ProviderMode::Remote) {
+            return Err(ToolError {
+                code: String::from("remote_tts_not_selected"),
+                message: String::from("lock-scoped remote narration requires a remote TTS provider"),
+                retryable: false,
+                details: None,
+            });
+        }
+
+        let resume = NarrationResumeContext::Region {
+            region_id: region.region_id.clone(),
+            interrupt_current,
+        };
+        let authorization = match self.prepare_narration_request(
+            &spoken_text,
+            request_id.to_string(),
+            resume,
+        )? {
+            NarrationPreparation::ConsentRequired { challenge } => {
+                return Ok(NarrationAttempt::ConsentRequired(challenge));
+            }
+            NarrationPreparation::Authorized(authorization) => authorization,
+        };
+        let synthesis = self
+            .tts
+            .prepare_remote_narration(
+                &self.config,
+                &self.state.audio,
+                &spoken_text,
+                authorization,
+            )
+            .map_err(tts_runtime_error_to_tool_error)?;
+        Ok(NarrationAttempt::Completed(synthesis))
+    }
+
+    pub(crate) fn finish_remote_region_narration(
+        &mut self,
+        region_index: usize,
+        region: &PageRegion,
+        completed: CompletedRemoteNarration,
+    ) -> Result<Option<String>, ToolError> {
+        let speech = self
+            .tts
+            .commit_prepared_remote_narration(completed)
+            .map_err(tts_runtime_error_to_tool_error)?;
+        let interrupted_region_id = if self.state.speaking {
+            self.stop_narration_playback()
+        } else {
+            None
+        };
+        self.playback
+            .play_samples(
+                speech.samples,
+                speech.channels,
+                speech.sample_rate,
+                self.state.audio.playback_volume,
+            )
+            .map_err(audio_playback_error_to_tool_error)?;
+        self.state.narration_cursor = cursor_for_index(self.readable_regions()?, region_index);
+        self.state.start_speaking_region(region.region_id.clone());
+        Ok(interrupted_region_id)
+    }
+
     pub(super) fn begin_region_narration(
         &mut self,
         region_index: usize,
@@ -183,6 +282,78 @@ impl AppCore {
         Ok(NarrationAttempt::Completed(interrupted_region_id))
     }
 
+    pub(crate) fn prepare_remote_feedback_narration(
+        &mut self,
+        spoken_text: &str,
+        request_id: &str,
+    ) -> Result<NarrationAttempt<PreparedRemoteNarration>, ToolError> {
+        let spoken_text = spoken_text.trim();
+        if spoken_text.is_empty() {
+            return Err(ToolError {
+                code: String::from("empty_report_summary"),
+                message: String::from("spoken feedback requires a non-empty summary"),
+                retryable: false,
+                details: None,
+            });
+        }
+        self.sync_narration_playback_state();
+        if !matches!(self.config.providers.tts.mode, ProviderMode::Remote) {
+            return Err(ToolError {
+                code: String::from("remote_tts_not_selected"),
+                message: String::from("lock-scoped remote narration requires a remote TTS provider"),
+                retryable: false,
+                details: None,
+            });
+        }
+        let resume = NarrationResumeContext::Feedback {
+            spoken_text: spoken_text.to_string(),
+        };
+        let authorization = match self.prepare_narration_request(
+            spoken_text,
+            request_id.to_string(),
+            resume,
+        )? {
+            NarrationPreparation::ConsentRequired { challenge } => {
+                return Ok(NarrationAttempt::ConsentRequired(challenge));
+            }
+            NarrationPreparation::Authorized(authorization) => authorization,
+        };
+        let synthesis = self
+            .tts
+            .prepare_remote_narration(
+                &self.config,
+                &self.state.audio,
+                spoken_text,
+                authorization,
+            )
+            .map_err(tts_runtime_error_to_tool_error)?;
+        Ok(NarrationAttempt::Completed(synthesis))
+    }
+
+    pub(crate) fn finish_remote_feedback_narration(
+        &mut self,
+        completed: CompletedRemoteNarration,
+    ) -> Result<(), ToolError> {
+        let speech = self
+            .tts
+            .commit_prepared_remote_narration(completed)
+            .map_err(tts_runtime_error_to_tool_error)?;
+        if self.state.speaking {
+            self.stop_narration_playback();
+        }
+        self.playback
+            .play_samples(
+                speech.samples,
+                speech.channels,
+                speech.sample_rate,
+                self.state.audio.playback_volume,
+            )
+            .map_err(audio_playback_error_to_tool_error)?;
+        self.state
+            .start_speaking_region(String::from("report-result-feedback"));
+        Ok(())
+    }
+
     pub(super) fn begin_feedback_narration(
         &mut self,
         spoken_text: &str,
@@ -266,75 +437,4 @@ impl AppCore {
         }
     }
 
-    /// Resolve a pending narration consent challenge and, if authorized,
-    /// redo exactly the paused narration attempt (see `NarrationResumeContext`)
-    /// -- re-entering `begin_region_narration`/`begin_feedback_narration`,
-    /// which this time proceed because the grant `resolve_narration_consent`
-    /// just installed makes the policy re-evaluation pass.
-    pub(crate) fn submit_narration_consent_response(
-        &mut self,
-        challenge_id: &str,
-        challenge_digest: &str,
-        decision: crate::commands::RemotePlannerConsentDecision,
-    ) -> Result<crate::commands::NarrationConsentResponseOutcome, ToolError> {
-        use super::remote_data_consent::NarrationConsentResolution;
-        use crate::commands::{
-            NarrationConsentResponseOutcome, RemotePlannerConsentResponseOutcome,
-        };
-
-        match self.resolve_narration_consent(challenge_id, challenge_digest, decision)? {
-            NarrationConsentResolution::Terminal(RemotePlannerConsentResponseOutcome::Denied) => {
-                Ok(NarrationConsentResponseOutcome::Denied)
-            }
-            NarrationConsentResolution::Terminal(
-                RemotePlannerConsentResponseOutcome::BlockedPersistent,
-            ) => Ok(NarrationConsentResponseOutcome::BlockedPersistent),
-            NarrationConsentResolution::Terminal(_) => Err(ToolError {
-                code: String::from("remote_data_consent_internal_error"),
-                message: String::from(
-                    "narration consent resolution returned an unexpected terminal outcome",
-                ),
-                retryable: false,
-                details: None,
-            }),
-            NarrationConsentResolution::Authorized { resume } => {
-                let resume_request_id = self.next_id("narration-consent-resume", challenge_id);
-                let reevaluation_failed = || ToolError {
-                    code: String::from("remote_data_consent_reevaluation_failed"),
-                    message: String::from(
-                        "narration still required consent immediately after it was just granted",
-                    ),
-                    retryable: false,
-                    details: None,
-                };
-                match resume {
-                    NarrationResumeContext::Region {
-                        region_id,
-                        interrupt_current,
-                    } => {
-                        let (region_index, region) = self.region_by_id(&region_id)?;
-                        match self.begin_region_narration(
-                            region_index,
-                            &region,
-                            interrupt_current,
-                            &resume_request_id,
-                        )? {
-                            NarrationAttempt::Completed(_) => {
-                                Ok(NarrationConsentResponseOutcome::Spoken)
-                            }
-                            NarrationAttempt::ConsentRequired(_) => Err(reevaluation_failed()),
-                        }
-                    }
-                    NarrationResumeContext::Feedback { spoken_text } => {
-                        match self.begin_feedback_narration(&spoken_text, &resume_request_id)? {
-                            NarrationAttempt::Completed(()) => {
-                                Ok(NarrationConsentResponseOutcome::Spoken)
-                            }
-                            NarrationAttempt::ConsentRequired(_) => Err(reevaluation_failed()),
-                        }
-                    }
-                }
-            }
-        }
-    }
 }

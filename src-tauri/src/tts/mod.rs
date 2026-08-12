@@ -12,7 +12,7 @@ use crate::app_core::remote_data_consent::RemoteNarrationAuthorization;
 use crate::audio_io::RuntimeAudioState;
 use crate::config::{AppConfig, ProviderMode};
 use crate::resource_limits::{
-    tts_requests, MAX_TTS_INPUT_TEXT_BYTES, SYNTHESIZED_SPEECH_CACHE_MAX_BYTES,
+    tts_requests, MAX_TTS_INPUT_TEXT_BYTES, OperationPermit, SYNTHESIZED_SPEECH_CACHE_MAX_BYTES,
     SYNTHESIZED_SPEECH_CACHE_MAX_COUNT,
 };
 
@@ -72,6 +72,22 @@ pub struct SynthesizedSpeech {
     pub sample_rate: u32,
     pub channels: u16,
     pub samples: Vec<f32>,
+}
+
+pub(crate) struct PreparedRemoteNarration {
+    _permit: OperationPermit<'static>,
+    prepared: PreparedRemoteNarrationKind,
+}
+
+enum PreparedRemoteNarrationKind {
+    Cached(SynthesizedSpeech),
+    #[cfg(feature = "remote-openai")]
+    Synthesis(Box<remote::PreparedRemoteTtsSynthesis>),
+}
+
+pub(crate) struct CompletedRemoteNarration {
+    speech: SynthesizedSpeech,
+    cache_key: Option<CachedSpeechKey>,
 }
 
 #[derive(Debug, Error)]
@@ -149,6 +165,73 @@ impl TtsController {
             local_model: None,
             synthesized_speech_cache: VecDeque::new(),
         }
+    }
+
+    pub(crate) fn prepare_remote_narration(
+        &mut self,
+        config: &AppConfig,
+        runtime_audio: &RuntimeAudioState,
+        text: &str,
+        remote_authorization: RemoteNarrationAuthorization,
+    ) -> Result<PreparedRemoteNarration, TtsRuntimeError> {
+        let normalized_text = text.trim();
+        if normalized_text.is_empty() {
+            return Err(TtsRuntimeError::EmptyNarrationText);
+        }
+        if normalized_text.len() > MAX_TTS_INPUT_TEXT_BYTES {
+            return Err(TtsRuntimeError::NarrationTextTooLarge {
+                actual_bytes: normalized_text.len(),
+                maximum_bytes: MAX_TTS_INPUT_TEXT_BYTES,
+            });
+        }
+        if !matches!(config.providers.tts.mode, ProviderMode::Remote) {
+            return Err(TtsRuntimeError::RemoteConsentMissing);
+        }
+        let _authorization = remote_authorization;
+        let permit: OperationPermit<'static> =
+            tts_requests()
+                .try_acquire()
+                .map_err(|limit| TtsRuntimeError::OperationLimited {
+                    reason: limit.to_string(),
+                })?;
+
+        #[cfg(not(feature = "remote-openai"))]
+        {
+            let _ = config;
+            let _ = runtime_audio;
+            let _ = normalized_text;
+            let _ = permit;
+            Err(TtsRuntimeError::RemoteTtsFeatureUnavailable)
+        }
+
+        #[cfg(feature = "remote-openai")]
+        {
+            let prepared = match self.prepare_remote(config, runtime_audio, normalized_text)? {
+                remote::PreparedRemoteTts::Cached(speech) => {
+                    PreparedRemoteNarrationKind::Cached(speech)
+                }
+                remote::PreparedRemoteTts::Synthesis(synthesis) => {
+                    PreparedRemoteNarrationKind::Synthesis(synthesis)
+                }
+            };
+            Ok(PreparedRemoteNarration {
+                _permit: permit,
+                prepared,
+            })
+        }
+    }
+
+    pub(crate) fn commit_prepared_remote_narration(
+        &mut self,
+        completed: CompletedRemoteNarration,
+    ) -> Result<SynthesizedSpeech, TtsRuntimeError> {
+        if completed.speech.samples.is_empty() {
+            return Err(TtsRuntimeError::EmptySynthesizedAudio);
+        }
+        if let Some(cache_key) = completed.cache_key {
+            self.store_cached_speech(cache_key, completed.speech.clone());
+        }
+        Ok(completed.speech)
     }
 
     pub(crate) fn synthesize_narration(
@@ -251,6 +334,29 @@ impl TtsController {
             .iter()
             .map(|entry| synthesized_speech_cache_entry_bytes(&entry.key, &entry.speech))
             .sum()
+    }
+}
+
+pub(crate) fn synthesize_prepared_remote_narration(
+    prepared: PreparedRemoteNarration,
+) -> Result<CompletedRemoteNarration, TtsRuntimeError> {
+    let PreparedRemoteNarration {
+        _permit,
+        prepared,
+    } = prepared;
+    match prepared {
+        PreparedRemoteNarrationKind::Cached(speech) => Ok(CompletedRemoteNarration {
+            speech,
+            cache_key: None,
+        }),
+        #[cfg(feature = "remote-openai")]
+        PreparedRemoteNarrationKind::Synthesis(synthesis) => {
+            let completed = remote::synthesize_prepared_remote(*synthesis)?;
+            Ok(CompletedRemoteNarration {
+                speech: completed.speech,
+                cache_key: Some(completed.cache_key),
+            })
+        }
     }
 }
 

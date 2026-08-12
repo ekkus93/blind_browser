@@ -23,6 +23,27 @@ use super::{CachedSpeechKey, SynthesizedSpeech, TtsController, TtsProviderKind, 
 #[cfg(feature = "remote-openai")]
 use super::{OPENAI_REMOTE_TTS_MAX_SPEED, OPENAI_REMOTE_TTS_MIN_SPEED, OPENAI_TTS_VOICES};
 
+#[cfg(feature = "remote-openai")]
+pub(super) enum PreparedRemoteTts {
+    Cached(SynthesizedSpeech),
+    Synthesis(Box<PreparedRemoteTtsSynthesis>),
+}
+
+#[cfg(feature = "remote-openai")]
+pub(super) struct PreparedRemoteTtsSynthesis {
+    request: reqwest::blocking::RequestBuilder,
+    timeout_ms: u64,
+    audio_format: RemoteTtsAudioFormat,
+    voice: String,
+    cache_key: CachedSpeechKey,
+}
+
+#[cfg(feature = "remote-openai")]
+pub(super) struct CompletedRemoteTtsSynthesis {
+    pub(super) speech: SynthesizedSpeech,
+    pub(super) cache_key: CachedSpeechKey,
+}
+
 impl TtsController {
     pub(super) fn synthesize_remote(
         &mut self,
@@ -32,27 +53,13 @@ impl TtsController {
     ) -> Result<SynthesizedSpeech, TtsRuntimeError> {
         #[cfg(feature = "remote-openai")]
         {
-            let profile_name = config
-                .providers
-                .tts
-                .remote_profile
-                .as_ref()
-                .ok_or(TtsRuntimeError::MissingRemoteProfile)?;
-            let profile = config
-                .remote_tts_profiles
-                .get(profile_name)
-                .ok_or_else(|| TtsRuntimeError::MissingRemoteProfileDefinition {
-                    profile_name: profile_name.clone(),
-                })?;
-
-            match &profile.provider {
-                RemoteProviderKind::OpenAi => {
-                    self.synthesize_with_openai_remote(profile_name, profile, runtime_audio, text)
+            match self.prepare_remote(config, runtime_audio, text)? {
+                PreparedRemoteTts::Cached(speech) => Ok(speech),
+                PreparedRemoteTts::Synthesis(prepared) => {
+                    let completed = synthesize_prepared_remote(*prepared)?;
+                    self.store_cached_speech(completed.cache_key, completed.speech.clone());
+                    Ok(completed.speech)
                 }
-                other => Err(TtsRuntimeError::UnsupportedRemoteProvider {
-                    profile_name: profile_name.clone(),
-                    provider: format!("{other:?}"),
-                }),
             }
         }
 
@@ -66,13 +73,44 @@ impl TtsController {
     }
 
     #[cfg(feature = "remote-openai")]
-    fn synthesize_with_openai_remote(
+    pub(super) fn prepare_remote(
+        &mut self,
+        config: &AppConfig,
+        runtime_audio: &RuntimeAudioState,
+        text: &str,
+    ) -> Result<PreparedRemoteTts, TtsRuntimeError> {
+        let profile_name = config
+            .providers
+            .tts
+            .remote_profile
+            .as_ref()
+            .ok_or(TtsRuntimeError::MissingRemoteProfile)?;
+        let profile = config
+            .remote_tts_profiles
+            .get(profile_name)
+            .ok_or_else(|| TtsRuntimeError::MissingRemoteProfileDefinition {
+                profile_name: profile_name.clone(),
+            })?;
+
+        match &profile.provider {
+            RemoteProviderKind::OpenAi => {
+                self.prepare_openai_remote(profile_name, profile, runtime_audio, text)
+            }
+            other => Err(TtsRuntimeError::UnsupportedRemoteProvider {
+                profile_name: profile_name.clone(),
+                provider: format!("{other:?}"),
+            }),
+        }
+    }
+
+    #[cfg(feature = "remote-openai")]
+    fn prepare_openai_remote(
         &mut self,
         profile_name: &str,
         profile: &RemoteTtsProfile,
         runtime_audio: &RuntimeAudioState,
         text: &str,
-    ) -> Result<SynthesizedSpeech, TtsRuntimeError> {
+    ) -> Result<PreparedRemoteTts, TtsRuntimeError> {
         let endpoint_scope = ProviderEndpointScope::parse(&profile.base_url)
             .map_err(|reason| TtsRuntimeError::RemoteRequestBuildFailed { reason })?;
         let client = reqwest::blocking::Client::builder()
@@ -99,7 +137,7 @@ impl TtsController {
             text: text.to_string(),
         };
         if let Some(cached) = self.cached_speech(&cache_key) {
-            return Ok(cached);
+            return Ok(PreparedRemoteTts::Cached(cached));
         }
         let response_format = openai_speech_response_format_value(profile.audio_format.clone());
         let endpoint = endpoint_scope
@@ -128,51 +166,67 @@ impl TtsController {
             request = request.header("OpenAI-Project", project);
         }
 
-        let response = request.send().map_err(|error| {
-            if error.is_timeout() {
-                TtsRuntimeError::RemoteRequestTimedOut {
-                    timeout_ms: profile.timeout_ms.max(1),
-                }
-            } else {
-                TtsRuntimeError::RemoteRequestFailed {
-                    reason: error.to_string(),
+        Ok(PreparedRemoteTts::Synthesis(Box::new(
+            PreparedRemoteTtsSynthesis {
+                request,
+                timeout_ms: profile.timeout_ms.max(1),
+                audio_format: profile.audio_format.clone(),
+                voice,
+                cache_key,
+            },
+        )))
+    }
+}
+
+#[cfg(feature = "remote-openai")]
+pub(super) fn synthesize_prepared_remote(
+    prepared: PreparedRemoteTtsSynthesis,
+) -> Result<CompletedRemoteTtsSynthesis, TtsRuntimeError> {
+    let response = prepared.request.send().map_err(|error| {
+        if error.is_timeout() {
+            TtsRuntimeError::RemoteRequestTimedOut {
+                timeout_ms: prepared.timeout_ms,
+            }
+        } else {
+            TtsRuntimeError::RemoteRequestFailed {
+                reason: error.to_string(),
+            }
+        }
+    })?;
+    if !response.status().is_success() {
+        return Err(TtsRuntimeError::RemoteHttpStatus {
+            status: response.status().as_u16(),
+        });
+    }
+    let response_bytes = read_bounded_response(response, MAX_TTS_RESPONSE_BYTES).map_err(
+        |error| match error {
+            BoundedResponseError::DeclaredTooLarge { maximum, .. }
+            | BoundedResponseError::BodyTooLarge { maximum } => {
+                TtsRuntimeError::RemoteResponseTooLarge {
+                    maximum_bytes: maximum,
                 }
             }
-        })?;
-        if !response.status().is_success() {
-            return Err(TtsRuntimeError::RemoteHttpStatus {
-                status: response.status().as_u16(),
-            });
-        }
-        let response_bytes = read_bounded_response(response, MAX_TTS_RESPONSE_BYTES).map_err(
-            |error| match error {
-                BoundedResponseError::DeclaredTooLarge { maximum, .. }
-                | BoundedResponseError::BodyTooLarge { maximum } => {
-                    TtsRuntimeError::RemoteResponseTooLarge {
-                        maximum_bytes: maximum,
-                    }
-                }
-                BoundedResponseError::ReadFailed(error) => TtsRuntimeError::RemoteRequestFailed {
-                    reason: error.to_string(),
-                },
+            BoundedResponseError::ReadFailed(error) => TtsRuntimeError::RemoteRequestFailed {
+                reason: error.to_string(),
             },
-        )?;
-        record_resource_size("remote_tts_response", response_bytes.len());
+        },
+    )?;
+    record_resource_size("remote_tts_response", response_bytes.len());
 
-        match profile.audio_format {
-            RemoteTtsAudioFormat::Wav => {
-                let decoded = decode_wav_samples(&response_bytes)
-                    .map_err(|reason| TtsRuntimeError::RemoteResponseDecodeFailed { reason })?;
-                let speech = SynthesizedSpeech {
+    match prepared.audio_format {
+        RemoteTtsAudioFormat::Wav => {
+            let decoded = decode_wav_samples(&response_bytes)
+                .map_err(|reason| TtsRuntimeError::RemoteResponseDecodeFailed { reason })?;
+            Ok(CompletedRemoteTtsSynthesis {
+                speech: SynthesizedSpeech {
                     provider: TtsProviderKind::Remote,
-                    voice,
+                    voice: prepared.voice,
                     sample_rate: decoded.sample_rate,
                     channels: decoded.channels,
                     samples: decoded.samples,
-                };
-                self.store_cached_speech(cache_key, speech.clone());
-                Ok(speech)
-            }
+                },
+                cache_key: prepared.cache_key,
+            })
         }
     }
 }
