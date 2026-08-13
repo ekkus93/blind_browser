@@ -63,6 +63,9 @@ pub(crate) struct PlanningStateSnapshot {
     pub origin: Option<String>,
     pub browser_history: BrowserHistoryState,
     pub safety: PlannerSafetySettings,
+    /// Skills that were eligible when the bound planner output was validated.
+    /// This is plan provenance, not mutable runtime state.
+    pub active_skill_names: Vec<String>,
     pub relevant_config_fingerprint: String,
     pub runtime_state_token: String,
     pub pending_confirmation_id: Option<String>,

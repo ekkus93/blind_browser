@@ -50,7 +50,10 @@ pub(crate) enum PlannerResolution {
 /// policy gap, not a compile error. Requiring a `ValidatedPlannerOutput` to
 /// build a `Direct` closes that: there is no path to one that skips
 /// validation, so a forgotten call is a compile error, not a silent gap.
-pub(crate) struct ValidatedPlannerOutput(PlannerOutput);
+pub(crate) struct ValidatedPlannerOutput {
+    planner_output: PlannerOutput,
+    active_skill_names: Vec<String>,
+}
 
 impl ValidatedPlannerOutput {
     fn new(
@@ -65,11 +68,14 @@ impl ValidatedPlannerOutput {
             active_skill_names,
             safety,
         )?;
-        Ok(Self(planner_output))
+        Ok(Self {
+            planner_output,
+            active_skill_names: active_skill_names.to_vec(),
+        })
     }
 
-    pub(crate) fn into_inner(self) -> PlannerOutput {
-        self.0
+    pub(crate) fn into_parts(self) -> (PlannerOutput, Vec<String>) {
+        (self.planner_output, self.active_skill_names)
     }
 }
 

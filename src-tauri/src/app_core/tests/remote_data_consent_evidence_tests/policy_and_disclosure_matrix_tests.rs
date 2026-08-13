@@ -126,6 +126,7 @@ fn remote_data_privacy_closure_policy_and_disclosure_matrix_is_bounded() {
     core.register_planning_snapshot(
         &stop_speaking_after_persistent_allow,
         persistent.planning_snapshot,
+        &[],
     )
     .expect("registering the pre-persist snapshot should not fail on its own");
     match core.execute_planner_output(

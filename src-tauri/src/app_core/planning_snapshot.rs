@@ -1,7 +1,8 @@
 use sha2::{Digest, Sha256};
 
 use crate::commands::{
-    current_timestamp_ms, normalized_origin, PlannedStep, PlannerOutput, PlannerSafetySettings,
+    current_timestamp_ms, normalized_origin, planner_available_tools,
+    validate_planner_output_with_safety, PlannedStep, PlannerOutput, PlannerSafetySettings,
     ToolError, ToolName,
 };
 use crate::state::{BrowserHistoryState, PlanningStateSnapshot};
@@ -31,6 +32,7 @@ impl super::AppCore {
             origin: components.origin,
             browser_history: components.browser_history,
             safety: components.safety,
+            active_skill_names: Vec::new(),
             relevant_config_fingerprint: components.relevant_config_fingerprint,
             runtime_state_token: components.runtime_state_token,
             pending_confirmation_id: components.pending_confirmation_id,
@@ -77,9 +79,14 @@ impl super::AppCore {
     pub(crate) fn register_planning_snapshot(
         &mut self,
         planner_output: &PlannerOutput,
-        snapshot: PlanningStateSnapshot,
+        mut snapshot: PlanningStateSnapshot,
+        active_skill_names: &[String],
     ) -> Result<(), ToolError> {
         let digest = planner_output_digest(planner_output)?;
+        // Bind planner-time skill eligibility to the exact output digest. Skill
+        // discovery is external to mutable runtime state, so it must not be
+        // re-derived later when the output is executed.
+        snapshot.active_skill_names = active_skill_names.to_vec();
         let now_ms = current_timestamp_ms();
         self.state
             .planning_snapshots
@@ -102,17 +109,25 @@ impl super::AppCore {
         &mut self,
         planner_output: &PlannerOutput,
     ) -> Result<(), ToolError> {
-        if !planner_output_requires_snapshot(&planner_output.steps) {
-            return Ok(());
-        }
-
+        let requires_snapshot = planner_output_requires_snapshot(&planner_output.steps);
         let digest = planner_output_digest(planner_output)?;
         let Some(expected) = self.state.planning_snapshots.remove(&digest) else {
-            return Err(planning_error(
-                "missing_planning_snapshot",
-                "side-effecting planner output was not bound to a runtime planning snapshot",
-                None,
-            ));
+            if requires_snapshot {
+                return Err(planning_error(
+                    "missing_planning_snapshot",
+                    "side-effecting planner output was not bound to a runtime planning snapshot",
+                    None,
+                ));
+            }
+            // Pure read-only outputs may still be invoked directly without a
+            // planning snapshot. Revalidate them against the current safety
+            // policy, but grant no planner skill capabilities that were never
+            // bound by a real planning pass.
+            return validate_planner_output_at_execution(
+                planner_output,
+                &[],
+                &PlannerSafetySettings::from(&self.config.safety),
+            );
         };
         let now_ms = current_timestamp_ms();
         if now_ms >= expected.expires_at_ms {
@@ -147,6 +162,11 @@ impl super::AppCore {
                 })),
             ));
         }
+        validate_planner_output_at_execution(
+            planner_output,
+            &expected.active_skill_names,
+            &expected.safety,
+        )?;
         Ok(())
     }
 
@@ -327,6 +347,10 @@ fn planning_snapshots_match(
     expected: &PlanningStateSnapshot,
     observed: &PlanningStateSnapshot,
 ) -> bool {
+    // `active_skill_names` is plan provenance bound when the snapshot is
+    // registered, not mutable runtime state. The fresh observed snapshot
+    // intentionally leaves it empty, so it is validated separately against
+    // the planner output at execution time rather than compared here.
     expected.runtime_state_token == observed.runtime_state_token
         && expected.page_id == observed.page_id
         && expected.page_generation == observed.page_generation
@@ -335,6 +359,19 @@ fn planning_snapshots_match(
         && expected.safety == observed.safety
         && expected.relevant_config_fingerprint == observed.relevant_config_fingerprint
         && expected.pending_confirmation_id == observed.pending_confirmation_id
+}
+
+fn validate_planner_output_at_execution(
+    planner_output: &PlannerOutput,
+    active_skill_names: &[String],
+    safety: &PlannerSafetySettings,
+) -> Result<(), ToolError> {
+    validate_planner_output_with_safety(
+        planner_output,
+        &planner_available_tools(),
+        active_skill_names,
+        safety,
+    )
 }
 
 fn planning_error(code: &str, message: &str, details: Option<serde_json::Value>) -> ToolError {
@@ -374,6 +411,7 @@ mod tests {
             origin: Some(String::from("https://example.com")),
             browser_history,
             safety,
+            active_skill_names: Vec::new(),
             relevant_config_fingerprint,
             runtime_state_token,
             pending_confirmation_id: None,
@@ -455,5 +493,74 @@ mod tests {
                  an unauthenticated, out-of-band execute_planner_output call"
             );
         }
+    }
+    #[test]
+    fn execution_validation_uses_bound_planning_time_skills() {
+        let planner_output = crate::commands::canonical_planner_output_examples()
+            .remove("get_status")
+            .expect("canonical get_status plan should exist");
+        let safety = PlannerSafetySettings {
+            confirmation_confidence_threshold: 0.85,
+            allow_click_without_confirmation: true,
+            always_confirm_submit: true,
+        };
+
+        assert!(validate_planner_output_at_execution(
+            &planner_output,
+            &[String::from("get_status")],
+            &safety,
+        )
+        .is_ok());
+
+        let error = validate_planner_output_at_execution(&planner_output, &[], &safety)
+            .expect_err("a selected skill must have planning-time eligibility provenance");
+        assert_eq!(error.code, "invalid_planner_output");
+    }
+
+    #[test]
+    fn skill_tampering_changes_digest_and_fails_execution_validation() {
+        let planner_output = crate::commands::canonical_planner_output_examples()
+            .remove("get_status")
+            .expect("canonical get_status plan should exist");
+        let mut forged = planner_output.clone();
+        forged.selected_skills = vec![String::from("forged_skill")];
+        let safety = PlannerSafetySettings {
+            confirmation_confidence_threshold: 0.85,
+            allow_click_without_confirmation: true,
+            always_confirm_submit: true,
+        };
+
+        assert_ne!(
+            planner_output_digest(&planner_output).expect("original digest should serialize"),
+            planner_output_digest(&forged).expect("forged digest should serialize"),
+        );
+        let error =
+            validate_planner_output_at_execution(&forged, &[String::from("get_status")], &safety)
+                .expect_err("a plan must not gain a skill that was not eligible when planned");
+        assert_eq!(error.code, "invalid_planner_output");
+    }
+
+    #[test]
+    fn execution_validation_preserves_skill_free_read_only_plans() {
+        let mut planner_output = crate::commands::canonical_planner_output_examples()
+            .remove("get_status")
+            .expect("canonical get_status plan should exist");
+        planner_output.selected_skills.clear();
+        let safety = PlannerSafetySettings {
+            confirmation_confidence_threshold: 0.85,
+            allow_click_without_confirmation: true,
+            always_confirm_submit: true,
+        };
+
+        assert!(validate_planner_output_at_execution(&planner_output, &[], &safety,).is_ok());
+    }
+
+    #[test]
+    fn snapshot_runtime_match_ignores_skill_provenance_field() {
+        let mut expected = snapshot(4, true);
+        expected.active_skill_names = vec![String::from("get_status")];
+        let observed = snapshot(4, true);
+
+        assert!(planning_snapshots_match(&expected, &observed));
     }
 }

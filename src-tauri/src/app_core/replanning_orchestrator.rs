@@ -39,7 +39,8 @@ impl<'a> LockScopedReplanningRuntime<'a> {
             let planning_snapshot = guard.capture_planning_state_snapshot();
             match guard.build_planner_resolution(request_id, transcript, recent_tool_results)? {
                 PlannerResolution::Direct(planner_output) => {
-                    ResolvePhase::Direct(planner_output.into_inner(), planning_snapshot)
+                    let (planner_output, active_skill_names) = planner_output.into_parts();
+                    ResolvePhase::Direct(planner_output, planning_snapshot, active_skill_names)
                 }
                 PlannerResolution::Remote {
                     planner_input,
@@ -76,9 +77,13 @@ impl<'a> LockScopedReplanningRuntime<'a> {
         };
 
         let planner_output = match phase {
-            ResolvePhase::Direct(planner_output, planning_snapshot) => {
+            ResolvePhase::Direct(planner_output, planning_snapshot, active_skill_names) => {
                 let mut guard = lock_app_core(self.core)?;
-                guard.register_planning_snapshot(&planner_output, planning_snapshot)?;
+                guard.register_planning_snapshot(
+                    &planner_output,
+                    planning_snapshot,
+                    &active_skill_names,
+                )?;
                 return Ok(ResolvePlanOutcome::Resolved(planner_output));
             }
             ResolvePhase::Remote {
@@ -96,7 +101,11 @@ impl<'a> LockScopedReplanningRuntime<'a> {
                     &safety,
                 )?;
                 let mut guard = lock_app_core(self.core)?;
-                guard.register_planning_snapshot(&planner_output, planning_snapshot)?;
+                guard.register_planning_snapshot(
+                    &planner_output,
+                    planning_snapshot,
+                    &active_skill_names,
+                )?;
                 planner_output
             }
         };
@@ -105,7 +114,11 @@ impl<'a> LockScopedReplanningRuntime<'a> {
 }
 
 enum ResolvePhase {
-    Direct(PlannerOutput, crate::state::PlanningStateSnapshot),
+    Direct(
+        PlannerOutput,
+        crate::state::PlanningStateSnapshot,
+        Vec<String>,
+    ),
     Remote {
         prepared: Box<super::remote_data_consent::PreparedRemotePlannerRequest>,
         planning_snapshot: crate::state::PlanningStateSnapshot,
@@ -426,7 +439,11 @@ pub(crate) fn submit_remote_planner_consent_response_lock_scoped(
     )?;
     {
         let mut guard = lock_app_core(core)?;
-        guard.register_planning_snapshot(&planner_output, ready.planning_snapshot)?;
+        guard.register_planning_snapshot(
+            &planner_output,
+            ready.planning_snapshot,
+            &active_skill_names,
+        )?;
     }
     match ready.continuation {
         PendingRemotePlannerContinuation::ResolveOnly => {
