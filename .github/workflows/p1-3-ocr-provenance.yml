@@ -1,0 +1,69 @@
+name: P1.3 OCR Screenshot Provenance
+
+on:
+  push:
+    branches:
+      - agent/p1-3-ocr-provenance
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/p1-3-ocr-provenance
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libasound2-dev \
+            libtesseract-dev \
+            libleptonica-dev \
+            clang \
+            libclang-dev
+
+      - name: Apply P1.3 provenance patch
+        run: python3 .github/p1-3-ocr-provenance.py
+
+      - name: Format
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml
+
+      - name: Validate patch
+        run: |
+          git diff --check
+          cargo fmt --manifest-path src-tauri/Cargo.toml --check
+          cargo check --manifest-path src-tauri/Cargo.toml
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features app_core::image_cache::tests
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features
+          bash scripts/check-silent-fallbacks.sh
+          python3 scripts/check-security-fallbacks.py
+          python3 scripts/check-security-fallback-inventory.py
+          python3 scripts/check-sensitive-diagnostics.py
+          python3 scripts/check-remote-planner-privacy-state.py
+
+      - name: Commit validated source patch
+        run: |
+          rm .github/p1-3-ocr-provenance.py .github/workflows/p1-3-ocr-provenance.yml
+          git add src-tauri/src/browser/config.rs \
+            src-tauri/src/browser/page_inspection.rs \
+            src-tauri/src/app_core/image_cache.rs \
+            src-tauri/src/app_core/content_tools.rs \
+            src-tauri/src/app_core/extraction_tools/ocr_tools.rs
+          git config user.name "Phillip Chin"
+          git config user.email "ekkus93@gmail.com"
+          git commit -m "fix: bind OCR crops to screenshot provenance"
+          git push origin HEAD:agent/p1-3-ocr-provenance
