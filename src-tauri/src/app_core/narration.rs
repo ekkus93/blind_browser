@@ -17,7 +17,7 @@ use crate::tts::{CompletedRemoteNarration, PreparedRemoteNarration};
 /// every caller of either function -- read_region, read_next_region,
 /// read_previous_region, report_result's spoken feedback -- is covered by
 /// one gate instead of four separate ones.
-pub(super) enum NarrationAttempt<T> {
+pub(crate) enum NarrationAttempt<T> {
     Completed(T),
     ConsentRequired(Box<RemotePlannerConsentChallenge>),
 }

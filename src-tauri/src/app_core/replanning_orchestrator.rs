@@ -155,7 +155,7 @@ pub(crate) fn execute_planner_output_lock_scoped(
             Ok(prepared) => prepared,
             Err(outcome) => {
                 guard.end_lock_scoped_plan_execution();
-                return outcome;
+                return *outcome;
             }
         }
     };
@@ -221,7 +221,7 @@ pub(crate) fn submit_confirmation_response_lock_scoped(
                     prompt_text,
                     confirmed,
                     timed_out,
-                    outcome,
+                    *outcome,
                 ));
             }
         }

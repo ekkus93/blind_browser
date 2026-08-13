@@ -213,7 +213,7 @@ impl<'a> LockScopedStepRunner<'a> {
             self.refresh_expected_state(&guard);
             return self.replan_typed(ToolName::TranscribeCommand, &input.request_id);
         }
-        let result = guard.record_transcribe_command(pending, transcript_result);
+        let result = guard.record_transcribe_command(*pending, transcript_result);
         self.refresh_expected_state(&guard);
         result
     }
@@ -818,7 +818,7 @@ impl<'a> LockScopedStepRunner<'a> {
                     (region_index, region, synthesis)
                 };
                 let completed = synthesize_prepared_remote_narration(synthesis)
-                    .map_err(|error| tts_runtime_error_to_tool_error(&error))?;
+                    .map_err(tts_runtime_error_to_tool_error)?;
                 let mut guard = lock_app_core(self.core)?;
                 if !self.runtime_is_compatible(&guard) {
                     return Err(stale_execution_error());
@@ -852,7 +852,7 @@ impl<'a> LockScopedStepRunner<'a> {
                     synthesis
                 };
                 let completed = synthesize_prepared_remote_narration(synthesis)
-                    .map_err(|error| tts_runtime_error_to_tool_error(&error))?;
+                    .map_err(tts_runtime_error_to_tool_error)?;
                 let mut guard = lock_app_core(self.core)?;
                 if !self.runtime_is_compatible(&guard) {
                     return Err(stale_execution_error());
@@ -884,7 +884,7 @@ impl<'a> LockScopedStepRunner<'a> {
         ToolResult::failure(
             tool_name,
             request_id.to_string(),
-            tts_runtime_error_to_tool_error(&error),
+            tts_runtime_error_to_tool_error(error),
             vec![String::from(
                 "Remote narration synthesis did not complete successfully.",
             )],

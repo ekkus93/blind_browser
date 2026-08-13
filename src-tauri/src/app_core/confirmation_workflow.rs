@@ -17,7 +17,7 @@ impl super::AppCore {
         confirmation_id: &str,
         confirmation_digest: &str,
         confirmed: bool,
-    ) -> Result<PreparedConfirmationResume, ExecutionOutcome> {
+    ) -> Result<PreparedConfirmationResume, Box<ExecutionOutcome>> {
         let Some(pending_plan_execution) = self.state.pending_plan_execution.clone() else {
             return Err(confirmation_abort(
                 "missing_pending_execution",
@@ -61,13 +61,13 @@ impl super::AppCore {
             if let Err(error) =
                 self.preflight_pending_click_authorizations(&pending_plan_execution.queued_steps)
             {
-                return Err(ExecutionOutcome::Aborted {
+                return Err(Box::new(ExecutionOutcome::Aborted {
                     trace: ExecutionTrace {
                         executed_step_ids: Vec::new(),
                         tool_results: Vec::new(),
                     },
                     error,
-                });
+                }));
             }
 
             let observed_runtime_state_token = self.current_runtime_state_token();
@@ -108,7 +108,7 @@ impl super::AppCore {
             match self.prepare_confirmation_resume(confirmation_id, confirmation_digest, confirmed)
             {
                 Ok(prepared) => prepared,
-                Err(outcome) => return outcome,
+                Err(outcome) => return *outcome,
             };
         let outcome = resume_after_confirmation_with_context(
             self,
@@ -216,8 +216,8 @@ fn confirmation_abort(
     code: &str,
     message: &str,
     details: Option<serde_json::Value>,
-) -> ExecutionOutcome {
-    ExecutionOutcome::Aborted {
+) -> Box<ExecutionOutcome> {
+    Box::new(ExecutionOutcome::Aborted {
         trace: ExecutionTrace {
             executed_step_ids: Vec::new(),
             tool_results: Vec::new(),
@@ -228,5 +228,5 @@ fn confirmation_abort(
             retryable: false,
             details,
         },
-    }
+    })
 }

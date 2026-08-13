@@ -104,18 +104,18 @@ impl super::AppCore {
     pub(crate) fn prepare_planner_execution(
         &mut self,
         planner_output: &PlannerOutput,
-    ) -> Result<PreparedPlannerExecution, ExecutionOutcome> {
+    ) -> Result<PreparedPlannerExecution, Box<ExecutionOutcome>> {
         if let Err(error) = self.validate_and_consume_planning_snapshot(planner_output) {
             let outcome = planner_snapshot_validation_outcome(error);
             self.state.apply_execution_outcome(&outcome);
-            return Err(outcome);
+            return Err(Box::new(outcome));
         }
         let prepared = match self.prepare_planner_output_for_execution(planner_output) {
             Ok(prepared) => prepared,
             Err(error) => {
                 let outcome = planner_execution_abort(error);
                 self.state.apply_execution_outcome(&outcome);
-                return Err(outcome);
+                return Err(Box::new(outcome));
             }
         };
         let safety = PlannerSafetySettings::from(&self.config.safety);
@@ -162,7 +162,7 @@ impl super::AppCore {
     ) -> ExecutionOutcome {
         let prepared = match self.prepare_planner_execution(planner_output) {
             Ok(prepared) => prepared,
-            Err(outcome) => return outcome,
+            Err(outcome) => return *outcome,
         };
         let outcome = execute_planner_output_with_runtime_safety(
             self,
