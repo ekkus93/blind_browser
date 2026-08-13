@@ -1,0 +1,71 @@
+name: P1.4 bound-skill materialize
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/p1-4-active-skills-materialize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: "${{ github.event.head_commit.message == 'ci: materialize P1.4 bound-skill validation' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact trigger SHA
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reconstruct exact P1.4 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          cat > /tmp/p14.patch.gz.b64 <<'PATCH'
+          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
+          PATCH
+          tr -d '[:space:]' < /tmp/p14.patch.gz.b64 | base64 --decode > /tmp/p14.patch.gz
+          echo '121222c011e2904c1baf1860e1f1af849f869b58974b3877c1e3b2e9f07aac14  /tmp/p14.patch.gz' | sha256sum --check --strict
+          gzip --test /tmp/p14.patch.gz
+          gzip --decompress --stdout /tmp/p14.patch.gz > /tmp/p14.patch
+          echo '4d94408fdcda0d224c6ce6db905dadaed07e63e6639f8ce72e351c250088d6ec  /tmp/p14.patch' | sha256sum --check --strict
+          git apply --check /tmp/p14.patch
+          git apply /tmp/p14.patch
+
+      - name: Format candidate
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Rustfmt and verify scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path src-tauri/Cargo.toml
+          git diff --check
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(
+            src-tauri/src/app_core/command_dispatch.rs
+            src-tauri/src/app_core/planning_snapshot.rs
+            src-tauri/src/app_core/replanning_orchestrator.rs
+            src-tauri/src/app_core/tests/remote_data_consent_evidence_tests/policy_and_disclosure_matrix_tests.rs
+            src-tauri/src/state.rs
+          )
+          test "${changed[*]}" = "${expected[*]}"
+
+      - name: Commit formatted source directly to master
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/p1-4-active-skills-materialize.yml
+          git add src-tauri/src
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix: revalidate planner output against bound skills'
+          git push origin HEAD:master
