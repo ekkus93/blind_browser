@@ -198,8 +198,8 @@ pub(super) fn synthesize_prepared_remote(
             status: response.status().as_u16(),
         });
     }
-    let response_bytes = read_bounded_response(response, MAX_TTS_RESPONSE_BYTES).map_err(
-        |error| match error {
+    let response_bytes =
+        read_bounded_response(response, MAX_TTS_RESPONSE_BYTES).map_err(|error| match error {
             BoundedResponseError::DeclaredTooLarge { maximum, .. }
             | BoundedResponseError::BodyTooLarge { maximum } => {
                 TtsRuntimeError::RemoteResponseTooLarge {
@@ -209,8 +209,7 @@ pub(super) fn synthesize_prepared_remote(
             BoundedResponseError::ReadFailed(error) => TtsRuntimeError::RemoteRequestFailed {
                 reason: error.to_string(),
             },
-        },
-    )?;
+        })?;
     record_resource_size("remote_tts_response", response_bytes.len());
 
     match prepared.audio_format {

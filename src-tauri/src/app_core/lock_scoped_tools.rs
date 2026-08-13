@@ -62,11 +62,11 @@ impl<'a> LockScopedStepRunner<'a> {
                 ToolName::TranscribeCommand,
                 |input: TranscribeCommandInput| self.run_transcribe(step, input),
             ),
-            ToolName::ReadRegion => execute_serialized_step(
-                step,
-                ToolName::ReadRegion,
-                |input: ReadRegionInput| self.run_read_region(step, input),
-            ),
+            ToolName::ReadRegion => {
+                execute_serialized_step(step, ToolName::ReadRegion, |input: ReadRegionInput| {
+                    self.run_read_region(step, input)
+                })
+            }
             ToolName::ReadNextRegion => execute_serialized_step(
                 step,
                 ToolName::ReadNextRegion,

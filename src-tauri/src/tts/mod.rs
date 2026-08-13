@@ -12,7 +12,7 @@ use crate::app_core::remote_data_consent::RemoteNarrationAuthorization;
 use crate::audio_io::RuntimeAudioState;
 use crate::config::{AppConfig, ProviderMode};
 use crate::resource_limits::{
-    tts_requests, MAX_TTS_INPUT_TEXT_BYTES, OperationPermit, SYNTHESIZED_SPEECH_CACHE_MAX_BYTES,
+    tts_requests, OperationPermit, MAX_TTS_INPUT_TEXT_BYTES, SYNTHESIZED_SPEECH_CACHE_MAX_BYTES,
     SYNTHESIZED_SPEECH_CACHE_MAX_COUNT,
 };
 
@@ -340,10 +340,7 @@ impl TtsController {
 pub(crate) fn synthesize_prepared_remote_narration(
     prepared: PreparedRemoteNarration,
 ) -> Result<CompletedRemoteNarration, TtsRuntimeError> {
-    let PreparedRemoteNarration {
-        _permit,
-        prepared,
-    } = prepared;
+    let PreparedRemoteNarration { _permit, prepared } = prepared;
     match prepared {
         PreparedRemoteNarrationKind::Cached(speech) => Ok(CompletedRemoteNarration {
             speech,

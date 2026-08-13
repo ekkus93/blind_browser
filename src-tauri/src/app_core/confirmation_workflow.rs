@@ -104,14 +104,12 @@ impl super::AppCore {
         confirmation_digest: &str,
         confirmed: bool,
     ) -> ExecutionOutcome {
-        let prepared = match self.prepare_confirmation_resume(
-            confirmation_id,
-            confirmation_digest,
-            confirmed,
-        ) {
-            Ok(prepared) => prepared,
-            Err(outcome) => return outcome,
-        };
+        let prepared =
+            match self.prepare_confirmation_resume(confirmation_id, confirmation_digest, confirmed)
+            {
+                Ok(prepared) => prepared,
+                Err(outcome) => return outcome,
+            };
         let outcome = resume_after_confirmation_with_context(
             self,
             &prepared.pending_plan_execution,
