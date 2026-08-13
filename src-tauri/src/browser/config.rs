@@ -121,6 +121,20 @@ pub struct BrowserScrollState {
     pub reached_boundary: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BrowserScreenshotKind {
+    Viewport,
+    FullPage,
+    DocumentClip,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BrowserScreenshotProvenance {
+    pub kind: BrowserScreenshotKind,
+    pub document_origin_x: f32,
+    pub document_origin_y: f32,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct BrowserScreenshotState {
     pub url: String,
@@ -128,6 +142,7 @@ pub struct BrowserScreenshotState {
     pub history: crate::state::BrowserHistoryState,
     pub image_bytes: Vec<u8>,
     pub bbox: Option<Rect>,
+    pub provenance: BrowserScreenshotProvenance,
     pub width: u32,
     pub height: u32,
 }
