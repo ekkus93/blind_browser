@@ -6,87 +6,20 @@ on:
       - agent/p1-3-ocr-provenance
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  validate:
+  diagnose:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           ref: agent/p1-3-ocr-provenance
-          fetch-depth: 0
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: Install native dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libasound2-dev \
-            libtesseract-dev \
-            libleptonica-dev \
-            clang \
-            libclang-dev
-
-      - name: Apply P1.3 provenance patch
+      - name: Materialize and inspect P1.3 source
         run: |
           python3 .github/p1-3-ocr-provenance.py
           python3 .github/p1-3-ocr-provenance-cleanup.py
-
-      - name: Format
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml
-
-      - name: Check diff
-        run: git diff --check
-
-      - name: Check formatting
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
-
-      - name: Check default build
-        run: cargo check --manifest-path src-tauri/Cargo.toml
-
-      - name: Run strict Clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
-
-      - name: Run focused image-cache tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features app_core::image_cache::tests
-
-      - name: Run full Rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
-
-      - name: Check silent fallbacks
-        run: bash scripts/check-silent-fallbacks.sh
-
-      - name: Check security fallbacks
-        run: python3 scripts/check-security-fallbacks.py
-
-      - name: Check fallback inventory
-        run: python3 scripts/check-security-fallback-inventory.py
-
-      - name: Check sensitive diagnostics
-        run: python3 scripts/check-sensitive-diagnostics.py
-
-      - name: Check remote planner privacy state
-        run: python3 scripts/check-remote-planner-privacy-state.py
-
-      - name: Commit validated source patch
-        run: |
-          rm .github/p1-3-ocr-provenance.py \
-            .github/p1-3-ocr-provenance-cleanup.py \
-            .github/workflows/p1-3-ocr-provenance.yml
-          git add src-tauri/src/browser/config.rs \
-            src-tauri/src/browser/page_inspection.rs \
-            src-tauri/src/app_core/image_cache.rs \
-            src-tauri/src/app_core/content_tools.rs \
-            src-tauri/src/app_core/extraction_tools/ocr_tools.rs
-          git config user.name "Phillip Chin"
-          git config user.email "ekkus93@gmail.com"
-          git commit -m "fix: bind OCR crops to screenshot provenance"
-          git push origin HEAD:agent/p1-3-ocr-provenance
+          echo '--- matching lifecycle tests ---'
+          grep -R -n -C 30 'preserves_lock_safe_cache_lifecycle_and_fail_closed_errors\|ocr_bbox_outside_screenshot' src-tauri/src/app_core || true
+          echo '--- image_cache lines 720-810 ---'
+          nl -ba src-tauri/src/app_core/image_cache.rs | sed -n '720,810p'
