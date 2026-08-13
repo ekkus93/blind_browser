@@ -136,7 +136,9 @@ impl AppCore {
         if !matches!(self.config.providers.tts.mode, ProviderMode::Remote) {
             return Err(ToolError {
                 code: String::from("remote_tts_not_selected"),
-                message: String::from("lock-scoped remote narration requires a remote TTS provider"),
+                message: String::from(
+                    "lock-scoped remote narration requires a remote TTS provider",
+                ),
                 retryable: false,
                 details: None,
             });
@@ -146,24 +148,16 @@ impl AppCore {
             region_id: region.region_id.clone(),
             interrupt_current,
         };
-        let authorization = match self.prepare_narration_request(
-            &spoken_text,
-            request_id.to_string(),
-            resume,
-        )? {
-            NarrationPreparation::ConsentRequired { challenge } => {
-                return Ok(NarrationAttempt::ConsentRequired(challenge));
-            }
-            NarrationPreparation::Authorized(authorization) => authorization,
-        };
+        let authorization =
+            match self.prepare_narration_request(&spoken_text, request_id.to_string(), resume)? {
+                NarrationPreparation::ConsentRequired { challenge } => {
+                    return Ok(NarrationAttempt::ConsentRequired(challenge));
+                }
+                NarrationPreparation::Authorized(authorization) => authorization,
+            };
         let synthesis = self
             .tts
-            .prepare_remote_narration(
-                &self.config,
-                &self.state.audio,
-                &spoken_text,
-                authorization,
-            )
+            .prepare_remote_narration(&self.config, &self.state.audio, &spoken_text, authorization)
             .map_err(tts_runtime_error_to_tool_error)?;
         Ok(NarrationAttempt::Completed(synthesis))
     }
@@ -300,7 +294,9 @@ impl AppCore {
         if !matches!(self.config.providers.tts.mode, ProviderMode::Remote) {
             return Err(ToolError {
                 code: String::from("remote_tts_not_selected"),
-                message: String::from("lock-scoped remote narration requires a remote TTS provider"),
+                message: String::from(
+                    "lock-scoped remote narration requires a remote TTS provider",
+                ),
                 retryable: false,
                 details: None,
             });
@@ -308,24 +304,16 @@ impl AppCore {
         let resume = NarrationResumeContext::Feedback {
             spoken_text: spoken_text.to_string(),
         };
-        let authorization = match self.prepare_narration_request(
-            spoken_text,
-            request_id.to_string(),
-            resume,
-        )? {
-            NarrationPreparation::ConsentRequired { challenge } => {
-                return Ok(NarrationAttempt::ConsentRequired(challenge));
-            }
-            NarrationPreparation::Authorized(authorization) => authorization,
-        };
+        let authorization =
+            match self.prepare_narration_request(spoken_text, request_id.to_string(), resume)? {
+                NarrationPreparation::ConsentRequired { challenge } => {
+                    return Ok(NarrationAttempt::ConsentRequired(challenge));
+                }
+                NarrationPreparation::Authorized(authorization) => authorization,
+            };
         let synthesis = self
             .tts
-            .prepare_remote_narration(
-                &self.config,
-                &self.state.audio,
-                spoken_text,
-                authorization,
-            )
+            .prepare_remote_narration(&self.config, &self.state.audio, spoken_text, authorization)
             .map_err(tts_runtime_error_to_tool_error)?;
         Ok(NarrationAttempt::Completed(synthesis))
     }
@@ -436,5 +424,4 @@ impl AppCore {
             None
         }
     }
-
 }

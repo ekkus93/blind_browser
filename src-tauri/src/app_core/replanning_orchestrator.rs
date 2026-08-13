@@ -196,10 +196,14 @@ pub(crate) fn submit_confirmation_response_lock_scoped(
     let should_resume = confirmed && !timed_out;
     let (prompt_text, prepared) = {
         let mut guard = lock_app_core(core)?;
-        let prompt_text = match guard.state.pending_plan_execution.as_ref().filter(|pending| {
-            pending.confirmation_id == confirmation_id
-                && pending.manifest_digest == confirmation_digest
-        }) {
+        let prompt_text = match guard
+            .state
+            .pending_plan_execution
+            .as_ref()
+            .filter(|pending| {
+                pending.confirmation_id == confirmation_id
+                    && pending.manifest_digest == confirmation_digest
+            }) {
             Some(pending) => pending.prompt_text.clone(),
             None => String::new(),
         };

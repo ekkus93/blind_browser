@@ -77,11 +77,11 @@ impl<'a> LockScopedStepRunner<'a> {
                 ToolName::ReadPreviousRegion,
                 |input: ReadPreviousRegionInput| self.run_read_previous_region(step, input),
             ),
-            ToolName::ReportResult => execute_serialized_step(
-                step,
-                ToolName::ReportResult,
-                |input: ReportResultInput| self.run_report_result(step, input),
-            ),
+            ToolName::ReportResult => {
+                execute_serialized_step(step, ToolName::ReportResult, |input: ReportResultInput| {
+                    self.run_report_result(step, input)
+                })
+            }
             _ => self.run_locked(step),
         }
     }
@@ -123,7 +123,9 @@ impl<'a> LockScopedStepRunner<'a> {
         let (plan, remote_authorization) = {
             let mut guard = match lock_app_core(self.core) {
                 Ok(guard) => guard,
-                Err(error) => return self.abort_typed(ToolName::TranscribeCommand, &input.request_id, error),
+                Err(error) => {
+                    return self.abort_typed(ToolName::TranscribeCommand, &input.request_id, error)
+                }
             };
             if !self.runtime_is_compatible(&guard) {
                 return self.replan_typed(ToolName::TranscribeCommand, &input.request_id);
@@ -175,7 +177,9 @@ impl<'a> LockScopedStepRunner<'a> {
         let pending = {
             let mut guard = match lock_app_core(self.core) {
                 Ok(guard) => guard,
-                Err(error) => return self.abort_typed(ToolName::TranscribeCommand, &input.request_id, error),
+                Err(error) => {
+                    return self.abort_typed(ToolName::TranscribeCommand, &input.request_id, error)
+                }
             };
             if !self.runtime_is_compatible(&guard) {
                 guard.discard_microphone_capture_after_privacy_rejection();
@@ -201,7 +205,9 @@ impl<'a> LockScopedStepRunner<'a> {
 
         let mut guard = match lock_app_core(self.core) {
             Ok(guard) => guard,
-            Err(error) => return self.abort_typed(ToolName::TranscribeCommand, &input.request_id, error),
+            Err(error) => {
+                return self.abort_typed(ToolName::TranscribeCommand, &input.request_id, error)
+            }
         };
         if !self.runtime_is_compatible(&guard) {
             self.refresh_expected_state(&guard);
@@ -237,7 +243,9 @@ impl<'a> LockScopedStepRunner<'a> {
         let (region_index, region, synthesis) = {
             let mut guard = match lock_app_core(self.core) {
                 Ok(guard) => guard,
-                Err(error) => return self.abort_typed(ToolName::ReadRegion, &input.request_id, error),
+                Err(error) => {
+                    return self.abort_typed(ToolName::ReadRegion, &input.request_id, error)
+                }
             };
             if !self.runtime_is_compatible(&guard) {
                 return self.replan_typed(ToolName::ReadRegion, &input.request_id);
@@ -298,7 +306,9 @@ impl<'a> LockScopedStepRunner<'a> {
 
         let completed = match synthesize_prepared_remote_narration(synthesis) {
             Ok(completed) => completed,
-            Err(error) => return self.remote_tts_failure(ToolName::ReadRegion, &input.request_id, error),
+            Err(error) => {
+                return self.remote_tts_failure(ToolName::ReadRegion, &input.request_id, error)
+            }
         };
         let mut guard = match lock_app_core(self.core) {
             Ok(guard) => guard,
@@ -307,20 +317,21 @@ impl<'a> LockScopedStepRunner<'a> {
         if !self.runtime_is_compatible(&guard) {
             return self.replan_typed(ToolName::ReadRegion, &input.request_id);
         }
-        let interrupted_region_id = match guard.finish_remote_region_narration(region_index, &region, completed) {
-            Ok(value) => value,
-            Err(error) => {
-                self.refresh_expected_state(&guard);
-                return ToolResult::failure(
-                    ToolName::ReadRegion,
-                    input.request_id,
-                    error,
-                    vec![String::from(
-                        "Narration request could not start playback for the requested region.",
-                    )],
-                );
-            }
-        };
+        let interrupted_region_id =
+            match guard.finish_remote_region_narration(region_index, &region, completed) {
+                Ok(value) => value,
+                Err(error) => {
+                    self.refresh_expected_state(&guard);
+                    return ToolResult::failure(
+                        ToolName::ReadRegion,
+                        input.request_id,
+                        error,
+                        vec![String::from(
+                            "Narration request could not start playback for the requested region.",
+                        )],
+                    );
+                }
+            };
         self.refresh_expected_state(&guard);
 
         let mut observations = vec![format!(
@@ -357,7 +368,9 @@ impl<'a> LockScopedStepRunner<'a> {
         let (region_index, region, synthesis) = {
             let mut guard = match lock_app_core(self.core) {
                 Ok(guard) => guard,
-                Err(error) => return self.abort_typed(ToolName::ReadNextRegion, &input.request_id, error),
+                Err(error) => {
+                    return self.abort_typed(ToolName::ReadNextRegion, &input.request_id, error)
+                }
             };
             if !self.runtime_is_compatible(&guard) {
                 return self.replan_typed(ToolName::ReadNextRegion, &input.request_id);
@@ -437,29 +450,34 @@ impl<'a> LockScopedStepRunner<'a> {
 
         let completed = match synthesize_prepared_remote_narration(synthesis) {
             Ok(completed) => completed,
-            Err(error) => return self.remote_tts_failure(ToolName::ReadNextRegion, &input.request_id, error),
+            Err(error) => {
+                return self.remote_tts_failure(ToolName::ReadNextRegion, &input.request_id, error)
+            }
         };
         let mut guard = match lock_app_core(self.core) {
             Ok(guard) => guard,
-            Err(error) => return self.abort_typed(ToolName::ReadNextRegion, &input.request_id, error),
+            Err(error) => {
+                return self.abort_typed(ToolName::ReadNextRegion, &input.request_id, error)
+            }
         };
         if !self.runtime_is_compatible(&guard) {
             return self.replan_typed(ToolName::ReadNextRegion, &input.request_id);
         }
-        let interrupted_region_id = match guard.finish_remote_region_narration(region_index, &region, completed) {
-            Ok(value) => value,
-            Err(error) => {
-                self.refresh_expected_state(&guard);
-                return ToolResult::failure(
-                    ToolName::ReadNextRegion,
-                    input.request_id,
-                    error,
-                    vec![String::from(
-                        "Narration could not advance to the next region for playback.",
-                    )],
-                );
-            }
-        };
+        let interrupted_region_id =
+            match guard.finish_remote_region_narration(region_index, &region, completed) {
+                Ok(value) => value,
+                Err(error) => {
+                    self.refresh_expected_state(&guard);
+                    return ToolResult::failure(
+                        ToolName::ReadNextRegion,
+                        input.request_id,
+                        error,
+                        vec![String::from(
+                            "Narration could not advance to the next region for playback.",
+                        )],
+                    );
+                }
+            };
         self.refresh_expected_state(&guard);
         let mut observations = vec![format!(
             "Advanced narration to region_id={} at index {}.",
@@ -495,7 +513,9 @@ impl<'a> LockScopedStepRunner<'a> {
         let (region_index, region, synthesis) = {
             let mut guard = match lock_app_core(self.core) {
                 Ok(guard) => guard,
-                Err(error) => return self.abort_typed(ToolName::ReadPreviousRegion, &input.request_id, error),
+                Err(error) => {
+                    return self.abort_typed(ToolName::ReadPreviousRegion, &input.request_id, error)
+                }
             };
             if !self.runtime_is_compatible(&guard) {
                 return self.replan_typed(ToolName::ReadPreviousRegion, &input.request_id);
@@ -564,8 +584,8 @@ impl<'a> LockScopedStepRunner<'a> {
                         input.request_id,
                         error,
                         vec![String::from(
-                            "Narration could not move backward to the previous region for playback.",
-                        )],
+                        "Narration could not move backward to the previous region for playback.",
+                    )],
                     )
                 }
             };
@@ -575,29 +595,38 @@ impl<'a> LockScopedStepRunner<'a> {
 
         let completed = match synthesize_prepared_remote_narration(synthesis) {
             Ok(completed) => completed,
-            Err(error) => return self.remote_tts_failure(ToolName::ReadPreviousRegion, &input.request_id, error),
+            Err(error) => {
+                return self.remote_tts_failure(
+                    ToolName::ReadPreviousRegion,
+                    &input.request_id,
+                    error,
+                )
+            }
         };
         let mut guard = match lock_app_core(self.core) {
             Ok(guard) => guard,
-            Err(error) => return self.abort_typed(ToolName::ReadPreviousRegion, &input.request_id, error),
+            Err(error) => {
+                return self.abort_typed(ToolName::ReadPreviousRegion, &input.request_id, error)
+            }
         };
         if !self.runtime_is_compatible(&guard) {
             return self.replan_typed(ToolName::ReadPreviousRegion, &input.request_id);
         }
-        let interrupted_region_id = match guard.finish_remote_region_narration(region_index, &region, completed) {
-            Ok(value) => value,
-            Err(error) => {
-                self.refresh_expected_state(&guard);
-                return ToolResult::failure(
-                    ToolName::ReadPreviousRegion,
-                    input.request_id,
-                    error,
-                    vec![String::from(
+        let interrupted_region_id =
+            match guard.finish_remote_region_narration(region_index, &region, completed) {
+                Ok(value) => value,
+                Err(error) => {
+                    self.refresh_expected_state(&guard);
+                    return ToolResult::failure(
+                        ToolName::ReadPreviousRegion,
+                        input.request_id,
+                        error,
+                        vec![String::from(
                         "Narration could not move backward to the previous region for playback.",
                     )],
-                );
-            }
-        };
+                    );
+                }
+            };
         self.refresh_expected_state(&guard);
         let mut observations = vec![format!(
             "Moved narration backward to region_id={} at index {}.",
@@ -653,7 +682,9 @@ impl<'a> LockScopedStepRunner<'a> {
         let synthesis = {
             let mut guard = match lock_app_core(self.core) {
                 Ok(guard) => guard,
-                Err(error) => return self.abort_typed(ToolName::ReportResult, &input.request_id, error),
+                Err(error) => {
+                    return self.abort_typed(ToolName::ReportResult, &input.request_id, error)
+                }
             };
             if !self.runtime_is_compatible(&guard) {
                 return self.replan_typed(ToolName::ReportResult, &input.request_id);
@@ -706,11 +737,15 @@ impl<'a> LockScopedStepRunner<'a> {
 
         let completed = match synthesize_prepared_remote_narration(synthesis) {
             Ok(completed) => completed,
-            Err(error) => return self.remote_tts_failure(ToolName::ReportResult, &input.request_id, error),
+            Err(error) => {
+                return self.remote_tts_failure(ToolName::ReportResult, &input.request_id, error)
+            }
         };
         let mut guard = match lock_app_core(self.core) {
             Ok(guard) => guard,
-            Err(error) => return self.abort_typed(ToolName::ReportResult, &input.request_id, error),
+            Err(error) => {
+                return self.abort_typed(ToolName::ReportResult, &input.request_id, error)
+            }
         };
         if !self.runtime_is_compatible(&guard) {
             return self.replan_typed(ToolName::ReportResult, &input.request_id);
@@ -798,10 +833,9 @@ impl<'a> LockScopedStepRunner<'a> {
                     if !self.runtime_is_compatible(&guard) {
                         return Err(stale_execution_error());
                     }
-                    let synthesis = match guard.prepare_remote_feedback_narration(
-                        &spoken_text,
-                        request_id,
-                    )? {
+                    let synthesis = match guard
+                        .prepare_remote_feedback_narration(&spoken_text, request_id)?
+                    {
                         NarrationAttempt::Completed(synthesis) => synthesis,
                         NarrationAttempt::ConsentRequired(_) => {
                             return Err(ToolError {
@@ -921,7 +955,9 @@ impl<'a> LockScopedStepRunner<'a> {
                 .unwrap_or(&step.step_id)
                 .to_string(),
             error,
-            vec![String::from("AppCore became unavailable during plan execution.")],
+            vec![String::from(
+                "AppCore became unavailable during plan execution.",
+            )],
         )
     }
 
@@ -936,7 +972,9 @@ impl<'a> LockScopedStepRunner<'a> {
             tool_name,
             request_id.to_string(),
             error,
-            vec![String::from("AppCore became unavailable during plan execution.")],
+            vec![String::from(
+                "AppCore became unavailable during plan execution.",
+            )],
         )
     }
 

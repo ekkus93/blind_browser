@@ -230,8 +230,8 @@ impl super::AppCore {
             "last_transcript": &self.state.last_transcript,
             "push_to_talk_enabled": self.state.listening.push_to_talk_enabled,
         });
-        let encoded = serde_json::to_vec(&value)
-            .expect("lock-scoped execution state should serialize");
+        let encoded =
+            serde_json::to_vec(&value).expect("lock-scoped execution state should serialize");
         format!("{:x}", Sha256::digest(encoded))
     }
 }
