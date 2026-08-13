@@ -43,19 +43,38 @@ jobs:
       - name: Format
         run: cargo fmt --manifest-path src-tauri/Cargo.toml
 
-      - name: Validate patch
-        run: |
-          git diff --check
-          cargo fmt --manifest-path src-tauri/Cargo.toml --check
-          cargo check --manifest-path src-tauri/Cargo.toml
-          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
-          cargo test --manifest-path src-tauri/Cargo.toml --all-features app_core::image_cache::tests
-          cargo test --manifest-path src-tauri/Cargo.toml --all-features
-          bash scripts/check-silent-fallbacks.sh
-          python3 scripts/check-security-fallbacks.py
-          python3 scripts/check-security-fallback-inventory.py
-          python3 scripts/check-sensitive-diagnostics.py
-          python3 scripts/check-remote-planner-privacy-state.py
+      - name: Check diff
+        run: git diff --check
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      - name: Check default build
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Run strict Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Run focused image-cache tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features app_core::image_cache::tests
+
+      - name: Run full Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
+
+      - name: Check silent fallbacks
+        run: bash scripts/check-silent-fallbacks.sh
+
+      - name: Check security fallbacks
+        run: python3 scripts/check-security-fallbacks.py
+
+      - name: Check fallback inventory
+        run: python3 scripts/check-security-fallback-inventory.py
+
+      - name: Check sensitive diagnostics
+        run: python3 scripts/check-sensitive-diagnostics.py
+
+      - name: Check remote planner privacy state
+        run: python3 scripts/check-remote-planner-privacy-state.py
 
       - name: Commit validated source patch
         run: |
