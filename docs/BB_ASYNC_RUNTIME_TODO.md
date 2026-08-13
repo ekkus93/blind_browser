@@ -263,13 +263,14 @@ human verification. Do not fabricate timestamps.
       landed (spawn_blocking bridge); live `--features full` verification pending.
 - [x] `stop_listening` ends an active capture (Phase 2). — code + regression test
       landed; live verification pending.
-- [ ] `get_agent_state` returns promptly during capture and during a planner call
-      (Phases 2–3). — capture window delivered (Phase 2); the planner-call case is
-      Phase 3, BLOCKED/deferred.
+- [x] `get_agent_state` can acquire the runtime during capture/planner network windows.
+      — capture lock-scoping landed in Phase 2; remote planner/ASR Phase 3 and the later
+      planner-embedded speech P1.2 pass release the relevant blocking windows. Live
+      provider verification remains useful acceptance coverage, not an implementation blocker.
 - [x] Buffer-drain semantics (no re-transcription) still hold.
 - [x] All preserved Code Review 2 + follow-up fixes and safety invariants hold.
 - [x] `BB_CODE_REVIEW2_TODO.md` P1.1.2 / P1.1.4 reconciled (P1.1.3 still BLOCKED).
 - [x] Full validation gate passes for Phases 1–2.
 - [x] `memory.md` has real UTC entries noting what was behaviorally verified.
-- [ ] Phase 3 (remote-network lock-scoping, P1.2) — BLOCKED, deferred to a focused
-      follow-up pass.
+- [x] Phase 3 remote planner/ASR lock-scoping landed in `BB_RUNTIME_PHASE3`; the
+      remaining planner-embedded speech lock scope was subsequently closed by CR3 P1.2.

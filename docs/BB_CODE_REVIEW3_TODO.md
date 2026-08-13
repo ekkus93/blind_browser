@@ -839,10 +839,10 @@ all-target/all-feature Clippy with `-D warnings`, focused direct-command semanti
 evidence, the complete Rust/Wry suite (including the guarded isolated tests),
 frontend lint, UI tests, and production build.
 
-**Scope boundary preserved:** P1.2 is still explicitly `BLOCKED`; this change fixes
-the remote-speech privacy boundary but does not claim that planner-embedded TTS
-or ASR has been made lock-free. The existing executor-wide lock requires a larger
-pausable/resumable plan-execution refactor.
+**Scope boundary at this implementation point:** P1.2 was still explicitly
+`BLOCKED` when P1.1 closed. That blocker was subsequently removed by the P1.2
+lock-scoped step-runner implementation documented in the next section; this P1.1
+closure evidence remains historically accurate for its validated SHA.
 
 **Original problem/required-behavior text preserved below for reference.**
 **Spec:** constraint 5
@@ -940,93 +940,114 @@ local paths remain untouched.
 
 ## P1.2 — Release the runtime lock across network and capture windows
 
-**Status:** BLOCKED · `[VERIFIED]`
-**Note:** Both P1.2.1 (TTS) and P1.2.2 (planner-driven transcription) hit the
-same structural blocker, confirmed by reading the call path rather than
-assumed: `LockScopedReplanningRuntime::execute_plan`
-(`replanning_orchestrator.rs`) acquires the lock **once** and calls
-`AppCore::execute_planner_output` → `execute_planner_output_with_runtime_safety`,
-which iterates every step of a multi-step plan synchronously in one call
-while still holding that single guard. Both remote TTS synthesis
-(`begin_region_narration`/`begin_feedback_narration`, reached when a plan
-step is a narration tool) and planner-driven `transcribe_command` are
-individual steps *inside* that loop, not separate top-level calls — so
-releasing the lock around just one step's blocking work would require the
-step loop itself to become pausable/resumable (yield control back to the
-lock-holding caller mid-plan, then resume), not a local change to either
-callee. This is the same shape of problem CR2's P1.1.2/P1.1.3 hit and marked
-BLOCKED for the same reason; `run_phased_transcribe` (which already solves
-this) works only because it sits *outside* the step loop, at the top-level
-Tauri-command handler for a single `transcribe_command`/
-`transcribe_and_execute_command` call, not for a step embedded in a larger
-plan.
-**What already doesn't have this problem:** the top-level, non-plan-embedded
-paths (`transcribe_command`/`transcribe_and_execute_command` via
-`run_phased_transcribe`, and the remote planner's own resolve round-trip via
-`LockScopedReplanningRuntime::resolve`) already release the lock correctly —
-this item is specifically about TTS/ASR steps reached *from inside* an
-executing plan.
-**Follow-up scope**: restructuring `execute_planner_output_with_runtime_safety`
-into a step-by-step pausable loop (so the top-level handler can drop the
-lock between steps whenever the next step needs blocking I/O) is a
-significant executor change, not a narrow fix — sizing and design should be
-its own pass, informed by how `AwaitingConfirmation`'s existing
-pause/resume (`PendingPlanExecutionState`) already models suspending
-mid-plan, which may be the right template to generalize from.
+**Status:** DONE · `[VERIFIED]`
+
+**Closure note (2026-08-13):** the previously recorded executor-wide-lock
+blocker was removed without introducing a second planner state machine. The
+planner executor's existing caller-supplied per-step runner seam is now driven by
+`LockScopedStepRunner`, so the deterministic plan loop can keep its existing
+transition/trace/confirmation semantics while speech steps release `AppCore`
+around blocking work.
+
+- `execute_planner_output_lock_scoped` and confirmation resume use the existing
+  runner-enabled planner executor instead of holding one `AppCore` guard across
+  the full multi-step plan.
+- Planner-emitted `TranscribeCommand` runs prepare/begin under a short guard,
+  sleeps for capture with no guard held, re-acquires to drain, runs local/remote
+  ASR transcription unlocked, then re-acquires to record the result.
+- Remote narration prepares an owned authorized request under the guard, runs
+  `synthesize_prepared_remote_narration` (including the HTTP request/response
+  body handling) with no `AppCore` reference, then re-acquires to commit/cache
+  and start playback. Local TTS keeps the existing deterministic locked path
+  because it does not introduce a remote network round trip.
+- The lock-scoped execution fingerprint snapshots planner-relevant runtime/config
+  state. Drift causes bounded replanning instead of committing work against stale
+  state. The one explicitly permitted interleaving is listening `true -> false`,
+  allowing `stop_listening` during an unlocked capture/network window.
+- Stop-during-capture semantics remain fail-closed and stale-audio-free:
+  `drain_capture` returns `Ok(None)` when `stop_listening` removed the active
+  session, and the existing regression test
+  `drain_capture_reports_none_when_session_stopped_mid_window` covers that path.
+- Permanent source-drift evidence
+  `p1_2_planner_speech_io_is_routed_through_lock_scoped_phases` asserts that
+  production planner/confirmation/narration entry points use the lock-scoped
+  runner, the old `guard.execute_planner_output(` path is absent, capture sleep
+  and ASR/TTS blocking seams are outside guard scopes, and remote TTS owns its
+  prepared `request.send()` seam.
+
+**Validated implementation SHA:**
+`5f309e360a283d7043e71403fa616e6c9f6d22fb`
+
+**Permanent CI evidence:** run `31673285045`, job `94362303907` — success.
+The exact SHA passed the permanent validation job, including the silent-fallback,
+security-fallback/inventory, sensitive-diagnostics and remote-planner-privacy
+scanners; rustfmt; default-feature `cargo check`; strict all-target/all-feature
+Clippy with `-D warnings`; focused direct-command semantic evidence; complete
+Rust/Wry tests; frontend lint/UI tests; and production build.
+
+**Original problem/required-behavior text preserved below for reference.**
 **Spec:** constraint 8
 **Files:**
 
 - `src-tauri/src/app_core/replanning_orchestrator.rs`
+- `src-tauri/src/app_core/lock_scoped_tools.rs`
+- `src-tauri/src/app_core/planning_snapshot.rs`
 - `src-tauri/src/app_core/narration.rs`
 - `src-tauri/src/app_core/listening_tools.rs`
+- `src-tauri/src/tts/remote.rs`
+- `src-tauri/tests/post_batch8_direct_command_policy_evidence.rs`
 
 ### Problem
 
-Two paths hold the `AppCore` mutex across multi-second blocking work:
+Two paths held the `AppCore` mutex across multi-second blocking work:
 
-1. Remote TTS synthesis runs a blocking request with the profile timeout (default
-   30 000 ms) under the held lock, reached through the orchestrator's tool dispatch.
-2. A planner-emitted `transcribe_command` step blocks for the capture window (up to
-   `MAX_TRANSCRIBE_DURATION_MS`) plus the ASR round trip, also under the lock.
+1. Remote TTS synthesis ran a blocking request under the held lock when reached
+   from planner narration tools.
+2. A planner-emitted `transcribe_command` step blocked for the capture window plus
+   ASR transcription under the lock.
 
-While either is in flight, `stop_listening` and `get_agent_state` block — **a blind
-user cannot stop the microphone or interrupt a hung synthesis.**
-
-`run_phased_transcribe` was built specifically to release the lock across exactly
-these windows; both paths bypass it.
+While either was in flight, short state/stop commands could not acquire the
+runtime lock.
 
 ### Required behavior
 
-- No network round trip and no capture sleep occurs while the lock is held.
-- The established phased pattern is applied: snapshot config under the lock,
-  perform blocking work unlocked, re-acquire to commit.
-- Existing stop-during-window semantics are preserved (`Ok(None)` when the session
-  was dropped mid-window).
+- No remote network round trip and no capture sleep occurs while the lock is held.
+- Snapshot/prepare under the lock, perform blocking work unlocked, re-acquire to
+  commit.
+- Existing stop-during-window semantics are preserved (`Ok(None)` when the active
+  capture session was dropped mid-window).
+- Relevant concurrent runtime/config changes fail closed into bounded replanning.
 
-### P1.2.1 — Lock-scope remote TTS synthesis
+### P1.2.1 — Lock-scope remote TTS synthesis — DONE
 
-Snapshot the config and audio state needed for synthesis, drop the guard,
-synthesize, then re-acquire to hand samples to playback and update speaking state.
-Note that `play_samples` also performs device I/O (`open_default_sink`) under the
-same lock today — decide whether that also moves out.
+Remote narration now prepares the provider request and consent-bound state under
+a short guard, performs remote synthesis unlocked through the owned prepared
+request, then re-acquires to validate the execution fingerprint and commit/cache
+playback state.
 
-### P1.2.2 — Route planner-driven transcription through the phased path
+### P1.2.2 — Route planner-driven transcription through the phased path — DONE
 
-Make `execute_transcribe_command` use the same three-phase structure as
-`run_phased_transcribe` rather than sleeping under the lock. If that requires
-restructuring how a planner step yields control, record the constraint here — this
-may be the point where the item becomes `BLOCKED` pending a larger executor change,
-as happened in CR2's P1.1.2/P1.1.3.
+`LockScopedStepRunner::run_transcribe` uses begin(lock) -> capture wait(unlocked)
+-> drain(lock) -> ASR transcription(unlocked) -> record(lock), while retaining
+the planner executor's existing runner/transition machinery.
 
-### P1.2.3 — Verify interruptibility
+### P1.2.3 — Verify interruptibility — DONE
 
-Confirm by test or manual trace that `stop_listening` succeeds while a synthesis
-or planner-driven capture is in flight.
+Verified by automated regression plus code-path trace: the ASR regression
+`drain_capture_reports_none_when_session_stopped_mid_window` proves a session
+removed during the unlocked capture returns `Ok(None)` rather than stale audio;
+`LockScopedStepRunner::runtime_is_compatible` explicitly accepts listening
+`true -> false` as the one permitted interleaving and otherwise requests bounded
+replanning. The permanent P1.2 source-drift evidence verifies the blocking capture
+and remote-synthesis seams remain outside `AppCore` guard scopes.
 
 ### Acceptance checks
 
-Read `replanning_orchestrator.rs` and `listening_tools.rs`: no `synthesize_*` or
-capture sleep occurs between `lock_app_core` and the guard drop.
+- `LockScopedStepRunner` owns planner speech-step execution.
+- Capture sleep and remote TTS synthesis occur outside `AppCore` guard scopes.
+- `stop_listening`'s listening-state transition is accepted during the unlocked
+  window; stopped capture drains as `Ok(None)`.
+- Permanent CI is green on the validated implementation SHA.
 
 ---
 
@@ -2243,8 +2264,9 @@ visible box when there is no error.
 - P0.1-P0.9: `DONE`.
 - P1.1: `DONE` with remote TTS + remote ASR consent/type-state enforcement and
   interactive frontend/settings integration.
-- P1.2: `BLOCKED` for the recorded executor-lock structural reason; not silently
-  waived or relabeled as fixed.
+- P1.2: `DONE` after the follow-up lock-scoped step-runner implementation;
+  validated separately on `5f309e360a283d7043e71403fa616e6c9f6d22fb` by permanent CI
+  run `31673285045`, job `94362303907`.
 - P1.3-P1.4: `DONE`.
 - P2/P3 tasks remain as recorded `DONE` in their individual sections.
 - Implementation candidate `15b1f5890b17722ab126c97acdc6a050168a108d` passed permanent CI run `31277834628`, job

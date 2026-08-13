@@ -1,3 +1,10 @@
+## 2026-08-13T06:53:27Z - ChatGPT GPT-5.6 Sol - CR3 P1.2 lock-scoped speech execution closed
+
+- Closed `docs/BB_CODE_REVIEW3_TODO.md` P1.2 after reconciling the implementation that replaced the old executor-wide-lock blocker with `LockScopedStepRunner` over the planner executor's existing per-step runner seam. Planner-embedded remote TTS synthesis and ASR capture/transcription now perform their blocking work without holding the global `AppCore` mutex; relevant concurrent state drift requests bounded replanning rather than committing stale work.
+- P1.2.3 interruptibility is backed by the existing `drain_capture_reports_none_when_session_stopped_mid_window` regression (`stop_listening` removes the session -> `Ok(None)`) plus the runner's explicit allowance for listening `true -> false` during an unlocked window. Permanent source-drift evidence also pins the production lock-scoped routing and unlocked capture/TTS seams.
+- Exact validated implementation SHA: `5f309e360a283d7043e71403fa616e6c9f6d22fb`. Permanent CI run `31673285045`, job `94362303907`: SUCCESS across fallback/privacy scanners, rustfmt, default cargo check, strict all-target/all-feature Clippy `-D warnings`, direct-command semantic evidence, complete Rust/Wry tests, frontend lint/UI tests, and production build.
+- Reconciled the historical async-runtime checklist and the stale `listening_tools.rs` comment so they no longer claim planner speech intentionally runs under an executor-wide lock. No runtime behavior was changed by this closure reconciliation.
+
 ## 2026-08-08T23:08:22Z - ChatGPT GPT-5.6 Sol - Security/Silent-Failure Hardening 4 closure validated
 
 - Reconciled `docs/BLIND_BROWSER_SECURITY_SILENT_FAILURE_HARDENING4_TODO.md` against the actual current source instead of re-implementing already-landed work. `tempfile = "3"` is already under `[dev-dependencies]`, and `replace_file_atomically` already documents its durability contract and performs fail-closed parent-directory `sync_all()` after rename on Unix.

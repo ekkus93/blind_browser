@@ -90,8 +90,8 @@ fn build_transcribe_observations(
 /// Build the shared `TranscribeCommand` success `ToolResult` from a completed ASR
 /// transcription. Used by both transcription paths — the lock-released handler path
 /// ([`super::AppCore::record_transcribe_command`]) and the planner-dispatched
-/// lock-held tool path ([`super::AppCore::execute_transcribe_command`]) — so the
-/// observation wording and result shape cannot drift apart.
+/// lock-scoped step path (`LockScopedStepRunner`) — so the observation wording and
+/// result shape cannot drift apart.
 fn transcribe_success_result(
     request_id: String,
     requested_duration_ms: u64,
