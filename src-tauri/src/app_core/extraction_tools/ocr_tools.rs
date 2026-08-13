@@ -109,8 +109,8 @@ impl super::super::AppCore {
             );
         };
 
-        let image_path = match self.resolve_screenshot_image(&image_id) {
-            Ok(path) => path,
+        let image = match self.resolve_screenshot_image(&image_id) {
+            Ok(image) => image,
             Err(error) => {
                 return ToolResult::failure(
                     ToolName::RunOcr,
@@ -123,7 +123,25 @@ impl super::super::AppCore {
             }
         };
 
-        let ocr_result = match self.ocr.run_ocr(&image_path, ocr_bbox.as_ref()) {
+        let image_ocr_bbox = match ocr_bbox
+            .as_ref()
+            .map(|bbox| image.ocr_bbox_for_document_bbox(bbox))
+            .transpose()
+        {
+            Ok(bbox) => bbox,
+            Err(error) => {
+                return ToolResult::failure(
+                    ToolName::RunOcr,
+                    input.request_id,
+                    error,
+                    vec![String::from(
+                        "OCR target coordinates were incompatible with the cached screenshot capture area.",
+                    )],
+                )
+            }
+        };
+
+        let ocr_result = match self.ocr.run_ocr(image.path(), image_ocr_bbox.as_ref()) {
             Ok(result) => result,
             Err(error) => {
                 return ToolResult::failure(
@@ -142,11 +160,11 @@ impl super::super::AppCore {
         )];
         if region_id.is_some() {
             observations.push(String::from(
-                "OCR was limited to the requested page region using its stored bounding box.",
+                "OCR was limited to the requested page region after translating its document-space bounding box into cached-image coordinates.",
             ));
         } else if ocr_bbox.is_some() {
             observations.push(String::from(
-                "OCR was limited to the explicitly requested bounding box within the cached image.",
+                "OCR was limited to the explicitly requested document-space bounding box after translating it into cached-image coordinates.",
             ));
         } else {
             observations.push(String::from(

@@ -7,7 +7,11 @@ use sha2::{Digest, Sha256};
 use tauri::Manager;
 use uuid::Uuid;
 
+#[cfg(test)]
+use crate::browser::BrowserScreenshotKind;
+use crate::browser::{BrowserScreenshotProvenance, BrowserScreenshotState};
 use crate::commands::{current_timestamp_ms, normalized_origin, ToolError};
+use crate::page_model::Rect;
 use crate::resource_limits::{
     MAX_SCREENSHOT_ENCODED_BYTES, SCREENSHOT_CACHE_MAX_BYTES, SCREENSHOT_CACHE_MAX_COUNT,
 };
@@ -49,14 +53,111 @@ struct ImageContext {
     generation: u64,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct ScreenshotRasterMetadata {
+    provenance: BrowserScreenshotProvenance,
+    width: u32,
+    height: u32,
+}
+
 #[derive(Debug, Clone)]
 struct ImageRecord {
     path: PathBuf,
     context: ImageContext,
+    provenance: BrowserScreenshotProvenance,
+    width: u32,
+    height: u32,
     created_ms: u64,
     expires_ms: u64,
     size: u64,
     sha256: String,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct ResolvedScreenshotImage {
+    path: PathBuf,
+    provenance: BrowserScreenshotProvenance,
+    width: u32,
+    height: u32,
+}
+
+impl ResolvedScreenshotImage {
+    pub(super) fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub(super) fn ocr_bbox_for_document_bbox(&self, bbox: &Rect) -> Result<Rect, ToolError> {
+        if !bbox.x.is_finite()
+            || !bbox.y.is_finite()
+            || !bbox.width.is_finite()
+            || !bbox.height.is_finite()
+            || bbox.width <= 0.0
+            || bbox.height <= 0.0
+        {
+            return Err(error(
+                "invalid_ocr_bbox",
+                "OCR document bbox must contain finite coordinates and positive dimensions",
+                false,
+            ));
+        }
+        if !self.provenance.document_origin_x.is_finite()
+            || !self.provenance.document_origin_y.is_finite()
+            || self.width == 0
+            || self.height == 0
+        {
+            return Err(error(
+                "invalid_screenshot_provenance",
+                "cached screenshot coordinate provenance is invalid",
+                false,
+            ));
+        }
+
+        let left = bbox.x - self.provenance.document_origin_x;
+        let top = bbox.y - self.provenance.document_origin_y;
+        let right = left + bbox.width;
+        let bottom = top + bbox.height;
+        let image_width = self.width as f32;
+        let image_height = self.height as f32;
+        const EPSILON: f32 = 0.01;
+
+        if !left.is_finite()
+            || !top.is_finite()
+            || !right.is_finite()
+            || !bottom.is_finite()
+            || left < -EPSILON
+            || top < -EPSILON
+            || right > image_width + EPSILON
+            || bottom > image_height + EPSILON
+        {
+            return Err(ToolError {
+                code: String::from("ocr_bbox_outside_screenshot"),
+                message: String::from(
+                    "requested document bbox is not fully represented by the cached screenshot",
+                ),
+                retryable: false,
+                details: Some(serde_json::json!({
+                    "capture_kind": format!("{:?}", self.provenance.kind),
+                    "document_origin_x": self.provenance.document_origin_x,
+                    "document_origin_y": self.provenance.document_origin_y,
+                    "image_width": self.width,
+                    "image_height": self.height,
+                    "bbox": {
+                        "x": bbox.x,
+                        "y": bbox.y,
+                        "width": bbox.width,
+                        "height": bbox.height,
+                    },
+                })),
+            });
+        }
+
+        Ok(Rect {
+            x: left.max(0.0),
+            y: top.max(0.0),
+            width: bbox.width.min(image_width - left.max(0.0)),
+            height: bbox.height.min(image_height - top.max(0.0)),
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -83,9 +184,26 @@ impl ImageCache {
         &mut self,
         root: &Path,
         context: ImageContext,
+        raster: ScreenshotRasterMetadata,
         bytes: &[u8],
         now_ms: u64,
     ) -> Result<String, ToolError> {
+        let ScreenshotRasterMetadata {
+            provenance,
+            width,
+            height,
+        } = raster;
+        if !provenance.document_origin_x.is_finite()
+            || !provenance.document_origin_y.is_finite()
+            || width == 0
+            || height == 0
+        {
+            return Err(error(
+                "invalid_screenshot_provenance",
+                "screenshot coordinate provenance requires a finite origin and positive dimensions",
+                false,
+            ));
+        }
         if self.max_count == 0 || self.max_bytes == 0 {
             return Err(error(
                 "image_cache_capacity_failed",
@@ -134,6 +252,9 @@ impl ImageCache {
             ImageRecord {
                 path,
                 context,
+                provenance,
+                width,
+                height,
                 created_ms: now_ms,
                 expires_ms: now_ms.saturating_add(self.ttl_ms),
                 size,
@@ -149,7 +270,7 @@ impl ImageCache {
         raw: &str,
         current: &ImageContext,
         now_ms: u64,
-    ) -> Result<PathBuf, ToolError> {
+    ) -> Result<ResolvedScreenshotImage, ToolError> {
         let handle = ImageHandle::parse(raw)?;
         let record = self.records.get(&handle).cloned().ok_or_else(|| {
             error(
@@ -199,7 +320,12 @@ impl ImageCache {
                 false,
             ));
         }
-        Ok(path)
+        Ok(ResolvedScreenshotImage {
+            path,
+            provenance: record.provenance,
+            width: record.width,
+            height: record.height,
+        })
     }
 
     fn cleanup_expired(&mut self, now_ms: u64) -> Result<(), ToolError> {
@@ -287,7 +413,7 @@ impl super::AppCore {
         page_id: String,
         origin: Option<String>,
         generation: u64,
-        bytes: &[u8],
+        screenshot: &BrowserScreenshotState,
     ) -> Result<String, ToolError> {
         let root = self.screenshot_cache_root()?;
         self.image_cache.persist(
@@ -297,12 +423,20 @@ impl super::AppCore {
                 origin,
                 generation,
             },
-            bytes,
+            ScreenshotRasterMetadata {
+                provenance: screenshot.provenance,
+                width: screenshot.width,
+                height: screenshot.height,
+            },
+            &screenshot.image_bytes,
             current_timestamp_ms(),
         )
     }
 
-    pub(super) fn resolve_screenshot_image(&mut self, raw: &str) -> Result<PathBuf, ToolError> {
+    pub(super) fn resolve_screenshot_image(
+        &mut self,
+        raw: &str,
+    ) -> Result<ResolvedScreenshotImage, ToolError> {
         let context = ImageContext {
             page_id: self.state.current_page_id.clone().ok_or_else(|| {
                 error(
@@ -465,6 +599,14 @@ mod tests {
         }
     }
 
+    fn provenance() -> BrowserScreenshotProvenance {
+        BrowserScreenshotProvenance {
+            kind: BrowserScreenshotKind::FullPage,
+            document_origin_x: 0.0,
+            document_origin_y: 0.0,
+        }
+    }
+
     #[test]
     fn strict_handles_reject_path_and_encoding_tricks() {
         for bad in [
@@ -495,10 +637,21 @@ mod tests {
         let expected = ctx("p1", "https://example.com", 1);
         let mut cache = cache(1000, 4, 1024);
         let handle = cache
-            .persist(dir.path(), expected.clone(), b"png", 10)
+            .persist(
+                dir.path(),
+                expected.clone(),
+                ScreenshotRasterMetadata {
+                    provenance: provenance(),
+                    width: 100,
+                    height: 100,
+                },
+                b"png",
+                10,
+            )
             .unwrap();
-        let path = cache.resolve(dir.path(), &handle, &expected, 11).unwrap();
-        assert!(!path
+        let resolved = cache.resolve(dir.path(), &handle, &expected, 11).unwrap();
+        assert!(!resolved
+            .path
             .file_name()
             .unwrap()
             .to_string_lossy()
@@ -559,7 +712,17 @@ mod tests {
             "unknown_image_handle"
         );
         let expired = cache
-            .persist(dir.path(), expected.clone(), b"old", 10)
+            .persist(
+                dir.path(),
+                expected.clone(),
+                ScreenshotRasterMetadata {
+                    provenance: provenance(),
+                    width: 100,
+                    height: 100,
+                },
+                b"old",
+                10,
+            )
             .unwrap();
         assert_eq!(
             cache
@@ -569,7 +732,17 @@ mod tests {
             "expired_image_handle"
         );
         let tampered = cache
-            .persist(dir.path(), expected.clone(), b"original", 30)
+            .persist(
+                dir.path(),
+                expected.clone(),
+                ScreenshotRasterMetadata {
+                    provenance: provenance(),
+                    width: 100,
+                    height: 100,
+                },
+                b"original",
+                30,
+            )
             .unwrap();
         let key = ImageHandle::parse(&tampered).unwrap();
         fs::write(&cache.records[&key].path, b"modified").unwrap();
@@ -604,14 +777,46 @@ mod tests {
         let expected = ctx("p1", "https://example.com", 1);
         let mut cache = cache(1000, 2, 8);
         let first = cache
-            .persist(dir.path(), expected.clone(), b"1111", 1)
+            .persist(
+                dir.path(),
+                expected.clone(),
+                ScreenshotRasterMetadata {
+                    provenance: provenance(),
+                    width: 100,
+                    height: 100,
+                },
+                b"1111",
+                1,
+            )
             .unwrap();
         let first_key = ImageHandle::parse(&first).unwrap();
         let first_path = cache.records[&first_key].path.clone();
         cache
-            .persist(dir.path(), expected.clone(), b"2222", 2)
+            .persist(
+                dir.path(),
+                expected.clone(),
+                ScreenshotRasterMetadata {
+                    provenance: provenance(),
+                    width: 100,
+                    height: 100,
+                },
+                b"2222",
+                2,
+            )
             .unwrap();
-        cache.persist(dir.path(), expected, b"3333", 3).unwrap();
+        cache
+            .persist(
+                dir.path(),
+                expected,
+                ScreenshotRasterMetadata {
+                    provenance: provenance(),
+                    width: 100,
+                    height: 100,
+                },
+                b"3333",
+                3,
+            )
+            .unwrap();
         assert!(!cache.records.contains_key(&first_key));
         assert!(!first_path.exists());
         assert_eq!(cache.total_bytes(), 8);
@@ -623,9 +828,104 @@ mod tests {
         let orphan = dir.path().join("orphan.png");
         fs::write(&orphan, b"old").unwrap();
         cache(1000, 4, 1024)
-            .persist(dir.path(), ctx("p1", "https://example.com", 1), b"new", 1)
+            .persist(
+                dir.path(),
+                ctx("p1", "https://example.com", 1),
+                ScreenshotRasterMetadata {
+                    provenance: provenance(),
+                    width: 100,
+                    height: 100,
+                },
+                b"new",
+                1,
+            )
             .unwrap();
         assert!(!orphan.exists());
+    }
+
+    #[test]
+    fn document_bbox_translation_uses_capture_raster_origin() {
+        let document_bbox = Rect {
+            x: 50.0,
+            y: 1550.0,
+            width: 120.0,
+            height: 60.0,
+        };
+        let viewport = ResolvedScreenshotImage {
+            path: PathBuf::from("unused.png"),
+            provenance: BrowserScreenshotProvenance {
+                kind: BrowserScreenshotKind::Viewport,
+                document_origin_x: 10.0,
+                document_origin_y: 1500.0,
+            },
+            width: 800,
+            height: 600,
+        };
+        assert_eq!(
+            viewport.ocr_bbox_for_document_bbox(&document_bbox).unwrap(),
+            Rect {
+                x: 40.0,
+                y: 50.0,
+                width: 120.0,
+                height: 60.0,
+            }
+        );
+
+        let full_page = ResolvedScreenshotImage {
+            path: PathBuf::from("unused.png"),
+            provenance: provenance(),
+            width: 1200,
+            height: 3000,
+        };
+        assert_eq!(
+            full_page
+                .ocr_bbox_for_document_bbox(&document_bbox)
+                .unwrap(),
+            document_bbox
+        );
+
+        let clip = ResolvedScreenshotImage {
+            path: PathBuf::from("unused.png"),
+            provenance: BrowserScreenshotProvenance {
+                kind: BrowserScreenshotKind::DocumentClip,
+                document_origin_x: 50.0,
+                document_origin_y: 1550.0,
+            },
+            width: 120,
+            height: 60,
+        };
+        assert_eq!(
+            clip.ocr_bbox_for_document_bbox(&document_bbox).unwrap(),
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 120.0,
+                height: 60.0,
+            }
+        );
+    }
+
+    #[test]
+    fn document_bbox_translation_rejects_pixels_not_present_in_raster() {
+        let viewport = ResolvedScreenshotImage {
+            path: PathBuf::from("unused.png"),
+            provenance: BrowserScreenshotProvenance {
+                kind: BrowserScreenshotKind::Viewport,
+                document_origin_x: 0.0,
+                document_origin_y: 1000.0,
+            },
+            width: 800,
+            height: 600,
+        };
+        let error = viewport
+            .ocr_bbox_for_document_bbox(&Rect {
+                x: 10.0,
+                y: 900.0,
+                width: 100.0,
+                height: 50.0,
+            })
+            .unwrap_err();
+        assert_eq!(error.code, "ocr_bbox_outside_screenshot");
     }
 
     #[cfg(unix)]
@@ -639,7 +939,17 @@ mod tests {
         let expected = ctx("p1", "https://example.com", 1);
         let mut cache = cache(1000, 4, 1024);
         let handle = cache
-            .persist(dir.path(), expected.clone(), b"private", 1)
+            .persist(
+                dir.path(),
+                expected.clone(),
+                ScreenshotRasterMetadata {
+                    provenance: provenance(),
+                    width: 100,
+                    height: 100,
+                },
+                b"private",
+                1,
+            )
             .unwrap();
         let key = ImageHandle::parse(&handle).unwrap();
         let path = cache.records[&key].path.clone();

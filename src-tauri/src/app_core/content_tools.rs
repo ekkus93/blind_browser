@@ -297,7 +297,7 @@ impl super::AppCore {
             page_id,
             origin,
             self.state.page_generation,
-            &browser_screenshot.image_bytes,
+            &browser_screenshot,
         ) {
             Ok(handle) => handle,
             Err(error) => {

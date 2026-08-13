@@ -5,7 +5,10 @@ use chromiumoxide::cdp::browser_protocol::page::{CaptureScreenshotFormat, Viewpo
 #[cfg(feature = "browser")]
 use chromiumoxide::page::ScreenshotParams;
 
-use super::{BrowserError, BrowserEvalState, BrowserHtmlState, BrowserScreenshotState};
+use super::{
+    BrowserError, BrowserEvalState, BrowserHtmlState, BrowserScreenshotKind,
+    BrowserScreenshotProvenance, BrowserScreenshotState,
+};
 use crate::page_model::Rect;
 use crate::resource_limits::{
     screenshots, validate_image_dimensions, validate_png_resource_limits, ImageLimitExceeded,
@@ -16,6 +19,13 @@ use crate::resource_limits::{
 struct DocumentScreenshotDimensions {
     width: u32,
     height: u32,
+}
+
+#[cfg(feature = "browser")]
+#[derive(serde::Deserialize)]
+struct ViewportScrollOrigin {
+    x: f32,
+    y: f32,
 }
 
 impl super::BrowserController {
@@ -37,8 +47,35 @@ impl super::BrowserController {
             }
             let session = self.ensure_session()?;
             let page = session.page.clone().ok_or(BrowserError::NoActivePage)?;
-            let screenshot_bytes = tauri::async_runtime::block_on(async {
+            let (screenshot_bytes, provenance) = tauri::async_runtime::block_on(async {
                 let mut builder = ScreenshotParams::builder().format(CaptureScreenshotFormat::Png);
+                let provenance = if let Some(bbox) = bbox.as_ref() {
+                    BrowserScreenshotProvenance {
+                        kind: BrowserScreenshotKind::DocumentClip,
+                        document_origin_x: bbox.x,
+                        document_origin_y: bbox.y,
+                    }
+                } else if full_page {
+                    BrowserScreenshotProvenance {
+                        kind: BrowserScreenshotKind::FullPage,
+                        document_origin_x: 0.0,
+                        document_origin_y: 0.0,
+                    }
+                } else {
+                    let origin = page
+                        .evaluate(
+                            "({ x: Number(window.scrollX) || 0, y: Number(window.scrollY) || 0 })",
+                        )
+                        .await
+                        .map_err(|error| BrowserError::Screenshot(error.to_string()))?
+                        .into_value::<ViewportScrollOrigin>()
+                        .map_err(|error| BrowserError::Screenshot(error.to_string()))?;
+                    BrowserScreenshotProvenance {
+                        kind: BrowserScreenshotKind::Viewport,
+                        document_origin_x: origin.x,
+                        document_origin_y: origin.y,
+                    }
+                };
                 if full_page {
                     let dimensions = page
                         .evaluate(
@@ -62,11 +99,7 @@ impl super::BrowserController {
                     // document/page-absolute (confirmed empirically, not
                     // just from docs -- independent of full_page/
                     // captureBeyondViewport), which is exactly the
-                    // coordinate space Rect::bbox is documented to be in
-                    // (see page_model::Rect). Passed straight through here
-                    // with no scroll correction because none is needed --
-                    // the correction already happened once, at extraction
-                    // (dom_extraction.rs), not here.
+                    // coordinate space Rect::bbox is documented to be in.
                     builder = builder.clip(Viewport {
                         x: f64::from(bbox.x),
                         y: f64::from(bbox.y),
@@ -75,9 +108,11 @@ impl super::BrowserController {
                         scale: 1.0,
                     });
                 }
-                page.screenshot(builder.build())
+                let bytes = page
+                    .screenshot(builder.build())
                     .await
-                    .map_err(|error| BrowserError::Screenshot(error.to_string()))
+                    .map_err(|error| BrowserError::Screenshot(error.to_string()))?;
+                Ok::<_, BrowserError>((bytes, provenance))
             })?;
 
             super::wait_for_page_settle(timeout_ms);
@@ -91,6 +126,7 @@ impl super::BrowserController {
                 history: after.history,
                 image_bytes: screenshot_bytes,
                 bbox,
+                provenance,
                 width,
                 height,
             })
