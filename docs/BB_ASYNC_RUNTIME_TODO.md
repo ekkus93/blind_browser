@@ -157,8 +157,10 @@ full window; `get_agent_state` returns during a capture.
 
 ## P1.2 — Phase 3: scope the lock around remote network calls
 
-**Status:** RESOLVED for the remote planner (the follow-up pass landed it; see
-`BB_RUNTIME_PHASE3_TODO.md` P2.1). Remote ASR consciously skipped (P2.2 there).
+**Status:** DONE. Remote planner lock-scoping landed in
+`BB_RUNTIME_PHASE3_TODO.md` P2.1 and remote ASR lock-scoping subsequently landed
+in P2.2. The later CR3 P1.2 pass also closed the separate planner-embedded speech
+lock window.
 
 > The structural change anticipated here was carried out in the dedicated
 > `BB_RUNTIME_PHASE3` pass: `execute_command_with_replanning` was split into
@@ -166,8 +168,9 @@ full window; `get_agent_state` returns during a capture.
 > brief lock) and a free `resolve_remote_planner` (unlocked LLM round-trip), driven
 > by a handler-level `LockScopedReplanningRuntime` through the existing
 > `execute_bounded_replanning_loop`. The atomicity tradeoff is documented at the
-> call site. Remote ASR lock-scoping was deliberately skipped as the lowest-value,
-> remote-only item.
+> call site. Remote ASR was initially skipped as the lowest-value remote-only
+> item, then implemented in `BB_RUNTIME_PHASE3_TODO.md` P2.2 with the same
+> drain/transcribe-unlocked/record discipline.
 **Files:**
 
 - `src-tauri/src/app_core/remote_planner.rs`
@@ -194,7 +197,7 @@ flight.
 
 ## P2.1 — Reconcile Code Review 2 status
 
-**Status:** DONE (P1.1.2 + P1.1.4 reconciled; P1.1.3 remains BLOCKED pending Phase 3)  
+**Status:** DONE (P1.1.2, P1.1.3, and P1.1.4 reconciled; Phase 3 landed)
 **Files:**
 
 - `docs/BB_CODE_REVIEW2_TODO.md`
@@ -212,7 +215,7 @@ After the relevant phases land, update `BB_CODE_REVIEW2_TODO.md`:
 
 ## P2.2 — Run the full validation gate
 
-**Status:** DONE for Phases 1–2 (gate green; behavioral `--features full` checks need human verification)  
+**Status:** DONE for Phases 1–3 (gates green; live provider checks remain useful behavioral acceptance coverage)
 **Files:**
 
 - no source file unless failures require fixes
@@ -225,7 +228,7 @@ passes. Remember the gate cannot prove the behavioral acceptance — run the
 
 ## P2.3 — Add memory entries with real UTC timestamps
 
-**Status:** DONE for Phases 1–2  
+**Status:** DONE (Phase 3 and later CR3 P1.2 outcomes are also recorded in `memory.md`)
 **Files:**
 
 - `memory.md`

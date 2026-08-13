@@ -107,7 +107,7 @@ prior audio.
 
 ## P1.1 — Run long commands off the main thread and release the lock across blocking work
 
-**Status:** P1.1.1 DONE · P1.1.2 DONE · P1.1.4 DONE · P1.1.3 BLOCKED (deferred)
+**Status:** P1.1.1 DONE · P1.1.2 DONE · P1.1.3 DONE · P1.1.4 DONE
 
 > **Resolved by the async-runtime pass (`BB_ASYNC_RUNTIME_TODO.md`):**
 > - **P1.1.1 DONE** (Phase 1): the managed state is now `Arc<Mutex<AppCore>>`, and
@@ -121,11 +121,10 @@ prior audio.
 > - **P1.1.4 DONE** (Phase 1): the CDP handler keeps progressing because the
 >   blocking section runs on the multi-thread runtime's blocking pool.
 >
-> **Still open:**
-> - **P1.1.3 BLOCKED** — releasing the lock across remote planner / ASR network
->   round-trips is Phase 3 of `BB_ASYNC_RUNTIME_TODO.md`, deferred to a focused
->   follow-up (it needs a planner-executor control-flow restructuring, and only
->   affects remote-provider users; local providers are unaffected).
+> **P1.1.3 DONE:** the focused `BB_RUNTIME_PHASE3` pass released the lock across
+> remote planner resolution and remote ASR transcription. The later CR3 P1.2 pass
+> separately removed the remaining executor-wide lock around planner-embedded
+> remote TTS and transcription steps using `LockScopedStepRunner`.
 >
 > Note: converting a command to `(async)` alone does not keep the UI responsive
 > while a peer contends on the lock — the responsiveness comes from `spawn_blocking`
@@ -388,16 +387,16 @@ old timestamp.
 - [x] Push-to-talk still returns the full held utterance.
 - [x] Long-running commands run off the main thread; the webview does not freeze.
       (Delivered by the async-runtime pass: `spawn_blocking` moves the blocking
-      work off the main thread, and Phase 2 releases the lock across the capture
-      window. Remote planner/ASR calls still hold the lock — Phase 3 / P1.1.3,
-      deferred. Live `--features full` verification still pending.)
-- [x] The AppCore lock is not held across the blocking capture window (P1.1.2 DONE,
-      async-runtime Phase 2). The remote-network half (P1.1.3 / Phase 3) is
-      consciously deferred — remote-provider only; see `BB_RUNTIME_PHASE3_TODO.md`.
-- [x] `stop_listening` can interrupt an active capture (async-runtime Phase 2 —
-      code + regression test landed; live `--features full` verification pending).
-      `get_agent_state` returns promptly during a capture window; the during-a-
-      remote-network-call case is Phase 3 / consciously deferred.
+      work off the main thread, Phase 2 releases the lock across capture, and
+      Phase 3 releases remote planner/ASR network calls. CR3 P1.2 subsequently
+      removed the remaining planner-embedded speech lock windows. Live provider
+      verification remains useful acceptance coverage.)
+- [x] The AppCore lock is not held across blocking capture or remote planner/ASR
+      network windows (P1.1.2 Phase 2 + P1.1.3 Phase 3). CR3 P1.2 additionally
+      lock-scopes planner-embedded remote TTS and transcription work.
+- [x] `stop_listening` can interrupt an active capture (code + regression test),
+      and `get_agent_state` can acquire the runtime during the lock-released capture
+      and remote-network windows delivered by Phases 2–3 and CR3 P1.2.
 - [x] No `MutexGuard` is held across an `.await`.
 - [x] Planner execution returns an Aborted outcome instead of panicking on a
       missing step position.
