@@ -128,12 +128,26 @@ text = text.replace(unused_helper, "", 1)
 
 # The first-stage patch updates existing cache tests with separate provenance and
 # dimensions. Collapse those repeated values into the same typed raster metadata
-# used by production code.
+# used by production code. Some call sites are compact and others are multiline.
 old_test_args = "provenance(), 100, 100,"
 new_test_args = "ScreenshotRasterMetadata { provenance: provenance(), width: 100, height: 100 },"
 if text.count(old_test_args) < 1:
-    raise SystemExit("test raster arguments: expected at least one match")
+    raise SystemExit("compact test raster arguments: expected at least one match")
 text = text.replace(old_test_args, new_test_args)
+
+old_multiline_test_args = """                provenance(),
+                100,
+                100,
+"""
+new_multiline_test_args = """                ScreenshotRasterMetadata {
+                    provenance: provenance(),
+                    width: 100,
+                    height: 100,
+                },
+"""
+if text.count(old_multiline_test_args) < 1:
+    raise SystemExit("multiline test raster arguments: expected at least one match")
+text = text.replace(old_multiline_test_args, new_multiline_test_args)
 image_cache.write_text(text)
 
 replace_once(
