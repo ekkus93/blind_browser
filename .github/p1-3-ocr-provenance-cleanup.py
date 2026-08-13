@@ -163,3 +163,18 @@ replace_once(
 """,
     "content tools screenshot persistence binding",
 )
+
+# Temporary diagnostic: expose the exact generated lifecycle fixture that the
+# broad suite reports so the next edit can correct only that stale test input.
+text = image_cache.read_text()
+needle = "preserves_lock_safe_cache_lifecycle_and_fail_closed_errors"
+pos = text.find(needle)
+print(f"P1.3 diagnostic test offset: {pos}")
+if pos >= 0:
+    line = text.count("\n", 0, pos) + 1
+    lines = text.splitlines()
+    start = max(0, line - 25)
+    end = min(len(lines), line + 80)
+    print(f"P1.3 diagnostic lines {start + 1}-{end}:")
+    for idx in range(start, end):
+        print(f"{idx + 1:04d}: {lines[idx]}")
