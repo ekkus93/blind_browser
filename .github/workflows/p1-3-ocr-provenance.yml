@@ -36,7 +36,9 @@ jobs:
             libclang-dev
 
       - name: Apply P1.3 provenance patch
-        run: python3 .github/p1-3-ocr-provenance.py
+        run: |
+          python3 .github/p1-3-ocr-provenance.py
+          python3 .github/p1-3-ocr-provenance-cleanup.py
 
       - name: Format
         run: cargo fmt --manifest-path src-tauri/Cargo.toml
@@ -57,7 +59,9 @@ jobs:
 
       - name: Commit validated source patch
         run: |
-          rm .github/p1-3-ocr-provenance.py .github/workflows/p1-3-ocr-provenance.yml
+          rm .github/p1-3-ocr-provenance.py \
+            .github/p1-3-ocr-provenance-cleanup.py \
+            .github/workflows/p1-3-ocr-provenance.yml
           git add src-tauri/src/browser/config.rs \
             src-tauri/src/browser/page_inspection.rs \
             src-tauri/src/app_core/image_cache.rs \
