@@ -1199,15 +1199,25 @@ creates (and only `resolve_command`/the replanning loop calls that), and
 SHA-256. This is a provenance check, not a structural/policy one: it
 guarantees only a `PlannerOutput` a real planning call actually produced —
 byte-identical — can ever reach execution, which is what actually closes an
-out-of-band/forged-input gap. Also added `validate_planner_output_with_safety`
-as defense-in-depth was considered and explicitly deferred: doing it
-correctly needs `active_skill_names` re-derived at execute time (the check
-validates `planner_output.selected_skills` against what was active when
-planned), which `PlanningStateSnapshot` doesn't currently carry — adding it
-naively with an empty list would false-positive-reject any legitimate
-snapshot-bound plan that uses skills. Threading `active_skill_names` through
-the snapshot properly is a reasonable follow-up, not required to close the
-verified gap.
+out-of-band/forged-input gap. The previously deferred `validate_planner_output_with_safety`
+defense-in-depth follow-up is now closed. `PlanningStateSnapshot` carries the
+planning-time `active_skill_names` as plan provenance, and
+`register_planning_snapshot` binds those names to the exact planner-output
+digest. Direct plans preserve the validated skill set inside
+`ValidatedPlannerOutput`; remote plans and remote-consent resumes bind the same
+skill set already present in their trusted planner input. At execution,
+`validate_and_consume_planning_snapshot` reruns
+`validate_planner_output_with_safety` using the snapshot-bound skills and safety
+settings after digest, expiry, and runtime-state validation. Unbound read-only
+outputs are still structurally/policy validated but receive no fabricated skill
+capability. Regression coverage verifies legitimate bound skills, forged or
+altered skill rejection, digest drift, and skill-free read-only plans.
+
+Implementation SHA: `7b61a72b675086a737ad80560c29af15b088cddb`.
+Exact clean-tree validation SHA: `66d975aa9d866b6a6d1bd9952a4e1e1e8fd5e2af`.
+Permanent CI run `31730184347`, job `94548430293`: SUCCESS across strict
+all-target/all-feature Clippy with `-D warnings`, the complete Rust/Wry suite,
+frontend lint/UI/build, and the fallback/privacy/security scanners.
 
 **P1.4.3 addressed as documentation, not a classification change**: making
 `ExtractPageModel`/`TranscribeCommand` require confirmation was considered
