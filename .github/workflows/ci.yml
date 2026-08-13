@@ -7,7 +7,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -20,64 +20,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-          persist-credentials: true
-
-      - name: Finalize P1.4 tracker reconciliation
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path("docs/BB_CODE_REVIEW3_TODO.md")
-          text = path.read_text()
-          old = """Also added `validate_planner_output_with_safety`
-as defense-in-depth was considered and explicitly deferred: doing it
-correctly needs `active_skill_names` re-derived at execute time (the check
-validates `planner_output.selected_skills` against what was active when
-planned), which `PlanningStateSnapshot` doesn't currently carry — adding it
-naively with an empty list would false-positive-reject any legitimate
-snapshot-bound plan that uses skills. Threading `active_skill_names` through
-the snapshot properly is a reasonable follow-up, not required to close the
-verified gap."""
-          new = """The previously deferred `validate_planner_output_with_safety`
-defense-in-depth follow-up is now closed. `PlanningStateSnapshot` carries the
-planning-time `active_skill_names` as plan provenance, and
-`register_planning_snapshot` binds those names to the exact planner-output
-digest. Direct plans preserve the validated skill set inside
-`ValidatedPlannerOutput`; remote plans and remote-consent resumes bind the same
-skill set already present in their trusted planner input. At execution,
-`validate_and_consume_planning_snapshot` reruns
-`validate_planner_output_with_safety` using the snapshot-bound skills and safety
-settings after digest, expiry, and runtime-state validation. Unbound read-only
-outputs are still structurally/policy validated but receive no fabricated skill
-capability. Regression coverage verifies legitimate bound skills, forged or
-altered skill rejection, digest drift, and skill-free read-only plans.
-
-Implementation SHA: `7b61a72b675086a737ad80560c29af15b088cddb`.
-Exact clean-tree validation SHA: `66d975aa9d866b6a6d1bd9952a4e1e1e8fd5e2af`.
-Permanent CI run `31730184347`, job `94548430293`: SUCCESS across strict
-all-target/all-feature Clippy with `-D warnings`, the complete Rust/Wry suite,
-frontend lint/UI/build, and the fallback/privacy/security scanners."""
-          if text.count(old) != 1:
-              raise SystemExit("expected the stale P1.4 paragraph exactly once")
-          path.write_text(text.replace(old, new))
-          PY
-
-          git show HEAD^:.github/workflows/ci.yml > .github/workflows/ci.yml
-          git diff --check
-          test "$(git diff --name-only | sort)" = $'.github/workflows/ci.yml\ndocs/BB_CODE_REVIEW3_TODO.md'
-          grep -Fq 'The previously deferred `validate_planner_output_with_safety`' docs/BB_CODE_REVIEW3_TODO.md
-          grep -Fq '31730184347' docs/BB_CODE_REVIEW3_TODO.md
-          ! grep -Fq 'as defense-in-depth was considered and explicitly deferred' docs/BB_CODE_REVIEW3_TODO.md
-
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'docs: reconcile P1.4 execution safety closure'
-          git push origin HEAD:master
 
       - name: Publish permanent CI pending status
         env:
